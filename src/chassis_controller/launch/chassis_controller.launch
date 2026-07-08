@@ -1,0 +1,20 @@
+<launch>
+    <arg name="hostname" default="$(env HOSTNAME)" />
+    <arg name="node_name" value="chassis_controller_$(arg hostname)" />
+
+    <!-- 先将 YAML 加载到全局命名空间 -->
+    <rosparam command="load" file="$(find chassis_controller)/config/config_chassis_driver_loop.yaml" />
+
+    <!-- 启动节点 -->
+    <node name="$(arg node_name)" 
+          pkg="chassis_controller" 
+          type="chassis_controller" 
+          output="screen"
+          respawn="true" 
+          respawn_delay="5">
+        
+        <!-- 设置串口路径参数 -->
+        <param name="chassisdev_path" value="/dev/chassis_driver"/>
+        
+    </node>
+</launch>

@@ -1,0 +1,84 @@
+<robot name="mycar" xmlns:xacro="http://wiki.ros.org/xacro">
+
+    <!-- ================= 支撑柱（激光雷达安装杆）参数定义 ================= -->
+    <!-- PI -->
+    <xacro:property name="PI" value="3.1415927" />
+    <!-- 支撑柱的半径（单位：米） -->
+    <xacro:property name="support_radius" value="0.01" />
+    <!-- 支撑柱的长度（高度）（单位：米） -->
+    <xacro:property name="support_length" value="0.09863" />
+
+    <!-- ================= 激光雷达参数定义 ================= -->
+    <!-- 激光雷达圆柱体的半径（单位：米） -->
+    <xacro:property name="laser_radius" value="0.0184" />
+    <!-- 激光雷达圆柱体的长度（高度）（单位：米） -->
+    <xacro:property name="laser_length" value="0.0124" />
+
+    <!-- ================= 关节位置计算（相对于父坐标系） ================= -->
+    <!-- 注意：以下计算用到了外部属性 base_length（车体高度），该属性需在调用此文件之前定义。 -->
+
+    <!-- 支撑柱关节在X轴上的偏移量（通常居中，故为0） -->
+    <xacro:property name="joint_support_x" value="0.07006" />
+    <!-- 支撑柱关节在Y轴上的偏移量（通常居中，故为0） -->
+    <xacro:property name="joint_support_y" value="0" />
+    <!-- 支撑柱关节在Z轴上的偏移量：
+         从 base_link 的原点（一般为车体几何中心）出发，需要向上移动的距离。
+         计算公式：车体半高（base_height/2） + 支撑柱半长（support_length/2）
+         使得支撑柱的底部刚好接触车体顶部，且支撑柱的中心位于此高度。 -->
+    <xacro:property name="joint_support_z" value="${base_height / 2 + support_length / 2}" />
+
+    <!-- 激光雷达关节在X轴上的偏移量（居中） -->
+    <xacro:property name="joint_laser_x" value="0.0" />
+    <!-- 激光雷达关节在Y轴上的偏移量（居中） -->
+    <xacro:property name="joint_laser_y" value="0" />
+    <!-- 激光雷达关节在Z轴上的偏移量（相对于支撑柱的父坐标系）：
+         从支撑柱的底部（支撑柱关节原点）向上移动支撑柱半长 + 激光雷达半高，
+         使得激光雷达的底部接触支撑柱顶部，且激光雷达中心位于此高度。 -->
+    <xacro:property name="joint_laser_z" value="${support_length / 2 + laser_length / 2}" />
+
+    <!-- ================= 支撑柱 link 定义 ================= -->
+    <link name="support">
+        <visual>
+            <geometry>
+                <!-- 支撑柱形状为圆柱，半径 support_radius，长度 support_length -->
+                <cylinder radius="${support_radius}" length="${support_length}" />
+            </geometry>
+            <!-- 材质：黄色，用于可视化区分 -->
+            <material name="yellow">
+                <color rgba="0.8 0.5 0.0 1.0" />
+            </material>
+        </visual>
+        <!-- 此处省略了碰撞和惯性参数，若用于仿真需补充 -->
+    </link>
+
+    <!-- ================= 支撑柱到车体的固定关节 ================= -->
+    <joint name="support2base" type="fixed">
+        <parent link="base_link" />        <!-- 父坐标系为车体 base_link -->
+        <child link="support"/>             <!-- 子坐标系为支撑柱 support -->
+        <!-- 关节原点相对于 base_link 的位置，由上面计算的 joint_support_* 决定 -->
+        <origin xyz="${joint_support_x} ${joint_support_y} ${joint_support_z}" rpy="0 0 0" />
+    </joint>
+
+    <!-- ================= 激光雷达 link 定义 ================= -->
+    <link name="laser">
+        <visual>
+            <geometry>
+                <!-- 激光雷达形状为圆柱，半径 laser_radius，长度 laser_length -->
+                <cylinder radius="${laser_radius}" length="${laser_length}" />
+            </geometry>
+            <!-- 材质：半透明黑色 -->
+            <material name="black">
+                <color rgba="0 0 0 1.0" />
+            </material>
+        </visual>
+    </link>
+
+    <!-- ================= 激光雷达到支撑柱的固定关节 ================= -->
+    <joint name="laser2support" type="fixed">
+        <parent link="support" />           <!-- 父坐标系为支撑柱 support -->
+        <child link="laser"/>                <!-- 子坐标系为激光雷达 laser -->
+        <!-- 关节原点相对于 support 的位置，由 joint_laser_* 决定 -->
+        <origin xyz="${joint_laser_x} ${joint_laser_y} ${joint_laser_z}" rpy="0 0 ${PI}" />
+    </joint>
+
+</robot>

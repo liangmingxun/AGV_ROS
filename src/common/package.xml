@@ -1,0 +1,17 @@
+<?xml version="1.0"?>
+<package format="2">
+    <name>common</name>
+    <version>0.0.1</version>
+    <description>Common C++ utilities for reuse in other ROS packages.</description>
+
+    <maintainer email="1986106619@qq.com">Qiu Jiaxin</maintainer>
+    <license>MIT</license>
+
+    <buildtool_depend>catkin</buildtool_depend>
+    <build_depend>roscpp</build_depend>
+    <build_export_depend>roscpp</build_export_depend>
+    <exec_depend>roscpp</exec_depend>
+
+    <!-- 导出 include 目录以供其他包使用 -->
+    <export></export>
+</package>

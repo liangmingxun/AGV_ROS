@@ -1,0 +1,189 @@
+<?xml version="1.0"?>
+<robot name="mycar" xmlns:xacro="http://wiki.ros.org/xacro">
+
+    <!-- ================= 全局属性定义 ================= -->
+    <!-- 定义一些可调参数，方便后续修改 -->
+
+    <!-- 宏：计算长方体的惯性矩阵
+        @param mass        质量 (kg)
+        @param lx          沿 X 轴的长度 (m)
+        @param ly          沿 Y 轴的长度 (m)
+        @param lz          沿 Z 轴的长度 (m)
+        @param origin_xyz  质心位置 (x y z)，默认 "0 0 0"
+        @param origin_rpy  质心姿态 (roll pitch yaw)，默认 "0 0 0"
+    -->
+    <xacro:macro name="box_inertial_matrix" params="mass lx ly lz origin_xyz:='0 0 0' origin_rpy:='0 0 0'">
+        <!-- 计算转动惯量 -->
+        <xacro:property name="ixx" value="${mass / 12.0 * (ly*ly + lz*lz)}" />
+        <xacro:property name="iyy" value="${mass / 12.0 * (lx*lx + lz*lz)}" />
+        <xacro:property name="izz" value="${mass / 12.0 * (lx*lx + ly*ly)}" />
+        <!-- 默认惯性积为 0（对称刚体且坐标系与惯性主轴对齐） -->
+        <xacro:property name="ixy" value="0" />
+        <xacro:property name="ixz" value="0" />
+        <xacro:property name="iyz" value="0" />
+
+        <inertial>
+            <!-- 使用传入的 origin 参数，已设置默认值，因此调用时可不提供 -->
+            <origin xyz="${origin_xyz}" rpy="${origin_rpy}" />
+            <mass value="${mass}" />
+            <inertia ixx="${ixx}" ixy="${ixy}" ixz="${ixz}" iyy="${iyy}" iyz="${iyz}" izz="${izz}" />
+        </inertial>
+    </xacro:macro>
+
+    <!-- 宏：计算圆柱体的惯性矩阵（轴线沿 Y 轴，适用于驱动轮）
+        @param m  质量 (kg)
+        @param r  半径 (m)
+        @param h  高度（长度）(m)
+        @param origin_xyz 质心位置，默认 "0 0 0"
+        @param origin_rpy 质心姿态，默认 "0 0 0"
+    -->
+    <xacro:macro name="cylinder_inertial_matrix" params="m r h origin_xyz:='0 0 0' origin_rpy:='0 0 0'">
+        <!-- 圆柱轴线沿 Y 轴时，转动惯量公式：
+             Ixx = Izz = m*(3r^2 + h^2)/12
+             Iyy = m*r^2/2
+             惯性积均为0（对称且主轴对齐） -->
+        <xacro:property name="ixx" value="${m * (3*r*r + h*h) / 12.0}" />
+        <xacro:property name="iyy" value="${m * r*r / 2.0}" />
+        <xacro:property name="izz" value="${m * (3*r*r + h*h) / 12.0}" />
+        <xacro:property name="ixy" value="0" />
+        <xacro:property name="ixz" value="0" />
+        <xacro:property name="iyz" value="0" />
+
+        <inertial>
+            <origin xyz="${origin_xyz}" rpy="${origin_rpy}" />
+            <mass value="${m}" />
+            <inertia ixx="${ixx}" ixy="${ixy}" ixz="${ixz}" iyy="${iyy}" iyz="${iyz}" izz="${izz}" />
+        </inertial>
+    </xacro:macro>
+
+    <xacro:property name="footprint_radius" value="0.001" />
+    <!-- base_footprint 是一个虚拟点，代表机器人中心在地面的投影，通常用于导航堆栈 -->
+    <link name="base_footprint">
+        <visual>
+            <geometry>
+                <sphere radius="${footprint_radius}" />   <!-- 非常小的球体，仅用于可视化 -->
+            </geometry>
+        </visual>
+    </link>
+
+    <!-- 机器人主体尺寸参数 -->
+    <xacro:property name="base_length" value="0.2035" />        <!-- 主体长方体长度 (m) -->
+    <xacro:property name="base_width" value="0.145" />          <!-- 主体长方体宽度 (m) -->
+    <xacro:property name="base_height" value="0.09276" />       <!-- 主体长方体高度 (m) -->
+    <xacro:property name="base_mass" value="3.5" />             <!-- 主体长方体质量 (kg) -->
+    <xacro:property name="lidi" value="0.01331" />              <!-- 离地间隙(m)实际用途需确认，可能是主体底部到地面的距离 -->
+    <xacro:property name="half_length" value="${base_length / 2}" />       <!-- 主体长度的一半 (m) -->
+    <xacro:property name="half_width" value="${base_width / 2}" />        <!-- 主体宽度的一半 (m) -->
+    
+    <!-- 计算 base_link 相对于 base_footprint 的高度：主体一半高度 + 离地间隙 -->
+    <xacro:property name="base_joint_z" value="${base_length / 2 + lidi}" />
+
+    <!-- 机器人主体 link -->
+    <link name="base_link">
+        <visual>
+            <geometry>
+                <box size="${base_length} ${base_width} ${base_height}"/> <!-- 主体形状：长方体，尺寸与属性一致 -->
+            </geometry>
+            <origin xyz="0 0 0" rpy="0 0 0" />              <!-- 圆柱中心位于 link 原点 -->
+            <material name="baselink_color">
+                <color rgba="1.0 0.5 0.2 1.0" />            <!-- 橙色 -->
+            </material>
+        </visual>
+        <collision>
+            <geometry>
+                <box size="${base_length} ${base_width} ${base_height}"/>
+            </geometry>
+            <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+        </collision>
+        <!-- 设置机器人尺寸、质量 -->
+        <xacro:box_inertial_matrix mass="${base_mass}" lx="0.2035" ly="0.145" lz="0.052" />
+    </link>
+
+    <!-- 固定关节：连接 base_footprint 到 base_link -->
+    <joint name="link2footprint" type="fixed">
+        <parent link="base_link" />
+        <child link="base_footprint" />
+        <!-- 将 base_link 抬高，使得 base_link 的中心位于 base_footprint  -->
+        <origin xyz="0 0 -${base_height / 2 + lidi}" rpy="0 0 0" />
+    </joint>
+
+    <!-- ================= 驱动轮（左右轮）定义 ================= -->
+    <xacro:property name="wheel_radius" value="0.0325" />    <!-- 驱动轮半径 (m) -->
+    <xacro:property name="wheel_length" value="0.027" />     <!-- 驱动轮厚度 (m) -->
+    <xacro:property name="wheel_mass" value="0.1" />         <!-- 驱动轮质量 (kg) -->
+    <xacro:property name="PI" value="3.1415927" />
+
+    <!-- 计算驱动轮关节的 Z 轴偏移：使轮子刚好接触地面（基于主体高度和离地间隙） -->
+    <xacro:property name="wheel_joint_z" value="${(base_height / 2 + lidi - wheel_radius) * -1}" />
+
+    <!-- 宏：定义一个驱动轮（左右对称） -->
+    <xacro:macro name="wheel_func" params="wheel_name flag">
+        <!-- flag 取 +1 表示左边，-1 表示右边 -->
+        <link name="${wheel_name}_wheel">
+            <visual>
+                <geometry>
+                    <cylinder radius="${wheel_radius}" length="${wheel_length}" />
+                </geometry>
+                <!-- 轮子默认是沿 Z 轴，需要旋转 90 度使圆柱轴与 Y 轴平行（绕 X 轴旋转 PI/2） -->
+                <origin xyz="0 0 0" rpy="${PI / 2} 0 0" />
+                <material name="wheel_color">
+                    <color rgba="0.0 0.0 0.0 1.0" />               <!-- 黑色 -->
+                </material>
+            </visual>
+            <collision>
+                <geometry>
+                    <cylinder radius="${wheel_radius}" length="${wheel_length}" />
+                </geometry>
+                <origin xyz="0.0 0.0 0.0" rpy="${PI / 2} 0.0 0.0"/>
+            </collision>
+            <!-- 设置机器人尺寸、质量 -->
+            <xacro:cylinder_inertial_matrix m="${wheel_mass}" r="${wheel_radius}" h="${wheel_length}" />
+        </link>
+
+        <!-- 轮子关节：连续旋转关节，绕 Y 轴旋转 -->
+        <joint name="${wheel_name}2link" type="continuous">
+            <parent link="base_link" />
+            <child link="${wheel_name}_wheel" />
+            <!-- 位置：x=0 (前后)，y=±0.1 (左右轮距)，z 为计算值使轮子接地 -->
+            <origin xyz=" -0.05175 ${(half_width - 0.0105) * flag} ${wheel_joint_z}" rpy="0 0 0" />
+            <axis xyz="0 1 0" />                              <!-- 绕 Y 轴旋转 -->
+        </joint>
+    </xacro:macro>
+
+    <!-- 实例化左右驱动轮 -->
+    <xacro:wheel_func wheel_name="left" flag="1" />          <!-- 左轮，y 正 -->
+    <xacro:wheel_func wheel_name="right" flag="-1" />        <!-- 右轮，y 负 -->
+
+    <!-- ================= 万向轮（前后小轮）定义 ================= -->
+    <xacro:property name="small_wheel_radius" value="0.01331" />  <!-- 小轮半径 (m) -->
+    <!-- 计算小轮关节的 Z 轴偏移（同样使轮子接地） -->
+    <xacro:property name="small_joint_z" value="${(base_height/ 2 + lidi - small_wheel_radius) * -1}" />
+
+    <xacro:macro name="small_wheel_func" params="small_wheel_name flag">
+        <!-- flag 取 +1 表示前，-1 表示后 -->
+        <link name="${small_wheel_name}_wheel">
+            <visual>
+                <geometry>
+                    <sphere radius="${small_wheel_radius}" />   <!-- 万向轮用球体表示 -->
+                </geometry>
+                <origin xyz="0 0 0" rpy="0 0 0" />
+                <material name="wheel_color">
+                    <color rgba="0 0 0 1.0" />
+                </material>
+            </visual>
+        </link>
+
+        <joint name="${small_wheel_name}2link" type="continuous">
+            <parent link="base_link" />
+            <child link="${small_wheel_name}_wheel" />
+            <!-- 位置：x 前后偏移 ±0.08 m，y=0（中间），z 接地 -->
+            <origin xyz="${half_length - 0.032} ${(half_width - 0.0427) * flag} ${small_joint_z}" rpy="0 0 0" />
+            <axis xyz="0 1 0" />                                 <!-- 绕 Y 轴旋转（球体无所谓） -->
+        </joint>
+    </xacro:macro>
+
+    <!-- 实例化前后万向轮 -->
+    <xacro:small_wheel_func small_wheel_name="front" flag="1" />
+    <xacro:small_wheel_func small_wheel_name="back" flag="-1" />
+
+</robot>

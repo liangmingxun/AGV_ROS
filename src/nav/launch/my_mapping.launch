@@ -1,0 +1,13 @@
+
+<launch>
+  <include file="$(find chassis_controller)/launch/chassis_controller.launch" />
+  <include file="$(find mycar_description)/launch/car.launch" />
+  <!-- hector_mapping lidar开启雷达  -->
+  <include file="$(find hector_mapping)/launch/wheeltec_lidar.launch" />
+
+  <!-- 开启gmapping建图算法  -->
+  <include file="$(find nav)/launch/gmapping.launch" />
+  
+  <!--打开rviz-->
+  <!-- <node name="rviz" pkg="rviz" type="rviz" args="-d $(find hector_slam_launch)/rviz_cfg/mapping_demo.rviz" /> -->
+</launch>

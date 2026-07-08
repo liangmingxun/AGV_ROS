@@ -1,0 +1,5 @@
+<launch>
+
+    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find hector_slam_launch)/rviz_cfg/mapping_demo.rviz" />
+
+</launch>
