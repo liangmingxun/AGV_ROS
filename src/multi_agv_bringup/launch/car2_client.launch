@@ -1,0 +1,8 @@
+<launch>
+  <arg name="transport_type" default="serial"/>
+  <include file="$(find multi_agv_bringup)/launch/chassis_single.launch">
+    <arg name="robot_id" value="agv2"/>
+    <arg name="config_file" value="$(find multi_agv_bringup)/config/agv2_chassis.yaml"/>
+    <arg name="transport_type" value="$(arg transport_type)"/>
+  </include>
+</launch>

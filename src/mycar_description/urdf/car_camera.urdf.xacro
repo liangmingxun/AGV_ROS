@@ -7,7 +7,7 @@
     <xacro:property name="joint_camera_y" value="0" />
     <xacro:property name="joint_camera_z" value="${base_length / 2 + camera_height / 2}" />
 
-    <link name="camera">
+    <link name="${prefix}camera">
         <visual>
             <geometry>
                 <box size="${camera_length} ${camera_width} ${camera_height}" />
@@ -19,9 +19,9 @@
         </visual>
     </link>
 
-    <joint name="camera2base" type="fixed">
-        <parent link="base_link" />
-        <child link="camera" />
+    <joint name="${prefix}camera2base" type="fixed">
+        <parent link="${prefix}base_link" />
+        <child link="${prefix}camera" />
         <origin xyz="${joint_camera_x} ${joint_camera_y} ${joint_camera_z}" rpy="0 0 0" />
     </joint>
 

@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>multi_agv_bringup</name>
+  <version>1.0.0</version>
+  <description>Network, namespace and TF bringup for the three-AGV platform.</description>
+  <maintainer email="lijx0626@163.com">ljx</maintainer>
+  <license>MIT</license>
+  <buildtool_depend>catkin</buildtool_depend>
+  <exec_depend>agv_msgs</exec_depend>
+  <exec_depend>chassis_controller</exec_depend>
+  <exec_depend>robot_state_publisher</exec_depend>
+  <exec_depend>roslaunch</exec_depend>
+  <exec_depend>tf2_ros</exec_depend>
+  <exec_depend>xacro</exec_depend>
+  <test_depend>rosgraph</test_depend>
+  <test_depend>roslaunch</test_depend>
+  <test_depend>rospy</test_depend>
+  <test_depend>rostest</test_depend>
+  <test_depend>tf2_msgs</test_depend>
+</package>

@@ -1,0 +1,11 @@
+<launch>
+  <include file="$(find multi_agv_bringup)/launch/car1_master.launch">
+    <arg name="transport_type" value="fake"/>
+  </include>
+  <include file="$(find multi_agv_bringup)/launch/car2_client.launch">
+    <arg name="transport_type" value="fake"/>
+  </include>
+  <include file="$(find multi_agv_bringup)/launch/car3_client.launch">
+    <arg name="transport_type" value="fake"/>
+  </include>
+</launch>

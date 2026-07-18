@@ -58,7 +58,7 @@
 
     <xacro:property name="footprint_radius" value="0.001" />
     <!-- base_footprint 是一个虚拟点，代表机器人中心在地面的投影，通常用于导航堆栈 -->
-    <link name="base_footprint">
+    <link name="${prefix}base_footprint">
         <visual>
             <geometry>
                 <sphere radius="${footprint_radius}" />   <!-- 非常小的球体，仅用于可视化 -->
@@ -79,7 +79,7 @@
     <xacro:property name="base_joint_z" value="${base_length / 2 + lidi}" />
 
     <!-- 机器人主体 link -->
-    <link name="base_link">
+    <link name="${prefix}base_link">
         <visual>
             <geometry>
                 <box size="${base_length} ${base_width} ${base_height}"/> <!-- 主体形状：长方体，尺寸与属性一致 -->
@@ -100,9 +100,9 @@
     </link>
 
     <!-- 固定关节：连接 base_footprint 到 base_link -->
-    <joint name="link2footprint" type="fixed">
-        <parent link="base_link" />
-        <child link="base_footprint" />
+    <joint name="${prefix}link2footprint" type="fixed">
+        <parent link="${prefix}base_link" />
+        <child link="${prefix}base_footprint" />
         <!-- 将 base_link 抬高，使得 base_link 的中心位于 base_footprint  -->
         <origin xyz="0 0 -${base_height / 2 + lidi}" rpy="0 0 0" />
     </joint>
@@ -119,7 +119,7 @@
     <!-- 宏：定义一个驱动轮（左右对称） -->
     <xacro:macro name="wheel_func" params="wheel_name flag">
         <!-- flag 取 +1 表示左边，-1 表示右边 -->
-        <link name="${wheel_name}_wheel">
+        <link name="${prefix}${wheel_name}_wheel">
             <visual>
                 <geometry>
                     <cylinder radius="${wheel_radius}" length="${wheel_length}" />
@@ -141,9 +141,9 @@
         </link>
 
         <!-- 轮子关节：连续旋转关节，绕 Y 轴旋转 -->
-        <joint name="${wheel_name}2link" type="continuous">
-            <parent link="base_link" />
-            <child link="${wheel_name}_wheel" />
+        <joint name="${prefix}${wheel_name}2link" type="continuous">
+            <parent link="${prefix}base_link" />
+            <child link="${prefix}${wheel_name}_wheel" />
             <!-- 位置：x=0 (前后)，y=±0.1 (左右轮距)，z 为计算值使轮子接地 -->
             <origin xyz=" -0.05175 ${(half_width - 0.0105) * flag} ${wheel_joint_z}" rpy="0 0 0" />
             <axis xyz="0 1 0" />                              <!-- 绕 Y 轴旋转 -->
@@ -161,7 +161,7 @@
 
     <xacro:macro name="small_wheel_func" params="small_wheel_name flag">
         <!-- flag 取 +1 表示前，-1 表示后 -->
-        <link name="${small_wheel_name}_wheel">
+        <link name="${prefix}${small_wheel_name}_wheel">
             <visual>
                 <geometry>
                     <sphere radius="${small_wheel_radius}" />   <!-- 万向轮用球体表示 -->
@@ -173,9 +173,9 @@
             </visual>
         </link>
 
-        <joint name="${small_wheel_name}2link" type="continuous">
-            <parent link="base_link" />
-            <child link="${small_wheel_name}_wheel" />
+        <joint name="${prefix}${small_wheel_name}2link" type="continuous">
+            <parent link="${prefix}base_link" />
+            <child link="${prefix}${small_wheel_name}_wheel" />
             <!-- 位置：x 前后偏移 ±0.08 m，y=0（中间），z 接地 -->
             <origin xyz="${half_length - 0.032} ${(half_width - 0.0427) * flag} ${small_joint_z}" rpy="0 0 0" />
             <axis xyz="0 1 0" />                                 <!-- 绕 Y 轴旋转（球体无所谓） -->

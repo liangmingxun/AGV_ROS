@@ -1,0 +1,5 @@
+<launch>
+  <include file="$(find multi_agv_bringup)/launch/three_fake_chassis.launch"/>
+  <test pkg="multi_agv_bringup" type="test_namespace_isolation.py"
+        test-name="namespace_isolation" time-limit="20"/>
+</launch>

@@ -1,0 +1,12 @@
+wheel_radius: 0.0325
+wheel_separation: 0.114
+base_link_z: 0.05969
+control_loop_overrun_seconds: 0.008
+enable_vofa: false
+nominal:
+  max_wheel_linear_velocity_left: 0.9
+  max_wheel_linear_velocity_right: 0.9
+  max_wheel_linear_acceleration_left: 1.0
+  max_wheel_linear_acceleration_right: 1.0
+  max_wheel_linear_deceleration_left: 2.0
+  max_wheel_linear_deceleration_right: 2.0

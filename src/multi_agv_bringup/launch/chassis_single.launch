@@ -1,0 +1,21 @@
+<launch>
+  <arg name="robot_id"/>
+  <arg name="config_file"/>
+  <arg name="transport_type" default="serial"/>
+
+  <group ns="$(arg robot_id)">
+    <node pkg="chassis_controller" type="chassis_controller"
+          name="chassis_controller" output="screen" required="true">
+      <rosparam command="load" file="$(find multi_agv_bringup)/config/common_platform.yaml"/>
+      <rosparam command="load" file="$(arg config_file)"/>
+      <param name="transport_type" value="$(arg transport_type)"/>
+    </node>
+
+    <node pkg="tf2_ros" type="static_transform_publisher"
+          name="base_to_imu_tf"
+          args="0 0 0 0 0 0 $(arg robot_id)/base_link $(arg robot_id)/imu_link"/>
+    <node pkg="tf2_ros" type="static_transform_publisher"
+          name="base_to_support_tf"
+          args="0.07006 0 0.095695 0 0 0 $(arg robot_id)/base_link $(arg robot_id)/support_link"/>
+  </group>
+</launch>
