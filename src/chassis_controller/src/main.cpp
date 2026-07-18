@@ -64,6 +64,7 @@ class ChassisControllerNode {
 
       updateSensorState();
       const auto applied = core_->step(dt);
+      accumulateCycleFlags();
       sendAppliedCommand(applied);
 
       const ros::Time now = ros::Time::now();
@@ -254,6 +255,23 @@ class ChassisControllerNode {
     return message;
   }
 
+  void accumulateCycleFlags() {
+    const auto& state = core_->feedback();
+    overrun_since_publish_ = overrun_since_publish_ || state.control_loop_overrun;
+    speed_limited_left_since_publish_ =
+        speed_limited_left_since_publish_ || state.speed_limited_left;
+    speed_limited_right_since_publish_ =
+        speed_limited_right_since_publish_ || state.speed_limited_right;
+    accel_limited_left_since_publish_ =
+        accel_limited_left_since_publish_ || state.accel_limited_left;
+    accel_limited_right_since_publish_ =
+        accel_limited_right_since_publish_ || state.accel_limited_right;
+    decel_limited_left_since_publish_ =
+        decel_limited_left_since_publish_ || state.decel_limited_left;
+    decel_limited_right_since_publish_ =
+        decel_limited_right_since_publish_ || state.decel_limited_right;
+  }
+
   void publishState(const ros::Time& stamp) {
     const auto& state = core_->feedback();
     const auto imu = makeImu(stamp);
@@ -278,13 +296,13 @@ class ChassisControllerNode {
     feedback.imu = imu;
     feedback.odom = odom;
     feedback.battery_voltage = state.battery_voltage;
-    feedback.control_loop_overrun = state.control_loop_overrun;
-    feedback.speed_limit_active_left = state.speed_limited_left;
-    feedback.speed_limit_active_right = state.speed_limited_right;
-    feedback.accel_limit_active_left = state.accel_limited_left;
-    feedback.accel_limit_active_right = state.accel_limited_right;
-    feedback.decel_limit_active_left = state.decel_limited_left;
-    feedback.decel_limit_active_right = state.decel_limited_right;
+    feedback.control_loop_overrun = overrun_since_publish_;
+    feedback.speed_limit_active_left = speed_limited_left_since_publish_;
+    feedback.speed_limit_active_right = speed_limited_right_since_publish_;
+    feedback.accel_limit_active_left = accel_limited_left_since_publish_;
+    feedback.accel_limit_active_right = accel_limited_right_since_publish_;
+    feedback.decel_limit_active_left = decel_limited_left_since_publish_;
+    feedback.decel_limit_active_right = decel_limited_right_since_publish_;
     feedback_pub_.publish(feedback);
 
     const auto& capability = core_->capability();
@@ -302,12 +320,12 @@ class ChassisControllerNode {
     report.derating_ratio = capability.derating_ratio;
     report.derating_mode = capability.derating_mode;
     report.derating_active = capability.derating_active;
-    report.speed_limit_active_left = state.speed_limited_left;
-    report.speed_limit_active_right = state.speed_limited_right;
-    report.accel_limit_active_left = state.accel_limited_left;
-    report.accel_limit_active_right = state.accel_limited_right;
-    report.decel_limit_active_left = state.decel_limited_left;
-    report.decel_limit_active_right = state.decel_limited_right;
+    report.speed_limit_active_left = speed_limited_left_since_publish_;
+    report.speed_limit_active_right = speed_limited_right_since_publish_;
+    report.accel_limit_active_left = accel_limited_left_since_publish_;
+    report.accel_limit_active_right = accel_limited_right_since_publish_;
+    report.decel_limit_active_left = decel_limited_left_since_publish_;
+    report.decel_limit_active_right = decel_limited_right_since_publish_;
     report.battery_voltage = state.battery_voltage;
     capability_pub_.publish(report);
     odom_pub_.publish(odom);
@@ -321,6 +339,14 @@ class ChassisControllerNode {
     transform.transform.translation.z = base_link_z_;
     transform.transform.rotation = odom.pose.pose.orientation;
     tf_broadcaster_.sendTransform(transform);
+
+    overrun_since_publish_ = false;
+    speed_limited_left_since_publish_ = false;
+    speed_limited_right_since_publish_ = false;
+    accel_limited_left_since_publish_ = false;
+    accel_limited_right_since_publish_ = false;
+    decel_limited_left_since_publish_ = false;
+    decel_limited_right_since_publish_ = false;
   }
 
   void publishVofaIfEnabled() {
@@ -375,6 +401,13 @@ class ChassisControllerNode {
   double base_link_z_{0.0};
   double gyro_lpf_tau_{0.02};
   bool enable_vofa_{false};
+  bool overrun_since_publish_{false};
+  bool speed_limited_left_since_publish_{false};
+  bool speed_limited_right_since_publish_{false};
+  bool accel_limited_left_since_publish_{false};
+  bool accel_limited_right_since_publish_{false};
+  bool decel_limited_left_since_publish_{false};
+  bool decel_limited_right_since_publish_{false};
 };
 
 }  // namespace

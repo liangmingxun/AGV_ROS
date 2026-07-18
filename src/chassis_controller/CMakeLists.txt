@@ -6,8 +6,6 @@ if(NOT CMAKE_CXX_STANDARD)
     set(CMAKE_CXX_STANDARD_REQUIRED ON)
 endif()
 
-set(CMAKE_BUILD_TYPE Release)
-
 ## 查找catkin和依赖包
 find_package(catkin REQUIRED COMPONENTS
     agv_msgs
