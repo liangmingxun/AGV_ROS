@@ -1,0 +1,10 @@
+std_msgs/Header header
+string path_id
+uint32 path_version
+float64 load_path_progress_reference
+float64 load_path_velocity_reference
+float64 load_path_acceleration_reference
+geometry_msgs/Pose2D load_pose_reference
+geometry_msgs/Pose2D[3] support_pose_reference
+float64[3] chassis_linear_velocity_feedforward
+float64[3] chassis_angular_velocity_feedforward

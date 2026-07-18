@@ -1,0 +1,10 @@
+std_msgs/Header header
+string experiment_id
+string method_id
+string block_id
+string run_id
+uint8 phase
+bool run_active
+bool evaluation_active
+bool manual_abort
+string abort_reason

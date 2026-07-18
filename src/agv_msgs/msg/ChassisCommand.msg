@@ -1,0 +1,10 @@
+std_msgs/Header header
+uint8 robot_id
+uint32 command_seq
+uint8 control_mode
+float64 linear_velocity_reference
+float64 angular_velocity_reference
+float64 wheel_linear_velocity_left_raw
+float64 wheel_linear_velocity_right_raw
+string experiment_id
+string method_id

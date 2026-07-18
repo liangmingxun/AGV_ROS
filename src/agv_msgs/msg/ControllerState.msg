@@ -1,0 +1,13 @@
+std_msgs/Header header
+string experiment_id
+string method_id
+float64[3] path_progress_actual
+float64[3] path_velocity_actual
+float64[3] path_progress_execute_reference
+float64[3] path_velocity_execute_reference
+float64[3] channel_input_raw
+float64[3] channel_input_limited
+float64 common_velocity_lower_bound
+float64 common_velocity_upper_bound
+float64 common_load_velocity_reference
+bool[3] channel_input_limit_active

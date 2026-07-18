@@ -1,0 +1,14 @@
+std_msgs/Header header
+uint8 robot_id
+uint32 command_seq
+uint8 mode
+bool active
+float64 target_speed_ratio_left
+float64 target_speed_ratio_right
+float64 target_accel_ratio_left
+float64 target_accel_ratio_right
+float64 target_decel_ratio_left
+float64 target_decel_ratio_right
+float64 ramp_down_time
+float64 ramp_up_time
+string experiment_id
