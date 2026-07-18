@@ -10,11 +10,13 @@ set(CMAKE_BUILD_TYPE Release)
 
 ## 查找catkin和依赖包
 find_package(catkin REQUIRED COMPONENTS
+    agv_msgs
+    geometry_msgs
+    nav_msgs
     roscpp
-    rospy
+    sensor_msgs
     std_msgs
     common
-    message_generation
     tf
 )
 
@@ -25,27 +27,17 @@ find_package(Boost REQUIRED COMPONENTS
 
 find_package(Eigen3 REQUIRED NO_MODULE)
 
-add_message_files(
-  FILES
-  ImuData.msg
-  ControlCommand.msg
-  RobotState.msg
-)
-
-generate_messages(
-  DEPENDENCIES
-  std_msgs
-)
-
 catkin_package(
     INCLUDE_DIRS include
-    LIBRARIES chassis_controller
+    LIBRARIES chassis_controller_core
     CATKIN_DEPENDS
+        agv_msgs
+        geometry_msgs
+        nav_msgs
         roscpp
-        rospy
+        sensor_msgs
         std_msgs
         common
-        message_runtime
         tf
 )
 
@@ -66,8 +58,8 @@ include_directories(
 
 
 
-# 搜索各子目录下的 .cpp 文件
-file(GLOB OTHER_SRC "src/*.cpp")
+# 搜索旧底盘算法依赖的各子目录 .cpp 文件。纯核心类显式列出，避免 GLOB
+# 把它们重复编译进节点。
 file(GLOB QEKF_SRC              "src/QEKF/*.cpp")
 file(GLOB QEKF_MATLAB_SRC       "src/QEKF/MATLABCoder/*.cpp")
 file(GLOB QUATERNION_SRC        "src/Quaternion/*.cpp")
@@ -86,8 +78,7 @@ file(GLOB MATHLIB_SRC           "src/MathLib/*.cpp")
 file(GLOB FIRSTORDERLPF_SRC     "src/FirstOrderLPF/*.cpp")
 
 # 合并所有源文件
-set(ALL_SRC
-    ${OTHER_SRC}
+set(LEGACY_SRC
     ${QEKF_SRC}
     ${QEKF_MATLAB_SRC}
     ${QUATERNION_SRC}
@@ -106,16 +97,44 @@ set(ALL_SRC
     ${FIRSTORDERLPF_SRC}
 )
 
-# 添加可执行文件
-add_executable(chassis_controller ${ALL_SRC})
+add_library(chassis_controller_core
+    src/wheel_command_limiter.cpp
+    src/derating_profile.cpp
+    src/odometry_integrator.cpp
+    src/chassis_core.cpp
+)
+target_link_libraries(chassis_controller_core ${catkin_LIBRARIES})
 
-message(STATUS "ALL_SRC contains:")
-foreach(file ${ALL_SRC})
-    message(STATUS " - ${file}")
-endforeach()
+add_executable(chassis_controller src/main.cpp ${LEGACY_SRC})
 
 target_link_libraries(chassis_controller
+    chassis_controller_core
     ${catkin_LIBRARIES}
     ${Boost_LIBRARIES}
     Eigen3::Eigen
 )
+
+add_dependencies(chassis_controller ${${PROJECT_NAME}_EXPORTED_TARGETS}
+                 ${catkin_EXPORTED_TARGETS})
+
+if(CATKIN_ENABLE_TESTING)
+    find_package(rostest REQUIRED)
+    catkin_add_gtest(test_wheel_command_limiter
+        test/test_wheel_command_limiter.cpp)
+    catkin_add_gtest(test_derating_profile
+        test/test_derating_profile.cpp)
+    catkin_add_gtest(test_odometry_integrator
+        test/test_odometry_integrator.cpp)
+    catkin_add_gtest(test_chassis_core
+        test/test_chassis_core.cpp)
+    foreach(test_target
+            test_wheel_command_limiter
+            test_derating_profile
+            test_odometry_integrator
+            test_chassis_core)
+        if(TARGET ${test_target})
+            target_link_libraries(${test_target} chassis_controller_core)
+        endif()
+    endforeach()
+    add_rostest(test/chassis_node.test)
+endif()

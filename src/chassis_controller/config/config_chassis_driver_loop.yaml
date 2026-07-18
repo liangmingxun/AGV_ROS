@@ -1,3 +1,5 @@
+# Legacy calibration archive only. The chassis node no longer loads identity from
+# device UID or IP; active per-car files live in multi_agv_bringup/config/.
 "device_2D0039001751343033343031":
   chassisdev_path: "/dev/chassis_driver"
   robot_ip: "192.168.0.50"
@@ -28,5 +30,3 @@
   mag_bias: [0.72072083, 0.72080734, 0.72080734]
   mag_scale: [1.24839597, 1.24848023, 1.24839876]
 
-
-  

@@ -1,5 +1,9 @@
 #pragma once
 
+#include <algorithm>
+#include <array>
+#include <atomic>
+#include <cstring>
 #include <thread>
 #include <deque>
 #include <boost/asio.hpp>
@@ -7,6 +11,9 @@
 #include <numeric>
 #include <Eigen/Dense>
 #include <sys/select.h>
+#include <termios.h>
+#include <unistd.h>
+#include <ros/ros.h>
 #include "chassis_driver/config.h"
 #include "shared_data_manager.hpp"
 #include "rotation_math.hpp"

@@ -1,0 +1,21 @@
+<launch>
+  <group ns="agv1">
+    <node pkg="chassis_controller" type="chassis_controller"
+          name="chassis_controller" output="screen" required="true">
+      <param name="robot_id" value="agv1"/>
+      <param name="robot_index" value="1"/>
+      <param name="transport_type" value="fake"/>
+      <param name="odom_frame" value="agv1/odom"/>
+      <param name="base_frame" value="agv1/base_link"/>
+      <param name="imu_frame" value="agv1/imu_link"/>
+      <param name="nominal/max_wheel_linear_velocity_left" value="0.9"/>
+      <param name="nominal/max_wheel_linear_velocity_right" value="0.9"/>
+      <param name="nominal/max_wheel_linear_acceleration_left" value="1.0"/>
+      <param name="nominal/max_wheel_linear_acceleration_right" value="1.0"/>
+      <param name="nominal/max_wheel_linear_deceleration_left" value="2.0"/>
+      <param name="nominal/max_wheel_linear_deceleration_right" value="2.0"/>
+    </node>
+    <test pkg="chassis_controller" type="test_chassis_node.py"
+          test-name="chassis_node_fake_transport" time-limit="15"/>
+  </group>
+</launch>
