@@ -3,5 +3,6 @@ devel
 logs
 .vscode
 .catkin_tools
+.worktrees/
 /src/rosserial_stm32/
 .bag
