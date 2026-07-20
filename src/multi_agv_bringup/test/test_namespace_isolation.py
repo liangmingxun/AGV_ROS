@@ -3,13 +3,14 @@ import unittest
 
 import rospy
 import rostest
-from agv_msgs.msg import ChassisCommand, ChassisFeedback
+from agv_msgs.msg import CapabilityReport, ChassisCommand, ChassisFeedback
 
 
 class NamespaceIsolationTest(unittest.TestCase):
     def test_each_command_reaches_only_its_chassis(self):
         desired = {1: 0.1, 2: 0.2, 3: 0.3}
         feedback = {1: [], 2: [], 3: []}
+        capability = {1: [], 2: [], 3: []}
         publishers = {}
         for index in desired:
             publishers[index] = rospy.Publisher(
@@ -18,6 +19,9 @@ class NamespaceIsolationTest(unittest.TestCase):
             rospy.Subscriber(
                 f"/agv{index}/chassis_feedback", ChassisFeedback,
                 lambda message, i=index: feedback[i].append(message), queue_size=1)
+            rospy.Subscriber(
+                f"/agv{index}/capability_report", CapabilityReport,
+                lambda message, i=index: capability[i].append(message), queue_size=1)
 
         deadline = rospy.Time.now() + rospy.Duration(8.0)
         sequence = 1
@@ -45,6 +49,25 @@ class NamespaceIsolationTest(unittest.TestCase):
                 if other_speed != speed:
                     self.assertGreater(
                         abs(latest.wheel_linear_velocity_left_actual - other_speed), 0.04)
+
+        rate_deadline = rospy.Time.now() + rospy.Duration(2.0)
+        while rospy.Time.now() < rate_deadline and any(
+                len(feedback[index]) < 50 or len(capability[index]) < 50
+                for index in desired):
+            rospy.sleep(0.02)
+
+        for index in desired:
+            self.assertGreaterEqual(len(feedback[index]), 50)
+            self.assertGreaterEqual(len(capability[index]), 50)
+            for messages in (feedback[index], capability[index]):
+                sample = messages[-50:]
+                duration = (sample[-1].header.stamp - sample[0].header.stamp).to_sec()
+                self.assertGreater(duration, 0.0)
+                rate_hz = (len(sample) - 1) / duration
+                self.assertGreater(rate_hz, 90.0)
+                self.assertLess(rate_hz, 110.0)
+                self.assertEqual("0", sample[-1]._connection_header.get("latching"))
+            self.assertEqual(index, capability[index][-1].robot_id)
 
 
 if __name__ == "__main__":

@@ -95,7 +95,10 @@ src/
 
 ```bash
 cd ~/AGV_ROS
-test -L src/CMakeLists.txt || catkin_init_workspace src --force
+if [ ! -L src/CMakeLists.txt ]; then
+  mv src/CMakeLists.txt src/CMakeLists.txt.flattened
+  catkin_init_workspace src
+fi
 rosdep update
 rosdep install --from-paths src --ignore-src -r -y
 ```
@@ -656,7 +659,7 @@ git commit -m "refactor: make chassis controller single-robot executor"
 - [ ] **Step 1: Add a failing launch check**
 
 ```bash
-roslaunch-check multi_agv_bringup three_fake_chassis.launch
+roslaunch --files multi_agv_bringup three_fake_chassis.launch
 ```
 
 Expected: FAIL because the package is absent.
@@ -678,7 +681,7 @@ Add xacro argument `prefix` and apply it to all links/joints. Verify generated m
 ```bash
 catkin_make --pkg multi_agv_bringup mycar_description
 source devel/setup.bash
-roslaunch-check multi_agv_bringup three_fake_chassis.launch
+roslaunch --files multi_agv_bringup three_fake_chassis.launch
 roslaunch multi_agv_bringup three_fake_chassis.launch
 rosrun tf view_frames
 ```
@@ -1278,12 +1281,12 @@ git commit -m "feat: add reproducible experiment logging and metrics"
 catkin_make -DCMAKE_BUILD_TYPE=RelWithDebInfo
 catkin_make run_tests
 catkin_test_results --verbose
-roslaunch-check multi_agv_bringup three_fake_chassis.launch
-roslaunch-check multi_agv_bringup odom_pretest.launch
-roslaunch-check multi_agv_bringup experiment.launch
+roslaunch --files multi_agv_bringup three_fake_chassis.launch
+roslaunch --files multi_agv_bringup odom_pretest.launch
+roslaunch --files multi_agv_bringup experiment.launch
 ```
 
-Expected: zero failed tests and zero launch-check errors.
+Expected: zero failed tests and zero launch parsing errors.
 
 - [ ] **Step 2: Stage A—wheels raised or disconnected from load**
 

@@ -54,7 +54,8 @@ class ChassisControllerNode {
   void run() {
     ros::Rate rate(250.0);
     auto previous = std::chrono::steady_clock::now();
-    ros::Time last_state_publish;
+    const ros::Duration state_publish_period(0.01);
+    ros::Time next_state_publish = ros::Time::now();
 
     while (ros::ok()) {
       ros::spinOnce();
@@ -68,9 +69,12 @@ class ChassisControllerNode {
       sendAppliedCommand(applied);
 
       const ros::Time now = ros::Time::now();
-      if ((now - last_state_publish).toSec() >= 0.01) {
+      if (now >= next_state_publish) {
         publishState(now);
-        last_state_publish = now;
+        next_state_publish += state_publish_period;
+        if (next_state_publish < now - state_publish_period) {
+          next_state_publish = now + state_publish_period;
+        }
       }
       publishVofaIfEnabled();
       rate.sleep();

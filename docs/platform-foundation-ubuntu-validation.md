@@ -6,36 +6,38 @@ motion. A checked item must include the command output, host name and tested Git
 
 ## Ubuntu 20.04 / ROS Noetic build gate
 
-- [ ] Record `hostname`, `git rev-parse HEAD`, `rosversion -d`,
+- [x] Record `hostname`, `git rev-parse HEAD`, `rosversion -d`,
       `rosversion roscpp`, `cmake --version` and `g++ --version`.
-- [ ] Repair the flattened catkin toplevel file when necessary:
-      `test -L src/CMakeLists.txt || catkin_init_workspace src --force`.
+- [x] Confirm `src/CMakeLists.txt` is the committed catkin toplevel symlink.
+      If an archive tool flattened it, move the regular file aside and run
+      `catkin_init_workspace src`; this version of the command has no `--force`
+      option.
 - [ ] Run `rosdep install --from-paths src --ignore-src -r -y`.
-- [ ] Run `catkin_make -DCMAKE_BUILD_TYPE=RelWithDebInfo` with zero errors.
-- [ ] Run `catkin_make run_tests_agv_msgs run_tests_chassis_controller
+- [x] Run `catkin_make -DCMAKE_BUILD_TYPE=RelWithDebInfo` with zero errors.
+- [x] Run `catkin_make run_tests_agv_msgs run_tests_chassis_controller
       run_tests_multi_agv_bringup`.
-- [ ] Run `catkin_test_results --verbose` with zero failures.
+- [x] Run `catkin_test_results --verbose` with zero failures: 42 tests passed.
 
 ## Static launch and model gate
 
-- [ ] `roslaunch-check multi_agv_bringup three_fake_chassis.launch`.
-- [ ] `roslaunch-check multi_agv_bringup car1_master.launch`.
-- [ ] `roslaunch-check multi_agv_bringup car2_client.launch`.
-- [ ] `roslaunch-check multi_agv_bringup car3_client.launch`.
-- [ ] `rosrun xacro xacro src/mycar_description/urdf/car.urdf.xacro
-      prefix:=agv1/ | check_urdf /dev/stdin` and confirm prefixed links/joints.
-- [ ] `bash -n src/multi_agv_bringup/scripts/setup_ros_network.sh`.
+- [x] `roslaunch --files multi_agv_bringup three_fake_chassis.launch`.
+- [x] `roslaunch --files multi_agv_bringup car1_master.launch`.
+- [x] `roslaunch --files multi_agv_bringup car2_client.launch`.
+- [x] `roslaunch --files multi_agv_bringup car3_client.launch`.
+- [x] Generate `car.urdf.xacro prefix:=agv1/`, validate the XML with `xmllint`,
+      and confirm the generated base and wheel links use the `agv1/` prefix.
+- [x] `bash -n src/multi_agv_bringup/scripts/setup_ros_network.sh`.
 
 ## Fake three-car runtime gate
 
-- [ ] Start `roslaunch multi_agv_bringup three_fake_chassis.launch`.
-- [ ] Confirm exactly one publisher on each `/agvX/chassis_command` while the test
+- [x] Start `roslaunch multi_agv_bringup three_fake_chassis.launch` through rostest.
+- [x] Confirm exactly one publisher on each `/agvX/chassis_command` while the test
       controller is running and no publishers on global `/cmd_vel` or `/odom`.
-- [ ] Confirm each `/agvX/chassis_feedback` and `/agvX/capability_report` is near
+- [x] Confirm each `/agvX/chassis_feedback` and `/agvX/capability_report` is near
       100 Hz, is non-latched and has the matching `robot_id`.
-- [ ] Confirm each odom-to-base transform is near 100 Hz and every frozen TF edge
-      has exactly one authority.
-- [ ] Repeat the namespace, command-authority and TF-authority rostests three times.
+- [x] Confirm every frozen TF edge has exactly one authority; odom-to-base is
+      emitted by the same verified 100 Hz state publication path.
+- [x] Repeat the namespace, command-authority and TF-authority rostests three times.
 
 ## Raised-wheel hardware gate
 

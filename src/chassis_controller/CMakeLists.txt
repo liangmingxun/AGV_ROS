@@ -131,7 +131,9 @@ if(CATKIN_ENABLE_TESTING)
             test_odometry_integrator
             test_chassis_core)
         if(TARGET ${test_target})
-            target_link_libraries(${test_target} chassis_controller_core)
+            target_link_libraries(${test_target}
+                chassis_controller_core
+                gtest_main)
         endif()
     endforeach()
     add_rostest(test/chassis_node.test)

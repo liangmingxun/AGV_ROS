@@ -3,6 +3,7 @@ devel
 logs
 .vscode
 .catkin_tools
+.catkin_workspace
 .worktrees/
 __pycache__/
 *.pyc

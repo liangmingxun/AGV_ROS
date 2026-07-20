@@ -141,7 +141,10 @@ git status --short
 ```bash
 cd ~/AGV_ROS
 source /opt/ros/noetic/setup.bash
-test -L src/CMakeLists.txt || catkin_init_workspace src --force
+if [ ! -L src/CMakeLists.txt ]; then
+  mv src/CMakeLists.txt src/CMakeLists.txt.flattened
+  catkin_init_workspace src
+fi
 rosdep update
 rosdep install --from-paths src --ignore-src -r -y
 catkin_make -DCMAKE_BUILD_TYPE=RelWithDebInfo
