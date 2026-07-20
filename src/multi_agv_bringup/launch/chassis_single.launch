@@ -2,6 +2,12 @@
   <arg name="robot_id"/>
   <arg name="config_file"/>
   <arg name="transport_type" default="serial"/>
+  <arg name="imu_x" default="0.0"/>
+  <arg name="imu_y" default="0.0"/>
+  <arg name="imu_z" default="0.0"/>
+  <arg name="support_x" default="0.07006"/>
+  <arg name="support_y" default="0.0"/>
+  <arg name="support_z" default="0.095695"/>
 
   <group ns="$(arg robot_id)">
     <node pkg="chassis_controller" type="chassis_controller"
@@ -13,9 +19,9 @@
 
     <node pkg="tf2_ros" type="static_transform_publisher"
           name="base_to_imu_tf"
-          args="0 0 0 0 0 0 $(arg robot_id)/base_link $(arg robot_id)/imu_link"/>
+          args="$(arg imu_x) $(arg imu_y) $(arg imu_z) 0 0 0 $(arg robot_id)/base_link $(arg robot_id)/imu_link"/>
     <node pkg="tf2_ros" type="static_transform_publisher"
           name="base_to_support_tf"
-          args="0.07006 0 0.095695 0 0 0 $(arg robot_id)/base_link $(arg robot_id)/support_link"/>
+          args="$(arg support_x) $(arg support_y) $(arg support_z) 0 0 0 $(arg robot_id)/base_link $(arg robot_id)/support_link"/>
   </group>
 </launch>

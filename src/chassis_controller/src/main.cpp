@@ -12,6 +12,7 @@
 #include <nav_msgs/Odometry.h>
 #include <ros/ros.h>
 #include <sensor_msgs/Imu.h>
+#include <std_srvs/Trigger.h>
 #include <tf/transform_broadcaster.h>
 #include <tf/transform_datatypes.h>
 
@@ -31,9 +32,16 @@ namespace {
 Eigen::Vector3f vectorParam(const ros::NodeHandle& nh, const std::string& name,
                             const Eigen::Vector3f& fallback) {
   std::vector<double> values;
-  if (!nh.getParam(name, values) || values.size() != 3) return fallback;
+  if (!nh.hasParam(name)) return fallback;
+  if (!nh.getParam(name, values) || values.size() != 3) {
+    throw std::runtime_error(name + " must contain exactly three numbers");
+  }
   return {static_cast<float>(values[0]), static_cast<float>(values[1]),
           static_cast<float>(values[2])};
+}
+
+bool finiteVector(const Eigen::Vector3f& value) {
+  return value.array().isFinite().all();
 }
 
 class ChassisControllerNode {
@@ -88,6 +96,9 @@ class ChassisControllerNode {
     if (robot_id_.empty() || robot_index < 1 || robot_index > 3) {
       throw std::runtime_error("robot_id and robot_index (1..3) are required");
     }
+    if (robot_id_ != "agv" + std::to_string(robot_index)) {
+      throw std::runtime_error("robot_id must match robot_index");
+    }
     config_.robot_index = static_cast<std::uint8_t>(robot_index);
     config_.wheel_separation = private_.param("wheel_separation", 0.114);
     config_.control_loop_overrun_seconds =
@@ -99,8 +110,21 @@ class ChassisControllerNode {
         private_.param("nominal/max_wheel_linear_acceleration_right", 1.0),
         private_.param("nominal/max_wheel_linear_deceleration_left", 2.0),
         private_.param("nominal/max_wheel_linear_deceleration_right", 2.0)};
+    const double serial_velocity_limit =
+        ChassisDevice::kMaxWheelLinearVelocityMetersPerSecond;
+    if (config_.nominal_limits.max_velocity_left > serial_velocity_limit ||
+        config_.nominal_limits.max_velocity_right > serial_velocity_limit) {
+      ROS_WARN("Configured wheel velocity exceeds the serial safety limit; "
+               "capability is clamped to %.3f m/s", serial_velocity_limit);
+      config_.nominal_limits.max_velocity_left =
+          std::min(config_.nominal_limits.max_velocity_left, serial_velocity_limit);
+      config_.nominal_limits.max_velocity_right =
+          std::min(config_.nominal_limits.max_velocity_right, serial_velocity_limit);
+    }
 
     serial_device_ = private_.param<std::string>("serial_device", "/dev/ttyACM0");
+    serial_startup_timeout_seconds_ =
+        private_.param("serial_startup_timeout_seconds", 10.0);
     transport_type_ = private_.param<std::string>("transport_type", "serial");
     odom_frame_ = private_.param<std::string>("odom_frame", robot_id_ + "/odom");
     base_frame_ = private_.param<std::string>("base_frame", robot_id_ + "/base_link");
@@ -108,15 +132,33 @@ class ChassisControllerNode {
     base_link_z_ = private_.param("base_link_z", 0.05969);
     enable_vofa_ = private_.param("enable_vofa", false);
 
+    if (odom_frame_ != robot_id_ + "/odom" ||
+        base_frame_ != robot_id_ + "/base_link" ||
+        imu_frame_ != robot_id_ + "/imu_link") {
+      throw std::runtime_error("odom/base/imu frames must use the frozen robot prefix");
+    }
+    if (!std::isfinite(base_link_z_) || base_link_z_ < 0.0 ||
+        !std::isfinite(serial_startup_timeout_seconds_) ||
+        serial_startup_timeout_seconds_ <= 0.0) {
+      throw std::runtime_error("base_link_z and serial startup timeout are invalid");
+    }
+
     acc_bias_ = vectorParam(private_, "imu/acc_bias", Eigen::Vector3f::Zero());
     acc_scale_ = vectorParam(private_, "imu/acc_scale", Eigen::Vector3f::Ones());
     gyro_bias_ = vectorParam(private_, "imu/gyro_bias", Eigen::Vector3f::Zero());
     gyro_lpf_tau_ = private_.param("imu/gyro_lpf_tau", 0.02);
+    if (!finiteVector(acc_bias_) || !finiteVector(acc_scale_) ||
+        !finiteVector(gyro_bias_) ||
+        (acc_scale_.array().abs() <= 1.0e-6F).any() ||
+        !std::isfinite(gyro_lpf_tau_) || gyro_lpf_tau_ <= 0.0) {
+      throw std::runtime_error("IMU calibration parameters are invalid");
+    }
   }
 
   void initialiseTransport() {
     if (transport_type_ == "serial") {
-      device_.reset(new ChassisDevice(serial_device_));
+      device_.reset(new ChassisDevice(serial_device_, 1000000,
+                                      serial_startup_timeout_seconds_));
     } else if (transport_type_ != "fake") {
       throw std::runtime_error("transport_type must be 'serial' or 'fake'");
     }
@@ -136,14 +178,16 @@ class ChassisControllerNode {
   void initialiseRos() {
     command_sub_ = node_.subscribe("chassis_command", 1,
         &ChassisControllerNode::commandCallback, this);
-    derating_sub_ = node_.subscribe("derating_command", 1,
+    derating_sub_ = node_.subscribe("derating_command", 5,
         &ChassisControllerNode::deratingCallback, this);
     feedback_pub_ = node_.advertise<agv_msgs::ChassisFeedback>(
-        "chassis_feedback", 1, false);
+        "chassis_feedback", 5, false);
     capability_pub_ = node_.advertise<agv_msgs::CapabilityReport>(
-        "capability_report", 1, false);
-    odom_pub_ = node_.advertise<nav_msgs::Odometry>("odom", 5, false);
-    imu_pub_ = node_.advertise<sensor_msgs::Imu>("imu", 5, false);
+        "capability_report", 5, false);
+    odom_pub_ = node_.advertise<nav_msgs::Odometry>("odom", 10, false);
+    imu_pub_ = node_.advertise<sensor_msgs::Imu>("imu", 10, false);
+    reset_odometry_service_ = node_.advertiseService(
+        "reset_odometry", &ChassisControllerNode::resetOdometry, this);
   }
 
   void initialiseImuFilters() {
@@ -182,6 +226,26 @@ class ChassisControllerNode {
     }
   }
 
+  bool resetOdometry(std_srvs::Trigger::Request&,
+                     std_srvs::Trigger::Response& response) {
+    const auto& state = core_->feedback();
+    constexpr double stationary_tolerance = 0.01;
+    const auto stopped = [stationary_tolerance](double value) {
+      return std::isfinite(value) && std::abs(value) <= stationary_tolerance;
+    };
+    if (!stopped(state.raw.left) || !stopped(state.raw.right) ||
+        !stopped(state.applied.left) || !stopped(state.applied.right) ||
+        !stopped(state.actual.left) || !stopped(state.actual.right)) {
+      response.success = false;
+      response.message = "odometry reset requires zero raw, applied and actual wheel speed";
+      return true;
+    }
+    core_->resetOdometry();
+    response.success = true;
+    response.message = "odometry reset";
+    return true;
+  }
+
   void updateSensorState() {
     chassis_controller::SensorInput input;
     if (device_) {
@@ -197,7 +261,7 @@ class ChassisControllerNode {
         qekf_.Reset(acc);
         qekf_initialised_ = true;
       }
-      qekf_.Step(acc, gyro, parameters_.estimator.EstimateBias);
+      qekf_.Step(acc, corrected_gyro_, parameters_.estimator.EstimateBias);
       qekf_.GetQuaternion(body_quaternion_);
       input.wheel_left_mm_per_second = sensor.wheelmotor_speed_[0];
       input.wheel_right_mm_per_second = sensor.wheelmotor_speed_[1];
@@ -221,9 +285,12 @@ class ChassisControllerNode {
   void sendAppliedCommand(const chassis_controller::WheelCommand& applied) {
     last_applied_ = applied;
     if (device_) {
-      device_->sendMotorSpeed({static_cast<float>(applied.left * 1000.0),
-                               static_cast<float>(applied.right * 1000.0), 0.0F},
-                              core_->feedback().packet_sequence);
+      if (!device_->sendMotorSpeed(
+              {static_cast<float>(applied.left * 1000.0),
+               static_cast<float>(applied.right * 1000.0), 0.0F},
+              core_->feedback().packet_sequence)) {
+        throw std::runtime_error("failed to send chassis serial command");
+      }
     }
   }
 
@@ -285,7 +352,7 @@ class ChassisControllerNode {
     feedback.header.stamp = stamp;
     feedback.header.frame_id = base_frame_;
     feedback.robot_id = config_.robot_index;
-    feedback.feedback_seq = state.sequence;
+    feedback.feedback_seq = ++feedback_publish_sequence_;
     feedback.command_seq_applied = state.command_seq_applied;
     feedback.packet_seq = state.packet_sequence;
     feedback.serial_receive_stamp = last_serial_receive_stamp_;
@@ -314,7 +381,7 @@ class ChassisControllerNode {
     report.header.stamp = stamp;
     report.header.frame_id = base_frame_;
     report.robot_id = config_.robot_index;
-    report.capability_seq = capability.sequence;
+    report.capability_seq = ++capability_publish_sequence_;
     report.max_wheel_linear_velocity_left = capability.limits.max_velocity_left;
     report.max_wheel_linear_velocity_right = capability.limits.max_velocity_right;
     report.max_wheel_linear_acceleration_left = capability.limits.max_acceleration_left;
@@ -374,6 +441,7 @@ class ChassisControllerNode {
   ros::Publisher capability_pub_;
   ros::Publisher odom_pub_;
   ros::Publisher imu_pub_;
+  ros::ServiceServer reset_odometry_service_;
   tf::TransformBroadcaster tf_broadcaster_;
 
   chassis_controller::ChassisConfig config_;
@@ -383,6 +451,8 @@ class ChassisControllerNode {
   chassis_controller::WheelCommand last_applied_{};
   std::uint32_t fake_packet_sequence_{0};
   std::uint32_t last_serial_packet_sequence_{0};
+  std::uint32_t feedback_publish_sequence_{0};
+  std::uint32_t capability_publish_sequence_{0};
   ros::Time last_serial_receive_stamp_{};
 
   Parameters parameters_;
@@ -404,6 +474,7 @@ class ChassisControllerNode {
   std::string imu_frame_;
   double base_link_z_{0.0};
   double gyro_lpf_tau_{0.02};
+  double serial_startup_timeout_seconds_{10.0};
   bool enable_vofa_{false};
   bool overrun_since_publish_{false};
   bool speed_limited_left_since_publish_{false};

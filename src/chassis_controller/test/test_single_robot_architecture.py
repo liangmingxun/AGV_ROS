@@ -20,6 +20,29 @@ class SingleRobotArchitectureTest(unittest.TestCase):
                          'transport_type_ != "fake"'):
             self.assertIn(required, source)
 
+    def test_frozen_queue_sizes_and_reset_service_are_present(self):
+        source = (ROOT / "src" / "main.cpp").read_text(encoding="utf-8")
+        for required in (
+                'subscribe("chassis_command", 1',
+                'subscribe("derating_command", 5',
+                '"chassis_feedback", 5, false',
+                '"capability_report", 5, false',
+                'advertise<nav_msgs::Odometry>("odom", 10, false)',
+                'advertise<sensor_msgs::Imu>("imu", 10, false)',
+                '"reset_odometry"'):
+            self.assertIn(required, source)
+
+    def test_identity_frames_and_calibration_are_fail_fast(self):
+        source = (ROOT / "src" / "main.cpp").read_text(encoding="utf-8")
+        for required in (
+                'robot_id_ != "agv" + std::to_string(robot_index)',
+                'odom_frame_ != robot_id_ + "/odom"',
+                'base_frame_ != robot_id_ + "/base_link"',
+                'imu_frame_ != robot_id_ + "/imu_link"',
+                'values.size() != 3',
+                'IMU calibration parameters are invalid'):
+            self.assertIn(required, source)
+
 
 if __name__ == "__main__":
     unittest.main()

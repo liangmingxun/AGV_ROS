@@ -16,7 +16,7 @@ motion. A checked item must include the command output, host name and tested Git
 - [x] Run `catkin_make -DCMAKE_BUILD_TYPE=RelWithDebInfo` with zero errors.
 - [x] Run `catkin_make run_tests_agv_msgs run_tests_chassis_controller
       run_tests_multi_agv_bringup`.
-- [x] Run `catkin_test_results --verbose` with zero failures: 42 tests passed.
+- [x] Run `catkin_test_results --verbose` with zero failures: 48 tests passed.
 
 ## Static launch and model gate
 
@@ -51,3 +51,10 @@ motion. A checked item must include the command output, host name and tested Git
       capability report against the configured ratios.
 - [ ] Save rosbag and terminal output. Do not proceed to loaded motion if any item
       above fails.
+
+## Scope boundary
+
+The platform foundation corresponds to implementation Tasks 0–7 only. See
+[`理论-软件-实物覆盖审计.md`](理论-软件-实物覆盖审计.md) for the exact theory,
+software and physical-test coverage. A passing foundation test suite permits the
+raised-wheel single-car gate; it does not approve loaded motion or formal experiments.

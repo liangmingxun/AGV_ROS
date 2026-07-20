@@ -23,7 +23,15 @@ class BringupStaticTest(unittest.TestCase):
                            "serial_device:", f"odom_frame: agv{index}/odom",
                            f"base_frame: agv{index}/base_link", "acc_bias:",
                            "gyro_bias:", "wheel_radius:", "wheel_separation:",
-                           "max_wheel_linear_velocity_left:", "transport_type:"):
+                           "max_wheel_linear_velocity_left:", "transport_type:",
+                           "serial_startup_timeout_seconds:"):
+                self.assertIn(marker, text)
+
+    def test_support_offsets_are_launch_calibration_arguments(self):
+        for launch_name in ("car1_master.launch", "car2_client.launch",
+                            "car3_client.launch", "chassis_single.launch"):
+            text = (PACKAGE / "launch" / launch_name).read_text(encoding="utf-8")
+            for marker in ("support_x", "support_y", "support_z"):
                 self.assertIn(marker, text)
 
     def test_urdf_uses_prefix_for_links_and_joints(self):

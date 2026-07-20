@@ -77,6 +77,7 @@ class ChassisCore {
   bool acceptDerating(const DeratingInput& command);
   WheelCommand step(double dt_seconds);
   void updateSensors(const SensorInput& sensor);
+  void resetOdometry(const Pose2DState& pose = {});
   const FeedbackState& feedback() const noexcept { return feedback_; }
   const CapabilityState& capability() const noexcept { return capability_; }
 
@@ -91,6 +92,8 @@ class ChassisCore {
   CapabilityState capability_{};
   std::uint8_t derating_mode_{0};
   bool has_command_{false};
+  DeratingInput last_derating_command_{};
+  bool has_derating_command_{false};
 };
 
 }  // namespace chassis_controller

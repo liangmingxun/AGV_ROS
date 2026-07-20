@@ -25,6 +25,14 @@ TEST(WheelCommandLimiter, ReversalDeceleratesToZeroFirst) {
   EXPECT_TRUE(out.decel_limited_left);
 }
 
+TEST(WheelCommandLimiter, ReversalThatReachesZeroStillReportsDecelLimit) {
+  WheelCommandLimiter limiter({0.1, 0.1});
+  WheelLimits limits{0.9, 0.9, 1.0, 1.0, 2.0, 2.0};
+  const auto out = limiter.update({-0.4, -0.4}, limits, 0.1);
+  EXPECT_DOUBLE_EQ(out.applied.left, 0.0);
+  EXPECT_TRUE(out.decel_limited_left);
+}
+
 TEST(WheelCommandLimiter, UsesAccelerationAndDecelerationIndependently) {
   WheelCommandLimiter limiter({0.1, 0.5});
   WheelLimits limits{1.0, 1.0, 1.0, 4.0, 2.0, 1.0};

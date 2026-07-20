@@ -1,4 +1,5 @@
 #include <cmath>
+#include <stdexcept>
 #include <gtest/gtest.h>
 
 #include "chassis_controller/chassis_core.hpp"
@@ -48,6 +49,11 @@ TEST(ChassisCore, DeratingChangesReportedAndExecutedCapability) {
   EXPECT_DOUBLE_EQ(core.capability().limits.max_acceleration_right, 0.8);
   EXPECT_TRUE(core.capability().derating_active);
   EXPECT_EQ(core.capability().derating_mode, 3);
+
+  EXPECT_TRUE(core.acceptDerating(input));
+  EXPECT_EQ(core.capability().local_revision, 1u);
+  input.ratios.speed_left = 0.4;
+  EXPECT_FALSE(core.acceptDerating(input));
 }
 
 TEST(ChassisCore, ConvertsMillimetresPerSecondAndReportsOverrun) {
@@ -60,4 +66,28 @@ TEST(ChassisCore, ConvertsMillimetresPerSecondAndReportsOverrun) {
   EXPECT_NEAR(core.feedback().actual.left, 0.2, 1e-12);
   EXPECT_NEAR(core.feedback().actual.right, 0.4, 1e-12);
   EXPECT_TRUE(core.feedback().control_loop_overrun);
+}
+
+TEST(ChassisCore, ResetOdometryClearsPoseAndVelocity) {
+  ChassisCore core(testConfig());
+  SensorInput sensor;
+  sensor.wheel_left_mm_per_second = 200.0;
+  sensor.wheel_right_mm_per_second = 200.0;
+  core.updateSensors(sensor);
+  core.step(1.0);
+  ASSERT_GT(core.feedback().odometry.x, 0.1);
+  core.resetOdometry();
+  EXPECT_DOUBLE_EQ(core.feedback().odometry.x, 0.0);
+  EXPECT_DOUBLE_EQ(core.feedback().odometry.y, 0.0);
+  EXPECT_DOUBLE_EQ(core.feedback().odometry.yaw, 0.0);
+  EXPECT_DOUBLE_EQ(core.feedback().linear_velocity, 0.0);
+}
+
+TEST(ChassisCore, RejectsUnsafeConfiguration) {
+  auto config = testConfig();
+  config.nominal_limits.max_velocity_left = 0.0;
+  EXPECT_THROW(ChassisCore core(config), std::invalid_argument);
+  config = testConfig();
+  config.robot_index = 0;
+  EXPECT_THROW(ChassisCore core(config), std::invalid_argument);
 }

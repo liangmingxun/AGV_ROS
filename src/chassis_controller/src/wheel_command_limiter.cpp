@@ -35,7 +35,7 @@ SingleWheelResult limitWheel(double raw, double previous, double max_velocity,
     const double change = max_deceleration * dt;
     result.applied = std::copysign(std::max(0.0, std::abs(previous) - change),
                                    previous);
-    result.decel_limited = change < std::abs(previous);
+    result.decel_limited = result.applied != result.target;
   } else {
     const double delta = result.target - previous;
     const bool increasing_magnitude = std::abs(result.target) > std::abs(previous);

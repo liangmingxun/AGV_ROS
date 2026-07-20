@@ -4,6 +4,8 @@
 #include <array>
 #include <atomic>
 #include <cstring>
+#include <cmath>
+#include <stdexcept>
 #include <thread>
 #include <deque>
 #include <boost/asio.hpp>
@@ -22,8 +24,14 @@
 
 class ChassisDevice {
 public:
-    ChassisDevice(const std::string& port, int baud_rate = 1000000)
+    static constexpr double kMaxWheelLinearVelocityMetersPerSecond = 0.9;
+
+    ChassisDevice(const std::string& port, int baud_rate = 1000000,
+                  double startup_timeout_seconds = 10.0)
         : io(), serial(io, port), running(true) {
+        if (!std::isfinite(startup_timeout_seconds) || startup_timeout_seconds <= 0.0) {
+            throw std::invalid_argument("startup_timeout_seconds must be positive");
+        }
         serial.set_option(boost::asio::serial_port_base::baud_rate(baud_rate));
         int fd = serial.native_handle();
         struct termios tio;
@@ -34,18 +42,29 @@ public:
         tcsetattr(fd, TCSANOW, &tio);
         read_thread = std::thread(&ChassisDevice::readLoop, this);
         
-        std::string uid = "";
-        while (running) {
+        const auto startup_deadline = std::chrono::steady_clock::now() +
+            std::chrono::duration<double>(startup_timeout_seconds);
+        while (running && ros::ok()) {
             bool connected = false;
             sensor_data_.multiaction_with_unique_lock([&connected](ChassisDeviceSensorData& data) {
                 connected = !data.empty_;
-            ROS_WARN("USB Disconnected");
             });
             if (connected) {
                 ROS_INFO("USB Connected");
                 break;
             }
+            ROS_WARN_THROTTLE(1.0, "Waiting for chassis feedback on %s", port.c_str());
+            if (std::chrono::steady_clock::now() >= startup_deadline) {
+                running = false;
+                if (read_thread.joinable()) read_thread.join();
+                throw std::runtime_error("timed out waiting for chassis feedback on " + port);
+            }
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        }
+        if (!ros::ok()) {
+            running = false;
+            if (read_thread.joinable()) read_thread.join();
+            throw std::runtime_error("ROS shutdown while waiting for chassis feedback");
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(1000));
     }
@@ -64,10 +83,11 @@ public:
         return uid;
     }
 
-    void sendMotorSpeed(const std::vector<float>& speeds, uint32_t seq = 0) {
+    bool sendMotorSpeed(const std::vector<float>& speeds, uint32_t seq = 0) {
         if (speeds.size() != 3) {
-            printf("Invalid currents size: %lu", speeds.size());
-            return;
+            ROS_ERROR("Motor speed frame requires exactly three values, got %lu",
+                      speeds.size());
+            return false;
         }
 
         std::vector<uint8_t> frame;
@@ -100,13 +120,15 @@ public:
         try {
             std::size_t bytes_written = boost::asio::write(serial, boost::asio::buffer(frame));
             if (bytes_written != frame.size()) {
-                std::cerr << "[WARN] Partial write: expected " << frame.size()
-                        << ", got " << bytes_written << " bytes\n";
+                ROS_ERROR("Partial serial write: expected %lu, wrote %lu bytes",
+                          frame.size(), bytes_written);
+                return false;
             }
         } catch (const boost::system::system_error& e) {
-            std::cerr << "[ERROR] Serial write failed: " << e.what() << "\n";
-            exit(0);
+            ROS_ERROR("Serial write failed: %s", e.what());
+            return false;
         }
+        return true;
     }
 
     void getSensorData(ChassisDeviceSensorData& data) {
@@ -129,7 +151,8 @@ private:
     std::mutex write_mutex;
     std::deque<uint8_t> buffer;
 
-    const float MAX_SPEED = 900.0f;    //最大轮速0.9m/s
+    const float MAX_SPEED = static_cast<float>(
+        1000.0 * kMaxWheelLinearVelocityMetersPerSecond);
 
     const std::vector<uint8_t> frame_start_ = {'#', '$', '#'};
     const std::vector<uint8_t> frame_end_ = {'!', '@', '!'};
@@ -223,8 +246,11 @@ private:
             return val;
         };
 
-        auto readInt32 = [&](size_t& i) -> int32_t {
-            int32_t val = (data[i] << 24) | (data[i + 1] << 16) | (data[i + 2] << 8) | data[i + 3];
+        auto readInt32 = [&](size_t& i) -> uint32_t {
+            const uint32_t val = (static_cast<uint32_t>(data[i]) << 24) |
+                                 (static_cast<uint32_t>(data[i + 1]) << 16) |
+                                 (static_cast<uint32_t>(data[i + 2]) << 8) |
+                                 static_cast<uint32_t>(data[i + 3]);
             i += 4;
             return val;
         };

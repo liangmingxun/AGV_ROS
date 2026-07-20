@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <stdexcept>
 
 namespace chassis_controller {
 namespace {
@@ -22,10 +23,47 @@ double minimumRatio(const DeratingRatios& ratios) {
                std::min(ratios.deceleration_left, ratios.deceleration_right)));
 }
 
+bool validPositive(double value) {
+  return std::isfinite(value) && value > 0.0;
+}
+
+bool validConfig(const ChassisConfig& config) {
+  const auto& limits = config.nominal_limits;
+  return config.robot_index >= 1 && config.robot_index <= 3 &&
+         validPositive(config.wheel_separation) &&
+         validPositive(config.control_loop_overrun_seconds) &&
+         validPositive(limits.max_velocity_left) &&
+         validPositive(limits.max_velocity_right) &&
+         validPositive(limits.max_acceleration_left) &&
+         validPositive(limits.max_acceleration_right) &&
+         validPositive(limits.max_deceleration_left) &&
+         validPositive(limits.max_deceleration_right);
+}
+
+bool sameRatios(const DeratingRatios& a, const DeratingRatios& b) {
+  return a.speed_left == b.speed_left && a.speed_right == b.speed_right &&
+         a.acceleration_left == b.acceleration_left &&
+         a.acceleration_right == b.acceleration_right &&
+         a.deceleration_left == b.deceleration_left &&
+         a.deceleration_right == b.deceleration_right;
+}
+
+bool sameDeratingCommand(const DeratingInput& a, const DeratingInput& b) {
+  return a.robot_id == b.robot_id && a.sequence == b.sequence &&
+         a.active == b.active && a.mode == b.mode &&
+         sameRatios(a.ratios, b.ratios) &&
+         a.ramp_down_seconds == b.ramp_down_seconds &&
+         a.ramp_up_seconds == b.ramp_up_seconds;
+}
+
 }  // namespace
 
 ChassisCore::ChassisCore(const ChassisConfig& config)
-    : config_(config), capability_{0, config.nominal_limits} {}
+    : config_(config), capability_{0, config.nominal_limits} {
+  if (!validConfig(config_)) {
+    throw std::invalid_argument("invalid chassis configuration");
+  }
+}
 
 bool ChassisCore::acceptCommand(const CommandInput& command) {
   if (command.robot_id != config_.robot_index ||
@@ -40,11 +78,19 @@ bool ChassisCore::acceptCommand(const CommandInput& command) {
 
 bool ChassisCore::acceptDerating(const DeratingInput& command) {
   if (command.robot_id != config_.robot_index) return false;
+  if (has_derating_command_) {
+    if (command.sequence < last_derating_command_.sequence) return false;
+    if (command.sequence == last_derating_command_.sequence) {
+      return sameDeratingCommand(command, last_derating_command_);
+    }
+  }
   const auto ratios = command.active ? command.ratios : DeratingRatios::nominal();
   const double ramp = command.active ? command.ramp_down_seconds
                                      : command.ramp_up_seconds;
   if (!derating_.accept(command.sequence, ratios, ramp)) return false;
   derating_mode_ = command.mode;
+  last_derating_command_ = command;
+  has_derating_command_ = true;
   return true;
 }
 
@@ -90,6 +136,13 @@ void ChassisCore::updateSensors(const SensorInput& sensor) {
   feedback_.actual.right = sensor.wheel_right_mm_per_second / 1000.0;
   feedback_.battery_voltage = sensor.battery_voltage;
   feedback_.packet_sequence = sensor.packet_sequence;
+}
+
+void ChassisCore::resetOdometry(const Pose2DState& pose) {
+  odometry_.reset(pose);
+  feedback_.odometry = odometry_.state();
+  feedback_.linear_velocity = 0.0;
+  feedback_.angular_velocity = 0.0;
 }
 
 }  // namespace chassis_controller
