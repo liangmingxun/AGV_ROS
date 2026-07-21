@@ -13,7 +13,8 @@ from agv_msgs.msg import ChassisCommand
 
 MAX_TEST_SPEED_MPS = 0.05
 MAX_TEST_DURATION_SECONDS = 5.0
-SUBSCRIBER_WAIT_SECONDS = 3.0
+SUBSCRIBER_WAIT_SECONDS = 5.0
+SUBSCRIBER_SETTLE_SECONDS = 0.5
 STOP_REPEAT_COUNT = 3
 STOP_REPEAT_INTERVAL_SECONDS = 0.05
 
@@ -27,6 +28,15 @@ def parse_args():
     parser.add_argument("--duration", type=float, required=True, help="seconds")
     parser.add_argument("--command-seq", type=int, default=1000)
     parser.add_argument("--experiment-id", default="single_car_floor_gate")
+    parser.add_argument(
+        "--required-command-subscribers",
+        type=int,
+        default=1,
+        help=(
+            "number of chassis-command subscribers required before motion; "
+            "use 2 when the chassis controller and rosbag must both be connected"
+        ),
+    )
     parser.add_argument(
         "--confirm-wheels-on-floor",
         action="store_true",
@@ -48,6 +58,8 @@ def parse_args():
         )
     if not 1 <= args.command_seq <= 0xFFFFFFFB:
         parser.error("command sequence must leave room for three stop commands")
+    if not 1 <= args.required_command_subscribers <= 8:
+        parser.error("required command subscribers must be between 1 and 8")
     return args
 
 
@@ -96,13 +108,42 @@ def main():
         signal.signal(signal_number, request_stop)
 
     wait_deadline = time.monotonic() + SUBSCRIBER_WAIT_SECONDS
-    while publisher.get_num_connections() == 0 and time.monotonic() < wait_deadline:
+    while (
+        publisher.get_num_connections() < args.required_command_subscribers
+        and time.monotonic() < wait_deadline
+    ):
         if stop_requested:
             return 130
         time.sleep(0.05)
-    if publisher.get_num_connections() == 0:
-        rospy.logerr("No chassis controller subscriber on %s; motion not sent", topic)
+    connected_subscribers = publisher.get_num_connections()
+    if connected_subscribers < args.required_command_subscribers:
+        rospy.logerr(
+            "Only %d/%d required subscriber(s) connected on %s; motion not sent",
+            connected_subscribers,
+            args.required_command_subscribers,
+            topic,
+        )
         return 2
+
+    rospy.loginfo(
+        "%d required subscriber(s) connected on %s; settling for %.1f seconds",
+        connected_subscribers,
+        topic,
+        SUBSCRIBER_SETTLE_SECONDS,
+    )
+    settle_deadline = time.monotonic() + SUBSCRIBER_SETTLE_SECONDS
+    while time.monotonic() < settle_deadline:
+        if stop_requested:
+            return 130
+        connected_subscribers = publisher.get_num_connections()
+        if connected_subscribers < args.required_command_subscribers:
+            rospy.logerr(
+                "Subscriber count dropped to %d/%d during settling; motion not sent",
+                connected_subscribers,
+                args.required_command_subscribers,
+            )
+            return 2
+        time.sleep(0.05)
 
     motion_started = False
     try:

@@ -705,10 +705,13 @@ rosrun multi_agv_bringup run_timed_straight_test.py \
   --speed 0.03 \
   --duration 2.0 \
   --command-seq 1000 \
+  --required-command-subscribers 2 \
   --confirm-wheels-on-floor
 ```
 
-该工具限制轮速绝对值不超过 `0.05 m/s`、运动时间不超过5秒，正常到时或收到 `Ctrl+C`/`SIGTERM`/终端挂断时会用连续递增序号发送3条零速度命令。它不能在进程被 `SIGKILL`、ROS Master不可达或下位机通信中断时保证停车，因此不替代底层通信看门狗、人工急停和断电措施。
+该工具限制轮速绝对值不超过 `0.05 m/s`、运动时间不超过5秒，正常到时或收到 `Ctrl+C`/`SIGTERM`/终端挂断时会用连续递增序号发送3条零速度命令。录包测试使用 `--required-command-subscribers 2`：只有底盘控制器和rosbag都连接到命令话题，并稳定0.5秒后才发送运动命令。该参数不能代替录包终端的正常 `Ctrl+C` 和 `indexed: True` 检查。
+
+它不能在进程被 `SIGKILL`、ROS Master不可达或下位机通信中断时保证停车，因此不替代底层通信看门狗、人工急停和断电措施。
 
 出现以下任一情况，停止测试并切断动力：
 
