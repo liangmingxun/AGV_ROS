@@ -7,7 +7,6 @@
 #include <cmath>
 #include <stdexcept>
 #include <thread>
-#include <deque>
 #include <boost/asio.hpp>
 #include <mutex>
 #include <numeric>
@@ -17,6 +16,7 @@
 #include <unistd.h>
 #include <ros/ros.h>
 #include "chassis_driver/config.h"
+#include "chassis_driver/fixed_frame_parser.hpp"
 #include "shared_data_manager.hpp"
 #include "rotation_math.hpp"
 
@@ -149,7 +149,7 @@ private:
     std::thread read_thread;
     std::atomic<bool> running;
     std::mutex write_mutex;
-    std::deque<uint8_t> buffer;
+    chassis_driver::FixedFrameParser frame_parser_;
 
     const float MAX_SPEED = static_cast<float>(
         1000.0 * kMaxWheelLinearVelocityMetersPerSecond);
@@ -178,7 +178,10 @@ private:
                 boost::system::error_code ec;
                 size_t n = serial.read_some(boost::asio::buffer(buf), ec);
                 if (!ec) {
-                    buffer.insert(buffer.end(), buf.begin(), buf.begin() + n);
+                    frame_parser_.append(buf.data(), n);
+                } else {
+                    ROS_ERROR_THROTTLE(1.0, "Chassis serial read failed: %s",
+                                       ec.message().c_str());
                 }
             } else if (ret == 0) {
                 // timeout，继续 loop
@@ -187,30 +190,19 @@ private:
             }
             
 
-            // for (auto ch : buffer) {
-            //     printf("%02X ", ch);
-            // }
-
-            // 检查是否为完整帧 #$# ... #$#
-            while (buffer.size() >= 4) {
-                auto start = std::search(buffer.begin(), buffer.end(), frame_start_.begin(), frame_start_.end());
-                if (start == buffer.end()) {
-                    buffer.clear();
-                    break;
+            std::vector<uint8_t> payload;
+            bool resynchronised = false;
+            while (frame_parser_.popPayload(payload, &resynchronised)) {
+                if (resynchronised) {
+                    ROS_WARN_THROTTLE(1.0,
+                        "Discarded malformed chassis serial bytes while resynchronising");
                 }
-
-                auto end = std::search(start + 3, buffer.end(), frame_end_.begin(), frame_end_.end());
-                if (end == buffer.end()) break;
-
-                size_t dataStart = std::distance(buffer.begin(), start) + 3;
-                size_t dataEnd = std::distance(buffer.begin(), end);
-
-                if (dataEnd > dataStart) {
-                    std::vector<uint8_t> payload(buffer.begin() + dataStart, buffer.begin() + dataEnd);
-                    parseFrame(payload);
-                }
-
-                buffer.erase(buffer.begin(), end + 3);
+                parseFrame(payload);
+                resynchronised = false;
+            }
+            if (resynchronised) {
+                ROS_WARN_THROTTLE(1.0,
+                    "Discarded malformed chassis serial bytes while resynchronising");
             }
         }
     }

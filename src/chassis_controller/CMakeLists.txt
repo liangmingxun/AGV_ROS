@@ -127,11 +127,14 @@ if(CATKIN_ENABLE_TESTING)
         test/test_odometry_integrator.cpp)
     catkin_add_gtest(test_chassis_core
         test/test_chassis_core.cpp)
+    catkin_add_gtest(test_fixed_frame_parser
+        test/test_fixed_frame_parser.cpp)
     foreach(test_target
             test_wheel_command_limiter
             test_derating_profile
             test_odometry_integrator
-            test_chassis_core)
+            test_chassis_core
+            test_fixed_frame_parser)
         if(TARGET ${test_target})
             target_link_libraries(${test_target}
                 chassis_controller_core

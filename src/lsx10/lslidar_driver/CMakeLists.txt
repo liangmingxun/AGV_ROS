@@ -4,8 +4,6 @@ project(lslidar_driver)
 add_compile_options(-std=c++14)
 set( CMAKE_CXX_STANDARD 14)
 
-set(libpcap_LIBRARIES -lpcap)
-
 find_package(catkin REQUIRED COMPONENTS
   roscpp
   rospy
@@ -18,6 +16,11 @@ find_package(catkin REQUIRED COMPONENTS
 )
 
 find_package(Boost REQUIRED)
+find_path(PCAP_INCLUDE_DIR pcap.h)
+find_library(PCAP_LIBRARY pcap)
+if(NOT PCAP_INCLUDE_DIR OR NOT PCAP_LIBRARY)
+  message(FATAL_ERROR "libpcap development files are required")
+endif()
 
 catkin_package(
   INCLUDE_DIRS include
@@ -27,12 +30,13 @@ catkin_package(
     pcl_ros pcl_conversions
     lslidar_msgs
   DEPENDS
-    boost
+    Boost
 )
 
 include_directories(
   include
-  ${Boost_INCLUDE_DIR}
+  ${Boost_INCLUDE_DIRS}
+  ${PCAP_INCLUDE_DIR}
   ${catkin_INCLUDE_DIRS}
 )
 
@@ -56,7 +60,7 @@ add_library(lslidar_driver
 
 target_link_libraries(lslidar_input
   ${catkin_LIBRARIES}
-  ${libpcap_LIBRARIES}
+  ${PCAP_LIBRARY}
 )
 
 target_link_libraries(lslidar_serial
@@ -103,4 +107,3 @@ install(TARGETS lslidar_input lslidar_driver_node lslidar_serial
 install(DIRECTORY launch
         DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
 )
-

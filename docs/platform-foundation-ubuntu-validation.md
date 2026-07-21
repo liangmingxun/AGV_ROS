@@ -16,7 +16,7 @@ motion. A checked item must include the command output, host name and tested Git
 - [x] Run `catkin_make -DCMAKE_BUILD_TYPE=RelWithDebInfo` with zero errors.
 - [x] Run `catkin_make run_tests_agv_msgs run_tests_chassis_controller
       run_tests_multi_agv_bringup`.
-- [x] Run `catkin_test_results --verbose` with zero failures: 48 tests passed.
+- [x] Run `catkin_test_results --verbose` with zero failures: 56 tests passed.
 
 ## Static launch and model gate
 
