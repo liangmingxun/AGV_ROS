@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import math
 import signal
 import sys
 import time
@@ -12,7 +13,9 @@ from agv_msgs.msg import ChassisCommand
 
 
 MAX_TEST_SPEED_MPS = 0.05
-MAX_TEST_DURATION_SECONDS = 5.0
+MAX_STANDARD_TEST_DURATION_SECONDS = 5.0
+MAX_EXTENDED_TEST_DURATION_SECONDS = 20.0
+EXTENDED_TEST_SPEED_MPS = 0.05
 SUBSCRIBER_WAIT_SECONDS = 5.0
 SUBSCRIBER_SETTLE_SECONDS = 0.5
 STOP_REPEAT_COUNT = 3
@@ -42,6 +45,14 @@ def parse_args():
         action="store_true",
         help="required acknowledgement that the floor test area is secured",
     )
+    parser.add_argument(
+        "--confirm-extended-floor-test",
+        action="store_true",
+        help=(
+            "required for a test longer than 5 seconds; extended tests are "
+            "limited to exactly 0.05 m/s and at most 20 seconds"
+        ),
+    )
     args = parser.parse_args(rospy.myargv(argv=sys.argv)[1:])
 
     if not args.confirm_wheels_on_floor:
@@ -51,15 +62,29 @@ def parse_args():
             "absolute speed must be greater than 0 and at most "
             f"{MAX_TEST_SPEED_MPS:.2f} m/s"
         )
-    if not 0.0 < args.duration <= MAX_TEST_DURATION_SECONDS:
+    if not 0.0 < args.duration <= MAX_EXTENDED_TEST_DURATION_SECONDS:
         parser.error(
             "duration must be greater than 0 and at most "
-            f"{MAX_TEST_DURATION_SECONDS:.1f} seconds"
+            f"{MAX_EXTENDED_TEST_DURATION_SECONDS:.1f} seconds"
         )
     if not 1 <= args.command_seq <= 0xFFFFFFFB:
         parser.error("command sequence must leave room for three stop commands")
     if not 1 <= args.required_command_subscribers <= 8:
         parser.error("required command subscribers must be between 1 and 8")
+    if args.duration > MAX_STANDARD_TEST_DURATION_SECONDS:
+        if not args.confirm_extended_floor_test:
+            parser.error(
+                "--confirm-extended-floor-test is required when duration "
+                f"exceeds {MAX_STANDARD_TEST_DURATION_SECONDS:.1f} seconds"
+            )
+        if not math.isclose(
+            abs(args.speed), EXTENDED_TEST_SPEED_MPS, rel_tol=0.0, abs_tol=1e-9
+        ):
+            parser.error("extended tests require an absolute speed of 0.05 m/s")
+        if args.required_command_subscribers < 2:
+            parser.error(
+                "extended tests require --required-command-subscribers 2 or more"
+            )
     return args
 
 
@@ -147,8 +172,13 @@ def main():
 
     motion_started = False
     try:
+        test_kind = (
+            "extended" if args.duration > MAX_STANDARD_TEST_DURATION_SECONDS
+            else "standard"
+        )
         rospy.logwarn(
-            "Starting bounded floor test: robot=%d speed=%+.3f m/s duration=%.2f s",
+            "Starting bounded %s floor test: robot=%d speed=%+.3f m/s duration=%.2f s",
+            test_kind,
             args.robot_id,
             args.speed,
             args.duration,

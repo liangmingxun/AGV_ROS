@@ -711,6 +711,21 @@ rosrun multi_agv_bringup run_timed_straight_test.py \
 
 该工具限制轮速绝对值不超过 `0.05 m/s`、运动时间不超过5秒，正常到时或收到 `Ctrl+C`/`SIGTERM`/终端挂断时会用连续递增序号发送3条零速度命令。录包测试使用 `--required-command-subscribers 2`：只有底盘控制器和rosbag都连接到命令话题，并稳定0.5秒后才发送运动命令。该参数不能代替录包终端的正常 `Ctrl+C` 和 `indexed: True` 检查。
 
+连续1米直线预检可启用扩展模式；该模式仅允许绝对速度 `0.05 m/s`、最长20秒，并强制要求至少两个命令订阅者：
+
+```bash
+rosrun multi_agv_bringup run_timed_straight_test.py \
+  --robot-id 2 \
+  --speed 0.05 \
+  --duration 20.0 \
+  --command-seq 1000 \
+  --required-command-subscribers 2 \
+  --confirm-wheels-on-floor \
+  --confirm-extended-floor-test
+```
+
+扩展模式只用于隔离区内、全程人工监护的单车低速直线预检，不用于无人值守或正式协同实验。
+
 它不能在进程被 `SIGKILL`、ROS Master不可达或下位机通信中断时保证停车，因此不替代底层通信看门狗、人工急停和断电措施。
 
 出现以下任一情况，停止测试并切断动力：
