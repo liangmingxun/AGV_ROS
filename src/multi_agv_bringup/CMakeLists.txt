@@ -11,7 +11,9 @@ catkin_install_python(PROGRAMS
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
-install(PROGRAMS scripts/setup_ros_network.sh
+install(PROGRAMS
+        scripts/setup_local_ros.sh
+        scripts/setup_ros_network.sh
         DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
 install(DIRECTORY config launch
         DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION})

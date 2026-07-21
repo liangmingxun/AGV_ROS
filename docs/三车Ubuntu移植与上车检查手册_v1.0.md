@@ -309,6 +309,23 @@ imu:
 
 每个新终端都需要设置ROS环境。脚本必须用 `source`，不能直接执行。
 
+### 6.0 单机本地测试
+
+在一台车载电脑上本地启动ROS Master和该车节点时，每个新终端只需执行：
+
+```bash
+source /home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/scripts/setup_local_ros.sh
+```
+
+该脚本会自动完成：
+
+- 定位并切换到当前工作区；
+- 加载 `/opt/ros/noetic/setup.bash` 和工作区 `devel/setup.bash`；
+- 清除 `ROS_IP`；
+- 设置本机 `ROS_MASTER_URI` 和 `ROS_HOSTNAME` 为 `127.0.0.1`。
+
+`source` 不能省略：直接执行子进程无法修改当前终端的环境变量。该配置只用于单机本地测试，不用于三车联网实验。
+
 ### 6.1 car1
 
 ```bash
