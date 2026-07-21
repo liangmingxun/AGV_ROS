@@ -697,6 +697,19 @@ rostopic info /agv3/chassis_command
 
 ## 13. 首次落地测试前的停止条件
 
+首次单车落地直线测试使用定时停车工具，禁止用单条非零速度 `rostopic pub`长时保持运动：
+
+```bash
+rosrun multi_agv_bringup run_timed_straight_test.py \
+  --robot-id 2 \
+  --speed 0.03 \
+  --duration 2.0 \
+  --command-seq 1000 \
+  --confirm-wheels-on-floor
+```
+
+该工具限制轮速绝对值不超过 `0.05 m/s`、运动时间不超过5秒，正常到时或收到 `Ctrl+C`/`SIGTERM`/终端挂断时会用连续递增序号发送3条零速度命令。它不能在进程被 `SIGKILL`、ROS Master不可达或下位机通信中断时保证停车，因此不替代底层通信看门狗、人工急停和断电措施。
+
 出现以下任一情况，停止测试并切断动力：
 
 - 车辆ID、命名空间或TF前缀不匹配；
