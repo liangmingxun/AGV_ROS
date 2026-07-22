@@ -1,0 +1,26 @@
+# Task 8 software-validation fixture. q_tangent/q_normal are expressed in the
+# load path Frenet frame [tangent, left-normal], in metres. They are deliberately
+# marked as provisional and must be replaced by measured tray support offsets.
+support_geometry:
+  schema_version: 1
+  coordinate_convention: load_path_frenet_tangent_left_normal
+  configuration_status: provisional_fixture_not_physical_measurement
+  hardware_execution_authorized: false
+
+  minimum_nondegeneracy: 0.20
+  minimum_speed_scale: 0.20
+  validation_samples: 10001
+
+  supports:
+    - robot_id: agv1
+      robot_index: 1
+      q_tangent: 0.18
+      q_normal: 0.12
+    - robot_id: agv2
+      robot_index: 2
+      q_tangent: -0.18
+      q_normal: 0.12
+    - robot_id: agv3
+      robot_index: 3
+      q_tangent: 0.0
+      q_normal: -0.16

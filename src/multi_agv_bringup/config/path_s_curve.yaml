@@ -1,0 +1,13 @@
+# Task 8 software-validation fixture. These dimensions are not a measured or
+# approved Robot1 floor-test path. Task 11 must refuse hardware execution until
+# this flag is set true after the laboratory path has been measured and frozen.
+path_s_curve:
+  schema_version: 1
+  model: sine_single_period
+  configuration_status: software_validation_only
+  hardware_execution_authorized: false
+
+  # Raw curve: x=xi, y=A*sin(2*pi*xi/L_xi), all distances in metres.
+  amplitude: 0.12
+  longitudinal_length: 2.0
+  lookup_samples: 20001
