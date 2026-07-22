@@ -107,7 +107,7 @@ The complete fake odometry pretest can be launched explicitly with:
 
 ```bash
 roslaunch multi_agv_bringup odom_pretest.launch \
-  transport_type:=fake enable_commands:=true enable_derating:=true
+  enable_commands:=true enable_derating:=true
 ```
 
 Both command and derating publication default to disabled. Non-fake derating

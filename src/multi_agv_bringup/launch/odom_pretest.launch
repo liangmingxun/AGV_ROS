@@ -1,41 +1,28 @@
 <launch>
-  <arg name="transport_type" default="fake"/>
+  <!-- Software-only local three-chassis launcher. Physical distributed runs
+       must use central_odom_pretest.launch on Robot1 and one car launch per PC. -->
   <arg name="enable_commands" default="false"/>
   <arg name="enable_derating" default="false"/>
 
   <include file="$(find multi_agv_bringup)/launch/chassis_single.launch">
     <arg name="robot_id" value="agv1"/>
     <arg name="config_file" value="$(find multi_agv_bringup)/config/agv1_chassis.yaml"/>
-    <arg name="transport_type" value="$(arg transport_type)"/>
+    <arg name="transport_type" value="fake"/>
   </include>
   <include file="$(find multi_agv_bringup)/launch/chassis_single.launch">
     <arg name="robot_id" value="agv2"/>
     <arg name="config_file" value="$(find multi_agv_bringup)/config/agv2_chassis.yaml"/>
-    <arg name="transport_type" value="$(arg transport_type)"/>
+    <arg name="transport_type" value="fake"/>
   </include>
   <include file="$(find multi_agv_bringup)/launch/chassis_single.launch">
     <arg name="robot_id" value="agv3"/>
     <arg name="config_file" value="$(find multi_agv_bringup)/config/agv3_chassis.yaml"/>
-    <arg name="transport_type" value="$(arg transport_type)"/>
+    <arg name="transport_type" value="fake"/>
   </include>
 
-  <include file="$(find multi_agv_bringup)/launch/odom_state_estimator.launch"/>
-
-  <node pkg="multi_agv_control" type="multi_agv_controller_node"
-        name="multi_agv_controller" output="screen" required="true">
-    <rosparam command="load" file="$(find multi_agv_bringup)/config/path_s_curve.yaml"/>
-    <rosparam command="load" file="$(find multi_agv_bringup)/config/support_geometry.yaml"/>
-    <rosparam command="load" file="$(find multi_agv_bringup)/config/pretest_constant_reference.yaml"/>
-    <param name="platform_transport_type" value="$(arg transport_type)"/>
-    <param name="command_publication_authorized" value="$(arg enable_commands)"/>
-  </node>
-
-  <group if="$(arg enable_derating)">
-    <node pkg="multi_agv_control" type="experiment_supervisor_node"
-          name="experiment_supervisor" output="screen" required="true">
-      <rosparam command="load" file="$(find multi_agv_bringup)/config/exp2a_derating_pretest.yaml"/>
-      <param name="platform_transport_type" value="$(arg transport_type)"/>
-      <param name="derating_publication_authorized" value="true"/>
-    </node>
-  </group>
+  <include file="$(find multi_agv_bringup)/launch/central_odom_pretest.launch">
+    <arg name="platform_transport_type" value="fake"/>
+    <arg name="enable_commands" value="$(arg enable_commands)"/>
+    <arg name="enable_derating" value="$(arg enable_derating)"/>
+  </include>
 </launch>
