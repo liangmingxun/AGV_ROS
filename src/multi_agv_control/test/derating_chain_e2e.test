@@ -1,0 +1,11 @@
+<launch>
+  <include file="$(find multi_agv_bringup)/launch/three_fake_chassis.launch"/>
+  <node pkg="multi_agv_control" type="experiment_supervisor_node"
+        name="experiment_supervisor" output="screen" required="true">
+    <rosparam command="load" file="$(find multi_agv_bringup)/config/exp2a_derating_pretest.yaml"/>
+    <param name="platform_transport_type" value="fake"/>
+    <param name="derating_publication_authorized" value="true"/>
+  </node>
+  <test test-name="derating_chain_e2e" pkg="multi_agv_control"
+        type="test_derating_chain_e2e.py" time-limit="35"/>
+</launch>

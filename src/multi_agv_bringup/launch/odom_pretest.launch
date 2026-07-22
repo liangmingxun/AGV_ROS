@@ -1,6 +1,7 @@
 <launch>
   <arg name="transport_type" default="fake"/>
   <arg name="enable_commands" default="false"/>
+  <arg name="enable_derating" default="false"/>
 
   <include file="$(find multi_agv_bringup)/launch/chassis_single.launch">
     <arg name="robot_id" value="agv1"/>
@@ -28,4 +29,13 @@
     <param name="platform_transport_type" value="$(arg transport_type)"/>
     <param name="command_publication_authorized" value="$(arg enable_commands)"/>
   </node>
+
+  <group if="$(arg enable_derating)">
+    <node pkg="multi_agv_control" type="experiment_supervisor_node"
+          name="experiment_supervisor" output="screen" required="true">
+      <rosparam command="load" file="$(find multi_agv_bringup)/config/exp2a_derating_pretest.yaml"/>
+      <param name="platform_transport_type" value="$(arg transport_type)"/>
+      <param name="derating_publication_authorized" value="true"/>
+    </node>
+  </group>
 </launch>

@@ -93,3 +93,22 @@ roslaunch multi_agv_bringup odom_pretest.launch
 Command publication may be enabled automatically only for `fake` transport.
 For non-fake transport the path, geometry and pretest YAML authorization gates
 must all be explicitly replaced and approved first.
+
+## Task 12 causal Robot2 derating pretest
+
+`ExperimentSupervisor` implements the frozen phase machine and changes the
+Robot2 derating sequence only when the target changes. Activation and recovery
+consume only measured Robot2 or load progress from `CooperativeState`; no
+reference topic enters the trigger. The node republishes the current target at
+10 Hz with an unchanged sequence, while the chassis continues to own the
+smooth 250 Hz capability transition and physical limiter.
+
+The complete fake odometry pretest can be launched explicitly with:
+
+```bash
+roslaunch multi_agv_bringup odom_pretest.launch \
+  transport_type:=fake enable_commands:=true enable_derating:=true
+```
+
+Both command and derating publication default to disabled. Non-fake derating
+is refused while the pretest configuration remains hardware-gated.

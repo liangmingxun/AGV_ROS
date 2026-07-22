@@ -1,0 +1,20 @@
+exp2a_derating_pretest:
+  configuration_status: software_validation_only
+  hardware_execution_authorized: false
+  publish_rate: 10.0
+  progress_source: robot2_actual
+  activation_progress: 0.30
+  restoration_progress: 0.60
+  derating_mode: 1
+  target_speed_ratio_left: 0.40
+  target_speed_ratio_right: 0.40
+  target_acceleration_ratio_left: 0.50
+  target_acceleration_ratio_right: 0.50
+  target_deceleration_ratio_left: 0.60
+  target_deceleration_ratio_right: 0.60
+  ramp_down_time: 0.40
+  ramp_up_time: 0.40
+  experiment_id: exp2a_derating_pretest
+  method_id: CAUSAL_CHAIN
+  block_id: software
+  run_id: fake_001
