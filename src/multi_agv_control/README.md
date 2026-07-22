@@ -64,3 +64,14 @@ roslaunch multi_agv_bringup odom_state_estimator.launch
 
 Before formal physical experiments, replace and freeze every provisional path,
 support offset and `world_to_odom` transform in the bringup YAML files.
+
+## Task 10 capability mapping
+
+`CapabilityMapper` converts the wheel-linear speed and asymmetric
+acceleration/deceleration limits reported by each chassis into path-channel
+limits using the local support-path speed scale, heading rate and wheel
+separation. Left and right wheel constraints are evaluated independently, the
+public bound is the minimum across three robots, and engineering reserves are
+applied exactly once. The checked-in reserves are zero-valued software
+fixtures and remain hardware-gated until the measured delay/model budget is
+available.

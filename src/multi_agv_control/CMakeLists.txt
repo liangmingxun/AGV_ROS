@@ -23,6 +23,7 @@ catkin_package(
 )
 
 add_library(multi_agv_geometry
+  src/capability_mapper.cpp
   src/path_projector.cpp
   src/s_curve_path.cpp
   src/state_estimator.cpp
@@ -32,9 +33,10 @@ target_include_directories(multi_agv_geometry
   PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${EIGEN3_INCLUDE_DIRS}
+    ${catkin_INCLUDE_DIRS}
 )
 target_compile_options(multi_agv_geometry PRIVATE -Wall -Wextra -Wpedantic)
-target_link_libraries(multi_agv_geometry Eigen3::Eigen)
+target_link_libraries(multi_agv_geometry Eigen3::Eigen ${catkin_LIBRARIES})
 
 add_executable(path_state_estimator_node src/path_state_estimator_node.cpp)
 target_include_directories(path_state_estimator_node PRIVATE
@@ -64,7 +66,8 @@ if(CATKIN_ENABLE_TESTING)
   catkin_add_gtest(test_support_geometry test/test_support_geometry.cpp)
   catkin_add_gtest(test_path_projector test/test_path_projector.cpp)
   catkin_add_gtest(test_state_estimator test/test_state_estimator.cpp)
-  foreach(test_target test_s_curve_path test_support_geometry test_path_projector test_state_estimator)
+  catkin_add_gtest(test_capability_mapper test/test_capability_mapper.cpp)
+  foreach(test_target test_s_curve_path test_support_geometry test_path_projector test_state_estimator test_capability_mapper)
     if(TARGET ${test_target})
       target_compile_options(${test_target} PRIVATE -Wall -Wextra -Wpedantic)
       target_link_libraries(${test_target} multi_agv_geometry gtest_main)

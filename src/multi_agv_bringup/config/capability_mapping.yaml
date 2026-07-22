@@ -1,0 +1,12 @@
+# Task 10 software-validation reserves. Replace with values derived from the
+# measured delay/model/synchronisation budget before physical S-curve tests.
+capability_mapping:
+  configuration_status: software_validation_only
+  hardware_execution_authorized: false
+  body_linear_velocity_reserve: 0.0
+  body_angular_velocity_reserve: 0.0
+  wheel_linear_velocity_reserve: 0.0
+  path_acceleration_reserve: 0.0
+  path_deceleration_reserve: 0.0
+  heading_rate_epsilon: 1.0e-6
+  wheel_separation: [0.114, 0.114, 0.114]
