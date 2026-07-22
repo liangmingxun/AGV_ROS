@@ -1,0 +1,11 @@
+<launch>
+  <node pkg="multi_agv_control" type="path_state_estimator_node"
+        name="path_state_estimator" output="screen" required="true">
+    <rosparam command="load" file="$(find multi_agv_bringup)/config/path_s_curve.yaml"/>
+    <rosparam command="load" file="$(find multi_agv_bringup)/config/support_geometry.yaml"/>
+    <rosparam command="load" file="$(find multi_agv_bringup)/config/localization_odom.yaml"/>
+  </node>
+
+  <test test-name="odom_state_estimator" pkg="multi_agv_control"
+        type="test_odom_state_estimator.py" time-limit="30"/>
+</launch>

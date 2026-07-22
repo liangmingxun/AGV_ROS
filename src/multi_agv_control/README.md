@@ -1,7 +1,8 @@
-# multi_agv_control geometry foundation
+# multi_agv_control geometry and odometry-state foundation
 
-Task 8 provides deterministic, side-effect-free geometry primitives. It does
-not publish ROS topics and cannot command a chassis.
+Task 8 provides deterministic, side-effect-free geometry primitives. Task 9
+adds local-window projection and a read-only odometry pretest estimator. No
+component in this package publishes a chassis command.
 
 ## `SCurvePath`
 
@@ -39,3 +40,27 @@ rejected before it can be consumed by later controller tasks.
 The YAML files currently contain software-validation fixtures only. Their
 `hardware_execution_authorized` fields remain false until the laboratory path
 and physical tray offsets have been measured and frozen.
+
+## Task 9 projection and state estimation
+
+`PathProjector` searches only around the previous progress, performs a coarse
+scan and bounded refinement, and rejects non-converged or excessive-residual
+solutions. `StateEstimator` uses only increasing measurement timestamps,
+causal finite differences and the configured one-pole filter. Invalid samples
+do not silently become reference values.
+
+`path_state_estimator_node` consumes `/agv1/odom`, `/agv2/odom` and
+`/agv3/odom`, transforms them into `world`, projects each measured support
+point, and publishes `/multi_agv/cooperative_state` at 100 Hz. Robot validity
+is independent. The load pose in odometry mode is an explicitly pretest-only
+three-support rigid fit; a stale or inconsistent robot invalidates the load
+fit without invalidating the other robots.
+
+For software or odometry pretests:
+
+```bash
+roslaunch multi_agv_bringup odom_state_estimator.launch
+```
+
+Before formal physical experiments, replace and freeze every provisional path,
+support offset and `world_to_odom` transform in the bringup YAML files.
