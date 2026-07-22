@@ -1,0 +1,14 @@
+pretest_constant_reference:
+  configuration_status: software_validation_only
+  hardware_execution_authorized: false
+  publish_rate: 100.0
+  maximum_state_age: 0.15
+  initial_progress: 0.0
+  constant_load_velocity: 0.05
+  experiment_id: odom_pretest
+  method_id: CONSTANT
+  tracker:
+    longitudinal_gain: 1.0
+    lateral_gain: 2.0
+    heading_gain: 2.0
+    wheel_separation: [0.114, 0.114, 0.114]

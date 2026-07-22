@@ -1,0 +1,13 @@
+<launch>
+  <include file="$(find multi_agv_bringup)/launch/three_fake_chassis.launch"/>
+  <node pkg="multi_agv_control" type="multi_agv_controller_node"
+        name="multi_agv_controller" output="screen" required="true">
+    <rosparam command="load" file="$(find multi_agv_bringup)/config/path_s_curve.yaml"/>
+    <rosparam command="load" file="$(find multi_agv_bringup)/config/support_geometry.yaml"/>
+    <rosparam command="load" file="$(find multi_agv_bringup)/config/pretest_constant_reference.yaml"/>
+    <param name="platform_transport_type" value="fake"/>
+    <param name="command_publication_authorized" value="true"/>
+  </node>
+  <test test-name="constant_reference_e2e" pkg="multi_agv_control"
+        type="test_constant_reference_e2e.py" time-limit="30"/>
+</launch>

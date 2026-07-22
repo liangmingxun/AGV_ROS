@@ -1,0 +1,31 @@
+<launch>
+  <arg name="transport_type" default="fake"/>
+  <arg name="enable_commands" default="false"/>
+
+  <include file="$(find multi_agv_bringup)/launch/chassis_single.launch">
+    <arg name="robot_id" value="agv1"/>
+    <arg name="config_file" value="$(find multi_agv_bringup)/config/agv1_chassis.yaml"/>
+    <arg name="transport_type" value="$(arg transport_type)"/>
+  </include>
+  <include file="$(find multi_agv_bringup)/launch/chassis_single.launch">
+    <arg name="robot_id" value="agv2"/>
+    <arg name="config_file" value="$(find multi_agv_bringup)/config/agv2_chassis.yaml"/>
+    <arg name="transport_type" value="$(arg transport_type)"/>
+  </include>
+  <include file="$(find multi_agv_bringup)/launch/chassis_single.launch">
+    <arg name="robot_id" value="agv3"/>
+    <arg name="config_file" value="$(find multi_agv_bringup)/config/agv3_chassis.yaml"/>
+    <arg name="transport_type" value="$(arg transport_type)"/>
+  </include>
+
+  <include file="$(find multi_agv_bringup)/launch/odom_state_estimator.launch"/>
+
+  <node pkg="multi_agv_control" type="multi_agv_controller_node"
+        name="multi_agv_controller" output="screen" required="true">
+    <rosparam command="load" file="$(find multi_agv_bringup)/config/path_s_curve.yaml"/>
+    <rosparam command="load" file="$(find multi_agv_bringup)/config/support_geometry.yaml"/>
+    <rosparam command="load" file="$(find multi_agv_bringup)/config/pretest_constant_reference.yaml"/>
+    <param name="platform_transport_type" value="$(arg transport_type)"/>
+    <param name="command_publication_authorized" value="$(arg enable_commands)"/>
+  </node>
+</launch>

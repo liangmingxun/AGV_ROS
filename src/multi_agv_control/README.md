@@ -75,3 +75,21 @@ public bound is the minimum across three robots, and engineering reserves are
 applied exactly once. The checked-in reserves are zero-valued software
 fixtures and remain hardware-gated until the measured delay/model budget is
 available.
+
+## Task 11 constant-reference pretest
+
+`PlanarSupportTracker` evaluates all three support references at one common
+load progress, adds body-frame position/heading feedback to the analytic
+feedforward, and emits raw left/right wheel-linear demands. The 100 Hz
+`multi_agv_controller_node` publishes the frozen command/reference/controller
+messages and sends explicit zero commands when cooperative state is stale.
+
+The bringup entry defaults to command publication disabled:
+
+```bash
+roslaunch multi_agv_bringup odom_pretest.launch
+```
+
+Command publication may be enabled automatically only for `fake` transport.
+For non-fake transport the path, geometry and pretest YAML authorization gates
+must all be explicitly replaced and approved first.
