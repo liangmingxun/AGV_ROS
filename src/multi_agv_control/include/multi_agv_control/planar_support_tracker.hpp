@@ -2,6 +2,7 @@
 
 #include <array>
 #include <cstddef>
+#include <vector>
 
 #include "multi_agv_control/state_estimator.hpp"
 #include "multi_agv_control/support_geometry.hpp"
@@ -13,6 +14,13 @@ struct PlanarTrackerConfig {
   double lateral_gain{2.0};
   double heading_gain{2.0};
   std::array<double, 3> wheel_separation{{0.114, 0.114, 0.114}};
+  // Translation from the drive-wheel axle midpoint (base_link) to the
+  // turntable centre (support_link), expressed in base_link.
+  std::array<Eigen::Vector2d, 3> base_to_support{{
+      Eigen::Vector2d{-0.01783, 0.0},
+      Eigen::Vector2d{-0.01783, 0.0},
+      Eigen::Vector2d{-0.01783, 0.0}}};
+  std::size_t chassis_reference_samples{10001U};
 };
 
 struct PlanarTrackingInput {
@@ -26,6 +34,7 @@ struct PlanarTrackingInput {
 struct PlanarTrackingResult {
   bool valid{false};
   PlanarPose support_pose_reference;
+  PlanarPose chassis_pose_reference;
   double longitudinal_error{0.0};
   double lateral_error{0.0};
   double heading_error{0.0};
@@ -51,8 +60,24 @@ class PlanarSupportTracker {
   const SupportGeometry& geometry() const noexcept { return geometry_; }
 
  private:
+  struct ChassisReference {
+    PlanarPose support_pose;
+    PlanarPose chassis_pose;
+    double speed_scale{0.0};
+    double heading_rate{0.0};
+  };
+
+  ChassisReference chassisReference(std::size_t support_index,
+                                    double load_progress) const;
+  double chassisHeadingDerivative(std::size_t support_index,
+                                  double load_progress,
+                                  double chassis_heading) const;
+  void buildChassisReference();
+
   SupportGeometry geometry_;
   PlanarTrackerConfig config_;
+  std::array<std::vector<double>, 3> chassis_heading_;
+  double chassis_reference_step_{0.0};
 };
 
 }  // namespace multi_agv_control

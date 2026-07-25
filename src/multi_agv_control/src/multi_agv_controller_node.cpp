@@ -152,6 +152,17 @@ class MultiAgvControllerNode {
                         config.lateral_gain, config.lateral_gain);
     private_node_.param("pretest_constant_reference/tracker/heading_gain",
                         config.heading_gain, config.heading_gain);
+    int reference_samples =
+        static_cast<int>(config.chassis_reference_samples);
+    private_node_.param(
+        "pretest_constant_reference/tracker/chassis_reference_samples",
+        reference_samples, reference_samples);
+    if (reference_samples < 2) {
+      throw std::runtime_error(
+          "tracker chassis_reference_samples must be at least two");
+    }
+    config.chassis_reference_samples =
+        static_cast<std::size_t>(reference_samples);
     XmlRpc::XmlRpcValue separation;
     if (!private_node_.getParam(
             "pretest_constant_reference/tracker/wheel_separation",
@@ -166,6 +177,19 @@ class MultiAgvControllerNode {
           value.getType() == XmlRpc::XmlRpcValue::TypeInt
               ? static_cast<int>(value)
               : static_cast<double>(value);
+    }
+    XmlRpc::XmlRpcValue offsets;
+    if (!private_node_.getParam(
+            "pretest_constant_reference/tracker/base_to_support", offsets) ||
+        offsets.getType() != XmlRpc::XmlRpcValue::TypeArray ||
+        offsets.size() != static_cast<int>(kRobotCount)) {
+      throw std::runtime_error(
+          "tracker base_to_support must contain three offsets");
+    }
+    for (std::size_t index = 0U; index < kRobotCount; ++index) {
+      const auto& value = offsets[static_cast<int>(index)];
+      config.base_to_support[index] = {
+          xmlNumber(value, "x"), xmlNumber(value, "y")};
     }
     return config;
   }

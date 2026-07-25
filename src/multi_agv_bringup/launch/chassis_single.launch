@@ -5,9 +5,11 @@
   <arg name="imu_x" default="0.0"/>
   <arg name="imu_y" default="0.0"/>
   <arg name="imu_z" default="0.0"/>
-  <arg name="support_x" default="0.07006"/>
+  <!-- Measured from the left/right drive-wheel axle midpoint (+x forward). -->
+  <arg name="support_x" default="-0.01783"/>
   <arg name="support_y" default="0.0"/>
-  <arg name="support_z" default="0.095695"/>
+  <!-- Planar placeholder; physical turntable contact height is not measured. -->
+  <arg name="support_z" default="0.0"/>
 
   <group ns="$(arg robot_id)">
     <node pkg="chassis_controller" type="chassis_controller"

@@ -19,6 +19,9 @@ struct WheelCapability {
 };
 
 struct CapabilityGeometry {
+  // Derivatives of the offset-compensated drive-axle (base_link) reference
+  // with respect to common load progress. Do not pass uncorrected support-path
+  // derivatives when base_link and support_link are separated.
   double speed_scale{1.0};
   double heading_rate{0.0};
   double wheel_separation{0.0};

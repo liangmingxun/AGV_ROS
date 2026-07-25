@@ -1,0 +1,27 @@
+<launch>
+  <include file="$(find multi_agv_bringup)/launch/car1_master.launch">
+    <arg name="transport_type" value="fake"/>
+  </include>
+
+  <node pkg="multi_agv_control" type="single_car_s_pretest_node"
+        name="robot1_single_s_pretest_test" output="screen">
+    <rosparam command="load"
+              file="$(find multi_agv_bringup)/config/robot1_single_s_pretest.yaml"/>
+    <param name="platform_transport_type" value="fake"/>
+    <param name="command_publication_authorized" value="true"/>
+    <param name="confirm_test_area_clear" value="false"/>
+    <param name="confirm_wheels_on_floor" value="false"/>
+    <param name="single_car_s_pretest/required_command_subscribers" value="1"/>
+    <param name="single_car_s_pretest/start_delay_seconds" value="0.1"/>
+    <param name="single_car_s_pretest/path/amplitude" value="0.002"/>
+    <param name="single_car_s_pretest/path/longitudinal_length" value="0.2"/>
+    <param name="single_car_s_pretest/path/lookup_samples" value="2001"/>
+    <param name="single_car_s_pretest/tracker/chassis_reference_samples"
+           value="2001"/>
+  </node>
+
+  <test test-name="single_car_s_pretest"
+        pkg="multi_agv_control"
+        type="test_single_car_s_pretest.py"
+        time-limit="15"/>
+</launch>

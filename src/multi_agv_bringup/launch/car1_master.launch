@@ -1,8 +1,8 @@
 <launch>
   <arg name="transport_type" default="serial"/>
-  <arg name="support_x" default="0.07006"/>
+  <arg name="support_x" default="-0.01783"/>
   <arg name="support_y" default="0.0"/>
-  <arg name="support_z" default="0.095695"/>
+  <arg name="support_z" default="0.0"/>
   <include file="$(find multi_agv_bringup)/launch/chassis_single.launch">
     <arg name="robot_id" value="agv1"/>
     <arg name="config_file" value="$(find multi_agv_bringup)/config/agv1_chassis.yaml"/>

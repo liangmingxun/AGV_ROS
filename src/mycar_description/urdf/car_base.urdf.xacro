@@ -74,9 +74,14 @@
     <xacro:property name="lidi" value="0.01331" />              <!-- 离地间隙(m)实际用途需确认，可能是主体底部到地面的距离 -->
     <xacro:property name="half_length" value="${base_length / 2}" />       <!-- 主体长度的一半 (m) -->
     <xacro:property name="half_width" value="${base_width / 2}" />        <!-- 主体宽度的一半 (m) -->
+    <!--
+      base_link 的平面原点固定在左右驱动轮轴线中点。实测该点位于旧车体
+      几何中心后方 49.69 mm，因此车体几何中心在新 base_link 的 +X 方向。
+    -->
+    <xacro:property name="chassis_center_x" value="0.04969" />
     
     <!-- 计算 base_link 相对于 base_footprint 的高度：主体一半高度 + 离地间隙 -->
-    <xacro:property name="base_joint_z" value="${base_length / 2 + lidi}" />
+    <xacro:property name="base_joint_z" value="${base_height / 2 + lidi}" />
 
     <!-- 机器人主体 link -->
     <link name="${prefix}base_link">
@@ -84,7 +89,7 @@
             <geometry>
                 <box size="${base_length} ${base_width} ${base_height}"/> <!-- 主体形状：长方体，尺寸与属性一致 -->
             </geometry>
-            <origin xyz="0 0 0" rpy="0 0 0" />              <!-- 圆柱中心位于 link 原点 -->
+            <origin xyz="${chassis_center_x} 0 0" rpy="0 0 0" />
             <material name="baselink_color">
                 <color rgba="1.0 0.5 0.2 1.0" />            <!-- 橙色 -->
             </material>
@@ -93,10 +98,11 @@
             <geometry>
                 <box size="${base_length} ${base_width} ${base_height}"/>
             </geometry>
-            <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+            <origin xyz="${chassis_center_x} 0 0" rpy="0 0 0"/>
         </collision>
         <!-- 设置机器人尺寸、质量 -->
-        <xacro:box_inertial_matrix mass="${base_mass}" lx="0.2035" ly="0.145" lz="0.052" />
+        <xacro:box_inertial_matrix mass="${base_mass}" lx="0.2035" ly="0.145" lz="0.052"
+                                   origin_xyz="${chassis_center_x} 0 0" />
     </link>
 
     <!-- 固定关节：连接 base_footprint 到 base_link -->
@@ -109,6 +115,7 @@
 
     <!-- ================= 驱动轮（左右轮）定义 ================= -->
     <xacro:property name="wheel_radius" value="0.0325" />    <!-- 驱动轮半径 (m) -->
+    <xacro:property name="wheel_separation" value="0.114" /> <!-- 实测左右轮轴向中心距 (m) -->
     <xacro:property name="wheel_length" value="0.027" />     <!-- 驱动轮厚度 (m) -->
     <xacro:property name="wheel_mass" value="0.1" />         <!-- 驱动轮质量 (kg) -->
     <xacro:property name="PI" value="3.1415927" />
@@ -144,8 +151,8 @@
         <joint name="${prefix}${wheel_name}2link" type="continuous">
             <parent link="${prefix}base_link" />
             <child link="${prefix}${wheel_name}_wheel" />
-            <!-- 位置：x=0 (前后)，y=±0.1 (左右轮距)，z 为计算值使轮子接地 -->
-            <origin xyz=" -0.05175 ${(half_width - 0.0105) * flag} ${wheel_joint_z}" rpy="0 0 0" />
+            <!-- base_link 就是左右驱动轮轴线中点，所以驱动轮 x 必须为 0。 -->
+            <origin xyz="0 ${(wheel_separation / 2) * flag} ${wheel_joint_z}" rpy="0 0 0" />
             <axis xyz="0 1 0" />                              <!-- 绕 Y 轴旋转 -->
         </joint>
     </xacro:macro>
@@ -177,7 +184,7 @@
             <parent link="${prefix}base_link" />
             <child link="${prefix}${small_wheel_name}_wheel" />
             <!-- 位置：x 前后偏移 ±0.08 m，y=0（中间），z 接地 -->
-            <origin xyz="${half_length - 0.032} ${(half_width - 0.0427) * flag} ${small_joint_z}" rpy="0 0 0" />
+            <origin xyz="${chassis_center_x + half_length - 0.032} ${(half_width - 0.0427) * flag} ${small_joint_z}" rpy="0 0 0" />
             <axis xyz="0 1 0" />                                 <!-- 绕 Y 轴旋转（球体无所谓） -->
         </joint>
     </xacro:macro>

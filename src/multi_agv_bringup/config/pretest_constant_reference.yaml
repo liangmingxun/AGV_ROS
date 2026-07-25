@@ -11,4 +11,10 @@ pretest_constant_reference:
     longitudinal_gain: 1.0
     lateral_gain: 2.0
     heading_gain: 2.0
+    chassis_reference_samples: 10001
     wheel_separation: [0.114, 0.114, 0.114]
+    # drive-wheel axle midpoint (base_link) -> turntable centre (support_link)
+    base_to_support:
+      - {x: -0.01783, y: 0.0}
+      - {x: -0.01783, y: 0.0}
+      - {x: -0.01783, y: 0.0}

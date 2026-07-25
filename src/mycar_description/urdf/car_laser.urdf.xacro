@@ -17,12 +17,16 @@
     <!-- ================= 关节位置计算（相对于父坐标系） ================= -->
     <!-- 注意：以下计算用到了外部属性 base_length（车体高度），该属性需在调用此文件之前定义。 -->
 
-    <!-- 支撑柱关节在X轴上的偏移量（通常居中，故为0） -->
-    <xacro:property name="joint_support_x" value="0.07006" />
+    <!--
+      该数值描述激光雷达安装柱，不是托物转盘 support_link。旧模型中的
+      70.06 mm 以车体几何中心为基准；base_link 改到驱动轮轴中点后需加上
+      chassis_center_x，保持雷达的实体位置不变。
+    -->
+    <xacro:property name="joint_support_x" value="${chassis_center_x + 0.07006}" />
     <!-- 支撑柱关节在Y轴上的偏移量（通常居中，故为0） -->
     <xacro:property name="joint_support_y" value="0" />
     <!-- 支撑柱关节在Z轴上的偏移量：
-         从 base_link 的原点（一般为车体几何中心）出发，需要向上移动的距离。
+         从 base_link 的竖直参考高度出发，需要向上移动的距离。
          计算公式：车体半高（base_height/2） + 支撑柱半长（support_length/2）
          使得支撑柱的底部刚好接触车体顶部，且支撑柱的中心位于此高度。 -->
     <xacro:property name="joint_support_z" value="${base_height / 2 + support_length / 2}" />

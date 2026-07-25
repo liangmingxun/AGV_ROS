@@ -1,0 +1,44 @@
+# Dedicated Robot1-only, unloaded floor pretest. This authorization applies
+# only to the bounded entry below; it does not authorize the three-car
+# controller or any loaded experiment.
+single_car_s_pretest:
+  schema_version: 1
+  configuration_status: robot1_unloaded_low_speed_pretest
+  hardware_execution_authorized: true
+
+  publish_rate: 100.0
+  maximum_state_age: 0.15
+  subscriber_wait_seconds: 10.0
+  start_delay_seconds: 3.0
+  stop_confirmation_timeout_seconds: 3.0
+  stopped_wheel_tolerance: 0.01
+  maximum_integration_step: 0.1
+  maximum_motion_time: 30.0
+  required_command_subscribers: 2
+  initial_command_sequence: 31000
+
+  # One sine period: x=xi, y=A*sin(2*pi*xi/L). The complete curve is rotated
+  # so its initial tangent matches Robot1's heading when the node starts.
+  path:
+    amplitude: 0.05
+    longitudinal_length: 1.0
+    arc_length_speed: 0.05
+    lookup_samples: 20001
+
+  geometry:
+    wheel_separation: 0.114
+    # drive-wheel axle midpoint (base_link) -> turntable centre (support_link)
+    base_to_support_x: -0.01783
+    base_to_support_y: 0.0
+
+  tracker:
+    longitudinal_gain: 1.0
+    lateral_gain: 2.0
+    heading_gain: 2.0
+    chassis_reference_samples: 10001
+
+  abort:
+    maximum_longitudinal_error: 0.20
+    maximum_lateral_error: 0.12
+    maximum_heading_error: 0.50
+    maximum_wheel_linear_velocity: 0.08

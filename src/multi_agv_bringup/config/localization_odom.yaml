@@ -30,18 +30,18 @@ robots:
     odom_frame: agv1/odom
     base_frame: agv1/base_link
     world_to_odom: {x: 0.0, y: 0.0, yaw: 0.0}
-    base_to_support: {x: 0.07006, y: 0.0, yaw: 0.0}
+    base_to_support: {x: -0.01783, y: 0.0, yaw: 0.0}
   - robot_id: agv2
     robot_index: 2
     odom_topic: /agv2/odom
     odom_frame: agv2/odom
     base_frame: agv2/base_link
     world_to_odom: {x: 0.0, y: 0.0, yaw: 0.0}
-    base_to_support: {x: 0.07006, y: 0.0, yaw: 0.0}
+    base_to_support: {x: -0.01783, y: 0.0, yaw: 0.0}
   - robot_id: agv3
     robot_index: 3
     odom_topic: /agv3/odom
     odom_frame: agv3/odom
     base_frame: agv3/base_link
     world_to_odom: {x: 0.0, y: 0.0, yaw: 0.0}
-    base_to_support: {x: 0.07006, y: 0.0, yaw: 0.0}
+    base_to_support: {x: -0.01783, y: 0.0, yaw: 0.0}

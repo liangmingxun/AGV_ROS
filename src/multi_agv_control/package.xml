@@ -13,6 +13,7 @@
   <depend>geometry_msgs</depend>
   <depend>nav_msgs</depend>
   <depend>roscpp</depend>
+  <depend>tf2</depend>
   <build_export_depend>eigen</build_export_depend>
   <exec_depend>eigen</exec_depend>
 

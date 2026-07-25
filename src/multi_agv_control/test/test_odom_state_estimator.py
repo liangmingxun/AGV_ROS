@@ -11,7 +11,7 @@ from nav_msgs.msg import Odometry
 
 class OdomStateEstimatorTest(unittest.TestCase):
     OFFSETS = ((0.18, 0.12), (-0.18, 0.12), (0.0, -0.16))
-    BASE_TO_SUPPORT_X = 0.07006
+    BASE_TO_SUPPORT_X = -0.01783
 
     def setUp(self):
         self._lock = threading.Lock()

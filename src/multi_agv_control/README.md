@@ -37,6 +37,14 @@ Construction densely checks `1-kappa*q_normal >= chi_min` and
 `g_i >= g_min` for all three supports. Invalid or non-finite geometry is
 rejected before it can be consumed by later controller tasks.
 
+`base_link` is the midpoint of the left/right drive-wheel axle, not the
+chassis-outline centre. The measured turntable centre is at
+`base_to_support=[-0.01783, 0] m`. The planar tracker constructs an
+offset-compensated, nonholonomic chassis reference before converting chassis
+speed/yaw rate to wheel-edge velocities. Capability mapping must use those
+chassis-reference derivatives rather than uncorrected support-path
+derivatives.
+
 The YAML files currently contain software-validation fixtures only. Their
 `hardware_execution_authorized` fields remain false until the laboratory path
 and physical tray offsets have been measured and frozen.
@@ -112,3 +120,12 @@ roslaunch multi_agv_bringup odom_pretest.launch \
 
 Both command and derating publication default to disabled. Non-fake derating
 is refused while the pretest configuration remains hardware-gated.
+
+The unloaded Robot1 floor S gate is intentionally separate from the fleet
+controller. `robot1_single_s_pretest.launch` runs one bounded sine period at
+`0.05 m/s`, consumes only `/agv1/odom` and `/agv1/chassis_feedback`, and is the
+only pretest node allowed to publish `/agv1/chassis_command`. It anchors the
+path to the starting odometry pose and uses the measured rear support offset
+when constructing the nonholonomic chassis reference. Serial execution still
+requires explicit command, clear-area and wheels-on-floor launch
+acknowledgements; the launch defaults remain non-moving.
