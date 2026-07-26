@@ -121,6 +121,21 @@ roslaunch multi_agv_bringup odom_pretest.launch \
 Both command and derating publication default to disabled. Non-fake derating
 is refused while the pretest configuration remains hardware-gated.
 
+When command publication is disabled, `multi_agv_controller_node` does not
+register `/agvX/chassis_command` publishers at all. This makes
+`central_odom_pretest.launch` a graph-level read-only entry instead of a
+publisher that merely remains silent. The distributed three-car topology is
+checked with:
+
+```bash
+rosrun multi_agv_bringup check_three_car_readonly_gate.py \
+  --observe-seconds 5
+```
+
+After the measured `world_to_odom`, unloaded support layout and path dimensions
+have been frozen, repeat it with `--require-valid-state`. Neither invocation
+authorizes motion.
+
 The unloaded Robot1 floor S gate is intentionally separate from the fleet
 controller. `robot1_single_s_pretest.launch` runs one bounded sine period at
 `0.05 m/s`, consumes only `/agv1/odom` and `/agv1/chassis_feedback`, and is the

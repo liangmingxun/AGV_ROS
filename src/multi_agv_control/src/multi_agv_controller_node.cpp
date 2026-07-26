@@ -97,9 +97,16 @@ class MultiAgvControllerNode {
     state_subscriber_ = node_.subscribe(
         "/multi_agv/cooperative_state", 5,
         &MultiAgvControllerNode::receiveState, this);
-    for (std::size_t index = 0U; index < kRobotCount; ++index) {
-      command_publishers_[index] = node_.advertise<agv_msgs::ChassisCommand>(
-          "/agv" + std::to_string(index + 1U) + "/chassis_command", 1, false);
+    if (command_publication_authorized_) {
+      for (std::size_t index = 0U; index < kRobotCount; ++index) {
+        command_publishers_[index] = node_.advertise<agv_msgs::ChassisCommand>(
+            "/agv" + std::to_string(index + 1U) + "/chassis_command", 1,
+            false);
+      }
+      ROS_WARN("Multi-AGV chassis command publication is enabled");
+    } else {
+      ROS_INFO("Multi-AGV controller is read-only; chassis command "
+               "publishers were not registered");
     }
     reference_publisher_ = node_.advertise<agv_msgs::PathReference>(
         "/multi_agv/path_reference", 5, false);

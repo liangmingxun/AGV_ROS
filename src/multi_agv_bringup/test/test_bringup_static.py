@@ -82,6 +82,25 @@ class BringupStaticTest(unittest.TestCase):
         self.assertIn("maximum_wheel_linear_velocity: 0.08", config)
         self.assertIn("base_to_support_x: -0.01783", config)
 
+    def test_central_readonly_entry_has_no_command_authority(self):
+        launch = (
+            PACKAGE / "launch" / "central_odom_pretest.launch"
+        ).read_text(encoding="utf-8")
+        controller = (
+            SOURCE_ROOT / "multi_agv_control" / "src" /
+            "multi_agv_controller_node.cpp"
+        ).read_text(encoding="utf-8")
+        checker = (
+            PACKAGE / "scripts" / "check_three_car_readonly_gate.py"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn('name="enable_commands" default="false"', launch)
+        self.assertIn('name="enable_derating" default="false"', launch)
+        self.assertIn("if (command_publication_authorized_)", controller)
+        self.assertIn("publishers were not registered", controller)
+        self.assertIn("must have no publisher in read-only mode", checker)
+        self.assertIn("--require-valid-state", checker)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,0 +1,11 @@
+<launch>
+  <include file="$(find multi_agv_bringup)/launch/odom_pretest.launch">
+    <arg name="enable_commands" value="false"/>
+    <arg name="enable_derating" value="false"/>
+  </include>
+
+  <test test-name="central_readonly_e2e"
+        pkg="multi_agv_control"
+        type="test_central_readonly_e2e.py"
+        time-limit="20"/>
+</launch>

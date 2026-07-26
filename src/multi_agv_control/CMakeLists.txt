@@ -105,12 +105,14 @@ if(CATKIN_ENABLE_TESTING)
   find_package(rostest REQUIRED)
   catkin_install_python(PROGRAMS
     test/test_odom_state_estimator.py
+    test/test_central_readonly_e2e.py
     test/test_constant_reference_e2e.py
     test/test_derating_chain_e2e.py
     test/test_robot2_raised_derating_pretest.py
     test/test_single_car_s_pretest.py
     DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
   add_rostest(test/odom_state_estimator.test)
+  add_rostest(test/central_readonly_e2e.test)
   add_rostest(test/constant_reference_e2e.test)
   add_rostest(test/derating_chain_e2e.test)
   add_rostest(test/robot2_raised_derating_pretest.test)

@@ -5,6 +5,7 @@ find_package(catkin REQUIRED)
 catkin_package()
 
 catkin_install_python(PROGRAMS
+  scripts/check_three_car_readonly_gate.py
   scripts/run_timed_straight_test.py
   test/test_namespace_isolation.py
   test/test_command_authority.py

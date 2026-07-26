@@ -62,3 +62,9 @@ Robot2 的第 2 步必须使用独立的
 `test-protocols/robot2-raised-derating-pretest.md`。该入口只发布 Robot2
 降额命令；底盘运动由有界定时直线工具负责。不得将通用三车 supervisor 的
 软件验证授权直接改为实物授权。
+
+Robot1 单车 S 形和 Robot2 举升降额通过后，必须先执行
+`test-protocols/three-car-readonly-entry.md`。中央只读模式不得注册任何
+`/agvX/chassis_command` Publisher；第一次只验证分布式拓扑，现场参数冻结后
+再用 `check_three_car_readonly_gate.py --require-valid-state` 验证全部状态
+有效。两次只读门槛之间不允许三车运动。
