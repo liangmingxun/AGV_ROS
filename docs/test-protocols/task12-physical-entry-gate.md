@@ -56,3 +56,9 @@ Robot1 的第 3 步必须使用独立的
 `robot1_single_s_pretest.launch` 和
 `test-protocols/robot1-single-s-pretest.md`。该入口只发布 Robot1 命令，
 不得用三车 `central_odom_pretest.launch` 模拟单车运行。
+
+Robot2 的第 2 步必须使用独立的
+`robot2_raised_derating_pretest.launch` 和
+`test-protocols/robot2-raised-derating-pretest.md`。该入口只发布 Robot2
+降额命令；底盘运动由有界定时直线工具负责。不得将通用三车 supervisor 的
+软件验证授权直接改为实物授权。

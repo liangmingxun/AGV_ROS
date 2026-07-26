@@ -1,0 +1,112 @@
+# Robot2 举升状态实际进度降额预检
+
+## 目的与边界
+
+该入口只验证 Robot2 的实际 odom 进度、降额命令、能力斜坡、车端限幅链和
+恢复状态。它不启动三车中央控制，不发布 Robot1/Robot3 命令，也不允许
+车轮落地或放置载荷。
+
+冻结的预检条件为：
+
+- Robot2 两个驱动轮可靠举升；
+- 有界直线轮速命令 `0.05 m/s`，持续 `14 s`；
+- Robot2 起始 odom 沿起始航向的投影为实际进度；
+- 实际进度到 `0.30 m` 时开始降额；
+- 实际进度到 `0.60 m` 时开始恢复；
+- 速度比例降至 `0.40`，加速度比例降至 `0.50`，减速度比例降至 `0.60`；
+- 降额和恢复斜坡均为 `0.40 s`。
+
+专用节点只发布 `/agv2/derating_command`。底盘运动由
+`run_timed_straight_test.py` 独立发布；它在正常结束、信号中断和异常退出时
+发送三次零速。专用降额节点在状态超时、进度越界、中断和正常结束时重复
+发送非激活的全比例恢复命令。
+
+## 安全条件
+
+- 车架由稳定支架支撑，两个驱动轮均完全离地；
+- 万向轮和驱动轮附近没有手、线缆或松动物体；
+- 物理断电可立即操作；
+- `/agv2/chassis_command` 和 `/agv2/derating_command` 均无其他发布者；
+- rosbag 与底盘节点都已订阅两个命令话题；
+- 不运行 `central_odom_pretest.launch`。
+
+## 终端1：Robot2底盘
+
+```bash
+cd /home/etlab/AGV_ROS/.worktrees/platform-foundation-linux
+source src/multi_agv_bringup/scripts/setup_local_ros.sh
+roslaunch multi_agv_bringup car2_client.launch transport_type:=serial
+```
+
+等待 `USB Connected`。
+
+## 终端2：记录
+
+```bash
+cd /home/etlab/AGV_ROS/.worktrees/platform-foundation-linux
+source src/multi_agv_bringup/scripts/setup_local_ros.sh
+rosbag record -O /home/etlab/AGV_ROS/agv2_raised_derating_pretest_run1.bag \
+  /agv2/chassis_command \
+  /agv2/derating_command \
+  /agv2/chassis_feedback \
+  /agv2/capability_report \
+  /agv2/odom \
+  /agv2/imu \
+  /agv2/raised_derating_pretest/experiment_state
+```
+
+## 终端3：实际进度降额入口
+
+先确认 `/agv2/derating_command` 没有发布者，然后启动：
+
+```bash
+roslaunch multi_agv_bringup robot2_raised_derating_pretest.launch \
+  platform_transport_type:=serial \
+  enable_derating:=true \
+  confirm_wheels_raised:=true
+```
+
+必须看到两个降额订阅者连接以及 `start the bounded 0.05 m/s` 提示。
+
+## 终端4：有界举升轮速
+
+```bash
+cd /home/etlab/AGV_ROS/.worktrees/platform-foundation-linux
+source src/multi_agv_bringup/scripts/setup_local_ros.sh
+rosrun multi_agv_bringup run_timed_straight_test.py \
+  --robot-id 2 \
+  --speed 0.05 \
+  --duration 14 \
+  --command-seq 6100 \
+  --experiment-id robot2_raised_derating_pretest_run1 \
+  --required-command-subscribers 2 \
+  --confirm-wheels-raised \
+  --confirm-extended-test
+```
+
+正常过程应依次出现：
+
+1. 检测到举升轮运动；
+2. 实际进度约 `0.30 m`，开始降额；
+3. `0.40 s` 后达到降额目标；
+4. 实际进度约 `0.60 m`，开始恢复；
+5. `0.40 s` 后恢复完成；
+6. 定时工具发送三次零速；
+7. 专用节点确认零轮速并退出。
+
+任一终端出现状态超时、进度越界、命令拒绝或持续串口错误时，先在终端4
+按 `Ctrl+C` 触发停车，再在终端3按 `Ctrl+C` 触发能力恢复，必要时物理断电。
+
+## 验收
+
+- 降额首次激活对应 Robot2 实际进度 `0.30 m` 附近；
+- 恢复首次触发对应实际进度 `0.60 m` 附近；
+- 能力报告的轮速上限从 `0.9 m/s` 平滑降至约 `0.36 m/s`；
+- 加速度上限降至 `0.5 m/s²`，减速度上限降至 `1.2 m/s²`；
+- 恢复后 `derating_active=false`、`derating_ratio=1.0`；
+- 轮速最终为零；
+- 没有 Robot1/Robot3 降额发布者；
+- bag 包含完整运动、降额、恢复和停车段。
+
+该预检通过只解除 Robot2 举升降额链的门槛，不解除三车路径、支撑几何、
+落地协同或载荷实验门槛。

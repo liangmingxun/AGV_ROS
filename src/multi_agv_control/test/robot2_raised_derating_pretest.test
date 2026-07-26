@@ -1,0 +1,17 @@
+<launch>
+  <include file="$(find multi_agv_bringup)/launch/car2_client.launch">
+    <arg name="transport_type" value="fake"/>
+  </include>
+
+  <include file="$(find multi_agv_bringup)/launch/robot2_raised_derating_pretest.launch">
+    <arg name="platform_transport_type" value="serial"/>
+    <arg name="enable_derating" value="true"/>
+    <arg name="confirm_wheels_raised" value="true"/>
+    <arg name="required" value="false"/>
+  </include>
+
+  <test test-name="test_robot2_raised_derating_pretest"
+        pkg="multi_agv_control"
+        type="test_robot2_raised_derating_pretest.py"
+        time-limit="35"/>
+</launch>

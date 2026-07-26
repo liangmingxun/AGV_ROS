@@ -80,7 +80,19 @@ target_compile_options(experiment_supervisor_node PRIVATE -Wall -Wextra -Wpedant
 target_link_libraries(experiment_supervisor_node multi_agv_geometry ${catkin_LIBRARIES})
 add_dependencies(experiment_supervisor_node ${catkin_EXPORTED_TARGETS})
 
-install(TARGETS multi_agv_geometry path_state_estimator_node multi_agv_controller_node single_car_s_pretest_node experiment_supervisor_node
+add_executable(robot2_raised_derating_pretest_node
+  src/robot2_raised_derating_pretest_node.cpp)
+target_include_directories(robot2_raised_derating_pretest_node PRIVATE
+  ${CMAKE_CURRENT_SOURCE_DIR}/include
+  ${catkin_INCLUDE_DIRS}
+)
+target_compile_options(robot2_raised_derating_pretest_node
+  PRIVATE -Wall -Wextra -Wpedantic)
+target_link_libraries(robot2_raised_derating_pretest_node
+  multi_agv_geometry ${catkin_LIBRARIES})
+add_dependencies(robot2_raised_derating_pretest_node ${catkin_EXPORTED_TARGETS})
+
+install(TARGETS multi_agv_geometry path_state_estimator_node multi_agv_controller_node single_car_s_pretest_node experiment_supervisor_node robot2_raised_derating_pretest_node
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
@@ -95,11 +107,13 @@ if(CATKIN_ENABLE_TESTING)
     test/test_odom_state_estimator.py
     test/test_constant_reference_e2e.py
     test/test_derating_chain_e2e.py
+    test/test_robot2_raised_derating_pretest.py
     test/test_single_car_s_pretest.py
     DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
   add_rostest(test/odom_state_estimator.test)
   add_rostest(test/constant_reference_e2e.test)
   add_rostest(test/derating_chain_e2e.test)
+  add_rostest(test/robot2_raised_derating_pretest.test)
   add_rostest(test/single_car_s_pretest.test)
   catkin_add_gtest(test_s_curve_path test/test_s_curve_path.cpp)
   catkin_add_gtest(test_support_geometry test/test_support_geometry.cpp)

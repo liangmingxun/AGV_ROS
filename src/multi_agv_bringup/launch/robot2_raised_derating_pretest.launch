@@ -1,0 +1,20 @@
+<launch>
+  <!-- Robot2-only raised-wheel derating gate. It never publishes chassis
+       motion; pair it with the bounded timed-straight tool. -->
+  <arg name="platform_transport_type" default="fake"/>
+  <arg name="enable_derating" default="false"/>
+  <arg name="confirm_wheels_raised" default="false"/>
+  <arg name="required" default="true"/>
+
+  <node pkg="multi_agv_control"
+        type="robot2_raised_derating_pretest_node"
+        name="robot2_raised_derating_pretest"
+        output="screen"
+        required="$(arg required)">
+    <rosparam command="load"
+              file="$(find multi_agv_bringup)/config/robot2_raised_derating_pretest.yaml"/>
+    <param name="platform_transport_type" value="$(arg platform_transport_type)"/>
+    <param name="derating_publication_authorized" value="$(arg enable_derating)"/>
+    <param name="confirm_wheels_raised" value="$(arg confirm_wheels_raised)"/>
+  </node>
+</launch>

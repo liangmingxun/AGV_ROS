@@ -1,0 +1,36 @@
+# Dedicated Robot2-only raised-wheel physical pretest. This authorization does
+# not enable the three-car controller and does not authorize wheels-on-floor or
+# loaded operation.
+robot2_raised_derating_pretest:
+  schema_version: 1
+  configuration_status: robot2_raised_wheels_low_speed_pretest
+  hardware_execution_authorized: true
+
+  publish_rate: 20.0
+  maximum_state_age: 0.15
+  subscriber_wait_seconds: 10.0
+  motion_start_timeout_seconds: 30.0
+  maximum_motion_time_seconds: 18.0
+  stopped_wheel_tolerance: 0.01
+  motion_detection_speed: 0.01
+  minimum_forward_progress: -0.02
+  maximum_forward_progress: 0.85
+  required_derating_subscribers: 2
+  initial_command_sequence: 42000
+
+  activation_progress: 0.30
+  restoration_progress: 0.60
+  derating_mode: 1
+  target_speed_ratio_left: 0.40
+  target_speed_ratio_right: 0.40
+  target_acceleration_ratio_left: 0.50
+  target_acceleration_ratio_right: 0.50
+  target_deceleration_ratio_left: 0.60
+  target_deceleration_ratio_right: 0.60
+  ramp_down_time: 0.40
+  ramp_up_time: 0.40
+
+  experiment_id: robot2_raised_derating_pretest
+  method_id: ACTUAL_ODOM_PROGRESS
+  block_id: raised_wheels
+  run_id: robot2_pretest_001

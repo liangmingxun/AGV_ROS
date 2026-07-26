@@ -40,23 +40,29 @@ def parse_args():
             "use 2 when the chassis controller and rosbag must both be connected"
         ),
     )
-    parser.add_argument(
+    wheel_confirmation = parser.add_mutually_exclusive_group(required=True)
+    wheel_confirmation.add_argument(
         "--confirm-wheels-on-floor",
         action="store_true",
         help="required acknowledgement that the floor test area is secured",
     )
+    wheel_confirmation.add_argument(
+        "--confirm-wheels-raised",
+        action="store_true",
+        help="required acknowledgement that both drive wheels are safely raised",
+    )
     parser.add_argument(
+        "--confirm-extended-test",
         "--confirm-extended-floor-test",
+        dest="confirm_extended_test",
         action="store_true",
         help=(
-            "required for a test longer than 5 seconds; extended tests are "
+            "required for any test longer than 5 seconds; extended tests are "
             "limited to exactly 0.05 m/s and at most 20 seconds"
         ),
     )
     args = parser.parse_args(rospy.myargv(argv=sys.argv)[1:])
 
-    if not args.confirm_wheels_on_floor:
-        parser.error("--confirm-wheels-on-floor is required")
     if not 0.0 < abs(args.speed) <= MAX_TEST_SPEED_MPS:
         parser.error(
             "absolute speed must be greater than 0 and at most "
@@ -72,9 +78,9 @@ def parse_args():
     if not 1 <= args.required_command_subscribers <= 8:
         parser.error("required command subscribers must be between 1 and 8")
     if args.duration > MAX_STANDARD_TEST_DURATION_SECONDS:
-        if not args.confirm_extended_floor_test:
+        if not args.confirm_extended_test:
             parser.error(
-                "--confirm-extended-floor-test is required when duration "
+                "--confirm-extended-test is required when duration "
                 f"exceeds {MAX_STANDARD_TEST_DURATION_SECONDS:.1f} seconds"
             )
         if not math.isclose(
@@ -176,9 +182,11 @@ def main():
             "extended" if args.duration > MAX_STANDARD_TEST_DURATION_SECONDS
             else "standard"
         )
+        wheel_state = "raised-wheel" if args.confirm_wheels_raised else "floor"
         rospy.logwarn(
-            "Starting bounded %s floor test: robot=%d speed=%+.3f m/s duration=%.2f s",
+            "Starting bounded %s %s test: robot=%d speed=%+.3f m/s duration=%.2f s",
             test_kind,
+            wheel_state,
             args.robot_id,
             args.speed,
             args.duration,
@@ -204,7 +212,7 @@ def main():
     if received_signal is not None:
         rospy.logwarn("Test interrupted by signal %d; stop commands were sent", received_signal)
         return 130
-    rospy.loginfo("Timed floor test completed and stop commands were sent")
+    rospy.loginfo("Timed straight test completed and stop commands were sent")
     return 0
 
 
