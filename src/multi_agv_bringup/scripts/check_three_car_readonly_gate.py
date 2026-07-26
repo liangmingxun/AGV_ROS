@@ -209,16 +209,21 @@ def main(argv=None):
     if cooperative:
         state = cooperative[-1][1]
         rospy.loginfo(
-            "cooperative validity robot=%s support=%s path=%s load=%s",
+            "cooperative validity robot=%s support=%s path=%s "
+            "load_pose=%s load_path=%s",
             list(state.robot_pose_valid), list(state.support_pose_valid),
-            list(state.path_state_valid), state.load_pose_valid)
+            list(state.path_state_valid), state.load_pose_valid,
+            state.load_path_state_valid)
         if args.require_valid_state and not (
                 all(state.robot_pose_valid) and
                 all(state.support_pose_valid) and
-                all(state.path_state_valid)):
+                all(state.path_state_valid) and
+                state.load_pose_valid and
+                state.load_path_state_valid):
             errors.append(
-                "cooperative state is not fully valid; measure/freeze "
-                "world_to_odom and unloaded support geometry before motion")
+                "cooperative state is not fully valid, including the virtual "
+                "load fit; measure/freeze world_to_odom and unloaded support "
+                "geometry before motion")
 
     if errors:
         for error in errors:

@@ -133,8 +133,9 @@ rosrun multi_agv_bringup check_three_car_readonly_gate.py \
 ```
 
 After the measured `world_to_odom`, unloaded support layout and path dimensions
-have been frozen, repeat it with `--require-valid-state`. Neither invocation
-authorizes motion.
+have been frozen, repeat it with `--require-valid-state`. That second gate
+requires all three robot/support/path states and the fitted virtual-load pose
+and path state to be valid. Neither invocation authorizes motion.
 
 The unloaded Robot1 floor S gate is intentionally separate from the fleet
 controller. `robot1_single_s_pretest.launch` runs one bounded sine period at

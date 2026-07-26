@@ -135,8 +135,11 @@ rosrun multi_agv_bringup check_three_car_readonly_gate.py \
   --require-valid-state
 ```
 
-只有输出 `THREE-CAR READ-ONLY GATE: PASSED`，并且三个 robot、support、path
-有效位全部为 true，才进入三车无载共同启动/停止的软件授权评审。
+只有输出 `THREE-CAR READ-ONLY GATE: PASSED`，三个 robot、support、path
+有效位全部为 true，并且 `load_pose_valid`、`load_path_state_valid` 也均为
+true，才进入三车无载共同启动/停止的软件授权评审。无实体托盘时这里的
+`load` 是由三个实测支撑点拟合的虚拟刚体；它仍必须有效，否则三车并未形成
+统一协同几何。
 
 ## 任一异常的停止顺序
 
