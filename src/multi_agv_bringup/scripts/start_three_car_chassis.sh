@@ -38,11 +38,8 @@ if [[ -n "$(git status --porcelain --untracked-files=normal)" ]]; then
   echo "WARNING: working tree contains uncommitted changes; continuing by request" >&2
   git status --short >&2
 fi
-if command -v timedatectl >/dev/null 2>&1 &&
-   [[ "$(timedatectl show -p NTPSynchronized --value)" != "yes" ]]; then
-  echo "ERROR: system clock is not NTP-synchronised" >&2
-  exit 12
-fi
+source "${script_dir}/check_local_clock_sync.sh"
+check_local_clock_sync
 if ! ip -o -4 addr show | awk '{print $4}' | cut -d/ -f1 |
      grep -Fqx "$local_ip"; then
   echo "ERROR: configured address ${local_ip} is not assigned on this host" >&2
@@ -112,6 +109,12 @@ rosparam set "/${agv_name}/deployment/hostname" "$(hostname)"
 rosparam set "/${agv_name}/deployment/ros_ip" "$local_ip"
 rosparam set "/${agv_name}/deployment/clean_worktree" \
   "$working_tree_clean"
+rosparam set "/${agv_name}/deployment/clock_sync_source" \
+  "$CLOCK_SYNC_SOURCE"
+rosparam set "/${agv_name}/deployment/clock_system_offset_seconds" \
+  "$CLOCK_SYSTEM_OFFSET_SECONDS"
+rosparam set "/${agv_name}/deployment/clock_checked_at" \
+  "$(date --iso-8601=seconds)"
 
 echo
 echo "${agv_name} READY"

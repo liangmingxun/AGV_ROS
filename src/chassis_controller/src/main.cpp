@@ -194,9 +194,11 @@ class ChassisControllerNode {
 
   void initialiseRos() {
     command_sub_ = node_.subscribe("chassis_command", 1,
-        &ChassisControllerNode::commandCallback, this);
+        &ChassisControllerNode::commandCallback, this,
+        ros::TransportHints().tcpNoDelay());
     derating_sub_ = node_.subscribe("derating_command", 5,
-        &ChassisControllerNode::deratingCallback, this);
+        &ChassisControllerNode::deratingCallback, this,
+        ros::TransportHints().tcpNoDelay());
     feedback_pub_ = node_.advertise<agv_msgs::ChassisFeedback>(
         "chassis_feedback", 5, false);
     capability_pub_ = node_.advertise<agv_msgs::CapabilityReport>(

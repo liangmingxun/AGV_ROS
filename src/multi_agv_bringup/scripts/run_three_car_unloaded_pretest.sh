@@ -122,10 +122,7 @@ rosrun multi_agv_bringup check_three_car_readonly_gate.py \
 for index in 1 2 3; do
   rosservice call "/agv${index}/reset_odometry"
 done
-rosrun multi_agv_bringup check_three_car_readonly_gate.py \
-  --observe-seconds 10 --require-valid-state
-rosrun multi_agv_bringup check_three_car_readonly_gate.py \
-  --observe-seconds 10 --require-valid-state
+"${script_dir}/require_three_car_motion_gate.sh" 2 10
 
 kill -INT "$estimator_pid"
 wait "$estimator_pid" || true
@@ -169,6 +166,8 @@ if ! kill -0 "$bag_pid" 2>/dev/null; then
   wait "$bag_pid"
 fi
 
+result_parameter="/multi_agv/three_car_unloaded_pretest_result_code"
+rosparam set "$result_parameter" -1
 roslaunch multi_agv_bringup three_car_unloaded_bounded_pretest.launch \
   platform_transport_type:=serial \
   enable_commands:=true \
@@ -179,9 +178,19 @@ roslaunch multi_agv_bringup three_car_unloaded_bounded_pretest.launch \
 motion_pid="$!"
 set +e
 wait "$motion_pid"
-motion_status="$?"
+roslaunch_status="$?"
 set -e
 motion_pid=""
+reported_status="$(rosparam get "$result_parameter" 2>/dev/null || true)"
+if [[ "$reported_status" =~ ^[0-9]+$ ]] &&
+   (( reported_status >= 0 )); then
+  motion_status="$reported_status"
+elif (( roslaunch_status != 0 )); then
+  motion_status="$roslaunch_status"
+else
+  echo "ERROR: motion node exited without a valid result code" >&2
+  motion_status=125
+fi
 
 kill -INT "$bag_pid"
 wait "$bag_pid" || true

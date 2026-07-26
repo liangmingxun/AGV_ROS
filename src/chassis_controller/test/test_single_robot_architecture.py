@@ -31,6 +31,8 @@ class SingleRobotArchitectureTest(unittest.TestCase):
                 'advertise<sensor_msgs::Imu>("imu", 10, false)',
                 '"reset_odometry"'):
             self.assertIn(required, source)
+        self.assertGreaterEqual(
+            source.count("ros::TransportHints().tcpNoDelay()"), 2)
 
     def test_identity_frames_and_calibration_are_fail_fast(self):
         source = (ROOT / "src" / "main.cpp").read_text(encoding="utf-8")

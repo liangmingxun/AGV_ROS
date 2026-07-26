@@ -120,14 +120,16 @@ class ThreeCarUnloadedBoundedPretestNode {
 
     state_subscriber_ = node_.subscribe(
         "/multi_agv/cooperative_state", 10,
-        &ThreeCarUnloadedBoundedPretestNode::receiveState, this);
+        &ThreeCarUnloadedBoundedPretestNode::receiveState, this,
+        ros::TransportHints().tcpNoDelay());
     for (std::size_t index = 0; index < kRobotCount; ++index) {
       const auto robot = std::to_string(index + 1U);
       feedback_subscribers_[index] = node_.subscribe<agv_msgs::ChassisFeedback>(
           "/agv" + robot + "/chassis_feedback", 10,
           [this, index](const agv_msgs::ChassisFeedback::ConstPtr& message) {
             receiveFeedback(index, message);
-          });
+          },
+          ros::VoidConstPtr(), ros::TransportHints().tcpNoDelay());
       command_publishers_[index] = node_.advertise<agv_msgs::ChassisCommand>(
           "/agv" + robot + "/chassis_command", 1, false);
     }
@@ -596,6 +598,10 @@ class ThreeCarUnloadedBoundedPretestNode {
       *reason = "cooperative state or chassis feedback is stale";
       return false;
     }
+    if (!oneStatePublisher()) {
+      *reason = "cooperative state must have exactly one publisher";
+      return false;
+    }
     if (!state_.load_pose_valid || !state_.load_path_state_valid) {
       *reason = "virtual load pose or path state is invalid";
       return false;
@@ -888,6 +894,10 @@ class ThreeCarUnloadedBoundedPretestNode {
 int main(int argc, char** argv) {
   ros::init(argc, argv, "three_car_unloaded_bounded_pretest",
             ros::init_options::NoSigintHandler);
+  ros::NodeHandle result_node;
+  const std::string result_parameter =
+      "/multi_agv/three_car_unloaded_pretest_result_code";
+  result_node.setParam(result_parameter, -1);
   std::signal(SIGINT, multi_agv_control::requestStop);
   std::signal(SIGTERM, multi_agv_control::requestStop);
   std::signal(SIGHUP, multi_agv_control::requestStop);
@@ -898,6 +908,7 @@ int main(int argc, char** argv) {
   } catch (const std::exception& error) {
     ROS_FATAL("Failed to run three-car bounded pretest: %s", error.what());
   }
+  result_node.setParam(result_parameter, result);
   ros::shutdown();
   return result;
 }

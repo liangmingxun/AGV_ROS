@@ -241,11 +241,13 @@ class PathStateEstimatorNode {
         projector_config);
     robot.estimator =
         std::make_unique<StateEstimator>(std::move(projector), estimator_config);
-    robot.subscriber = node_.subscribe<nav_msgs::Odometry>(
-        robot.odom_topic, 10,
+    const boost::function<void(const nav_msgs::Odometry::ConstPtr&)> callback =
         [this, index](const nav_msgs::Odometry::ConstPtr& message) {
           receiveOdometry(index, message);
-        });
+        };
+    robot.subscriber = node_.subscribe<nav_msgs::Odometry>(
+        robot.odom_topic, 10, callback, ros::VoidConstPtr(),
+        ros::TransportHints().tcpNoDelay());
   }
 
   void receiveOdometry(std::size_t index,

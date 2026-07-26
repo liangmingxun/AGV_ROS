@@ -197,19 +197,19 @@ def main(argv=None):
         rospy.Subscriber(
             "/agv{}/odom".format(index), Odometry,
             lambda message, i=index: samples.append(("odom", i), message),
-            queue_size=400)
+            queue_size=400, tcp_nodelay=True)
         rospy.Subscriber(
             "/agv{}/chassis_feedback".format(index), ChassisFeedback,
             lambda message, i=index: samples.append(("feedback", i), message),
-            queue_size=400)
+            queue_size=400, tcp_nodelay=True)
         rospy.Subscriber(
             "/agv{}/capability_report".format(index), CapabilityReport,
             lambda message, i=index: samples.append(("capability", i), message),
-            queue_size=400)
+            queue_size=400, tcp_nodelay=True)
     rospy.Subscriber(
         "/multi_agv/cooperative_state", CooperativeState,
         lambda message: samples.append(("cooperative", 0), message),
-        queue_size=400)
+        queue_size=400, tcp_nodelay=True)
 
     rospy.loginfo(
         "Observing the read-only three-car graph for %.2f seconds",
@@ -249,31 +249,56 @@ def main(argv=None):
             list(state.robot_pose_valid), list(state.support_pose_valid),
             list(state.path_state_valid), state.load_pose_valid,
             state.load_path_state_valid)
-        stamps = [stamp.to_sec() for stamp in state.robot_pose_stamp
-                  if stamp.to_sec() > 0.0]
-        if len(stamps) == ROBOT_COUNT:
-            stamp_spread = max(stamps) - min(stamps)
+        # Ignore only the estimator's first half-second of startup. Checking
+        # just the final sample can miss periodic TCP delivery stalls and let
+        # the state become invalid immediately after this gate passes.
+        evaluation_start = cooperative[0][0] + min(
+            0.5, args.observe_seconds * 0.1)
+        evaluated = [
+            message for received, message in cooperative
+            if received >= evaluation_start]
+        if not evaluated:
+            evaluated = [state]
+        stamp_spreads = []
+        missing_stamp_samples = 0
+        invalid_state_samples = 0
+        for observed in evaluated:
+            stamps = [
+                stamp.to_sec() for stamp in observed.robot_pose_stamp
+                if stamp.to_sec() > 0.0]
+            if len(stamps) == ROBOT_COUNT:
+                stamp_spreads.append(max(stamps) - min(stamps))
+            else:
+                missing_stamp_samples += 1
+            if not (
+                    all(observed.robot_pose_valid) and
+                    all(observed.support_pose_valid) and
+                    all(observed.path_state_valid) and
+                    observed.load_pose_valid and
+                    observed.load_path_state_valid):
+                invalid_state_samples += 1
+        if stamp_spreads:
+            maximum_observed_spread = max(stamp_spreads)
             rospy.loginfo(
-                "cooperative odometry stamp spread: %.6f s", stamp_spread)
-            if stamp_spread > args.maximum_stamp_spread:
+                "cooperative odometry stamp spread: latest %.6f s, "
+                "maximum observed %.6f s over %d samples",
+                stamp_spreads[-1], maximum_observed_spread, len(evaluated))
+            if maximum_observed_spread > args.maximum_stamp_spread:
                 errors.append(
-                    "odometry stamp spread {:.6f} s exceeds {:.6f} s; "
-                    "synchronise the three host clocks".format(
-                        stamp_spread, args.maximum_stamp_spread))
-        else:
+                    "maximum observed odometry stamp spread {:.6f} s "
+                    "exceeds {:.6f} s; synchronise host clocks or diagnose "
+                    "network delivery jitter".format(
+                        maximum_observed_spread,
+                        args.maximum_stamp_spread))
+        if missing_stamp_samples:
             errors.append(
-                "cooperative state does not contain three non-zero odometry "
-                "timestamps")
-        if args.require_valid_state and not (
-                all(state.robot_pose_valid) and
-                all(state.support_pose_valid) and
-                all(state.path_state_valid) and
-                state.load_pose_valid and
-                state.load_path_state_valid):
+                "{} cooperative samples do not contain three non-zero "
+                "odometry timestamps".format(missing_stamp_samples))
+        if args.require_valid_state and invalid_state_samples:
             errors.append(
-                "cooperative state is not fully valid, including the virtual "
-                "load fit; measure/freeze world_to_odom and unloaded support "
-                "geometry before motion")
+                "{} of {} cooperative samples were not fully valid, "
+                "including the virtual load fit".format(
+                    invalid_state_samples, len(evaluated)))
 
     if errors:
         for error in errors:

@@ -14,6 +14,8 @@ catkin_install_python(PROGRAMS
 )
 
 install(PROGRAMS
+        scripts/check_local_clock_sync.sh
+        scripts/require_three_car_motion_gate.sh
         scripts/run_three_car_unloaded_pretest.sh
         scripts/start_three_car_chassis.sh
         scripts/setup_local_ros.sh

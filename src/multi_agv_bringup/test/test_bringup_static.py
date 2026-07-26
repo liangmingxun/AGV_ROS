@@ -201,6 +201,12 @@ class BringupStaticTest(unittest.TestCase):
         run = (
             PACKAGE / "scripts" / "run_three_car_unloaded_pretest.sh"
         ).read_text(encoding="utf-8")
+        local_clock = (
+            PACKAGE / "scripts" / "check_local_clock_sync.sh"
+        ).read_text(encoding="utf-8")
+        motion_gate = (
+            PACKAGE / "scripts" / "require_three_car_motion_gate.sh"
+        ).read_text(encoding="utf-8")
         self.assertNotIn("working tree is not clean", start)
         self.assertNotIn("working tree is not clean", run)
         self.assertIn(
@@ -211,14 +217,26 @@ class BringupStaticTest(unittest.TestCase):
             run)
         self.assertIn("/deployment/git_sha", start)
         self.assertIn("/deployment/clean_worktree", start)
+        self.assertIn("check_local_clock_sync.sh", start)
+        self.assertIn("/deployment/clock_sync_source", start)
+        self.assertIn("/deployment/clock_checked_at", start)
+        self.assertIn("Leap status", local_clock)
+        self.assertIn("CLOCK_SYNC_SOURCE=\"chrony\"", local_clock)
+        self.assertIn("CLOCK_SYNC_SOURCE=\"timedatectl\"", local_clock)
+        self.assertIn("AGV_MAX_LOCAL_CLOCK_OFFSET_SECONDS", local_clock)
         self.assertIn("serial device", start)
         self.assertIn("--confirm-area-clear", run)
         self.assertIn("--confirm-wheels-on-floor", run)
         self.assertIn("--confirm-unloaded-40cm-fixture", run)
         self.assertIn("check_three_car_readonly_gate.py", run)
-        self.assertEqual(run.count("--require-valid-state"), 2)
+        self.assertIn("require_three_car_motion_gate.sh", run)
+        self.assertIn("--require-valid-state", motion_gate)
+        self.assertIn("PASSED ${passes} CONSECUTIVE WINDOW", motion_gate)
         self.assertIn("/reset_odometry", run)
         self.assertIn("rosbag record", run)
+        self.assertIn(
+            "/multi_agv/three_car_unloaded_pretest_result_code", run)
+        self.assertIn("motion node exited without a valid result code", run)
         self.assertIn("target_progress: 1.00", (
             PACKAGE / "config" /
             "three_car_unloaded_bounded_pretest.yaml"
