@@ -22,8 +22,8 @@
 
 - 三车均无载荷，周围留出安全距离，电源开关可立即操作；
 - 三台电脑连接同一局域网；
-- Robot1 为 ROS Master，冻结地址 `192.168.0.50`；
-- Robot2 地址 `192.168.0.54`，Robot3 地址 `192.168.0.55`；
+- Robot1 为 ROS Master，现场冻结地址 `10.134.37.53`；
+- Robot2 地址 `10.134.37.114`，Robot3 地址 `10.134.37.239`；
 - 三台电脑时钟已同步；
 - 每台电脑只运行自己的 `carX_*.launch`；
 - `/dev/ttyACM0` 没有被旧程序占用。
@@ -38,7 +38,7 @@ cd /home/etlab/AGV_ROS/.worktrees/platform-foundation-linux
 source /opt/ros/noetic/setup.bash
 source devel/setup.bash
 source src/multi_agv_bringup/scripts/setup_ros_network.sh \
-  192.168.0.50 192.168.0.50
+  10.134.37.53 10.134.37.53
 roscore
 ```
 
@@ -49,7 +49,7 @@ cd /home/etlab/AGV_ROS/.worktrees/platform-foundation-linux
 source /opt/ros/noetic/setup.bash
 source devel/setup.bash
 source src/multi_agv_bringup/scripts/setup_ros_network.sh \
-  192.168.0.50 192.168.0.50
+  10.134.37.53 10.134.37.53
 fuser -v /dev/ttyACM0
 roslaunch multi_agv_bringup car1_master.launch transport_type:=serial
 ```
@@ -63,7 +63,7 @@ cd /home/etlab/AGV_ROS/.worktrees/platform-foundation-linux
 source /opt/ros/noetic/setup.bash
 source devel/setup.bash
 source src/multi_agv_bringup/scripts/setup_ros_network.sh \
-  192.168.0.54 192.168.0.50
+  10.134.37.114 10.134.37.53
 fuser -v /dev/ttyACM0
 roslaunch multi_agv_bringup car2_client.launch transport_type:=serial
 ```
@@ -77,7 +77,7 @@ cd /home/etlab/AGV_ROS/.worktrees/platform-foundation-linux
 source /opt/ros/noetic/setup.bash
 source devel/setup.bash
 source src/multi_agv_bringup/scripts/setup_ros_network.sh \
-  192.168.0.55 192.168.0.50
+  10.134.37.239 10.134.37.53
 fuser -v /dev/ttyACM0
 roslaunch multi_agv_bringup car3_client.launch transport_type:=serial
 ```
@@ -91,7 +91,7 @@ cd /home/etlab/AGV_ROS/.worktrees/platform-foundation-linux
 source /opt/ros/noetic/setup.bash
 source devel/setup.bash
 source src/multi_agv_bringup/scripts/setup_ros_network.sh \
-  192.168.0.50 192.168.0.50
+  10.134.37.53 10.134.37.53
 roslaunch multi_agv_bringup central_odom_pretest.launch \
   platform_transport_type:=serial \
   enable_commands:=false \
@@ -107,7 +107,7 @@ cd /home/etlab/AGV_ROS/.worktrees/platform-foundation-linux
 source /opt/ros/noetic/setup.bash
 source devel/setup.bash
 source src/multi_agv_bringup/scripts/setup_ros_network.sh \
-  192.168.0.50 192.168.0.50
+  10.134.37.53 10.134.37.53
 rosrun multi_agv_bringup check_three_car_readonly_gate.py \
   --observe-seconds 5
 ```

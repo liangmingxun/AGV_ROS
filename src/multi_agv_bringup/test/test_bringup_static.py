@@ -16,6 +16,11 @@ class BringupStaticTest(unittest.TestCase):
                 self.assertNotIn("move_base", launch.read_text(encoding="utf-8"))
 
     def test_each_car_config_has_explicit_identity_frames_and_calibration(self):
+        expected_host_ips = {
+            1: "10.134.37.53",
+            2: "10.134.37.114",
+            3: "10.134.37.239",
+        }
         for index in range(1, 4):
             text = (PACKAGE / "config" / f"agv{index}_chassis.yaml").read_text(
                 encoding="utf-8")
@@ -26,6 +31,8 @@ class BringupStaticTest(unittest.TestCase):
                            "max_wheel_linear_velocity_left:", "transport_type:",
                            "serial_startup_timeout_seconds:"):
                 self.assertIn(marker, text)
+            self.assertIn(
+                "host_ip: {}".format(expected_host_ips[index]), text)
 
     def test_support_offsets_are_launch_calibration_arguments(self):
         for launch_name in ("car1_master.launch", "car2_client.launch",

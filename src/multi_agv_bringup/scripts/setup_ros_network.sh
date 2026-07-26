@@ -10,7 +10,7 @@ if [[ $# -lt 1 || $# -gt 2 ]]; then
 fi
 
 local_ip="$1"
-master_ip="${2:-192.168.0.50}"
+master_ip="${2:-10.134.37.53}"
 if [[ ! "$local_ip" =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}$ ||
       ! "$master_ip" =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}$ ]]; then
   echo "local-ip and master-ip must be IPv4 addresses" >&2
