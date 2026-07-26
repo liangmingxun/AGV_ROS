@@ -18,11 +18,13 @@ double angleDifference(double first, double second) {
 }
 
 SCurvePath testPath() {
-  return SCurvePath({0.12, 2.0, 20001});
+  return SCurvePath({0.05, 1.0, 20001});
 }
 
 SupportGeometryConfig testConfig() {
-  return {{{0.18, 0.12}, {-0.18, 0.12}, {0.0, -0.16}},
+  return {{{0.230940107675850, 0.0},
+           {-0.115470053837925, 0.20},
+           {-0.115470053837925, -0.20}},
           0.2,
           0.2,
           10001};

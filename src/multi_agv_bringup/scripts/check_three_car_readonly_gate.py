@@ -146,6 +146,9 @@ def parse_args(argv):
         "--minimum-voltage", type=float, default=10.8,
         help="minimum feedback voltage; use 0 only for fake-transport testing")
     parser.add_argument(
+        "--maximum-stamp-spread", type=float, default=0.02,
+        help="maximum allowed spread across the three odometry stamps")
+    parser.add_argument(
         "--require-valid-state", action="store_true",
         help="also require all cooperative robot/support/path validity flags")
     return parser.parse_args(argv)
@@ -154,9 +157,10 @@ def parse_args(argv):
 def main(argv=None):
     args = parse_args(rospy.myargv(argv=sys.argv)[1:] if argv is None else argv)
     if args.observe_seconds <= 0.0 or args.minimum_rate <= 0.0 or \
-            args.minimum_voltage < 0.0:
+            args.minimum_voltage < 0.0 or args.maximum_stamp_spread <= 0.0:
         raise ValueError(
-            "observation and rate must be positive; voltage must be nonnegative")
+            "observation, rate and stamp spread must be positive; "
+            "voltage must be nonnegative")
 
     rospy.init_node("three_car_readonly_gate", anonymous=True)
     samples = SampleBuffer()
@@ -214,6 +218,21 @@ def main(argv=None):
             list(state.robot_pose_valid), list(state.support_pose_valid),
             list(state.path_state_valid), state.load_pose_valid,
             state.load_path_state_valid)
+        stamps = [stamp.to_sec() for stamp in state.robot_pose_stamp
+                  if stamp.to_sec() > 0.0]
+        if len(stamps) == ROBOT_COUNT:
+            stamp_spread = max(stamps) - min(stamps)
+            rospy.loginfo(
+                "cooperative odometry stamp spread: %.6f s", stamp_spread)
+            if stamp_spread > args.maximum_stamp_spread:
+                errors.append(
+                    "odometry stamp spread {:.6f} s exceeds {:.6f} s; "
+                    "synchronise the three host clocks".format(
+                        stamp_spread, args.maximum_stamp_spread))
+        else:
+            errors.append(
+                "cooperative state does not contain three non-zero odometry "
+                "timestamps")
         if args.require_valid_state and not (
                 all(state.robot_pose_valid) and
                 all(state.support_pose_valid) and

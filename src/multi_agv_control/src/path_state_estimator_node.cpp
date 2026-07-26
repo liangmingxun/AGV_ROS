@@ -123,9 +123,9 @@ class PathStateEstimatorNode {
 
   SCurveConfig loadPathConfig() {
     SCurveConfig config;
-    private_node_.param("path_s_curve/amplitude", config.amplitude, 0.12);
+    private_node_.param("path_s_curve/amplitude", config.amplitude, 0.05);
     private_node_.param("path_s_curve/longitudinal_length",
-                        config.longitudinal_length, 2.0);
+                        config.longitudinal_length, 1.0);
     int samples = 20001;
     private_node_.param("path_s_curve/lookup_samples", samples, 20001);
     if (samples < 3) {

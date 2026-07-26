@@ -14,9 +14,10 @@
   `/agv3/chassis_command` 均无 Publisher；
 - 三个 `/agvX/derating_command` 均无 Publisher。
 
-中央控制器在只读模式下不会注册命令 Publisher。只读拓扑通过之后，仍必须
-实测并冻结 `world_to_odom`、无载起始支撑布局和场地 S 形尺寸；在这些参数完成
-之前，不得把任何 `hardware_execution_authorized` 改为 `true`。
+中央控制器在只读模式下不会注册命令 Publisher。只读拓扑通过之后，按
+`three-car-unloaded-fixture.md` 建立边长 `0.40 m` 的等边三角形地面工装、
+复位三车里程计并验证虚拟载荷拟合；在这些步骤完成之前，不得把任何
+`hardware_execution_authorized` 改为 `true`。
 
 ## 物理和网络准备
 
@@ -119,10 +120,12 @@ rosrun multi_agv_bringup check_three_car_readonly_gate.py \
 - 三车 ID 和 frame 一一对应；
 - 三车静止、无 `control_loop_overrun`、电压不低于 `10.8 V`；
 - `/multi_agv/cooperative_state` 只有一个 Publisher 且不低于 `80 Hz`；
+- 三车 odom 时间戳跨度不超过 `0.02 s`；
 - 六个运动/降额命令话题均无 Publisher。
 
-第一次检查是拓扑门槛。即使它通过，状态有效位仍可能因为尚未测量
-`world_to_odom` 和支撑布局而为 false，这是预期的参数门控，不允许据此运动。
+第一次检查是拓扑门槛。即使它通过，虚拟载荷有效位仍可能因为车辆尚未按
+等边三角形工装摆放并复位里程计而为 false，这是预期的几何门控，不允许
+据此运动。
 
 ## 参数冻结后的第二次只读门槛
 

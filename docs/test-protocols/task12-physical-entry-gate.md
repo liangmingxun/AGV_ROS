@@ -68,3 +68,8 @@ Robot1 单车 S 形和 Robot2 举升降额通过后，必须先执行
 `/agvX/chassis_command` Publisher；第一次只验证分布式拓扑，现场参数冻结后
 再用 `check_three_car_readonly_gate.py --require-valid-state` 验证全部状态
 有效。两次只读门槛之间不允许三车运动。
+
+三车无载阶段的冻结摆位见
+`test-protocols/three-car-unloaded-fixture.md`：Robot1 前、Robot2 左后、
+Robot3 右后，三个转盘中心构成边长 `0.40 m` 的等边三角形。该几何只用于
+无实体托盘预检；正式载荷实验仍必须重新测量真实接触点。

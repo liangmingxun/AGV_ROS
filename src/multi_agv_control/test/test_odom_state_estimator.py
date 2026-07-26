@@ -10,7 +10,16 @@ from nav_msgs.msg import Odometry
 
 
 class OdomStateEstimatorTest(unittest.TestCase):
-    OFFSETS = ((0.18, 0.12), (-0.18, 0.12), (0.0, -0.16))
+    OFFSETS = (
+        (0.230940107675850, 0.0),
+        (-0.115470053837925, 0.20),
+        (-0.115470053837925, -0.20),
+    )
+    WORLD_TO_ODOM = (
+        (0.237333702114270, 0.074560581501146, 0.304395797364615),
+        (-0.153094727127932, 0.161541278437113, 0.304395797364615),
+        (-0.033208005692254, -0.220070008114273, 0.304395797364615),
+    )
     BASE_TO_SUPPORT_X = -0.01783
 
     def setUp(self):
@@ -45,8 +54,8 @@ class OdomStateEstimatorTest(unittest.TestCase):
 
     @staticmethod
     def _center_sample(xi):
-        amplitude = 0.12
-        wave_number = math.pi
+        amplitude = 0.05
+        wave_number = 2.0 * math.pi
         y = amplitude * math.sin(wave_number * xi)
         slope = amplitude * wave_number * math.cos(wave_number * xi)
         second = -amplitude * wave_number * wave_number * math.sin(
@@ -74,14 +83,22 @@ class OdomStateEstimatorTest(unittest.TestCase):
         support, yaw = self._support_sample(xi, self.OFFSETS[index])
         base_x = support[0] - self.BASE_TO_SUPPORT_X * math.cos(yaw)
         base_y = support[1] - self.BASE_TO_SUPPORT_X * math.sin(yaw)
+        transform_x, transform_y, transform_yaw = self.WORLD_TO_ODOM[index]
+        dx = base_x - transform_x
+        dy = base_y - transform_y
+        cosine = math.cos(transform_yaw)
+        sine = math.sin(transform_yaw)
+        odom_x = cosine * dx + sine * dy
+        odom_y = -sine * dx + cosine * dy
+        odom_yaw = yaw - transform_yaw
         message = Odometry()
         message.header.stamp = stamp
         message.header.frame_id = "agv{}/odom".format(index + 1)
         message.child_frame_id = "agv{}/base_link".format(index + 1)
-        message.pose.pose.position.x = base_x
-        message.pose.pose.position.y = base_y
-        message.pose.pose.orientation.z = math.sin(0.5 * yaw)
-        message.pose.pose.orientation.w = math.cos(0.5 * yaw)
+        message.pose.pose.position.x = odom_x
+        message.pose.pose.position.y = odom_y
+        message.pose.pose.orientation.z = math.sin(0.5 * odom_yaw)
+        message.pose.pose.orientation.w = math.cos(0.5 * odom_yaw)
         self._odom_publishers[index].publish(message)
 
     def _latest(self):

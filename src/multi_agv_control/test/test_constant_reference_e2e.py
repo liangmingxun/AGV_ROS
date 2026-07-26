@@ -11,7 +11,11 @@ from agv_msgs.msg import (ChassisCommand, ChassisFeedback, ControllerState,
 
 
 class ConstantReferenceE2ETest(unittest.TestCase):
-    OFFSETS = ((0.18, 0.12), (-0.18, 0.12), (0.0, -0.16))
+    OFFSETS = (
+        (0.230940107675850, 0.0),
+        (-0.115470053837925, 0.20),
+        (-0.115470053837925, -0.20),
+    )
 
     def setUp(self):
         self._lock = threading.Lock()
@@ -44,8 +48,8 @@ class ConstantReferenceE2ETest(unittest.TestCase):
 
     @staticmethod
     def _sample(xi, offset):
-        amplitude = 0.12
-        wave_number = math.pi
+        amplitude = 0.05
+        wave_number = 2.0 * math.pi
         y = amplitude * math.sin(wave_number * xi)
         slope = amplitude * wave_number * math.cos(wave_number * xi)
         second = -amplitude * wave_number ** 2 * math.sin(wave_number * xi)
@@ -73,10 +77,14 @@ class ConstantReferenceE2ETest(unittest.TestCase):
             message.support_pose_valid[index] = True
             message.path_state_valid[index] = True
             message.robot_pose_stamp[index] = message.header.stamp
-            message.robot_pose[index].x = position[0]
-            message.robot_pose[index].y = position[1]
+            message.robot_pose[index].x = (
+                position[0] + 0.01783 * math.cos(yaw))
+            message.robot_pose[index].y = (
+                position[1] + 0.01783 * math.sin(yaw))
             message.robot_pose[index].theta = yaw
-            message.support_pose[index] = message.robot_pose[index]
+            message.support_pose[index].x = position[0]
+            message.support_pose[index].y = position[1]
+            message.support_pose[index].theta = yaw
         return message
 
     def test_fake_chassis_traceability_and_common_reference(self):

@@ -52,6 +52,8 @@ class CentralReadonlyE2ETest(unittest.TestCase):
         self.assertTrue(all(state.robot_pose_valid))
         self.assertTrue(all(state.support_pose_valid))
         self.assertTrue(all(state.path_state_valid))
+        self.assertTrue(state.load_pose_valid)
+        self.assertTrue(state.load_path_state_valid)
         self.assertGreater(reference.load_path_progress_reference, 0.0)
 
         publishers, subscribers, _ = rosgraph.Master(

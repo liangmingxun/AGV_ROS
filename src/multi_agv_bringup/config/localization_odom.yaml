@@ -1,19 +1,21 @@
-# Task 9 pretest localization. The world-to-odom transforms and support-frame
-# offsets must be measured and frozen before any formal S-curve experiment.
+# Unloaded equilateral-fixture localization. Values assume each stationary
+# chassis odometry is reset to (0,0,0) after its turntable centre and heading
+# are aligned to the floor marks documented in three-car-unloaded-fixture.md.
+# They are not valid after a car is moved without repeating that reset.
 localization_mode: odometry_pretest
-configuration_status: software_validation_only
+configuration_status: unloaded_equilateral_fixture_pending_readonly_gate
 hardware_execution_authorized: false
 
 publish_rate: 100.0
 maximum_state_age: 0.15
 maximum_sync_slop: 0.02
-maximum_rigid_fit_residual: 0.05
+maximum_rigid_fit_residual: 0.01
 
 projector:
   coarse_samples: 81
   maximum_refinement_iterations: 48
   convergence_tolerance: 1.0e-9
-  maximum_projection_distance: 0.25
+  maximum_projection_distance: 0.08
 
 estimator:
   filter_alpha: 0.8
@@ -29,19 +31,19 @@ robots:
     odom_topic: /agv1/odom
     odom_frame: agv1/odom
     base_frame: agv1/base_link
-    world_to_odom: {x: 0.0, y: 0.0, yaw: 0.0}
+    world_to_odom: {x: 0.237333702114270, y: 0.074560581501146, yaw: 0.304395797364615}
     base_to_support: {x: -0.01783, y: 0.0, yaw: 0.0}
   - robot_id: agv2
     robot_index: 2
     odom_topic: /agv2/odom
     odom_frame: agv2/odom
     base_frame: agv2/base_link
-    world_to_odom: {x: 0.0, y: 0.0, yaw: 0.0}
+    world_to_odom: {x: -0.153094727127932, y: 0.161541278437113, yaw: 0.304395797364615}
     base_to_support: {x: -0.01783, y: 0.0, yaw: 0.0}
   - robot_id: agv3
     robot_index: 3
     odom_topic: /agv3/odom
     odom_frame: agv3/odom
     base_frame: agv3/base_link
-    world_to_odom: {x: 0.0, y: 0.0, yaw: 0.0}
+    world_to_odom: {x: -0.033208005692254, y: -0.220070008114273, yaw: 0.304395797364615}
     base_to_support: {x: -0.01783, y: 0.0, yaw: 0.0}

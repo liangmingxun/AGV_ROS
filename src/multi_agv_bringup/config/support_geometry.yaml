@@ -1,10 +1,11 @@
-# Task 8 software-validation fixture. q_tangent/q_normal are expressed in the
-# load path Frenet frame [tangent, left-normal], in metres. They are deliberately
-# marked as provisional and must be replaced by measured tray support offsets.
+# Unloaded equilateral fixture, side length 0.40 m. q_tangent/q_normal are
+# expressed in the load-path Frenet frame [forward tangent, left normal].
+# Robot1 is front, Robot2 left-rear and Robot3 right-rear. These are virtual
+# support offsets for the no-tray gate, not final loaded-object contact points.
 support_geometry:
   schema_version: 1
   coordinate_convention: load_path_frenet_tangent_left_normal
-  configuration_status: provisional_fixture_not_physical_measurement
+  configuration_status: unloaded_equilateral_0p40m_frozen_pending_readonly_gate
   hardware_execution_authorized: false
 
   minimum_nondegeneracy: 0.20
@@ -14,13 +15,16 @@ support_geometry:
   supports:
     - robot_id: agv1
       robot_index: 1
-      q_tangent: 0.18
-      q_normal: 0.12
+      role: front
+      q_tangent: 0.230940107675850
+      q_normal: 0.0
     - robot_id: agv2
       robot_index: 2
-      q_tangent: -0.18
-      q_normal: 0.12
+      role: left_rear
+      q_tangent: -0.115470053837925
+      q_normal: 0.20
     - robot_id: agv3
       robot_index: 3
-      q_tangent: 0.0
-      q_normal: -0.16
+      role: right_rear
+      q_tangent: -0.115470053837925
+      q_normal: -0.20

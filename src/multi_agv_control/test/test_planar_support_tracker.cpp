@@ -20,8 +20,11 @@ namespace {
 
 SupportGeometry geometry() {
   SupportGeometryConfig config;
-  config.offsets = {{0.18, 0.12}, {-0.18, 0.12}, {0.0, -0.16}};
-  return SupportGeometry(SCurvePath({0.12, 2.0, 20001}), config);
+  config.offsets = {
+      {0.230940107675850, 0.0},
+      {-0.115470053837925, 0.20},
+      {-0.115470053837925, -0.20}};
+  return SupportGeometry(SCurvePath({0.05, 1.0, 20001}), config);
 }
 
 PlanarSupportTracker tracker() {
@@ -179,6 +182,66 @@ TEST(PlanarSupportTracker, Robot1ShortSPretestStaysInsideDedicatedWheelBound) {
   EXPECT_LT(maximum_wheel_speed, 0.08);
   EXPECT_LT(minimum_wheel_difference, -1e-3);
   EXPECT_GT(maximum_wheel_difference, 1e-3);
+}
+
+TEST(PlanarSupportTracker,
+     FrozenEquilateralFixtureMatchesStartTransformsAndWheelBound) {
+  const auto fixture_geometry = geometry();
+  const auto& offsets = fixture_geometry.config().offsets;
+  const auto distance = [](const SupportOffset& lhs,
+                           const SupportOffset& rhs) {
+    return std::hypot(lhs.tangent - rhs.tangent, lhs.normal - rhs.normal);
+  };
+  EXPECT_NEAR(distance(offsets[0], offsets[1]), 0.40, 1e-14);
+  EXPECT_NEAR(distance(offsets[0], offsets[2]), 0.40, 1e-14);
+  EXPECT_NEAR(distance(offsets[1], offsets[2]), 0.40, 1e-14);
+  EXPECT_GT(offsets[0].tangent, 0.0);
+  EXPECT_GT(offsets[1].normal, 0.0);
+  EXPECT_LT(offsets[2].normal, 0.0);
+
+  const auto measured_tracker = measuredOffsetTracker();
+  const PlanarPose dummy{{0.0, 0.0}, 0.0};
+  const std::array<PlanarPose, 3> expected_support{{
+      {{0.220323379016242, 0.069216630893151}, 0.304395797364615},
+      {{-0.170105050225960, 0.156197327829118}, 0.304395797364615},
+      {{-0.050218328790282, -0.225413958722268}, 0.304395797364615}}};
+  const std::array<PlanarPose, 3> expected_chassis{{
+      {{0.237558108478319, 0.073785328778655}, 0.259126757480348},
+      {{-0.153183411455991, 0.161815783251978}, 0.320575164049588},
+      {{-0.033319456800366, -0.219727393373269}, 0.324602887613338}}};
+  for (std::size_t index = 0U; index < 3U; ++index) {
+    const auto preview =
+        measured_tracker.track({index, 0.0, 0.05, dummy, dummy});
+    ASSERT_TRUE(preview.valid);
+    EXPECT_NEAR(
+        (preview.support_pose_reference.position -
+         expected_support[index].position).norm(), 0.0, 1e-12);
+    EXPECT_NEAR(
+        (preview.chassis_pose_reference.position -
+         expected_chassis[index].position).norm(), 0.0, 1e-12);
+    EXPECT_NEAR(preview.chassis_pose_reference.yaw,
+                expected_chassis[index].yaw, 1e-12);
+  }
+
+  double maximum_wheel_speed = 0.0;
+  for (std::size_t sample = 0U; sample <= 2000U; ++sample) {
+    const double progress =
+        fixture_geometry.path().length() *
+        static_cast<double>(sample) / 2000.0;
+    for (std::size_t index = 0U; index < 3U; ++index) {
+      const auto preview =
+          measured_tracker.track({index, progress, 0.05, dummy, dummy});
+      const auto exact = measured_tracker.track(
+          {index, progress, 0.05, preview.chassis_pose_reference,
+           preview.support_pose_reference});
+      ASSERT_TRUE(exact.valid);
+      maximum_wheel_speed = std::max(
+          maximum_wheel_speed,
+          std::max(std::abs(exact.wheel_linear_velocity_left_raw),
+                   std::abs(exact.wheel_linear_velocity_right_raw)));
+    }
+  }
+  EXPECT_LT(maximum_wheel_speed, 0.08);
 }
 
 TEST(PlanarSupportTracker, RejectsBadConfigAndInput) {

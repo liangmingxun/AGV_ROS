@@ -47,6 +47,16 @@ class BringupStaticTest(unittest.TestCase):
             encoding="utf-8")
         self.assertEqual(localization.count(
             "base_to_support: {x: -0.01783, y: 0.0, yaw: 0.0}"), 3)
+        for transform in (
+                "x: 0.237333702114270, y: 0.074560581501146, "
+                "yaw: 0.304395797364615",
+                "x: -0.153094727127932, y: 0.161541278437113, "
+                "yaw: 0.304395797364615",
+                "x: -0.033208005692254, y: -0.220070008114273, "
+                "yaw: 0.304395797364615"):
+            self.assertIn(transform, localization)
+        self.assertIn("maximum_rigid_fit_residual: 0.01", localization)
+        self.assertIn("maximum_projection_distance: 0.08", localization)
 
         tracker = (
             PACKAGE / "config" / "pretest_constant_reference.yaml"
@@ -58,6 +68,30 @@ class BringupStaticTest(unittest.TestCase):
         ).read_text(encoding="utf-8")
         self.assertEqual(capability.count("{x: -0.01783, y: 0.0}"), 3)
         self.assertIn("offset_compensated_drive_axle_reference", capability)
+
+    def test_three_car_fixture_is_short_s_equilateral_and_still_gated(self):
+        path = (PACKAGE / "config" / "path_s_curve.yaml").read_text(
+            encoding="utf-8")
+        geometry = (PACKAGE / "config" / "support_geometry.yaml").read_text(
+            encoding="utf-8")
+        pretest = (
+            PACKAGE / "config" / "pretest_constant_reference.yaml"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("amplitude: 0.05", path)
+        self.assertIn("longitudinal_length: 1.0", path)
+        self.assertIn("hardware_execution_authorized: false", path)
+        for marker in (
+                "role: front",
+                "q_tangent: 0.230940107675850",
+                "role: left_rear",
+                "q_tangent: -0.115470053837925",
+                "q_normal: 0.20",
+                "role: right_rear",
+                "q_normal: -0.20"):
+            self.assertIn(marker, geometry)
+        self.assertIn("hardware_execution_authorized: false", geometry)
+        self.assertIn("hardware_execution_authorized: false", pretest)
 
     def test_urdf_uses_prefix_for_links_and_joints(self):
         urdf_dir = SOURCE_ROOT / "mycar_description" / "urdf"
