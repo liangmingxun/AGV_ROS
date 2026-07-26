@@ -1,0 +1,35 @@
+<launch>
+  <!--
+    Run on Robot1 only, after stopping central_odom_pretest.launch.
+    Start all three serial chassis nodes and the rosbag recorder first.
+  -->
+  <arg name="platform_transport_type" default="serial"/>
+  <arg name="enable_commands" default="false"/>
+  <arg name="confirm_readonly_gate_passed" default="false"/>
+  <arg name="confirm_test_area_clear" default="false"/>
+  <arg name="confirm_wheels_on_floor" default="false"/>
+  <arg name="confirm_unloaded_40cm_fixture" default="false"/>
+
+  <include file="$(find multi_agv_bringup)/launch/odom_state_estimator.launch"/>
+
+  <node pkg="multi_agv_control"
+        type="three_car_unloaded_bounded_pretest_node"
+        name="three_car_unloaded_bounded_pretest"
+        output="screen"
+        required="true">
+    <rosparam command="load"
+              file="$(find multi_agv_bringup)/config/path_s_curve.yaml"/>
+    <rosparam command="load"
+              file="$(find multi_agv_bringup)/config/support_geometry.yaml"/>
+    <rosparam command="load"
+              file="$(find multi_agv_bringup)/config/three_car_unloaded_bounded_pretest.yaml"/>
+    <param name="platform_transport_type" value="$(arg platform_transport_type)"/>
+    <param name="command_publication_authorized" value="$(arg enable_commands)"/>
+    <param name="confirm_readonly_gate_passed"
+           value="$(arg confirm_readonly_gate_passed)"/>
+    <param name="confirm_test_area_clear" value="$(arg confirm_test_area_clear)"/>
+    <param name="confirm_wheels_on_floor" value="$(arg confirm_wheels_on_floor)"/>
+    <param name="confirm_unloaded_40cm_fixture"
+           value="$(arg confirm_unloaded_40cm_fixture)"/>
+  </node>
+</launch>

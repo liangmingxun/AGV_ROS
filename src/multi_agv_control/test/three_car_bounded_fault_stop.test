@@ -1,0 +1,25 @@
+<launch>
+  <include file="$(find multi_agv_bringup)/launch/three_fake_chassis.launch"/>
+  <include file="$(find multi_agv_bringup)/launch/odom_state_estimator.launch"/>
+
+  <node pkg="multi_agv_control"
+        type="three_car_unloaded_bounded_pretest_node"
+        name="three_car_bounded_fault_stop_test_node"
+        output="screen">
+    <rosparam command="load"
+              file="$(find multi_agv_bringup)/config/path_s_curve.yaml"/>
+    <rosparam command="load"
+              file="$(find multi_agv_bringup)/config/support_geometry.yaml"/>
+    <rosparam command="load"
+              file="$(find multi_agv_bringup)/config/three_car_unloaded_bounded_pretest.yaml"/>
+    <param name="platform_transport_type" value="fake"/>
+    <param name="command_publication_authorized" value="true"/>
+    <param name="three_car_unloaded_bounded_pretest/start_delay_seconds"
+           value="0.2"/>
+  </node>
+
+  <test test-name="three_car_bounded_fault_stop"
+        pkg="multi_agv_control"
+        type="test_three_car_bounded_fault_stop.py"
+        time-limit="14"/>
+</launch>

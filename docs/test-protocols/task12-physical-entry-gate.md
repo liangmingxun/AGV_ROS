@@ -38,8 +38,8 @@ roslaunch multi_agv_bringup central_odom_pretest.launch \
    状态失效后的零命令；Robot2 再单独验证位置触发降额。
 6. 保存参数快照、Git SHA、rosbag、操作人、日期和人工急停检查结果。
 
-以上项目签字通过后，才能逐项把对应 YAML 的
-`hardware_execution_authorized` 改为 `true`。不得仅通过 launch 参数绕过门控。
+不得仅通过 launch 参数绕过门控。通用路径、支撑几何和中央控制器的授权继续
+保持 false；第一次三车运动只使用独立的有界无载入口及其专用授权。
 
 ## 实物验证顺序
 
@@ -73,3 +73,19 @@ Robot1 单车 S 形和 Robot2 举升降额通过后，必须先执行
 `test-protocols/three-car-unloaded-fixture.md`：Robot1 前、Robot2 左后、
 Robot3 右后，三个转盘中心构成边长 `0.40 m` 的等边三角形。该几何只用于
 无实体托盘预检；正式载荷实验仍必须重新测量真实接触点。
+
+第二次只读门槛连续通过后，第一次三车共同运动必须使用
+`three_car_unloaded_bounded_pretest.launch` 和
+`test-protocols/three-car-unloaded-bounded-pretest.md`。该入口只允许
+`0.05 m/s`、连续 `1.00 m` 的共同 S 形运动/自动停车，并要求 rosbag 已连接；不得把
+`central_odom_pretest.launch` 的 `enable_commands` 改为 true 代替它。
+三台底盘还必须使用 `command_timeout_seconds: 0.20` 的独立 ROS 命令心跳
+超时保护和 `sensor_feedback_timeout_seconds: 0.15` 的锁存式 STM32 反馈
+看门狗；只读门槛与有界入口同时要求 `serial_receive_stamp` 新鲜且
+`packet_seq` 持续推进。这些保护依赖 Linux 和串口零速命令能够到达 STM32，
+仍不能代替物理急停或 STM32 固件内部看门狗。
+
+推荐用 `three-car-unloaded-bounded-pretest.md` 中的四终端脚本流程启动。每车
+底盘脚本会登记 hostname、IP、干净工作区和 Git SHA；Robot1 总控脚本只在
+三车 SHA 完全一致、拓扑门槛通过、里程计复位且完整有效状态连续通过两轮后，
+才创建参数快照、manifest、bag 并调用有界运动入口。

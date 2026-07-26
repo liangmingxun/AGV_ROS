@@ -73,6 +73,19 @@ class ChassisControllerNode {
 
       updateSensorState();
       const auto applied = core_->step(dt);
+      if (core_->feedback().command_watchdog_active) {
+        ROS_ERROR_THROTTLE(
+            1.0,
+            "Chassis command watchdog expired after %.3f s; commanding zero",
+            config_.command_timeout_seconds);
+      }
+      if (core_->feedback().sensor_watchdog_active) {
+        ROS_ERROR_THROTTLE(
+            1.0,
+            "STM32 feedback watchdog is latched after %.3f s without a new "
+            "packet; commanding zero until fresh feedback and a zero command",
+            config_.sensor_feedback_timeout_seconds);
+      }
       accumulateCycleFlags();
       sendAppliedCommand(applied);
 
@@ -103,6 +116,10 @@ class ChassisControllerNode {
     config_.wheel_separation = private_.param("wheel_separation", 0.114);
     config_.control_loop_overrun_seconds =
         private_.param("control_loop_overrun_seconds", 0.008);
+    config_.command_timeout_seconds =
+        private_.param("command_timeout_seconds", 0.20);
+    config_.sensor_feedback_timeout_seconds =
+        private_.param("sensor_feedback_timeout_seconds", 0.15);
     config_.nominal_limits = {
         private_.param("nominal/max_wheel_linear_velocity_left", 0.9),
         private_.param("nominal/max_wheel_linear_velocity_right", 0.9),
@@ -268,14 +285,23 @@ class ChassisControllerNode {
       input.imu_yaw_rate = corrected_gyro_[2];
       input.battery_voltage = sensor.battery_voltage_;
       input.packet_sequence = sensor.packet_seq_;
-      if (sensor.packet_seq_ != last_serial_packet_sequence_) {
+      input.packet_fresh =
+          !has_serial_packet_ ||
+          sensor.packet_seq_ != last_serial_packet_sequence_;
+      if (input.packet_fresh) {
+        has_serial_packet_ = true;
         last_serial_packet_sequence_ = sensor.packet_seq_;
         last_serial_receive_stamp_ = ros::Time::now();
       }
     } else {
       input.wheel_left_mm_per_second = last_applied_.left * 1000.0;
       input.wheel_right_mm_per_second = last_applied_.right * 1000.0;
+      input.imu_yaw_rate =
+          (last_applied_.right - last_applied_.left) /
+          config_.wheel_separation;
+      corrected_gyro_[2] = static_cast<float>(input.imu_yaw_rate);
       input.packet_sequence = ++fake_packet_sequence_;
+      input.packet_fresh = true;
       last_serial_receive_stamp_ = ros::Time::now();
       body_quaternion_ = Eigen::Quaternionf::Identity();
     }
@@ -451,6 +477,7 @@ class ChassisControllerNode {
   chassis_controller::WheelCommand last_applied_{};
   std::uint32_t fake_packet_sequence_{0};
   std::uint32_t last_serial_packet_sequence_{0};
+  bool has_serial_packet_{false};
   std::uint32_t feedback_publish_sequence_{0};
   std::uint32_t capability_publish_sequence_{0};
   ros::Time last_serial_receive_stamp_{};

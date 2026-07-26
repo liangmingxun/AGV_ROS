@@ -1,8 +1,9 @@
 # multi_agv_control geometry and odometry-state foundation
 
 Task 8 provides deterministic, side-effect-free geometry primitives. Task 9
-adds local-window projection and a read-only odometry pretest estimator. No
-component in this package publishes a chassis command.
+adds local-window projection and a read-only odometry pretest estimator.
+Command publication exists only in explicitly launched controller/pretest
+executables; the geometry and estimator components remain side-effect free.
 
 ## `SCurvePath`
 
@@ -48,9 +49,11 @@ derivatives.
 The YAML files now freeze the unloaded `0.40 m` equilateral pretest fixture:
 Robot1 front, Robot2 left-rear and Robot3 right-rear, on the Robot1-validated
 `A=0.05 m`, longitudinal `1.0 m` short S. This is not the final loaded-object
-geometry. All `hardware_execution_authorized` fields remain false until the
-second read-only physical gate and the dedicated bounded fleet-motion gate
-have passed.
+geometry. The generic path, support and central-controller
+`hardware_execution_authorized` fields remain false. Only the separate
+`three_car_unloaded_bounded_pretest` fixture authorizes the frozen
+`0.05 m/s` by `1.00 m` continuous S-path gate, and its launch still defaults to
+commands disabled with four explicit serial confirmations required.
 
 ## Task 9 projection and state estimation
 
@@ -148,3 +151,13 @@ path to the starting odometry pose and uses the measured rear support offset
 when constructing the nonholonomic chassis reference. Serial execution still
 requires explicit command, clear-area and wheels-on-floor launch
 acknowledgements; the launch defaults remain non-moving.
+
+After the distributed three-car read-only gate has passed repeatedly, the
+first fleet motion uses `three_car_unloaded_bounded_pretest.launch`, not the
+generic central controller. It refuses competing command/reference
+publishers, requires one cooperative-state source and two command subscribers
+per car (chassis plus recorder), checks synchronized valid state, voltage,
+stationary wheel feedback, progress consistency and bounded tracking errors,
+then advances `1.00 m` continuously at `0.05 m/s`. Any invalid state or excessive
+command causes repeated zero commands to all three cars and all-wheel stop
+confirmation.

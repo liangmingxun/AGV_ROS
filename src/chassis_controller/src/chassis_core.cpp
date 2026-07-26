@@ -32,6 +32,8 @@ bool validConfig(const ChassisConfig& config) {
   return config.robot_index >= 1 && config.robot_index <= 3 &&
          validPositive(config.wheel_separation) &&
          validPositive(config.control_loop_overrun_seconds) &&
+         validPositive(config.command_timeout_seconds) &&
+         validPositive(config.sensor_feedback_timeout_seconds) &&
          validPositive(limits.max_velocity_left) &&
          validPositive(limits.max_velocity_right) &&
          validPositive(limits.max_acceleration_left) &&
@@ -67,12 +69,39 @@ ChassisCore::ChassisCore(const ChassisConfig& config)
 
 bool ChassisCore::acceptCommand(const CommandInput& command) {
   if (command.robot_id != config_.robot_index ||
-      (has_command_ && command.sequence <= command_.sequence) ||
       !std::isfinite(command.raw.left) || !std::isfinite(command.raw.right)) {
     return false;
   }
+  if (has_command_ && command.sequence < command_.sequence) {
+    return false;
+  }
+  if (has_command_ && command.sequence == command_.sequence) {
+    const bool identical =
+        command.robot_id == command_.robot_id &&
+        command.raw.left == command_.raw.left &&
+        command.raw.right == command_.raw.right;
+    if (identical) {
+      command_age_seconds_ = 0.0;
+      feedback_.command_watchdog_active = false;
+      if (std::abs(command.raw.left) <= 1.0e-12 &&
+          std::abs(command.raw.right) <= 1.0e-12 &&
+          has_sensor_ &&
+          sensor_age_seconds_ <= config_.sensor_feedback_timeout_seconds) {
+        sensor_watchdog_latched_ = false;
+      }
+    }
+    return identical;
+  }
   command_ = command;
   has_command_ = true;
+  command_age_seconds_ = 0.0;
+  feedback_.command_watchdog_active = false;
+  if (std::abs(command.raw.left) <= 1.0e-12 &&
+      std::abs(command.raw.right) <= 1.0e-12 &&
+      has_sensor_ &&
+      sensor_age_seconds_ <= config_.sensor_feedback_timeout_seconds) {
+    sensor_watchdog_latched_ = false;
+  }
   return true;
 }
 
@@ -95,6 +124,27 @@ bool ChassisCore::acceptDerating(const DeratingInput& command) {
 }
 
 WheelCommand ChassisCore::step(double dt_seconds) {
+  if (has_command_ && std::isfinite(dt_seconds) && dt_seconds > 0.0) {
+    command_age_seconds_ += dt_seconds;
+  }
+  if (has_sensor_ && std::isfinite(dt_seconds) && dt_seconds > 0.0) {
+    sensor_age_seconds_ += dt_seconds;
+  }
+  const bool nonzero_command =
+      std::abs(command_.raw.left) > 1.0e-12 ||
+      std::abs(command_.raw.right) > 1.0e-12;
+  feedback_.command_watchdog_active =
+      has_command_ && nonzero_command &&
+      command_age_seconds_ > config_.command_timeout_seconds;
+  if (has_sensor_ &&
+      sensor_age_seconds_ > config_.sensor_feedback_timeout_seconds) {
+    sensor_watchdog_latched_ = true;
+  }
+  feedback_.sensor_watchdog_active = sensor_watchdog_latched_;
+  const WheelCommand effective_command =
+      (feedback_.command_watchdog_active ||
+       feedback_.sensor_watchdog_active) ? WheelCommand{} : command_.raw;
+
   const auto ratios = derating_.update(dt_seconds);
   capability_.ratios = ratios;
   capability_.limits = scaled(config_.nominal_limits, ratios);
@@ -104,9 +154,10 @@ WheelCommand ChassisCore::step(double dt_seconds) {
   capability_.local_revision = derating_.revision();
   ++capability_.sequence;
 
-  const auto limited = limiter_.update(command_.raw, capability_.limits, dt_seconds);
+  const auto limited =
+      limiter_.update(effective_command, capability_.limits, dt_seconds);
   if (limited.valid) {
-    feedback_.raw = command_.raw;
+    feedback_.raw = effective_command;
     feedback_.applied = limited.applied;
     feedback_.command_seq_applied = command_.sequence;
     feedback_.speed_limited_left = limited.speed_limited_left;
@@ -120,8 +171,10 @@ WheelCommand ChassisCore::step(double dt_seconds) {
   feedback_.control_loop_overrun = !std::isfinite(dt_seconds) ||
       dt_seconds <= 0.0 || dt_seconds > config_.control_loop_overrun_seconds;
   if (std::isfinite(dt_seconds) && dt_seconds > 0.0) {
-    odometry_.update(feedback_.actual.left, feedback_.actual.right,
-                     sensor_.imu_yaw_rate, dt_seconds);
+    if (!feedback_.sensor_watchdog_active) {
+      odometry_.update(feedback_.actual.left, feedback_.actual.right,
+                       sensor_.imu_yaw_rate, dt_seconds);
+    }
   }
   feedback_.odometry = odometry_.state();
   feedback_.linear_velocity = odometry_.linearVelocity();
@@ -131,6 +184,10 @@ WheelCommand ChassisCore::step(double dt_seconds) {
 }
 
 void ChassisCore::updateSensors(const SensorInput& sensor) {
+  if (sensor.packet_fresh) {
+    sensor_age_seconds_ = 0.0;
+  }
+  has_sensor_ = true;
   sensor_ = sensor;
   feedback_.actual.left = sensor.wheel_left_mm_per_second / 1000.0;
   feedback_.actual.right = sensor.wheel_right_mm_per_second / 1000.0;

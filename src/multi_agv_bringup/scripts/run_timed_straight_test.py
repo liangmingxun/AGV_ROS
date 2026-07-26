@@ -192,13 +192,16 @@ def main():
             args.duration,
         )
         motion_started = True
-        publisher.publish(
-            make_command(args, args.command_seq, args.speed, "timed_straight_motion")
+        motion_command = make_command(
+            args, args.command_seq, args.speed, "timed_straight_motion"
         )
+        publisher.publish(motion_command)
 
         motion_deadline = time.monotonic() + args.duration
         while not stop_requested and time.monotonic() < motion_deadline:
-            time.sleep(0.02)
+            motion_command.header.stamp = rospy.Time.now()
+            publisher.publish(motion_command)
+            time.sleep(0.05)
     finally:
         if motion_started:
             for offset in range(1, STOP_REPEAT_COUNT + 1):

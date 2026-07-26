@@ -13,6 +13,8 @@ ChassisConfig testConfig() {
   config.wheel_separation = 0.114;
   config.nominal_limits = {0.9, 0.9, 1.0, 1.0, 2.0, 2.0};
   config.control_loop_overrun_seconds = 0.01;
+  config.command_timeout_seconds = 0.20;
+  config.sensor_feedback_timeout_seconds = 0.15;
   return config;
 }
 }
@@ -32,6 +34,63 @@ TEST(ChassisCore, RejectsWrongRobotAndOldCommand) {
   EXPECT_TRUE(core.acceptCommand({2, 2, {0.2, 0.2}}));
   EXPECT_FALSE(core.acceptCommand({2, 2, {0.4, 0.4}}));
   EXPECT_FALSE(core.acceptCommand({2, 1, {0.4, 0.4}}));
+}
+
+TEST(ChassisCore, CommandWatchdogStopsAndIdenticalHeartbeatRearms) {
+  ChassisCore core(testConfig());
+  const CommandInput command{2, 7, {0.2, 0.2}};
+  ASSERT_TRUE(core.acceptCommand(command));
+  core.step(0.01);
+  EXPECT_FALSE(core.feedback().command_watchdog_active);
+  EXPECT_GT(core.feedback().raw.left, 0.0);
+
+  core.step(0.20);
+  EXPECT_TRUE(core.feedback().command_watchdog_active);
+  EXPECT_DOUBLE_EQ(core.feedback().raw.left, 0.0);
+  EXPECT_DOUBLE_EQ(core.feedback().raw.right, 0.0);
+  EXPECT_EQ(core.feedback().command_seq_applied, 7u);
+
+  EXPECT_FALSE(core.acceptCommand({2, 7, {0.3, 0.3}}));
+  EXPECT_TRUE(core.feedback().command_watchdog_active);
+  ASSERT_TRUE(core.acceptCommand(command));
+  core.step(0.01);
+  EXPECT_FALSE(core.feedback().command_watchdog_active);
+  EXPECT_GT(core.feedback().raw.left, 0.0);
+}
+
+TEST(ChassisCore, SensorWatchdogLatchesUntilFreshFeedbackAndZeroCommand) {
+  ChassisCore core(testConfig());
+  SensorInput sensor;
+  sensor.packet_sequence = 10;
+  sensor.packet_fresh = true;
+  core.updateSensors(sensor);
+  ASSERT_TRUE(core.acceptCommand({2, 7, {0.2, 0.2}}));
+  core.step(0.01);
+  EXPECT_FALSE(core.feedback().sensor_watchdog_active);
+  EXPECT_GT(core.feedback().raw.left, 0.0);
+
+  sensor.packet_fresh = false;
+  core.updateSensors(sensor);
+  core.step(0.16);
+  EXPECT_TRUE(core.feedback().sensor_watchdog_active);
+  EXPECT_DOUBLE_EQ(core.feedback().raw.left, 0.0);
+  EXPECT_DOUBLE_EQ(core.feedback().raw.right, 0.0);
+
+  sensor.packet_sequence = 11;
+  sensor.packet_fresh = true;
+  core.updateSensors(sensor);
+  ASSERT_TRUE(core.acceptCommand({2, 8, {0.2, 0.2}}));
+  core.step(0.01);
+  EXPECT_TRUE(core.feedback().sensor_watchdog_active);
+  EXPECT_DOUBLE_EQ(core.feedback().raw.left, 0.0);
+
+  ASSERT_TRUE(core.acceptCommand({2, 9, {0.0, 0.0}}));
+  core.step(0.01);
+  EXPECT_FALSE(core.feedback().sensor_watchdog_active);
+  ASSERT_TRUE(core.acceptCommand({2, 10, {0.2, 0.2}}));
+  core.step(0.01);
+  EXPECT_FALSE(core.feedback().sensor_watchdog_active);
+  EXPECT_GT(core.feedback().raw.left, 0.0);
 }
 
 TEST(ChassisCore, DeratingChangesReportedAndExecutedCapability) {
@@ -74,8 +133,8 @@ TEST(ChassisCore, ResetOdometryClearsPoseAndVelocity) {
   sensor.wheel_left_mm_per_second = 200.0;
   sensor.wheel_right_mm_per_second = 200.0;
   core.updateSensors(sensor);
-  core.step(1.0);
-  ASSERT_GT(core.feedback().odometry.x, 0.1);
+  core.step(0.1);
+  ASSERT_GT(core.feedback().odometry.x, 0.01);
   core.resetOdometry();
   EXPECT_DOUBLE_EQ(core.feedback().odometry.x, 0.0);
   EXPECT_DOUBLE_EQ(core.feedback().odometry.y, 0.0);
@@ -89,5 +148,11 @@ TEST(ChassisCore, RejectsUnsafeConfiguration) {
   EXPECT_THROW(ChassisCore core(config), std::invalid_argument);
   config = testConfig();
   config.robot_index = 0;
+  EXPECT_THROW(ChassisCore core(config), std::invalid_argument);
+  config = testConfig();
+  config.command_timeout_seconds = 0.0;
+  EXPECT_THROW(ChassisCore core(config), std::invalid_argument);
+  config = testConfig();
+  config.sensor_feedback_timeout_seconds = 0.0;
   EXPECT_THROW(ChassisCore core(config), std::invalid_argument);
 }

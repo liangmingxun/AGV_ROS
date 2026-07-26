@@ -13,6 +13,8 @@ struct ChassisConfig {
   double wheel_separation{0.114};
   WheelLimits nominal_limits{};
   double control_loop_overrun_seconds{0.008};
+  double command_timeout_seconds{0.20};
+  double sensor_feedback_timeout_seconds{0.15};
 };
 
 struct CommandInput {
@@ -37,6 +39,7 @@ struct SensorInput {
   double imu_yaw_rate{0.0};
   double battery_voltage{0.0};
   std::uint32_t packet_sequence{0};
+  bool packet_fresh{true};
 };
 
 struct FeedbackState {
@@ -51,6 +54,8 @@ struct FeedbackState {
   double battery_voltage{0.0};
   Pose2DState odometry{};
   bool control_loop_overrun{false};
+  bool command_watchdog_active{false};
+  bool sensor_watchdog_active{false};
   bool speed_limited_left{false};
   bool speed_limited_right{false};
   bool accel_limited_left{false};
@@ -92,6 +97,10 @@ class ChassisCore {
   CapabilityState capability_{};
   std::uint8_t derating_mode_{0};
   bool has_command_{false};
+  double command_age_seconds_{0.0};
+  bool has_sensor_{false};
+  double sensor_age_seconds_{0.0};
+  bool sensor_watchdog_latched_{false};
   DeratingInput last_derating_command_{};
   bool has_derating_command_{false};
 };

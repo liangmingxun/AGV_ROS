@@ -71,6 +71,20 @@ target_compile_options(single_car_s_pretest_node PRIVATE -Wall -Wextra -Wpedanti
 target_link_libraries(single_car_s_pretest_node multi_agv_geometry ${catkin_LIBRARIES})
 add_dependencies(single_car_s_pretest_node ${catkin_EXPORTED_TARGETS})
 
+add_executable(three_car_unloaded_bounded_pretest_node
+  src/three_car_unloaded_bounded_pretest_node.cpp)
+target_include_directories(three_car_unloaded_bounded_pretest_node PRIVATE
+  ${CMAKE_CURRENT_SOURCE_DIR}/include
+  ${EIGEN3_INCLUDE_DIRS}
+  ${catkin_INCLUDE_DIRS}
+)
+target_compile_options(three_car_unloaded_bounded_pretest_node
+  PRIVATE -Wall -Wextra -Wpedantic)
+target_link_libraries(three_car_unloaded_bounded_pretest_node
+  multi_agv_geometry ${catkin_LIBRARIES})
+add_dependencies(three_car_unloaded_bounded_pretest_node
+  ${catkin_EXPORTED_TARGETS})
+
 add_executable(experiment_supervisor_node src/experiment_supervisor_node.cpp)
 target_include_directories(experiment_supervisor_node PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/include
@@ -92,7 +106,7 @@ target_link_libraries(robot2_raised_derating_pretest_node
   multi_agv_geometry ${catkin_LIBRARIES})
 add_dependencies(robot2_raised_derating_pretest_node ${catkin_EXPORTED_TARGETS})
 
-install(TARGETS multi_agv_geometry path_state_estimator_node multi_agv_controller_node single_car_s_pretest_node experiment_supervisor_node robot2_raised_derating_pretest_node
+install(TARGETS multi_agv_geometry path_state_estimator_node multi_agv_controller_node single_car_s_pretest_node three_car_unloaded_bounded_pretest_node experiment_supervisor_node robot2_raised_derating_pretest_node
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
@@ -110,6 +124,8 @@ if(CATKIN_ENABLE_TESTING)
     test/test_derating_chain_e2e.py
     test/test_robot2_raised_derating_pretest.py
     test/test_single_car_s_pretest.py
+    test/test_three_car_bounded_fault_stop.py
+    test/test_three_car_unloaded_bounded_pretest.py
     DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
   add_rostest(test/odom_state_estimator.test)
   add_rostest(test/central_readonly_e2e.test)
@@ -117,6 +133,8 @@ if(CATKIN_ENABLE_TESTING)
   add_rostest(test/derating_chain_e2e.test)
   add_rostest(test/robot2_raised_derating_pretest.test)
   add_rostest(test/single_car_s_pretest.test)
+  add_rostest(test/three_car_bounded_fault_stop.test)
+  add_rostest(test/three_car_unloaded_bounded_pretest.test)
   catkin_add_gtest(test_s_curve_path test/test_s_curve_path.cpp)
   catkin_add_gtest(test_support_geometry test/test_support_geometry.cpp)
   catkin_add_gtest(test_path_projector test/test_path_projector.cpp)

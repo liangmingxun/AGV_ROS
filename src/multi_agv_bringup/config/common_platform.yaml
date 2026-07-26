@@ -2,6 +2,8 @@ wheel_radius: 0.0325
 wheel_separation: 0.114
 base_link_z: 0.05969
 control_loop_overrun_seconds: 0.008
+command_timeout_seconds: 0.20
+sensor_feedback_timeout_seconds: 0.15
 serial_startup_timeout_seconds: 10.0
 enable_vofa: false
 nominal:

@@ -1,0 +1,48 @@
+# Dedicated authorization for the first unloaded three-car floor motion.
+# This does not authorize the generic central controller or a loaded test.
+three_car_unloaded_bounded_pretest:
+  schema_version: 1
+  configuration_status: unloaded_0p40m_fixture_1p00m_s_bounded
+  hardware_execution_authorized: true
+
+  experiment_id: three_car_unloaded_s_1m
+  method_id: ODOM_BOUNDED_COMMON
+  publish_rate: 100.0
+  maximum_state_age: 0.15
+  subscriber_wait_seconds: 15.0
+  start_delay_seconds: 5.0
+  stop_confirmation_timeout_seconds: 4.0
+  stopped_wheel_tolerance: 0.01
+  maximum_integration_step: 0.05
+  maximum_motion_time: 25.0
+  required_command_subscribers: 2
+  readiness_stable_samples: 20
+  initial_command_sequence: 41000
+
+  motion:
+    load_path_speed: 0.05
+    target_progress: 1.00
+
+  tracker:
+    longitudinal_gain: 1.0
+    lateral_gain: 2.0
+    heading_gain: 2.0
+    chassis_reference_samples: 10001
+    wheel_separation: [0.114, 0.114, 0.114]
+    # drive-wheel axle midpoint (base_link) -> turntable centre (support_link)
+    base_to_support:
+      - {x: -0.01783, y: 0.0}
+      - {x: -0.01783, y: 0.0}
+      - {x: -0.01783, y: 0.0}
+
+  abort:
+    minimum_battery_voltage: 10.8
+    maximum_serial_feedback_age: 0.15
+    maximum_stamp_spread: 0.02
+    maximum_initial_load_progress: 0.03
+    maximum_robot_progress_spread: 0.04
+    maximum_load_progress_error: 0.05
+    maximum_longitudinal_error: 0.05
+    maximum_lateral_error: 0.03
+    maximum_heading_error: 0.12
+    maximum_wheel_linear_velocity: 0.08

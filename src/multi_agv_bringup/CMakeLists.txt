@@ -14,6 +14,8 @@ catkin_install_python(PROGRAMS
 )
 
 install(PROGRAMS
+        scripts/run_three_car_unloaded_pretest.sh
+        scripts/start_three_car_chassis.sh
         scripts/setup_local_ros.sh
         scripts/setup_ros_network.sh
         DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})

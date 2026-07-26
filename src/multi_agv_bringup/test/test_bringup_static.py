@@ -29,7 +29,9 @@ class BringupStaticTest(unittest.TestCase):
                            f"base_frame: agv{index}/base_link", "acc_bias:",
                            "gyro_bias:", "wheel_radius:", "wheel_separation:",
                            "max_wheel_linear_velocity_left:", "transport_type:",
-                           "serial_startup_timeout_seconds:"):
+                           "serial_startup_timeout_seconds:",
+                           "command_timeout_seconds: 0.20",
+                           "sensor_feedback_timeout_seconds: 0.15"):
                 self.assertIn(marker, text)
             self.assertIn(
                 "host_ip: {}".format(expected_host_ips[index]), text)
@@ -141,6 +143,78 @@ class BringupStaticTest(unittest.TestCase):
         self.assertIn("publishers were not registered", controller)
         self.assertIn("must have no publisher in read-only mode", checker)
         self.assertIn("--require-valid-state", checker)
+        self.assertIn("--maximum-serial-feedback-age", checker)
+        self.assertIn("packet_seq did not advance", checker)
+
+    def test_three_car_bounded_entry_is_explicit_and_tightly_bounded(self):
+        launch = (
+            PACKAGE / "launch" /
+            "three_car_unloaded_bounded_pretest.launch"
+        ).read_text(encoding="utf-8")
+        config = (
+            PACKAGE / "config" /
+            "three_car_unloaded_bounded_pretest.yaml"
+        ).read_text(encoding="utf-8")
+        node = (
+            SOURCE_ROOT / "multi_agv_control" / "src" /
+            "three_car_unloaded_bounded_pretest_node.cpp"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn(
+            'type="three_car_unloaded_bounded_pretest_node"', launch)
+        for marker in (
+                'name="enable_commands" default="false"',
+                'name="confirm_readonly_gate_passed" default="false"',
+                'name="confirm_test_area_clear" default="false"',
+                'name="confirm_wheels_on_floor" default="false"',
+                'name="confirm_unloaded_40cm_fixture" default="false"'):
+            self.assertIn(marker, launch)
+        self.assertNotIn(
+            'file="$(find multi_agv_bringup)/launch/'
+            'central_odom_pretest.launch"', launch)
+
+        for marker in (
+                "hardware_execution_authorized: true",
+                "load_path_speed: 0.05",
+                "target_progress: 1.00",
+                "required_command_subscribers: 2",
+                "readiness_stable_samples: 20",
+                "minimum_battery_voltage: 10.8",
+                "maximum_serial_feedback_age: 0.15",
+                "maximum_stamp_spread: 0.02",
+                "maximum_wheel_linear_velocity: 0.08"):
+            self.assertIn(marker, config)
+        for marker in (
+                "rejectCompetingPublishers",
+                "publishRepeatedStop",
+                "waitForStopped",
+                "virtual load pose or path state is invalid",
+                "control loop overrun reported",
+                "STM32 serial feedback is stale or future-dated",
+                "all six wheels must be stopped before motion"):
+            self.assertIn(marker, node)
+
+    def test_three_car_host_and_orchestration_scripts_are_safety_gated(self):
+        start = (
+            PACKAGE / "scripts" / "start_three_car_chassis.sh"
+        ).read_text(encoding="utf-8")
+        run = (
+            PACKAGE / "scripts" / "run_three_car_unloaded_pretest.sh"
+        ).read_text(encoding="utf-8")
+        self.assertIn("working tree is not clean", start)
+        self.assertIn("/deployment/git_sha", start)
+        self.assertIn("serial device", start)
+        self.assertIn("--confirm-area-clear", run)
+        self.assertIn("--confirm-wheels-on-floor", run)
+        self.assertIn("--confirm-unloaded-40cm-fixture", run)
+        self.assertIn("check_three_car_readonly_gate.py", run)
+        self.assertEqual(run.count("--require-valid-state"), 2)
+        self.assertIn("/reset_odometry", run)
+        self.assertIn("rosbag record", run)
+        self.assertIn("target_progress: 1.00", (
+            PACKAGE / "config" /
+            "three_car_unloaded_bounded_pretest.yaml"
+        ).read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":

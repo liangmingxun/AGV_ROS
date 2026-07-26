@@ -81,7 +81,9 @@ def check_graph(errors):
 
 
 def validate_robot_samples(index, odometry, feedback, capability,
-                           minimum_rate, minimum_voltage, errors):
+                           minimum_rate, minimum_voltage,
+                           maximum_serial_feedback_age,
+                           maximum_future_stamp_offset, errors):
     label = "agv{}".format(index)
     for topic, samples in (
             ("odom", odometry),
@@ -135,6 +137,29 @@ def validate_robot_samples(index, odometry, feedback, capability,
             "{} battery {:.3f} V is below {:.3f} V".format(
                 label, latest_feedback.battery_voltage, minimum_voltage))
 
+    packet_sequences = [message.packet_seq for _, message in feedback]
+    if len(set(packet_sequences)) < 2:
+        errors.append(
+            "{} STM32 packet_seq did not advance during observation".format(
+                label))
+    serial_stamps = [
+        message.serial_receive_stamp.to_sec() for _, message in feedback]
+    if not serial_stamps or serial_stamps[-1] <= 0.0:
+        errors.append("{} has no valid STM32 serial receive stamp".format(label))
+    else:
+        serial_age = rospy.Time.now().to_sec() - serial_stamps[-1]
+        rospy.loginfo(
+            "%s STM32 serial feedback age: %.6f s, packet_seq %u -> %u",
+            label, serial_age, packet_sequences[0], packet_sequences[-1])
+        if serial_age > maximum_serial_feedback_age:
+            errors.append(
+                "{} STM32 serial feedback age {:.6f} s exceeds {:.6f} s".
+                format(label, serial_age, maximum_serial_feedback_age))
+        if serial_age < -maximum_future_stamp_offset:
+            errors.append(
+                "{} STM32 serial stamp is {:.6f} s in the future; "
+                "synchronise host clocks".format(label, -serial_age))
+
 
 def parse_args(argv):
     parser = argparse.ArgumentParser(
@@ -149,6 +174,9 @@ def parse_args(argv):
         "--maximum-stamp-spread", type=float, default=0.02,
         help="maximum allowed spread across the three odometry stamps")
     parser.add_argument(
+        "--maximum-serial-feedback-age", type=float, default=0.15,
+        help="maximum age of each chassis STM32 serial receive stamp")
+    parser.add_argument(
         "--require-valid-state", action="store_true",
         help="also require all cooperative robot/support/path validity flags")
     return parser.parse_args(argv)
@@ -157,7 +185,8 @@ def parse_args(argv):
 def main(argv=None):
     args = parse_args(rospy.myargv(argv=sys.argv)[1:] if argv is None else argv)
     if args.observe_seconds <= 0.0 or args.minimum_rate <= 0.0 or \
-            args.minimum_voltage < 0.0 or args.maximum_stamp_spread <= 0.0:
+            args.minimum_voltage < 0.0 or args.maximum_stamp_spread <= 0.0 or \
+            args.maximum_serial_feedback_age <= 0.0:
         raise ValueError(
             "observation, rate and stamp spread must be positive; "
             "voltage must be nonnegative")
@@ -199,6 +228,8 @@ def main(argv=None):
             samples.get(("capability", index)),
             args.minimum_rate,
             args.minimum_voltage,
+            args.maximum_serial_feedback_age,
+            args.maximum_stamp_spread,
             errors)
 
     cooperative = samples.get(("cooperative", 0))

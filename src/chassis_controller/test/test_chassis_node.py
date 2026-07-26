@@ -56,6 +56,19 @@ class ChassisNodeTest(unittest.TestCase):
             command_pub.publish(command)
             rospy.sleep(0.02)
 
+        watchdog_deadline = rospy.Time.now() + rospy.Duration(1.0)
+        while rospy.Time.now() < watchdog_deadline and (
+                not feedback
+                or abs(feedback[-1].wheel_linear_velocity_left_raw) >= 0.01
+                or abs(feedback[-1].wheel_linear_velocity_left_actual) >= 0.01):
+            rospy.sleep(0.02)
+        self.assertLess(
+            abs(feedback[-1].wheel_linear_velocity_left_raw), 0.01,
+            "command watchdog did not replace a stale command with zero")
+        self.assertLess(
+            abs(feedback[-1].wheel_linear_velocity_left_actual), 0.01,
+            "fake chassis did not stop after command watchdog expiration")
+
         stop = ChassisCommand(robot_id=1, command_seq=2,
                               wheel_linear_velocity_left_raw=0.0,
                               wheel_linear_velocity_right_raw=0.0)
