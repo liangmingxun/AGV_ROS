@@ -48,9 +48,8 @@ if [[ ! -f devel/setup.bash ]]; then
   exit 4
 fi
 if [[ -n "$(git status --porcelain --untracked-files=normal)" ]]; then
-  echo "ERROR: working tree is not clean; deploy a committed version first" >&2
+  echo "WARNING: working tree contains uncommitted changes; continuing by request" >&2
   git status --short >&2
-  exit 5
 fi
 
 source /opt/ros/noetic/setup.bash
@@ -200,4 +199,3 @@ echo "bag=${bag_path}"
 echo "manifest=${manifest_path}"
 echo "params=${params_path}"
 exit "$motion_status"
-

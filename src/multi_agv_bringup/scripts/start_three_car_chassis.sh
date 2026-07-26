@@ -32,10 +32,11 @@ if [[ ! -f devel/setup.bash ]]; then
   echo "ERROR: ${workspace}/devel/setup.bash is missing; compile this checkout first" >&2
   exit 4
 fi
+working_tree_clean=true
 if [[ -n "$(git status --porcelain --untracked-files=normal)" ]]; then
-  echo "ERROR: working tree is not clean; deploy a committed version before motion" >&2
+  working_tree_clean=false
+  echo "WARNING: working tree contains uncommitted changes; continuing by request" >&2
   git status --short >&2
-  exit 5
 fi
 if command -v timedatectl >/dev/null 2>&1 &&
    [[ "$(timedatectl show -p NTPSynchronized --value)" != "yes" ]]; then
@@ -109,7 +110,8 @@ rosparam set "/${agv_name}/deployment/git_sha" "$git_sha"
 rosparam set "/${agv_name}/deployment/git_branch" "$git_branch"
 rosparam set "/${agv_name}/deployment/hostname" "$(hostname)"
 rosparam set "/${agv_name}/deployment/ros_ip" "$local_ip"
-rosparam set "/${agv_name}/deployment/clean_worktree" true
+rosparam set "/${agv_name}/deployment/clean_worktree" \
+  "$working_tree_clean"
 
 echo
 echo "${agv_name} READY"

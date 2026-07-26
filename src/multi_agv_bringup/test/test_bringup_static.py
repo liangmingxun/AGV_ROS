@@ -201,8 +201,16 @@ class BringupStaticTest(unittest.TestCase):
         run = (
             PACKAGE / "scripts" / "run_three_car_unloaded_pretest.sh"
         ).read_text(encoding="utf-8")
-        self.assertIn("working tree is not clean", start)
+        self.assertNotIn("working tree is not clean", start)
+        self.assertNotIn("working tree is not clean", run)
+        self.assertIn(
+            "working tree contains uncommitted changes; continuing by request",
+            start)
+        self.assertIn(
+            "working tree contains uncommitted changes; continuing by request",
+            run)
         self.assertIn("/deployment/git_sha", start)
+        self.assertIn("/deployment/clean_worktree", start)
         self.assertIn("serial device", start)
         self.assertIn("--confirm-area-clear", run)
         self.assertIn("--confirm-wheels-on-floor", run)
