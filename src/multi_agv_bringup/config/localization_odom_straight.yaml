@@ -6,7 +6,10 @@ configuration_status: unloaded_equilateral_straight_1m
 hardware_execution_authorized: false
 
 publish_rate: 100.0
-maximum_state_age: 0.15
+# Robot1 has observed short TCP/Wi-Fi delivery bursts up to 0.16 s from a
+# remote chassis while the source odometry timestamps continued at 100 Hz.
+# Keep a bounded 0.20 s history-age budget for this straight diagnostic only.
+maximum_state_age: 0.20
 maximum_sync_slop: 0.02
 synchronization_queue_size: 64
 maximum_rigid_fit_residual: 0.01

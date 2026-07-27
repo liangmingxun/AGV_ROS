@@ -293,6 +293,8 @@ class BringupStaticTest(unittest.TestCase):
         self.assertIn("amplitude: 0.0", path)
         self.assertIn("longitudinal_length: 1.0", path)
         self.assertEqual(localization.count("yaw: 0.0}"), 6)
+        self.assertIn("maximum_state_age: 0.20", localization)
+        self.assertIn("maximum_sync_slop: 0.02", localization)
         self.assertIn("odom_state_estimator_straight.launch", launch)
         self.assertIn("localization_odom_straight.yaml", estimator_launch)
         self.assertIn("path_straight_1m.yaml", launch)
