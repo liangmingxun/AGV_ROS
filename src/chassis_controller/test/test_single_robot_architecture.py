@@ -33,6 +33,7 @@ class SingleRobotArchitectureTest(unittest.TestCase):
             self.assertIn(required, source)
         self.assertGreaterEqual(
             source.count("ros::TransportHints().tcpNoDelay()"), 2)
+        self.assertIn('"capability_publish_rate", 20.0', source)
 
     def test_identity_frames_and_calibration_are_fail_fast(self):
         source = (ROOT / "src" / "main.cpp").read_text(encoding="utf-8")

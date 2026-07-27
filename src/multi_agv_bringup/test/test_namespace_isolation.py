@@ -52,21 +52,27 @@ class NamespaceIsolationTest(unittest.TestCase):
 
         rate_deadline = rospy.Time.now() + rospy.Duration(2.0)
         while rospy.Time.now() < rate_deadline and any(
-                len(feedback[index]) < 50 or len(capability[index]) < 50
+                len(feedback[index]) < 50 or len(capability[index]) < 20
                 for index in desired):
             rospy.sleep(0.02)
 
         for index in desired:
             self.assertGreaterEqual(len(feedback[index]), 50)
-            self.assertGreaterEqual(len(capability[index]), 50)
-            for messages in (feedback[index], capability[index]):
-                sample = messages[-50:]
-                duration = (sample[-1].header.stamp - sample[0].header.stamp).to_sec()
+            self.assertGreaterEqual(len(capability[index]), 20)
+            feedback_sample = feedback[index][-50:]
+            capability_sample = capability[index][-20:]
+            for sample, minimum_rate, maximum_rate in (
+                    (feedback_sample, 90.0, 110.0),
+                    (capability_sample, 15.0, 25.0)):
+                duration = (
+                    sample[-1].header.stamp -
+                    sample[0].header.stamp).to_sec()
                 self.assertGreater(duration, 0.0)
                 rate_hz = (len(sample) - 1) / duration
-                self.assertGreater(rate_hz, 90.0)
-                self.assertLess(rate_hz, 110.0)
-                self.assertEqual("0", sample[-1]._connection_header.get("latching"))
+                self.assertGreater(rate_hz, minimum_rate)
+                self.assertLess(rate_hz, maximum_rate)
+                self.assertEqual(
+                    "0", sample[-1]._connection_header.get("latching"))
             self.assertEqual(index, capability[index][-1].robot_id)
 
 

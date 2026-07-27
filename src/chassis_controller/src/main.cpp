@@ -63,7 +63,10 @@ class ChassisControllerNode {
     ros::Rate rate(250.0);
     auto previous = std::chrono::steady_clock::now();
     const ros::Duration state_publish_period(0.01);
+    const ros::Duration capability_publish_period(
+        1.0 / capability_publish_rate_);
     ros::Time next_state_publish = ros::Time::now();
+    ros::Time next_capability_publish = next_state_publish;
 
     while (ros::ok()) {
       ros::spinOnce();
@@ -91,10 +94,17 @@ class ChassisControllerNode {
 
       const ros::Time now = ros::Time::now();
       if (now >= next_state_publish) {
-        publishState(now);
+        const bool publish_capability = now >= next_capability_publish;
+        publishState(now, publish_capability);
         next_state_publish += state_publish_period;
         if (next_state_publish < now - state_publish_period) {
           next_state_publish = now + state_publish_period;
+        }
+        if (publish_capability) {
+          next_capability_publish += capability_publish_period;
+          if (next_capability_publish < now - capability_publish_period) {
+            next_capability_publish = now + capability_publish_period;
+          }
         }
       }
       publishVofaIfEnabled();
@@ -147,6 +157,8 @@ class ChassisControllerNode {
     base_frame_ = private_.param<std::string>("base_frame", robot_id_ + "/base_link");
     imu_frame_ = private_.param<std::string>("imu_frame", robot_id_ + "/imu_link");
     base_link_z_ = private_.param("base_link_z", 0.05969);
+    capability_publish_rate_ =
+        private_.param("capability_publish_rate", 20.0);
     enable_vofa_ = private_.param("enable_vofa", false);
 
     if (odom_frame_ != robot_id_ + "/odom" ||
@@ -155,9 +167,13 @@ class ChassisControllerNode {
       throw std::runtime_error("odom/base/imu frames must use the frozen robot prefix");
     }
     if (!std::isfinite(base_link_z_) || base_link_z_ < 0.0 ||
+        !std::isfinite(capability_publish_rate_) ||
+        capability_publish_rate_ <= 0.0 || capability_publish_rate_ > 100.0 ||
         !std::isfinite(serial_startup_timeout_seconds_) ||
         serial_startup_timeout_seconds_ <= 0.0) {
-      throw std::runtime_error("base_link_z and serial startup timeout are invalid");
+      throw std::runtime_error(
+          "base_link_z, capability publish rate or serial startup timeout is "
+          "invalid");
     }
 
     acc_bias_ = vectorParam(private_, "imu/acc_bias", Eigen::Vector3f::Zero());
@@ -369,10 +385,46 @@ class ChassisControllerNode {
         decel_limited_left_since_publish_ || state.decel_limited_left;
     decel_limited_right_since_publish_ =
         decel_limited_right_since_publish_ || state.decel_limited_right;
+    capability_speed_limited_left_since_publish_ =
+        capability_speed_limited_left_since_publish_ ||
+        state.speed_limited_left;
+    capability_speed_limited_right_since_publish_ =
+        capability_speed_limited_right_since_publish_ ||
+        state.speed_limited_right;
+    capability_accel_limited_left_since_publish_ =
+        capability_accel_limited_left_since_publish_ ||
+        state.accel_limited_left;
+    capability_accel_limited_right_since_publish_ =
+        capability_accel_limited_right_since_publish_ ||
+        state.accel_limited_right;
+    capability_decel_limited_left_since_publish_ =
+        capability_decel_limited_left_since_publish_ ||
+        state.decel_limited_left;
+    capability_decel_limited_right_since_publish_ =
+        capability_decel_limited_right_since_publish_ ||
+        state.decel_limited_right;
   }
 
-  void publishState(const ros::Time& stamp) {
+  void publishState(const ros::Time& stamp, bool publish_capability) {
     const auto& state = core_->feedback();
+    const auto& capability = core_->capability();
+    publish_capability =
+        publish_capability || !has_published_capability_ ||
+        capability.limits.max_velocity_left !=
+            last_capability_max_velocity_left_ ||
+        capability.limits.max_velocity_right !=
+            last_capability_max_velocity_right_ ||
+        capability.limits.max_acceleration_left !=
+            last_capability_max_acceleration_left_ ||
+        capability.limits.max_acceleration_right !=
+            last_capability_max_acceleration_right_ ||
+        capability.limits.max_deceleration_left !=
+            last_capability_max_deceleration_left_ ||
+        capability.limits.max_deceleration_right !=
+            last_capability_max_deceleration_right_ ||
+        capability.derating_ratio != last_capability_derating_ratio_ ||
+        capability.derating_mode != last_capability_derating_mode_ ||
+        capability.derating_active != last_capability_derating_active_;
     const auto imu = makeImu(stamp);
     const auto odom = makeOdometry(stamp);
 
@@ -404,29 +456,64 @@ class ChassisControllerNode {
     feedback.decel_limit_active_right = decel_limited_right_since_publish_;
     feedback_pub_.publish(feedback);
 
-    const auto& capability = core_->capability();
-    agv_msgs::CapabilityReport report;
-    report.header.stamp = stamp;
-    report.header.frame_id = base_frame_;
-    report.robot_id = config_.robot_index;
-    report.capability_seq = ++capability_publish_sequence_;
-    report.max_wheel_linear_velocity_left = capability.limits.max_velocity_left;
-    report.max_wheel_linear_velocity_right = capability.limits.max_velocity_right;
-    report.max_wheel_linear_acceleration_left = capability.limits.max_acceleration_left;
-    report.max_wheel_linear_acceleration_right = capability.limits.max_acceleration_right;
-    report.max_wheel_linear_deceleration_left = capability.limits.max_deceleration_left;
-    report.max_wheel_linear_deceleration_right = capability.limits.max_deceleration_right;
-    report.derating_ratio = capability.derating_ratio;
-    report.derating_mode = capability.derating_mode;
-    report.derating_active = capability.derating_active;
-    report.speed_limit_active_left = speed_limited_left_since_publish_;
-    report.speed_limit_active_right = speed_limited_right_since_publish_;
-    report.accel_limit_active_left = accel_limited_left_since_publish_;
-    report.accel_limit_active_right = accel_limited_right_since_publish_;
-    report.decel_limit_active_left = decel_limited_left_since_publish_;
-    report.decel_limit_active_right = decel_limited_right_since_publish_;
-    report.battery_voltage = state.battery_voltage;
-    capability_pub_.publish(report);
+    if (publish_capability) {
+      agv_msgs::CapabilityReport report;
+      report.header.stamp = stamp;
+      report.header.frame_id = base_frame_;
+      report.robot_id = config_.robot_index;
+      report.capability_seq = ++capability_publish_sequence_;
+      report.max_wheel_linear_velocity_left =
+          capability.limits.max_velocity_left;
+      report.max_wheel_linear_velocity_right =
+          capability.limits.max_velocity_right;
+      report.max_wheel_linear_acceleration_left =
+          capability.limits.max_acceleration_left;
+      report.max_wheel_linear_acceleration_right =
+          capability.limits.max_acceleration_right;
+      report.max_wheel_linear_deceleration_left =
+          capability.limits.max_deceleration_left;
+      report.max_wheel_linear_deceleration_right =
+          capability.limits.max_deceleration_right;
+      report.derating_ratio = capability.derating_ratio;
+      report.derating_mode = capability.derating_mode;
+      report.derating_active = capability.derating_active;
+      report.speed_limit_active_left =
+          capability_speed_limited_left_since_publish_;
+      report.speed_limit_active_right =
+          capability_speed_limited_right_since_publish_;
+      report.accel_limit_active_left =
+          capability_accel_limited_left_since_publish_;
+      report.accel_limit_active_right =
+          capability_accel_limited_right_since_publish_;
+      report.decel_limit_active_left =
+          capability_decel_limited_left_since_publish_;
+      report.decel_limit_active_right =
+          capability_decel_limited_right_since_publish_;
+      report.battery_voltage = state.battery_voltage;
+      capability_pub_.publish(report);
+      has_published_capability_ = true;
+      last_capability_max_velocity_left_ =
+          capability.limits.max_velocity_left;
+      last_capability_max_velocity_right_ =
+          capability.limits.max_velocity_right;
+      last_capability_max_acceleration_left_ =
+          capability.limits.max_acceleration_left;
+      last_capability_max_acceleration_right_ =
+          capability.limits.max_acceleration_right;
+      last_capability_max_deceleration_left_ =
+          capability.limits.max_deceleration_left;
+      last_capability_max_deceleration_right_ =
+          capability.limits.max_deceleration_right;
+      last_capability_derating_ratio_ = capability.derating_ratio;
+      last_capability_derating_mode_ = capability.derating_mode;
+      last_capability_derating_active_ = capability.derating_active;
+      capability_speed_limited_left_since_publish_ = false;
+      capability_speed_limited_right_since_publish_ = false;
+      capability_accel_limited_left_since_publish_ = false;
+      capability_accel_limited_right_since_publish_ = false;
+      capability_decel_limited_left_since_publish_ = false;
+      capability_decel_limited_right_since_publish_ = false;
+    }
     odom_pub_.publish(odom);
     imu_pub_.publish(imu);
 
@@ -483,6 +570,16 @@ class ChassisControllerNode {
   std::uint32_t feedback_publish_sequence_{0};
   std::uint32_t capability_publish_sequence_{0};
   ros::Time last_serial_receive_stamp_{};
+  bool has_published_capability_{false};
+  double last_capability_max_velocity_left_{0.0};
+  double last_capability_max_velocity_right_{0.0};
+  double last_capability_max_acceleration_left_{0.0};
+  double last_capability_max_acceleration_right_{0.0};
+  double last_capability_max_deceleration_left_{0.0};
+  double last_capability_max_deceleration_right_{0.0};
+  double last_capability_derating_ratio_{0.0};
+  std::uint8_t last_capability_derating_mode_{0};
+  bool last_capability_derating_active_{false};
 
   Parameters parameters_;
   QEKF qekf_;
@@ -502,6 +599,7 @@ class ChassisControllerNode {
   std::string base_frame_;
   std::string imu_frame_;
   double base_link_z_{0.0};
+  double capability_publish_rate_{20.0};
   double gyro_lpf_tau_{0.02};
   double serial_startup_timeout_seconds_{10.0};
   bool enable_vofa_{false};
@@ -512,6 +610,12 @@ class ChassisControllerNode {
   bool accel_limited_right_since_publish_{false};
   bool decel_limited_left_since_publish_{false};
   bool decel_limited_right_since_publish_{false};
+  bool capability_speed_limited_left_since_publish_{false};
+  bool capability_speed_limited_right_since_publish_{false};
+  bool capability_accel_limited_left_since_publish_{false};
+  bool capability_accel_limited_right_since_publish_{false};
+  bool capability_decel_limited_left_since_publish_{false};
+  bool capability_decel_limited_right_since_publish_{false};
 };
 
 }  // namespace

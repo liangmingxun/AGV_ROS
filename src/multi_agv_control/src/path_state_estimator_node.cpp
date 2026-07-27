@@ -260,7 +260,11 @@ class PathStateEstimatorNode {
         };
     robot.subscriber = node_.subscribe<nav_msgs::Odometry>(
         robot.odom_topic, 10, callback, ros::VoidConstPtr(),
-        ros::TransportHints().tcpNoDelay());
+        ros::TransportHints()
+            .unreliable()
+            .reliable()
+            .maxDatagramSize(1400)
+            .tcpNoDelay());
   }
 
   void receiveOdometry(std::size_t index,

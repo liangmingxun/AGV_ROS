@@ -129,7 +129,12 @@ class ThreeCarUnloadedBoundedPretestNode {
           [this, index](const agv_msgs::ChassisFeedback::ConstPtr& message) {
             receiveFeedback(index, message);
           },
-          ros::VoidConstPtr(), ros::TransportHints().tcpNoDelay());
+          ros::VoidConstPtr(),
+          ros::TransportHints()
+              .unreliable()
+              .reliable()
+              .maxDatagramSize(1400)
+              .tcpNoDelay());
       command_publishers_[index] = node_.advertise<agv_msgs::ChassisCommand>(
           "/agv" + robot + "/chassis_command", 1, false);
     }

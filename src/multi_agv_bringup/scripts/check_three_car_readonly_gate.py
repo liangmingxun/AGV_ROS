@@ -81,21 +81,22 @@ def check_graph(errors):
 
 
 def validate_robot_samples(index, odometry, feedback, capability,
-                           minimum_rate, minimum_voltage,
+                           minimum_rate, minimum_capability_rate,
+                           minimum_voltage,
                            maximum_serial_feedback_age,
                            maximum_future_stamp_offset, errors):
     label = "agv{}".format(index)
-    for topic, samples in (
-            ("odom", odometry),
-            ("chassis_feedback", feedback),
-            ("capability_report", capability)):
+    for topic, samples, required_rate in (
+            ("odom", odometry, minimum_rate),
+            ("chassis_feedback", feedback, minimum_rate),
+            ("capability_report", capability, minimum_capability_rate)):
         rate = sample_rate(samples)
         rospy.loginfo("%s/%s: %d samples, %.2f Hz",
                       label, topic, len(samples), rate)
-        if rate < minimum_rate:
+        if rate < required_rate:
             errors.append(
                 "{}/{} rate {:.2f} Hz is below {:.2f} Hz".format(
-                    label, topic, rate, minimum_rate))
+                    label, topic, rate, required_rate))
 
     if not odometry or not feedback or not capability:
         return
@@ -168,6 +169,9 @@ def parse_args(argv):
     parser.add_argument("--observe-seconds", type=float, default=3.0)
     parser.add_argument("--minimum-rate", type=float, default=80.0)
     parser.add_argument(
+        "--minimum-capability-rate", type=float, default=15.0,
+        help="minimum capability-report rate; nominal publication is 20 Hz")
+    parser.add_argument(
         "--minimum-voltage", type=float, default=10.8,
         help="minimum feedback voltage; use 0 only for fake-transport testing")
     parser.add_argument(
@@ -185,6 +189,7 @@ def parse_args(argv):
 def main(argv=None):
     args = parse_args(rospy.myargv(argv=sys.argv)[1:] if argv is None else argv)
     if args.observe_seconds <= 0.0 or args.minimum_rate <= 0.0 or \
+            args.minimum_capability_rate <= 0.0 or \
             args.minimum_voltage < 0.0 or args.maximum_stamp_spread <= 0.0 or \
             args.maximum_serial_feedback_age <= 0.0:
         raise ValueError(
@@ -227,6 +232,7 @@ def main(argv=None):
             samples.get(("feedback", index)),
             samples.get(("capability", index)),
             args.minimum_rate,
+            args.minimum_capability_rate,
             args.minimum_voltage,
             args.maximum_serial_feedback_age,
             args.maximum_stamp_spread,
