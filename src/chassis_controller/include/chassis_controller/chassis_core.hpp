@@ -15,6 +15,7 @@ struct ChassisConfig {
   double control_loop_overrun_seconds{0.008};
   double command_timeout_seconds{0.20};
   double sensor_feedback_timeout_seconds{0.15};
+  double odometry_stationary_wheel_velocity_tolerance{0.005};
 };
 
 struct CommandInput {

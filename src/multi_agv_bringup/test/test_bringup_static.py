@@ -31,7 +31,9 @@ class BringupStaticTest(unittest.TestCase):
                            "max_wheel_linear_velocity_left:", "transport_type:",
                            "serial_startup_timeout_seconds:",
                            "command_timeout_seconds: 0.20",
-                           "sensor_feedback_timeout_seconds: 0.15"):
+                           "sensor_feedback_timeout_seconds: 0.15",
+                           "odometry_stationary_wheel_velocity_tolerance: "
+                           "0.005"):
                 self.assertIn(marker, text)
             self.assertIn(
                 "host_ip: {}".format(expected_host_ips[index]), text)
@@ -280,6 +282,10 @@ class BringupStaticTest(unittest.TestCase):
             PACKAGE / "scripts" /
             "run_three_car_unloaded_straight_pretest.sh"
         ).read_text(encoding="utf-8")
+        straight_config = (
+            PACKAGE / "config" /
+            "three_car_unloaded_straight_pretest.yaml"
+        ).read_text(encoding="utf-8")
         runner = (
             PACKAGE / "scripts" / "run_three_car_unloaded_pretest.sh"
         ).read_text(encoding="utf-8")
@@ -293,8 +299,14 @@ class BringupStaticTest(unittest.TestCase):
         self.assertIn(
             "three_car_unloaded_straight_pretest.yaml", launch)
         self.assertIn("AGV_THREE_CAR_PATH_MODE=straight", wrapper)
+        self.assertIn("load_path_speed: 0.08", straight_config)
+        self.assertIn("maximum_wheel_linear_velocity: 0.11",
+                      straight_config)
+        self.assertIn("maximum_motion_time: 18.0", straight_config)
         self.assertIn('motion_launch=\"three_car_unloaded_straight_pretest.launch\"',
                       runner)
+        self.assertIn("reset_all_odometry", runner)
+        self.assertIn("post_gate_odometry_reset=true", runner)
         for topic in ("/agv1/imu", "/agv2/imu", "/agv3/imu"):
             self.assertIn(topic, runner)
 

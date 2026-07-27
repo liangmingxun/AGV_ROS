@@ -17,6 +17,10 @@ class ThreeCarUnloadedBoundedPretestTest(unittest.TestCase):
             "~expected_path_id", "s_curve_1m_bounded")
         self._expect_straight = rospy.get_param(
             "~expect_straight", False)
+        self._expected_motion_speed = rospy.get_param(
+            "~expected_motion_speed", 0.05)
+        self._maximum_wheel_command = rospy.get_param(
+            "~maximum_wheel_command", 0.08)
         self._condition = threading.Condition()
         self._commands = [[], [], []]
         self._references = []
@@ -99,9 +103,10 @@ class ThreeCarUnloadedBoundedPretestTest(unittest.TestCase):
                 == self._expected_experiment_id
                 for message in messages))
             self.assertTrue(all(
-                abs(message.wheel_linear_velocity_left_raw) <= 0.08 + 1.0e-9
+                abs(message.wheel_linear_velocity_left_raw)
+                <= self._maximum_wheel_command + 1.0e-9
                 and abs(message.wheel_linear_velocity_right_raw)
-                <= 0.08 + 1.0e-9
+                <= self._maximum_wheel_command + 1.0e-9
                 for message in messages))
             if self._expect_straight:
                 self.assertTrue(all(
@@ -116,6 +121,10 @@ class ThreeCarUnloadedBoundedPretestTest(unittest.TestCase):
         self.assertGreater(len(self._controllers), 20)
         self.assertEqual(
             self._references[-1].path_id, self._expected_path_id)
+        self.assertTrue(any(
+            abs(reference.load_path_velocity_reference -
+                self._expected_motion_speed) <= 1.0e-9
+            for reference in self._references))
         if self._expect_straight:
             self.assertTrue(all(
                 abs(reference.load_pose_reference.y) <= 1.0e-12 and

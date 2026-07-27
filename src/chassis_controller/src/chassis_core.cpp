@@ -34,6 +34,10 @@ bool validConfig(const ChassisConfig& config) {
          validPositive(config.control_loop_overrun_seconds) &&
          validPositive(config.command_timeout_seconds) &&
          validPositive(config.sensor_feedback_timeout_seconds) &&
+         std::isfinite(
+             config.odometry_stationary_wheel_velocity_tolerance) &&
+         config.odometry_stationary_wheel_velocity_tolerance >= 0.0 &&
+         config.odometry_stationary_wheel_velocity_tolerance <= 0.02 &&
          validPositive(limits.max_velocity_left) &&
          validPositive(limits.max_velocity_right) &&
          validPositive(limits.max_acceleration_left) &&
@@ -61,7 +65,9 @@ bool sameDeratingCommand(const DeratingInput& a, const DeratingInput& b) {
 }  // namespace
 
 ChassisCore::ChassisCore(const ChassisConfig& config)
-    : config_(config), capability_{0, config.nominal_limits} {
+    : config_(config),
+      odometry_(config.odometry_stationary_wheel_velocity_tolerance),
+      capability_{0, config.nominal_limits} {
   if (!validConfig(config_)) {
     throw std::invalid_argument("invalid chassis configuration");
   }

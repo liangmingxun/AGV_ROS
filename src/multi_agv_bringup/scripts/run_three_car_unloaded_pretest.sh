@@ -11,7 +11,7 @@ usage:
 
 This command performs topology checks, resets all three odometers, requires
 two consecutive valid-state gates, records a bag and runs the bounded
-0.05 m/s by 1.00 m unloaded pretest selected by the entry script.
+1.00 m unloaded pretest selected by the entry script.
 EOF
 }
 
@@ -42,12 +42,14 @@ case "$path_mode" in
     motion_launch="three_car_unloaded_bounded_pretest.launch"
     run_prefix="three_car_unloaded_s_1m"
     manifest_path_description="continuous_S_1.00m"
+    run_speed="0.05"
     ;;
   straight)
     estimator_launch="odom_state_estimator_straight.launch"
     motion_launch="three_car_unloaded_straight_pretest.launch"
-    run_prefix="three_car_unloaded_straight_1m"
+    run_prefix="three_car_unloaded_straight_008_1m"
     manifest_path_description="continuous_straight_1.00m"
+    run_speed="0.08"
     ;;
   *)
     echo "ERROR: unsupported AGV_THREE_CAR_PATH_MODE=${path_mode}" >&2
@@ -122,6 +124,22 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM HUP
 
+reset_all_odometry() {
+  local index
+  local response
+  for index in 1 2 3; do
+    if ! response="$(rosservice call "/agv${index}/reset_odometry")"; then
+      echo "ERROR: failed to call /agv${index}/reset_odometry" >&2
+      return 1
+    fi
+    echo "$response"
+    if ! grep -Fq "success: True" <<<"$response"; then
+      echo "ERROR: agv${index} rejected odometry reset" >&2
+      return 1
+    fi
+  done
+}
+
 roslaunch multi_agv_bringup "$estimator_launch" &
 estimator_pid="$!"
 deadline=$((SECONDS + 15))
@@ -139,9 +157,7 @@ done
 
 rosrun multi_agv_bringup check_three_car_readonly_gate.py \
   --observe-seconds 5
-for index in 1 2 3; do
-  rosservice call "/agv${index}/reset_odometry"
-done
+reset_all_odometry
 "${script_dir}/require_three_car_motion_gate.sh" 2 10
 
 kill -INT "$estimator_pid"
@@ -168,7 +184,8 @@ params_path="${bag_dir}/${run_id}_params.yaml"
   echo "started_at=$(date --iso-8601=seconds)"
   echo "fixture=unloaded_equilateral_0.40m"
   echo "path=${manifest_path_description}"
-  echo "speed=0.05m/s"
+  echo "speed=${run_speed}m/s"
+  echo "post_gate_odometry_reset=true"
 } > "$manifest_path"
 rosparam dump "$params_path"
 
@@ -186,6 +203,12 @@ sleep 2
 if ! kill -0 "$bag_pid" 2>/dev/null; then
   wait "$bag_pid"
 fi
+
+# The first reset establishes the gate's canonical zero. Reset once more after
+# both gates and after bag recording is connected so the motion estimator sees
+# a fresh zero immediately before its readiness checks and start countdown.
+reset_all_odometry
+sleep 0.5
 
 result_parameter="/multi_agv/three_car_unloaded_pretest_result_code"
 rosparam set "$result_parameter" -1

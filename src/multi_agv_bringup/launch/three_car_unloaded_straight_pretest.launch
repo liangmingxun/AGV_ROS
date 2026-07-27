@@ -1,5 +1,5 @@
 <launch>
-  <!-- Dedicated 0.05 m/s by 1.00 m unloaded straight diagnostic. -->
+  <!-- Dedicated 0.08 m/s by 1.00 m unloaded straight diagnostic. -->
   <arg name="platform_transport_type" default="serial"/>
   <arg name="enable_commands" default="false"/>
   <arg name="confirm_readonly_gate_passed" default="false"/>

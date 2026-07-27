@@ -130,6 +130,9 @@ class ChassisControllerNode {
         private_.param("command_timeout_seconds", 0.20);
     config_.sensor_feedback_timeout_seconds =
         private_.param("sensor_feedback_timeout_seconds", 0.15);
+    config_.odometry_stationary_wheel_velocity_tolerance =
+        private_.param(
+            "odometry_stationary_wheel_velocity_tolerance", 0.005);
     config_.nominal_limits = {
         private_.param("nominal/max_wheel_linear_velocity_left", 0.9),
         private_.param("nominal/max_wheel_linear_velocity_right", 0.9),

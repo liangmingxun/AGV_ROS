@@ -26,5 +26,7 @@
            value="three_car_unloaded_s_1m"/>
     <param name="expected_path_id" value="s_curve_1m_bounded"/>
     <param name="expect_straight" value="false"/>
+    <param name="expected_motion_speed" value="0.05"/>
+    <param name="maximum_wheel_command" value="0.08"/>
   </test>
 </launch>

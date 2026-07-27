@@ -10,6 +10,8 @@ struct Pose2DState {
 
 class OdometryIntegrator {
  public:
+  explicit OdometryIntegrator(
+      double stationary_wheel_velocity_tolerance = 0.005);
   bool update(double actual_left, double actual_right, double imu_yaw_rate,
               double dt_seconds);
   void reset(const Pose2DState& pose = {});
@@ -22,6 +24,7 @@ class OdometryIntegrator {
   Pose2DState state_{};
   double linear_velocity_{0.0};
   double yaw_rate_{0.0};
+  double stationary_wheel_velocity_tolerance_{0.005};
 };
 
 }  // namespace chassis_controller

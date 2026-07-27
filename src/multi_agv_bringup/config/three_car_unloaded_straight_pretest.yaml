@@ -1,7 +1,12 @@
-# Overrides for the dedicated straight diagnostic. All motion and abort bounds
-# are inherited from three_car_unloaded_bounded_pretest.yaml.
+# Overrides for the dedicated faster straight diagnostic. The S-path keeps its
+# previously validated 0.05 m/s and 0.08 m/s wheel-command bound.
 three_car_unloaded_bounded_pretest:
-  configuration_status: unloaded_0p40m_fixture_1p00m_straight_bounded
-  experiment_id: three_car_unloaded_straight_1m
+  configuration_status: unloaded_0p40m_fixture_1p00m_straight_0p08_bounded
+  experiment_id: three_car_unloaded_straight_008_1m
   method_id: ODOM_BOUNDED_COMMON_STRAIGHT
   path_id: straight_1m_bounded
+  maximum_motion_time: 18.0
+  motion:
+    load_path_speed: 0.08
+  abort:
+    maximum_wheel_linear_velocity: 0.11

@@ -404,6 +404,11 @@ class ThreeCarUnloadedBoundedPretestNode {
   }
 
   void validateAuthorization() const {
+    const bool authorized_path_speed =
+        (path_id_ == "s_curve_1m_bounded" &&
+         std::abs(speed_ - 0.05) <= 1e-12) ||
+        (path_id_ == "straight_1m_bounded" &&
+         std::abs(speed_ - 0.08) <= 1e-12);
     if (!command_authorized_) {
       throw std::runtime_error(
           "command publication is disabled; this dedicated entry requires "
@@ -427,7 +432,7 @@ class ThreeCarUnloadedBoundedPretestNode {
         !(stop_confirmation_timeout_ > 0.0) ||
         !(stopped_wheel_tolerance_ >= 0.0) ||
         !(maximum_step_ > 0.0) || !(maximum_motion_time_ > 0.0) ||
-        std::abs(speed_ - 0.05) > 1e-12 ||
+        !authorized_path_speed ||
         std::abs(target_progress_ - 1.00) > 1e-12 ||
         !(minimum_battery_voltage_ >= 10.8) ||
         !(maximum_feedback_receive_age_ > 0.0) ||

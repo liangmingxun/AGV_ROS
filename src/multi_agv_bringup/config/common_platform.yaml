@@ -4,6 +4,7 @@ base_link_z: 0.05969
 control_loop_overrun_seconds: 0.008
 command_timeout_seconds: 0.20
 sensor_feedback_timeout_seconds: 0.15
+odometry_stationary_wheel_velocity_tolerance: 0.005
 serial_startup_timeout_seconds: 10.0
 capability_publish_rate: 20.0
 enable_vofa: false

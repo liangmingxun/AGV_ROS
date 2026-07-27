@@ -25,8 +25,10 @@
         type="test_three_car_unloaded_bounded_pretest.py"
         time-limit="32">
     <param name="expected_experiment_id"
-           value="three_car_unloaded_straight_1m"/>
+           value="three_car_unloaded_straight_008_1m"/>
     <param name="expected_path_id" value="straight_1m_bounded"/>
     <param name="expect_straight" value="true"/>
+    <param name="expected_motion_speed" value="0.08"/>
+    <param name="maximum_wheel_command" value="0.11"/>
   </test>
 </launch>
