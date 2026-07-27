@@ -7,6 +7,7 @@ three_car_unloaded_bounded_pretest:
 
   experiment_id: three_car_unloaded_s_1m
   method_id: ODOM_BOUNDED_COMMON
+  path_id: s_curve_1m_bounded
   publish_rate: 100.0
   maximum_state_age: 0.15
   subscriber_wait_seconds: 15.0

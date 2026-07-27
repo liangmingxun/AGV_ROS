@@ -11,6 +11,12 @@ from agv_msgs.msg import ChassisCommand, ControllerState, PathReference
 
 class ThreeCarUnloadedBoundedPretestTest(unittest.TestCase):
     def setUp(self):
+        self._expected_experiment_id = rospy.get_param(
+            "~expected_experiment_id", "three_car_unloaded_s_1m")
+        self._expected_path_id = rospy.get_param(
+            "~expected_path_id", "s_curve_1m_bounded")
+        self._expect_straight = rospy.get_param(
+            "~expect_straight", False)
         self._condition = threading.Condition()
         self._commands = [[], [], []]
         self._references = []
@@ -90,13 +96,18 @@ class ThreeCarUnloadedBoundedPretestTest(unittest.TestCase):
                 message.robot_id == index + 1 for message in messages))
             self.assertTrue(all(
                 message.experiment_id
-                == "three_car_unloaded_s_1m"
+                == self._expected_experiment_id
                 for message in messages))
             self.assertTrue(all(
                 abs(message.wheel_linear_velocity_left_raw) <= 0.08 + 1.0e-9
                 and abs(message.wheel_linear_velocity_right_raw)
                 <= 0.08 + 1.0e-9
                 for message in messages))
+            if self._expect_straight:
+                self.assertTrue(all(
+                    abs(message.wheel_linear_velocity_left_raw -
+                        message.wheel_linear_velocity_right_raw) <= 2.0e-3
+                    for message in self._nonzero(messages)))
             self.assertTrue(self._stopped(messages))
             sequences = [message.command_seq for message in messages]
             self.assertEqual(sequences, sorted(set(sequences)))
@@ -104,7 +115,14 @@ class ThreeCarUnloadedBoundedPretestTest(unittest.TestCase):
         self.assertGreater(len(self._references), 20)
         self.assertGreater(len(self._controllers), 20)
         self.assertEqual(
-            self._references[-1].path_id, "s_curve_1m_bounded")
+            self._references[-1].path_id, self._expected_path_id)
+        if self._expect_straight:
+            self.assertTrue(all(
+                abs(reference.load_pose_reference.y) <= 1.0e-12 and
+                abs(reference.load_pose_reference.theta) <= 1.0e-12 and
+                all(abs(value) <= 1.0e-12 for value in
+                    reference.chassis_angular_velocity_feedforward)
+                for reference in self._references))
         self.assertAlmostEqual(
             self._references[-1].load_path_progress_reference,
             1.00, places=6)

@@ -17,6 +17,7 @@ install(PROGRAMS
         scripts/check_local_clock_sync.sh
         scripts/require_three_car_motion_gate.sh
         scripts/run_three_car_unloaded_pretest.sh
+        scripts/run_three_car_unloaded_straight_pretest.sh
         scripts/start_three_car_chassis.sh
         scripts/setup_local_ros.sh
         scripts/setup_ros_network.sh
@@ -29,4 +30,5 @@ if(CATKIN_ENABLE_TESTING)
   add_rostest(test/namespace_isolation.test)
   add_rostest(test/command_authority.test)
   add_rostest(test/tf_authority.test)
+  add_rostest(test/three_car_unloaded_straight_pretest.test)
 endif()

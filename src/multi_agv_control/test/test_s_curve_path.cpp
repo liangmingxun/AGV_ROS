@@ -56,6 +56,22 @@ TEST(SCurvePath, IsArcLengthParameterized) {
   }
 }
 
+TEST(SCurvePath, ZeroAmplitudeIsAnExactStraightLine) {
+  const SCurvePath path({0.0, 1.0, 1001});
+  EXPECT_DOUBLE_EQ(path.length(), 1.0);
+  EXPECT_DOUBLE_EQ(path.maximumAbsoluteCurvature(), 0.0);
+  for (int index = 0; index <= 100; ++index) {
+    const double s = static_cast<double>(index) / 100.0;
+    const auto value = path.sample(s);
+    EXPECT_NEAR(value.position.x(), s, 1e-14);
+    EXPECT_DOUBLE_EQ(value.position.y(), 0.0);
+    EXPECT_DOUBLE_EQ(value.heading, 0.0);
+    EXPECT_DOUBLE_EQ(value.curvature, 0.0);
+    EXPECT_NEAR((value.tangent - Eigen::Vector2d::UnitX()).norm(),
+                0.0, 1e-14);
+  }
+}
+
 TEST(SCurvePath, ArcLengthLookupIsMonotonicAndInvertible) {
   const auto path = testPath();
   EXPECT_GT(path.length(), path.config().longitudinal_length);

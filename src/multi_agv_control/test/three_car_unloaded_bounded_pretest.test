@@ -21,5 +21,10 @@
   <test test-name="three_car_unloaded_bounded_pretest"
         pkg="multi_agv_control"
         type="test_three_car_unloaded_bounded_pretest.py"
-        time-limit="32"/>
+        time-limit="32">
+    <param name="expected_experiment_id"
+           value="three_car_unloaded_s_1m"/>
+    <param name="expected_path_id" value="s_curve_1m_bounded"/>
+    <param name="expect_straight" value="false"/>
+  </test>
 </launch>

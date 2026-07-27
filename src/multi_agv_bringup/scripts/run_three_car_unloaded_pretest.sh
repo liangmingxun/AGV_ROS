@@ -11,7 +11,7 @@ usage:
 
 This command performs topology checks, resets all three odometers, requires
 two consecutive valid-state gates, records a bag and runs the bounded
-0.05 m/s by 1.00 m unloaded S pretest.
+0.05 m/s by 1.00 m unloaded pretest selected by the entry script.
 EOF
 }
 
@@ -34,6 +34,26 @@ if [[ "$confirm_area" != true || "$confirm_floor" != true ||
   usage
   exit 2
 fi
+
+path_mode="${AGV_THREE_CAR_PATH_MODE:-s}"
+case "$path_mode" in
+  s)
+    estimator_launch="odom_state_estimator.launch"
+    motion_launch="three_car_unloaded_bounded_pretest.launch"
+    run_prefix="three_car_unloaded_s_1m"
+    manifest_path_description="continuous_S_1.00m"
+    ;;
+  straight)
+    estimator_launch="odom_state_estimator_straight.launch"
+    motion_launch="three_car_unloaded_straight_pretest.launch"
+    run_prefix="three_car_unloaded_straight_1m"
+    manifest_path_description="continuous_straight_1.00m"
+    ;;
+  *)
+    echo "ERROR: unsupported AGV_THREE_CAR_PATH_MODE=${path_mode}" >&2
+    exit 2
+    ;;
+esac
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 workspace="$(cd "${script_dir}/../../.." && pwd)"
@@ -102,7 +122,7 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM HUP
 
-roslaunch multi_agv_bringup odom_state_estimator.launch &
+roslaunch multi_agv_bringup "$estimator_launch" &
 estimator_pid="$!"
 deadline=$((SECONDS + 15))
 until rostopic info /multi_agv/cooperative_state 2>/dev/null |
@@ -133,7 +153,7 @@ repo_root="$(realpath "$(git rev-parse --git-common-dir)/..")"
 bag_dir="${AGV_BAG_DIR:-${repo_root}}"
 mkdir -p "$bag_dir"
 run_stamp="$(date +%Y%m%d_%H%M%S)"
-run_id="three_car_unloaded_s_1m_${run_stamp}"
+run_id="${run_prefix}_${run_stamp}"
 bag_path="${bag_dir}/${run_id}.bag"
 manifest_path="${bag_dir}/${run_id}_manifest.txt"
 params_path="${bag_dir}/${run_id}_params.yaml"
@@ -147,7 +167,7 @@ params_path="${bag_dir}/${run_id}_params.yaml"
   echo "robot3_ip=10.134.37.239"
   echo "started_at=$(date --iso-8601=seconds)"
   echo "fixture=unloaded_equilateral_0.40m"
-  echo "path=continuous_S_1.00m"
+  echo "path=${manifest_path_description}"
   echo "speed=0.05m/s"
 } > "$manifest_path"
 rosparam dump "$params_path"
@@ -156,6 +176,7 @@ rosbag record -O "$bag_path" \
   /agv1/chassis_command /agv2/chassis_command /agv3/chassis_command \
   /agv1/chassis_feedback /agv2/chassis_feedback /agv3/chassis_feedback \
   /agv1/capability_report /agv2/capability_report /agv3/capability_report \
+  /agv1/imu /agv2/imu /agv3/imu \
   /agv1/odom /agv2/odom /agv3/odom \
   /multi_agv/cooperative_state \
   /multi_agv/bounded_pretest/path_reference \
@@ -168,7 +189,7 @@ fi
 
 result_parameter="/multi_agv/three_car_unloaded_pretest_result_code"
 rosparam set "$result_parameter" -1
-roslaunch multi_agv_bringup three_car_unloaded_bounded_pretest.launch \
+roslaunch multi_agv_bringup "$motion_launch" \
   platform_transport_type:=serial \
   enable_commands:=true \
   confirm_readonly_gate_passed:=true \

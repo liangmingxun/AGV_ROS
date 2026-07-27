@@ -258,6 +258,43 @@ class BringupStaticTest(unittest.TestCase):
             "three_car_unloaded_bounded_pretest.yaml"
         ).read_text(encoding="utf-8"))
 
+    def test_three_car_straight_entry_is_independent_and_records_imu(self):
+        path = (
+            PACKAGE / "config" / "path_straight_1m.yaml"
+        ).read_text(encoding="utf-8")
+        localization = (
+            PACKAGE / "config" / "localization_odom_straight.yaml"
+        ).read_text(encoding="utf-8")
+        launch = (
+            PACKAGE / "launch" /
+            "three_car_unloaded_straight_pretest.launch"
+        ).read_text(encoding="utf-8")
+        estimator_launch = (
+            PACKAGE / "launch" /
+            "odom_state_estimator_straight.launch"
+        ).read_text(encoding="utf-8")
+        wrapper = (
+            PACKAGE / "scripts" /
+            "run_three_car_unloaded_straight_pretest.sh"
+        ).read_text(encoding="utf-8")
+        runner = (
+            PACKAGE / "scripts" / "run_three_car_unloaded_pretest.sh"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("amplitude: 0.0", path)
+        self.assertIn("longitudinal_length: 1.0", path)
+        self.assertEqual(localization.count("yaw: 0.0}"), 6)
+        self.assertIn("odom_state_estimator_straight.launch", launch)
+        self.assertIn("localization_odom_straight.yaml", estimator_launch)
+        self.assertIn("path_straight_1m.yaml", launch)
+        self.assertIn(
+            "three_car_unloaded_straight_pretest.yaml", launch)
+        self.assertIn("AGV_THREE_CAR_PATH_MODE=straight", wrapper)
+        self.assertIn('motion_launch=\"three_car_unloaded_straight_pretest.launch\"',
+                      runner)
+        for topic in ("/agv1/imu", "/agv2/imu", "/agv3/imu"):
+            self.assertIn(topic, runner)
+
 
 if __name__ == "__main__":
     unittest.main()

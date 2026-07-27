@@ -124,17 +124,25 @@ class ThreeCarUnloadedBoundedPretestNode {
         ros::TransportHints().tcpNoDelay());
     for (std::size_t index = 0; index < kRobotCount; ++index) {
       const auto robot = std::to_string(index + 1U);
+      ros::TransportHints feedback_transport_hints;
+      if (transport_type_ == "fake") {
+        // Loopback fake tests validate control behavior, not UDPROS. TCP keeps
+        // their startup deterministic while the physical path remains
+        // UDP-preferred with TCP fallback.
+        feedback_transport_hints.reliable().tcpNoDelay();
+      } else {
+        feedback_transport_hints
+            .unreliable()
+            .reliable()
+            .maxDatagramSize(1400)
+            .tcpNoDelay();
+      }
       feedback_subscribers_[index] = node_.subscribe<agv_msgs::ChassisFeedback>(
           "/agv" + robot + "/chassis_feedback", 10,
           [this, index](const agv_msgs::ChassisFeedback::ConstPtr& message) {
             receiveFeedback(index, message);
           },
-          ros::VoidConstPtr(),
-          ros::TransportHints()
-              .unreliable()
-              .reliable()
-              .maxDatagramSize(1400)
-              .tcpNoDelay());
+          ros::VoidConstPtr(), feedback_transport_hints);
       command_publishers_[index] = node_.advertise<agv_msgs::ChassisCommand>(
           "/agv" + robot + "/chassis_command", 1, false);
     }
@@ -315,6 +323,8 @@ class ThreeCarUnloadedBoundedPretestNode {
         root + "experiment_id", "three_car_unloaded_s_1m");
     method_id_ = private_.param<std::string>(
         root + "method_id", "ODOM_BOUNDED_COMMON");
+    path_id_ = private_.param<std::string>(
+        root + "path_id", "s_curve_1m_bounded");
   }
 
   SCurveConfig loadPathConfig() {
@@ -436,7 +446,7 @@ class ThreeCarUnloadedBoundedPretestNode {
         readiness_stable_samples_ < 1 ||
         initial_command_sequence_ == 0U ||
         initial_command_sequence_ > 0xFFFFFF00U ||
-        experiment_id_.empty() || method_id_.empty()) {
+        experiment_id_.empty() || method_id_.empty() || path_id_.empty()) {
       throw std::runtime_error(
           "invalid three-car unloaded bounded-pretest configuration");
     }
@@ -828,7 +838,7 @@ class ThreeCarUnloadedBoundedPretestNode {
     agv_msgs::PathReference reference;
     reference.header.stamp = stamp;
     reference.header.frame_id = "world";
-    reference.path_id = "s_curve_1m_bounded";
+    reference.path_id = path_id_;
     reference.path_version = 1U;
     reference.load_path_progress_reference = progress;
     reference.load_path_velocity_reference = velocity;
@@ -933,6 +943,7 @@ class ThreeCarUnloadedBoundedPretestNode {
   int required_subscribers_{2};
   int readiness_stable_samples_{20};
   std::uint32_t initial_command_sequence_{41000U};
+  std::string path_id_{"s_curve_1m_bounded"};
 };
 
 }  // namespace multi_agv_control
