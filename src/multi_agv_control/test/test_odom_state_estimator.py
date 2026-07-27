@@ -169,8 +169,9 @@ class OdomStateEstimatorTest(unittest.TestCase):
             stamps = [stamp.to_sec() for stamp in state.robot_pose_stamp]
             self.assertLessEqual(max(stamps) - min(stamps), 0.020001)
 
-        # Stop only AGV3. The two live robots remain valid; rigid load state
-        # correctly becomes unavailable rather than being fabricated.
+        # Stop only AGV3. Once no timestamp-matched triplet remains, the
+        # complete cooperative snapshot becomes invalid rather than exposing
+        # three individually fresh but mutually inconsistent robot poses.
         for step in range(25):
             stamp = rospy.Time.now()
             xi = 0.19 + 0.002 * step
@@ -178,10 +179,11 @@ class OdomStateEstimatorTest(unittest.TestCase):
             self._publish_robot(1, xi, stamp)
             rate.sleep()
         state = self._latest()
-        self.assertEqual(list(state.robot_pose_valid), [True, True, False])
-        self.assertEqual(list(state.path_state_valid), [True, True, False])
-        self.assertEqual(state.robot_localization_source[2],
-                         CooperativeState.SOURCE_UNKNOWN)
+        self.assertEqual(list(state.robot_pose_valid), [False] * 3)
+        self.assertEqual(list(state.support_pose_valid), [False] * 3)
+        self.assertEqual(list(state.path_state_valid), [False] * 3)
+        self.assertEqual(list(state.robot_localization_source),
+                         [CooperativeState.SOURCE_UNKNOWN] * 3)
         self.assertFalse(state.load_pose_valid)
         self.assertFalse(state.load_path_state_valid)
 

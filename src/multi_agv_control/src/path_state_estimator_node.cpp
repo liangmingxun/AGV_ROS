@@ -2,6 +2,7 @@
 #include <array>
 #include <cmath>
 #include <deque>
+#include <limits>
 #include <memory>
 #include <stdexcept>
 #include <string>
@@ -260,11 +261,10 @@ class PathStateEstimatorNode {
         };
     robot.subscriber = node_.subscribe<nav_msgs::Odometry>(
         robot.odom_topic, 10, callback, ros::VoidConstPtr(),
-        ros::TransportHints()
-            .unreliable()
-            .reliable()
-            .maxDatagramSize(1400)
-            .tcpNoDelay());
+        // Cooperative odometry is state, not disposable telemetry. Reliable
+        // TCP plus the timestamp-matching history below avoids turning a
+        // short Wi-Fi delivery pause into a fabricated three-robot pose.
+        ros::TransportHints().reliable().tcpNoDelay());
   }
 
   void receiveOdometry(std::size_t index,
@@ -383,12 +383,31 @@ class PathStateEstimatorNode {
     std::array<const OdometrySample*, kRobotCount> synchronized_samples{};
     const bool synchronized =
         selectSynchronizedSamples(now, &synchronized_samples);
+    if (!synchronized) {
+      std::array<double, kRobotCount> latest_ages{};
+      for (std::size_t index = 0U; index < kRobotCount; ++index) {
+        const auto* latest = latestSample(robots_[index]);
+        latest_ages[index] = latest == nullptr
+            ? std::numeric_limits<double>::infinity()
+            : (now - latest->stamp).toSec();
+      }
+      ROS_WARN_THROTTLE(
+          1.0,
+          "No synchronized odometry set: latest ages "
+          "agv1=%.6f agv2=%.6f agv3=%.6f s (slop=%.6f s)",
+          latest_ages[0], latest_ages[1], latest_ages[2],
+          maximum_sync_slop_);
+    }
     std::array<bool, kRobotCount> is_fresh{};
     for (std::size_t index = 0U; index < kRobotCount; ++index) {
       const auto& robot = robots_[index];
       const OdometrySample* sample = synchronized
           ? synchronized_samples[index] : latestSample(robot);
-      is_fresh[index] = sample != nullptr && fresh(*sample, now);
+      // Individual latest samples remain available for diagnosis, but they
+      // are not a valid cooperative snapshot unless all three timestamps can
+      // be matched within maximum_sync_slop.
+      is_fresh[index] =
+          synchronized && sample != nullptr && fresh(*sample, now);
       state.robot_localization_source[index] =
           is_fresh[index] ? agv_msgs::CooperativeState::SOURCE_ODOM
                           : agv_msgs::CooperativeState::SOURCE_UNKNOWN;

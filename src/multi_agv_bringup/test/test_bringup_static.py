@@ -70,8 +70,11 @@ class BringupStaticTest(unittest.TestCase):
                 "std::deque<OdometrySample>",
                 "selectSynchronizedSamples",
                 "nearestFreshSample",
-                "synchronization_queue_size"):
+                "synchronization_queue_size",
+                "ros::TransportHints().reliable().tcpNoDelay()",
+                "synchronized && sample != nullptr"):
             self.assertIn(marker, estimator_source)
+        self.assertNotIn(".unreliable()", estimator_source)
 
         tracker = (
             PACKAGE / "config" / "pretest_constant_reference.yaml"
