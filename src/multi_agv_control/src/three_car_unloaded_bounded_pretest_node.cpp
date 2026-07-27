@@ -278,8 +278,10 @@ class ThreeCarUnloadedBoundedPretestNode {
         private_, root + "motion/target_progress", 1.00);
     minimum_battery_voltage_ = finiteParam(
         private_, root + "abort/minimum_battery_voltage", 10.8);
+    maximum_feedback_receive_age_ = finiteParam(
+        private_, root + "abort/maximum_feedback_receive_age", 0.25);
     maximum_serial_feedback_age_ = finiteParam(
-        private_, root + "abort/maximum_serial_feedback_age", 0.15);
+        private_, root + "abort/maximum_serial_feedback_age", 0.25);
     maximum_stamp_spread_ = finiteParam(
         private_, root + "abort/maximum_stamp_spread", 0.02);
     maximum_initial_progress_ = finiteParam(
@@ -413,7 +415,10 @@ class ThreeCarUnloadedBoundedPretestNode {
         std::abs(speed_ - 0.05) > 1e-12 ||
         std::abs(target_progress_ - 1.00) > 1e-12 ||
         !(minimum_battery_voltage_ >= 10.8) ||
+        !(maximum_feedback_receive_age_ > 0.0) ||
+        maximum_feedback_receive_age_ > 0.25 ||
         !(maximum_serial_feedback_age_ > 0.0) ||
+        maximum_serial_feedback_age_ > 0.25 ||
         !(maximum_stamp_spread_ > 0.0) ||
         !(maximum_initial_progress_ > 0.0) ||
         !(maximum_progress_spread_ > 0.0) ||
@@ -491,22 +496,58 @@ class ThreeCarUnloadedBoundedPretestNode {
     has_feedback_[index] = true;
   }
 
-  bool inputsFresh() const {
+  bool inputsFresh(std::string* reason = nullptr) const {
     const ros::WallTime now = ros::WallTime::now();
-    if (!has_state_ ||
-        (now - state_receive_time_).toSec() > state_timeout_) {
+    if (!has_state_) {
+      if (reason != nullptr) {
+        *reason = "cooperative state has not been received";
+      }
+      return false;
+    }
+    const double state_age = (now - state_receive_time_).toSec();
+    if (state_age > state_timeout_) {
+      if (reason != nullptr) {
+        *reason = "cooperative state receive age " +
+                  std::to_string(state_age) + " s exceeds " +
+                  std::to_string(state_timeout_) + " s";
+      }
       return false;
     }
     for (std::size_t index = 0; index < kRobotCount; ++index) {
-      if (!has_feedback_[index] ||
-          (now - feedback_receive_time_[index]).toSec() > state_timeout_) {
+      const std::string robot = "agv" + std::to_string(index + 1U);
+      if (!has_feedback_[index]) {
+        if (reason != nullptr) {
+          *reason = robot + " chassis feedback has not been received";
+        }
         return false;
       }
-      if (transport_type_ == "serial" &&
-          (!has_feedback_packet_[index] ||
-           (now - feedback_packet_progress_time_[index]).toSec() >
-               maximum_serial_feedback_age_)) {
+      const double feedback_age =
+          (now - feedback_receive_time_[index]).toSec();
+      if (feedback_age > maximum_feedback_receive_age_) {
+        if (reason != nullptr) {
+          *reason = robot + " chassis feedback receive age " +
+                    std::to_string(feedback_age) + " s exceeds " +
+                    std::to_string(maximum_feedback_receive_age_) + " s";
+        }
         return false;
+      }
+      if (transport_type_ == "serial") {
+        if (!has_feedback_packet_[index]) {
+          if (reason != nullptr) {
+            *reason = robot + " STM32 packet sequence has not been received";
+          }
+          return false;
+        }
+        const double packet_age =
+            (now - feedback_packet_progress_time_[index]).toSec();
+        if (packet_age > maximum_serial_feedback_age_) {
+          if (reason != nullptr) {
+            *reason = robot + " STM32 packet sequence age " +
+                      std::to_string(packet_age) + " s exceeds " +
+                      std::to_string(maximum_serial_feedback_age_) + " s";
+          }
+          return false;
+        }
       }
     }
     return true;
@@ -533,7 +574,7 @@ class ThreeCarUnloadedBoundedPretestNode {
     while (ros::ok() && !stop_requested.load() &&
            ros::WallTime::now() < deadline) {
       ros::spinOnce();
-      if (inputsFresh() && commandSubscribersReady() &&
+      if (inputsFresh(&reason) && commandSubscribersReady() &&
           oneStatePublisher() && safeToMove(&reason, true)) {
         ++stable_samples;
       } else {
@@ -594,8 +635,7 @@ class ThreeCarUnloadedBoundedPretestNode {
   }
 
   bool safeToMove(std::string* reason, bool require_stopped) const {
-    if (!inputsFresh()) {
-      *reason = "cooperative state or chassis feedback is stale";
+    if (!inputsFresh(reason)) {
       return false;
     }
     if (!oneStatePublisher()) {
@@ -875,7 +915,8 @@ class ThreeCarUnloadedBoundedPretestNode {
   double speed_{0.05};
   double target_progress_{1.00};
   double minimum_battery_voltage_{10.8};
-  double maximum_serial_feedback_age_{0.15};
+  double maximum_feedback_receive_age_{0.25};
+  double maximum_serial_feedback_age_{0.25};
   double maximum_stamp_spread_{0.02};
   double maximum_initial_progress_{0.03};
   double maximum_progress_spread_{0.04};

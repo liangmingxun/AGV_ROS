@@ -37,7 +37,13 @@ three_car_unloaded_bounded_pretest:
 
   abort:
     minimum_battery_voltage: 10.8
-    maximum_serial_feedback_age: 0.15
+    # Cooperative localization remains capped at 0.15 s. Chassis feedback is
+    # used for safety/status rather than geometric tracking; allow the
+    # measured 0.16 s Wi-Fi delivery burst, but freeze the low-speed pretest
+    # limit at 0.25 s. The chassis keeps its independent 0.20 s command
+    # watchdog.
+    maximum_feedback_receive_age: 0.25
+    maximum_serial_feedback_age: 0.25
     maximum_stamp_spread: 0.02
     maximum_initial_load_progress: 0.03
     maximum_robot_progress_spread: 0.04

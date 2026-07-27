@@ -193,7 +193,8 @@ class BringupStaticTest(unittest.TestCase):
                 "required_command_subscribers: 2",
                 "readiness_stable_samples: 20",
                 "minimum_battery_voltage: 10.8",
-                "maximum_serial_feedback_age: 0.15",
+                "maximum_feedback_receive_age: 0.25",
+                "maximum_serial_feedback_age: 0.25",
                 "maximum_stamp_spread: 0.02",
                 "maximum_wheel_linear_velocity: 0.08"):
             self.assertIn(marker, config)
@@ -204,6 +205,8 @@ class BringupStaticTest(unittest.TestCase):
                 "virtual load pose or path state is invalid",
                 "control loop overrun reported",
                 "STM32 serial feedback is stale or future-dated",
+                "chassis feedback receive age",
+                "STM32 packet sequence age",
                 "all six wheels must be stopped before motion"):
             self.assertIn(marker, node)
 
