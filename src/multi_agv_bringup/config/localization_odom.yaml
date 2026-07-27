@@ -9,6 +9,7 @@ hardware_execution_authorized: false
 publish_rate: 100.0
 maximum_state_age: 0.15
 maximum_sync_slop: 0.02
+synchronization_queue_size: 64
 maximum_rigid_fit_residual: 0.01
 
 projector:

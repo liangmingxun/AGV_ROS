@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <deque>
 #include <memory>
 #include <stdexcept>
 #include <string>
@@ -67,12 +68,21 @@ class PathStateEstimatorNode {
     private_node_.param("publish_rate", publish_rate_, 100.0);
     private_node_.param("maximum_state_age", maximum_state_age_, 0.15);
     private_node_.param("maximum_sync_slop", maximum_sync_slop_, 0.02);
+    int synchronization_queue_size =
+        static_cast<int>(synchronization_queue_size_);
+    private_node_.param("synchronization_queue_size",
+                        synchronization_queue_size,
+                        synchronization_queue_size);
     private_node_.param("maximum_rigid_fit_residual",
                         maximum_rigid_fit_residual_, 0.05);
     if (!(publish_rate_ > 0.0) || !(maximum_state_age_ > 0.0) ||
-        !(maximum_sync_slop_ >= 0.0) || !(maximum_rigid_fit_residual_ > 0.0)) {
+        !(maximum_sync_slop_ >= 0.0) ||
+        synchronization_queue_size < 3 ||
+        !(maximum_rigid_fit_residual_ > 0.0)) {
       throw std::runtime_error("invalid localization timing or residual configuration");
     }
+    synchronization_queue_size_ =
+        static_cast<std::size_t>(synchronization_queue_size);
 
     const auto projector_config = loadProjectorConfig();
     const auto estimator_config = loadEstimatorConfig();
@@ -105,6 +115,13 @@ class PathStateEstimatorNode {
   }
 
  private:
+  struct OdometrySample {
+    ros::Time stamp;
+    PlanarPose robot_pose;
+    PlanarPose support_pose;
+    StateEstimate path_state;
+  };
+
   struct RobotState {
     std::string robot_id;
     std::string odom_topic;
@@ -114,11 +131,7 @@ class PathStateEstimatorNode {
     PlanarPose base_to_support;
     std::unique_ptr<StateEstimator> estimator;
     ros::Subscriber subscriber;
-    bool received{false};
-    ros::Time stamp;
-    PlanarPose robot_pose;
-    PlanarPose support_pose;
-    StateEstimate path_state;
+    std::deque<OdometrySample> samples;
   };
 
   SCurveConfig loadPathConfig() {
@@ -269,20 +282,93 @@ class PathStateEstimatorNode {
         !std::isfinite(odom_to_base.yaw)) {
       return;
     }
-    robot.stamp = message->header.stamp;
-    robot.robot_pose = composePose(robot.world_to_odom, odom_to_base);
-    robot.support_pose = composePose(robot.robot_pose, robot.base_to_support);
-    robot.path_state = robot.estimator->update(
-        robot.support_pose.position, robot.stamp.toSec());
-    robot.received = true;
+    if (!robot.samples.empty() &&
+        message->header.stamp <= robot.samples.back().stamp) {
+      ROS_WARN_THROTTLE(
+          1.0, "Rejected non-increasing %s odometry timestamp",
+          robot.robot_id.c_str());
+      return;
+    }
+    OdometrySample sample;
+    sample.stamp = message->header.stamp;
+    sample.robot_pose = composePose(robot.world_to_odom, odom_to_base);
+    sample.support_pose =
+        composePose(sample.robot_pose, robot.base_to_support);
+    sample.path_state = robot.estimator->update(
+        sample.support_pose.position, sample.stamp.toSec());
+    robot.samples.push_back(std::move(sample));
+    while (robot.samples.size() > synchronization_queue_size_) {
+      robot.samples.pop_front();
+    }
   }
 
-  bool fresh(const RobotState& robot, const ros::Time& now) const {
-    if (!robot.received) {
-      return false;
-    }
-    const double age = (now - robot.stamp).toSec();
+  bool fresh(const OdometrySample& sample, const ros::Time& now) const {
+    const double age = (now - sample.stamp).toSec();
     return age >= -maximum_sync_slop_ && age <= maximum_state_age_;
+  }
+
+  const OdometrySample* latestSample(const RobotState& robot) const {
+    return robot.samples.empty() ? nullptr : &robot.samples.back();
+  }
+
+  const OdometrySample* latestFreshSample(
+      const RobotState& robot, const ros::Time& now) const {
+    for (auto sample = robot.samples.rbegin();
+         sample != robot.samples.rend(); ++sample) {
+      if (fresh(*sample, now)) {
+        return &*sample;
+      }
+    }
+    return nullptr;
+  }
+
+  const OdometrySample* nearestFreshSample(
+      const RobotState& robot, const ros::Time& target,
+      const ros::Time& now) const {
+    const OdometrySample* nearest = nullptr;
+    double nearest_distance = 0.0;
+    for (const auto& sample : robot.samples) {
+      if (!fresh(sample, now)) {
+        continue;
+      }
+      const double distance = std::abs((sample.stamp - target).toSec());
+      if (nearest == nullptr || distance < nearest_distance) {
+        nearest = &sample;
+        nearest_distance = distance;
+      }
+    }
+    return nearest;
+  }
+
+  bool selectSynchronizedSamples(
+      const ros::Time& now,
+      std::array<const OdometrySample*, kRobotCount>* selected) const {
+    std::array<const OdometrySample*, kRobotCount> latest{};
+    for (std::size_t index = 0U; index < kRobotCount; ++index) {
+      latest[index] = latestFreshSample(robots_[index], now);
+      if (latest[index] == nullptr) {
+        return false;
+      }
+    }
+    const ros::Time target = (*std::min_element(
+        latest.begin(), latest.end(),
+        [](const OdometrySample* lhs, const OdometrySample* rhs) {
+          return lhs->stamp < rhs->stamp;
+        }))->stamp;
+    for (std::size_t index = 0U; index < kRobotCount; ++index) {
+      (*selected)[index] =
+          nearestFreshSample(robots_[index], target, now);
+      if ((*selected)[index] == nullptr) {
+        return false;
+      }
+    }
+    const auto minmax = std::minmax_element(
+        selected->begin(), selected->end(),
+        [](const OdometrySample* lhs, const OdometrySample* rhs) {
+          return lhs->stamp < rhs->stamp;
+        });
+    return (((*minmax.second)->stamp - (*minmax.first)->stamp).toSec() <=
+            maximum_sync_slop_);
   }
 
   void publish(const ros::TimerEvent&) {
@@ -290,61 +376,65 @@ class PathStateEstimatorNode {
     agv_msgs::CooperativeState state;
     state.header.stamp = now;
     state.header.frame_id = "world";
+    std::array<const OdometrySample*, kRobotCount> synchronized_samples{};
+    const bool synchronized =
+        selectSynchronizedSamples(now, &synchronized_samples);
     std::array<bool, kRobotCount> is_fresh{};
     for (std::size_t index = 0U; index < kRobotCount; ++index) {
       const auto& robot = robots_[index];
-      is_fresh[index] = fresh(robot, now);
+      const OdometrySample* sample = synchronized
+          ? synchronized_samples[index] : latestSample(robot);
+      is_fresh[index] = sample != nullptr && fresh(*sample, now);
       state.robot_localization_source[index] =
           is_fresh[index] ? agv_msgs::CooperativeState::SOURCE_ODOM
                           : agv_msgs::CooperativeState::SOURCE_UNKNOWN;
       state.robot_pose_valid[index] = is_fresh[index];
       state.support_pose_valid[index] = is_fresh[index];
       state.path_state_valid[index] =
-          is_fresh[index] && robot.path_state.valid;
-      if (robot.received) {
-        state.robot_pose_stamp[index] = robot.stamp;
-        state.robot_pose[index] = toMessage(robot.robot_pose);
-        state.support_pose[index] = toMessage(robot.support_pose);
-        if (robot.path_state.valid) {
-          state.s_actual[index] = robot.path_state.progress;
-          state.s_dot_actual[index] = robot.path_state.speed;
+          is_fresh[index] && sample->path_state.valid;
+      if (sample != nullptr) {
+        state.robot_pose_stamp[index] = sample->stamp;
+        state.robot_pose[index] = toMessage(sample->robot_pose);
+        state.support_pose[index] = toMessage(sample->support_pose);
+        if (sample->path_state.valid) {
+          state.s_actual[index] = sample->path_state.progress;
+          state.s_dot_actual[index] = sample->path_state.speed;
         }
       }
     }
 
-    if (std::all_of(is_fresh.begin(), is_fresh.end(), [](bool value) {
+    if (synchronized &&
+        std::all_of(is_fresh.begin(), is_fresh.end(), [](bool value) {
           return value;
         })) {
       const auto minmax = std::minmax_element(
-          robots_.begin(), robots_.end(),
-          [](const RobotState& lhs, const RobotState& rhs) {
-            return lhs.stamp < rhs.stamp;
+          synchronized_samples.begin(), synchronized_samples.end(),
+          [](const OdometrySample* lhs, const OdometrySample* rhs) {
+            return lhs->stamp < rhs->stamp;
           });
-      if (((*minmax.second).stamp - (*minmax.first).stamp).toSec() <=
-          maximum_sync_slop_) {
-        std::array<Eigen::Vector2d, kRobotCount> supports;
-        std::array<SupportOffset, kRobotCount> offsets;
-        for (std::size_t index = 0U; index < kRobotCount; ++index) {
-          supports[index] = robots_[index].support_pose.position;
-          offsets[index] = geometry_.config().offsets[index];
+      std::array<Eigen::Vector2d, kRobotCount> supports;
+      std::array<SupportOffset, kRobotCount> offsets;
+      for (std::size_t index = 0U; index < kRobotCount; ++index) {
+        supports[index] = synchronized_samples[index]->support_pose.position;
+        offsets[index] = geometry_.config().offsets[index];
+      }
+      const auto fit = fitRigidLoadPose(supports, offsets);
+      if (fit.valid && fit.rms_residual <= maximum_rigid_fit_residual_) {
+        state.load_localization_source =
+            agv_msgs::CooperativeState::SOURCE_ODOM;
+        state.load_pose_valid = true;
+        state.load_pose_stamp = (*minmax.first)->stamp;
+        state.load_pose = toMessage(fit.pose);
+        if (last_load_measurement_stamp_.isZero() ||
+            state.load_pose_stamp > last_load_measurement_stamp_) {
+          last_load_path_state_ = load_estimator_->update(
+              fit.pose.position, state.load_pose_stamp.toSec());
+          last_load_measurement_stamp_ = state.load_pose_stamp;
         }
-        const auto fit = fitRigidLoadPose(supports, offsets);
-        if (fit.valid && fit.rms_residual <= maximum_rigid_fit_residual_) {
-          state.load_localization_source = agv_msgs::CooperativeState::SOURCE_ODOM;
-          state.load_pose_valid = true;
-          state.load_pose_stamp = (*minmax.first).stamp;
-          state.load_pose = toMessage(fit.pose);
-          if (last_load_measurement_stamp_.isZero() ||
-              state.load_pose_stamp > last_load_measurement_stamp_) {
-            last_load_path_state_ = load_estimator_->update(
-                fit.pose.position, state.load_pose_stamp.toSec());
-            last_load_measurement_stamp_ = state.load_pose_stamp;
-          }
-          state.load_path_state_valid = last_load_path_state_.valid;
-          if (last_load_path_state_.valid) {
-            state.load_s_actual = last_load_path_state_.progress;
-            state.load_s_dot_actual = last_load_path_state_.speed;
-          }
+        state.load_path_state_valid = last_load_path_state_.valid;
+        if (last_load_path_state_.valid) {
+          state.load_s_actual = last_load_path_state_.progress;
+          state.load_s_dot_actual = last_load_path_state_.speed;
         }
       }
     }
@@ -364,6 +454,7 @@ class PathStateEstimatorNode {
   double publish_rate_{100.0};
   double maximum_state_age_{0.15};
   double maximum_sync_slop_{0.02};
+  std::size_t synchronization_queue_size_{64U};
   double maximum_rigid_fit_residual_{0.05};
 };
 

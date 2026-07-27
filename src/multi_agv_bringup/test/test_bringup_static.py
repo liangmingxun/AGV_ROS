@@ -59,6 +59,19 @@ class BringupStaticTest(unittest.TestCase):
             self.assertIn(transform, localization)
         self.assertIn("maximum_rigid_fit_residual: 0.01", localization)
         self.assertIn("maximum_projection_distance: 0.08", localization)
+        self.assertIn("maximum_sync_slop: 0.02", localization)
+        self.assertIn("synchronization_queue_size: 64", localization)
+
+        estimator_source = (
+            SOURCE_ROOT / "multi_agv_control" / "src" /
+            "path_state_estimator_node.cpp"
+        ).read_text(encoding="utf-8")
+        for marker in (
+                "std::deque<OdometrySample>",
+                "selectSynchronizedSamples",
+                "nearestFreshSample",
+                "synchronization_queue_size"):
+            self.assertIn(marker, estimator_source)
 
         tracker = (
             PACKAGE / "config" / "pretest_constant_reference.yaml"

@@ -141,6 +141,34 @@ class OdomStateEstimatorTest(unittest.TestCase):
             self.assertTrue(all(new + 1.0e-7 >= old
                                 for old, new in zip(progress, progress[1:])))
 
+        # AGV3 now arrives 40 ms behind AGV1/2 while retaining its original
+        # measurement stamp. The estimator must select matching history from
+        # AGV1/2 instead of combining three unrelated latest-arrival samples.
+        delayed_agv3 = []
+        synchronized_states = []
+        for step in range(70):
+            stamp = rospy.Time.now()
+            xi = 0.19 + 0.001 * step
+            self._publish_robot(0, xi, stamp)
+            self._publish_robot(1, xi, stamp)
+            delayed_agv3.append((xi, stamp))
+            if len(delayed_agv3) > 2:
+                delayed_xi, delayed_stamp = delayed_agv3.pop(0)
+                self._publish_robot(2, delayed_xi, delayed_stamp)
+            rate.sleep()
+            state = self._latest()
+            if step >= 10 and state:
+                synchronized_states.append(state)
+
+        self.assertGreater(len(synchronized_states), 30)
+        for state in synchronized_states:
+            self.assertEqual(list(state.robot_pose_valid), [True] * 3)
+            self.assertEqual(list(state.path_state_valid), [True] * 3)
+            self.assertTrue(state.load_pose_valid)
+            self.assertTrue(state.load_path_state_valid)
+            stamps = [stamp.to_sec() for stamp in state.robot_pose_stamp]
+            self.assertLessEqual(max(stamps) - min(stamps), 0.020001)
+
         # Stop only AGV3. The two live robots remain valid; rigid load state
         # correctly becomes unavailable rather than being fabricated.
         for step in range(25):
