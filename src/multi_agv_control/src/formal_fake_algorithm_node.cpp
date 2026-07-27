@@ -286,6 +286,8 @@ class FormalFakeAlgorithmNode {
         root + "leader/velocity", leader_velocity_, 0.08);
     private_node_.param(
         root + "leader/acceleration", leader_acceleration_, 0.0);
+    current_velocity_reference_ = leader_velocity_;
+    current_acceleration_reference_ = leader_acceleration_;
     distributed_state_.position = array3(
         private_node_, root + "distributed_initial/position");
     distributed_state_.velocity = array3(

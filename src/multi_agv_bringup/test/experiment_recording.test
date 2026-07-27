@@ -1,0 +1,17 @@
+<launch>
+  <arg name="run_id" default="$(anon task17_recording)"/>
+
+  <include file="$(find multi_agv_bringup)/launch/formal_fake_algorithm.launch"/>
+  <include file="$(find multi_agv_bringup)/launch/experiment.launch">
+    <arg name="arming_authorized" value="true"/>
+    <arg name="output_root" value="/tmp"/>
+    <arg name="run_id" value="$(arg run_id)"/>
+    <arg name="experiment_id" value="formal_algorithm_fake_integration"/>
+    <arg name="method_id" value="M1_R1"/>
+  </include>
+
+  <test pkg="multi_agv_bringup" type="test_experiment_recording.py"
+        test-name="experiment_recording_test" time-limit="45">
+    <param name="run_dir" value="/tmp/$(arg run_id)"/>
+  </test>
+</launch>

@@ -1,0 +1,60 @@
+<launch>
+  <!-- Recording attaches to an already-running, gate-approved controller. -->
+  <arg name="arming_authorized" default="false"/>
+  <arg name="output_root" default="$(env HOME)/AGV_ROS/real_experiments"/>
+  <arg name="run_id" default=""/>
+  <arg name="experiment_id" default="formal_algorithm_fake_integration"/>
+  <arg name="method_id" default="M1_R1"/>
+  <arg name="interface_version" default="agv_ros_interfaces_v1"/>
+  <arg name="path_config"
+       default="$(find multi_agv_bringup)/config/path_s_curve.yaml"/>
+  <arg name="support_config"
+       default="$(find multi_agv_bringup)/config/support_geometry.yaml"/>
+  <arg name="localization_config"
+       default="$(find multi_agv_bringup)/config/localization_odom.yaml"/>
+  <arg name="runtime_config"
+       default="$(find multi_agv_bringup)/config/formal_fake_runtime.yaml"/>
+  <arg name="upper_config"
+       default="$(find multi_agv_bringup)/config/exp2a_M1.yaml"/>
+  <arg name="lower_config"
+       default="$(find multi_agv_bringup)/config/exp3_R1.yaml"/>
+  <!-- Must be frozen from the mapped nominal baseline before recovery metrics. -->
+  <arg name="nominal_agv2_mapped_capability" default="0.0"/>
+  <arg name="nominal_common_velocity" default="0.08"/>
+  <arg name="evaluation_target" default="1.0"/>
+
+  <node pkg="multi_agv_analysis" type="record_experiment.py"
+        name="experiment_recorder" output="screen" required="true">
+    <param name="arming_authorized" value="$(arg arming_authorized)"/>
+    <param name="output_root" value="$(arg output_root)"/>
+    <param name="run_id" value="$(arg run_id)"/>
+    <param name="experiment_id" value="$(arg experiment_id)"/>
+    <param name="method_id" value="$(arg method_id)"/>
+    <param name="interface_version" value="$(arg interface_version)"/>
+    <param name="workspace" value="$(find multi_agv_bringup)/../../.."/>
+    <param name="connection_wait_seconds" value="5.0"/>
+    <param name="preflight_wait_seconds" value="15.0"/>
+    <rosparam command="load"
+              file="$(find multi_agv_bringup)/config/record_topics.yaml"/>
+    <rosparam param="config_files" subst_value="true">
+      ["$(find multi_agv_bringup)/config/common_platform.yaml",
+       "$(find multi_agv_bringup)/config/agv1_chassis.yaml",
+       "$(find multi_agv_bringup)/config/agv2_chassis.yaml",
+       "$(find multi_agv_bringup)/config/agv3_chassis.yaml",
+       "$(find multi_agv_bringup)/config/capability_mapping.yaml",
+       "$(arg path_config)",
+       "$(arg support_config)",
+       "$(arg localization_config)",
+       "$(arg runtime_config)",
+       "$(arg upper_config)",
+       "$(arg lower_config)",
+       "$(find multi_agv_bringup)/config/record_topics.yaml"]
+    </rosparam>
+    <param name="metrics/nominal_agv2_capability"
+           value="$(arg nominal_agv2_mapped_capability)"/>
+    <param name="metrics/nominal_common_velocity"
+           value="$(arg nominal_common_velocity)"/>
+    <param name="metrics/evaluation_target"
+           value="$(arg evaluation_target)"/>
+  </node>
+</launch>

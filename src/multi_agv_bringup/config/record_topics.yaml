@@ -1,0 +1,85 @@
+experiment_recording:
+  # Keep source topics in the bag. bag_to_csv.py performs only latest-at-or-
+  # before causal alignment and never modifies these raw samples.
+  topics:
+    - /agv1/chassis_command
+    - /agv2/chassis_command
+    - /agv3/chassis_command
+    - /agv1/chassis_feedback
+    - /agv2/chassis_feedback
+    - /agv3/chassis_feedback
+    - /agv1/capability_report
+    - /agv2/capability_report
+    - /agv3/capability_report
+    - /agv1/derating_command
+    - /agv2/derating_command
+    - /agv3/derating_command
+    - /agv1/imu
+    - /agv2/imu
+    - /agv3/imu
+    - /agv1/odom
+    - /agv2/odom
+    - /agv3/odom
+    - /multi_agv/cooperative_state
+    - /multi_agv/path_reference
+    - /multi_agv/controller_state
+    - /multi_agv/formal_algorithm_state
+
+  # Generic fake rehearsals can be converted without this stream, but the
+  # resulting evaluation window is not admissible for formal statistics.
+  recommended_topics:
+    - /multi_agv/experiment_state
+
+  required_topics:
+    - /agv1/chassis_command
+    - /agv2/chassis_command
+    - /agv3/chassis_command
+    - /agv1/chassis_feedback
+    - /agv2/chassis_feedback
+    - /agv3/chassis_feedback
+    - /agv1/capability_report
+    - /agv2/capability_report
+    - /agv3/capability_report
+    - /agv1/imu
+    - /agv2/imu
+    - /agv3/imu
+    - /agv1/odom
+    - /agv2/odom
+    - /agv3/odom
+    - /multi_agv/cooperative_state
+    - /multi_agv/path_reference
+    - /multi_agv/controller_state
+    - /multi_agv/formal_algorithm_state
+
+  minimum_topic_rates:
+    /agv1/chassis_command: 90.0
+    /agv2/chassis_command: 90.0
+    /agv3/chassis_command: 90.0
+    /agv1/chassis_feedback: 90.0
+    /agv2/chassis_feedback: 90.0
+    /agv3/chassis_feedback: 90.0
+    /agv1/capability_report: 90.0
+    /agv2/capability_report: 90.0
+    /agv3/capability_report: 90.0
+    /agv1/imu: 90.0
+    /agv2/imu: 90.0
+    /agv3/imu: 90.0
+    /agv1/odom: 90.0
+    /agv2/odom: 90.0
+    /agv3/odom: 90.0
+    /multi_agv/cooperative_state: 90.0
+    /multi_agv/path_reference: 90.0
+    /multi_agv/controller_state: 90.0
+    /multi_agv/formal_algorithm_state: 90.0
+
+  sample_period: 0.01
+  sequence_rules:
+    - {file: chassis_command.csv, group_by: robot_id, field: command_seq,
+       max_gap: 5, allow_wrap: true}
+    - {file: chassis_feedback.csv, group_by: robot_id, field: feedback_seq,
+       max_gap: 5, allow_wrap: true}
+    - {file: capability_report.csv, group_by: robot_id, field: capability_seq,
+       max_gap: 5, allow_wrap: true}
+  localization_exclusion:
+    maximum_invalid_fraction: 0.01
+    maximum_consecutive_invalid_seconds: 0.10

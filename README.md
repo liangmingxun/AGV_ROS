@@ -1,8 +1,14 @@
 # AGV_WS
 
-当前正式开发入口是 `multi_agv_bringup`、`chassis_controller` 和 `agv_msgs`。
-平台基础层已覆盖三车命名空间、冻结接口、单车串口执行、物理限幅、平滑降额和
-预里程计；完整协同控制与正式实验尚未实现。开始实车前请先阅读
+当前开发入口由 `agv_msgs`、`chassis_controller`、`multi_agv_control`、
+`multi_agv_bringup` 和 `multi_agv_analysis` 组成。平台层已覆盖三车命名空间、
+冻结接口、单车串口执行、物理限幅、平滑降额、预里程计与安全预检；M1/M2a/M4
+上层和 R1–R4 下层已接入仅限 fake transport 的正式算法入口；可复现实验记录、
+因果转换、合法性审计和基础指标链也已实现。
+
+这不等于正式实物系统已经完成：顶部相机定位（Task 15）、完整 M2b（Task 16）、
+正式物理算法入口和分阶段签字门禁（Task 18）仍未完成，所有正式算法硬件授权
+保持关闭。开始实车前请先阅读
 [`docs/理论-软件-实物覆盖审计.md`](docs/理论-软件-实物覆盖审计.md) 和
 [`docs/三车Ubuntu移植与上车检查手册_v1.0.md`](docs/三车Ubuntu移植与上车检查手册_v1.0.md)。
 

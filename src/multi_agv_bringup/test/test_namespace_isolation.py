@@ -52,18 +52,18 @@ class NamespaceIsolationTest(unittest.TestCase):
 
         rate_deadline = rospy.Time.now() + rospy.Duration(2.0)
         while rospy.Time.now() < rate_deadline and any(
-                len(feedback[index]) < 50 or len(capability[index]) < 20
+                len(feedback[index]) < 50 or len(capability[index]) < 50
                 for index in desired):
             rospy.sleep(0.02)
 
         for index in desired:
             self.assertGreaterEqual(len(feedback[index]), 50)
-            self.assertGreaterEqual(len(capability[index]), 20)
+            self.assertGreaterEqual(len(capability[index]), 50)
             feedback_sample = feedback[index][-50:]
-            capability_sample = capability[index][-20:]
+            capability_sample = capability[index][-50:]
             for sample, minimum_rate, maximum_rate in (
                     (feedback_sample, 90.0, 110.0),
-                    (capability_sample, 15.0, 25.0)):
+                    (capability_sample, 90.0, 110.0)):
                 duration = (
                     sample[-1].header.stamp -
                     sample[0].header.stamp).to_sec()

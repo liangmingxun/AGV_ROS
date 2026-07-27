@@ -161,7 +161,7 @@ class ChassisControllerNode {
     imu_frame_ = private_.param<std::string>("imu_frame", robot_id_ + "/imu_link");
     base_link_z_ = private_.param("base_link_z", 0.05969);
     capability_publish_rate_ =
-        private_.param("capability_publish_rate", 20.0);
+        private_.param("capability_publish_rate", 100.0);
     enable_vofa_ = private_.param("enable_vofa", false);
 
     if (odom_frame_ != robot_id_ + "/odom" ||
@@ -602,7 +602,7 @@ class ChassisControllerNode {
   std::string base_frame_;
   std::string imu_frame_;
   double base_link_z_{0.0};
-  double capability_publish_rate_{20.0};
+  double capability_publish_rate_{100.0};
   double gyro_lpf_tau_{0.02};
   double serial_startup_timeout_seconds_{10.0};
   bool enable_vofa_{false};

@@ -1,0 +1,287 @@
+#!/usr/bin/env python3
+
+import datetime
+import os
+import platform
+import re
+import shutil
+import signal
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+import rosgraph
+import rospy
+
+from multi_agv_analysis.io_utils import atomic_dump_yaml, sha256_file
+
+
+def _git(repo, *arguments):
+    return subprocess.check_output(
+        ["git", "-C", str(repo)] + list(arguments),
+        text=True).strip()
+
+
+def _system_publishers():
+    publishers, _, _ = rosgraph.Master(
+        rospy.get_name()).getSystemState()
+    return {topic: list(nodes) for topic, nodes in publishers}
+
+
+def _system_subscribers():
+    _, subscribers, _ = rosgraph.Master(
+        rospy.get_name()).getSystemState()
+    return {topic: list(nodes) for topic, nodes in subscribers}
+
+
+def _command_authority(publishers):
+    result = {}
+    for index in range(1, 4):
+        topic = "/agv{}/chassis_command".format(index)
+        result[topic] = publishers.get(topic, [])
+    return result
+
+
+def _safe_run_id(value):
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]*", value):
+        raise RuntimeError(
+            "run_id must contain only letters, digits, '.', '_' and '-'")
+    return value
+
+
+class ExperimentRecorder:
+    def __init__(self):
+        if not rospy.get_param("~arming_authorized", False):
+            raise RuntimeError(
+                "recording arming_authorized is false; no bag was started")
+        self.output_root = Path(os.path.expanduser(
+            rospy.get_param("~output_root"))).resolve()
+        requested_run_id = rospy.get_param("~run_id", "").strip()
+        if not requested_run_id:
+            requested_run_id = datetime.datetime.now().strftime(
+                "%Y%m%d_%H%M%S")
+        self.run_id = _safe_run_id(requested_run_id)
+        self.experiment_id = rospy.get_param("~experiment_id")
+        self.method_id = rospy.get_param("~method_id")
+        self.interface_version = rospy.get_param(
+            "~interface_version", "agv_ros_interfaces_v1")
+        self.recording = rospy.get_param("~experiment_recording")
+        self.topics = list(self.recording.get("topics", []))
+        self.required_topics = list(
+            self.recording.get("required_topics", []))
+        self.config_files = [
+            Path(value).resolve()
+            for value in rospy.get_param("~config_files", [])]
+        self.run_dir = self.output_root / self.run_id
+        if self.run_dir.exists():
+            raise RuntimeError(
+                "run directory already exists: {}".format(self.run_dir))
+        if not self.topics:
+            raise RuntimeError("record topic list is empty")
+        self.bag_process = None
+        self.bag_node_name = "/task17_bag_{}".format(
+            re.sub(r"[^A-Za-z0-9_]", "_", self.run_id))
+        self.manifest = {}
+
+    def preflight(self):
+        deadline = time.monotonic() + float(
+            rospy.get_param("~preflight_wait_seconds", 15.0))
+        last_problem = "ROS graph is not ready"
+        while not rospy.is_shutdown():
+            publishers = _system_publishers()
+            authority = _command_authority(publishers)
+            invalid_authority = {
+                topic: nodes for topic, nodes in authority.items()
+                if len(nodes) != 1}
+            move_base_topics = [
+                topic for topic, nodes in authority.items()
+                if any("move_base" in node for node in nodes)]
+            missing = [
+                topic for topic in self.required_topics
+                if not publishers.get(topic)]
+            if not invalid_authority and not move_base_topics and not missing:
+                return authority
+            last_problem = (
+                "authority={} move_base={} missing={}".format(
+                    invalid_authority, move_base_topics, missing))
+            if time.monotonic() >= deadline:
+                break
+            rospy.sleep(0.1)
+        raise RuntimeError("preflight timed out: {}".format(last_problem))
+
+    def prepare(self, authority):
+        self.run_dir.mkdir(parents=True)
+        config_dir = self.run_dir / "config"
+        config_dir.mkdir()
+        package_path = Path(__file__).resolve()
+        repo = package_path
+        while repo != repo.parent and not (repo / ".git").exists():
+            repo = repo.parent
+        if not (repo / ".git").exists():
+            # Installed scripts live below devel; ask Git for the workspace
+            # containing the configured launch files instead.
+            candidate = Path(rospy.get_param("~workspace", "")).resolve()
+            if not (candidate / ".git").exists():
+                raise RuntimeError("cannot locate Git worktree")
+            repo = candidate
+
+        hashes = []
+        for index, source in enumerate(self.config_files, start=1):
+            if not source.is_file():
+                raise RuntimeError(
+                    "configuration file does not exist: {}".format(source))
+            destination = config_dir / "{:02d}_{}".format(index, source.name)
+            shutil.copy2(source, destination)
+            hashes.append({
+                "path": str(source),
+                "archived_path": str(destination.relative_to(self.run_dir)),
+                "sha256": sha256_file(destination),
+            })
+
+        parameter_snapshot = self.run_dir / "rosparams.yaml"
+        subprocess.check_call(
+            ["rosparam", "dump", str(parameter_snapshot)])
+        hashes.append({
+            "path": "ROS parameter server snapshot",
+            "archived_path": parameter_snapshot.name,
+            "sha256": sha256_file(parameter_snapshot),
+        })
+        status = _git(repo, "status", "--porcelain",
+                      "--untracked-files=normal")
+        self.manifest = {
+            "schema_version": 1,
+            "run_id": self.run_id,
+            "experiment_id": self.experiment_id,
+            "method_id": self.method_id,
+            "interface_version": self.interface_version,
+            "started_at": datetime.datetime.now(
+                datetime.timezone.utc).isoformat(),
+            "recording_armed_at": None,
+            "finished_at": None,
+            "git_sha": _git(repo, "rev-parse", "HEAD"),
+            "git_branch": _git(repo, "branch", "--show-current"),
+            "git_dirty": bool(status),
+            "git_status": status.splitlines(),
+            "hostname": platform.node(),
+            "python_version": platform.python_version(),
+            "ros_distro": os.environ.get("ROS_DISTRO", ""),
+            "command_authority": authority,
+            "command_authority_violations": [],
+            "move_base_command_authority": False,
+            "record_topics": self.topics,
+            "required_topics": self.required_topics,
+            "config_hashes": hashes,
+            "bag": "{}.bag".format(self.run_id),
+            "bag_exit_code": None,
+            "communication_age_note": (
+                "Recorded ages are diagnostics only and do not establish an "
+                "independent communication watchdog."),
+            "metrics": rospy.get_param("~metrics", {}),
+        }
+        atomic_dump_yaml(self.run_dir / "manifest.yaml", self.manifest)
+
+    def start(self):
+        bag_path = self.run_dir / "{}.bag".format(self.run_id)
+        command = ["rosbag", "record", "--buffsize=512", "-O", str(bag_path)]
+        command.extend(self.topics)
+        command.append("__name:={}".format(
+            self.bag_node_name.lstrip("/")))
+        self.bag_process = subprocess.Popen(command)
+        deadline = time.monotonic() + float(
+            rospy.get_param("~connection_wait_seconds", 5.0))
+        missing = list(self.required_topics)
+        while not rospy.is_shutdown() and time.monotonic() < deadline:
+            if self.bag_process.poll() is not None:
+                raise RuntimeError(
+                    "rosbag exited during startup with status {}".format(
+                        self.bag_process.returncode))
+            subscribers = _system_subscribers()
+            missing = [
+                topic for topic in self.required_topics
+                if self.bag_node_name not in subscribers.get(topic, [])]
+            if not missing:
+                break
+            rospy.sleep(0.05)
+        if missing:
+            raise RuntimeError(
+                "rosbag did not subscribe to required topics before arming: "
+                "{}".format(missing))
+        self.manifest["recording_armed_at"] = datetime.datetime.now(
+            datetime.timezone.utc).isoformat()
+        atomic_dump_yaml(
+            self.run_dir / "manifest.yaml", self.manifest)
+        rospy.loginfo(
+            "Experiment recording armed after all required subscriptions "
+            "connected: run_id=%s bag=%s", self.run_id, bag_path)
+
+    def shutdown(self):
+        if self.bag_process is not None and self.bag_process.poll() is None:
+            self.bag_process.send_signal(signal.SIGINT)
+            try:
+                self.bag_process.wait(timeout=15.0)
+            except subprocess.TimeoutExpired:
+                self.bag_process.terminate()
+                self.bag_process.wait(timeout=5.0)
+        if self.manifest:
+            self.manifest["finished_at"] = datetime.datetime.now(
+                datetime.timezone.utc).isoformat()
+            self.manifest["bag_exit_code"] = (
+                self.bag_process.returncode
+                if self.bag_process is not None else None)
+            atomic_dump_yaml(
+                self.run_dir / "manifest.yaml", self.manifest)
+
+    def spin(self):
+        rate = rospy.Rate(5)
+        while not rospy.is_shutdown():
+            if self.bag_process.poll() is not None:
+                if rospy.is_shutdown() or self.bag_process.returncode == 0:
+                    if not rospy.is_shutdown():
+                        rospy.signal_shutdown("rosbag closed cleanly")
+                    return
+                raise RuntimeError(
+                    "rosbag exited unexpectedly with status {}".format(
+                        self.bag_process.returncode))
+            current = _command_authority(_system_publishers())
+            if current != self.manifest["command_authority"]:
+                violation = {
+                    "stamp": rospy.Time.now().to_sec(),
+                    "expected": self.manifest["command_authority"],
+                    "observed": current,
+                }
+                if (not self.manifest["command_authority_violations"] or
+                        self.manifest["command_authority_violations"][-1][
+                            "observed"] != current):
+                    self.manifest[
+                        "command_authority_violations"].append(violation)
+                    atomic_dump_yaml(
+                        self.run_dir / "manifest.yaml", self.manifest)
+                    rospy.logerr(
+                        "Command authority changed while recording: %s",
+                        current)
+                raise RuntimeError(
+                    "command authority changed while recording")
+            rate.sleep()
+
+
+def main():
+    rospy.init_node("experiment_recorder")
+    recorder = None
+    try:
+        recorder = ExperimentRecorder()
+        authority = recorder.preflight()
+        recorder.prepare(authority)
+        recorder.start()
+        rospy.on_shutdown(recorder.shutdown)
+        recorder.spin()
+        return 0
+    except Exception as error:
+        rospy.logfatal("Experiment recorder failed: %s", error)
+        if recorder is not None:
+            recorder.shutdown()
+        return 2
+
+
+if __name__ == "__main__":
+    sys.exit(main())

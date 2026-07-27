@@ -15,6 +15,37 @@ class BringupStaticTest(unittest.TestCase):
                 ET.parse(launch)
                 self.assertNotIn("move_base", launch.read_text(encoding="utf-8"))
 
+    def test_task17_recording_is_subscription_ready_and_auditable(self):
+        launch = (
+            PACKAGE / "launch" / "experiment.launch"
+        ).read_text(encoding="utf-8")
+        topics = (
+            PACKAGE / "config" / "record_topics.yaml"
+        ).read_text(encoding="utf-8")
+        recorder = (
+            SOURCE_ROOT / "multi_agv_analysis" / "scripts" /
+            "record_experiment.py"
+        ).read_text(encoding="utf-8")
+        metrics = (
+            SOURCE_ROOT / "multi_agv_analysis" / "src" /
+            "multi_agv_analysis" / "metrics.py"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn('name="arming_authorized" default="false"', launch)
+        self.assertIn('name="connection_wait_seconds" value="5.0"', launch)
+        self.assertIn("/multi_agv/formal_algorithm_state", topics)
+        self.assertIn("/agv1/imu", topics)
+        self.assertIn("/agv1/odom", topics)
+        self.assertIn("minimum_topic_rates:", topics)
+        self.assertIn("/agv1/capability_report: 90.0", topics)
+        self.assertIn("recommended_topics:", topics)
+        self.assertIn("/multi_agv/experiment_state", topics)
+        self.assertIn("rosbag did not subscribe to required topics", recorder)
+        self.assertIn('"recording_armed_at": None', recorder)
+        self.assertIn("command authority changed while recording", recorder)
+        self.assertIn('"all_samples_fallback"', metrics)
+        self.assertIn('"formal_statistics_ready"', metrics)
+
     def test_each_car_config_has_explicit_identity_frames_and_calibration(self):
         expected_host_ips = {
             1: "10.134.37.53",
@@ -30,6 +61,7 @@ class BringupStaticTest(unittest.TestCase):
                            "gyro_bias:", "wheel_radius:", "wheel_separation:",
                            "max_wheel_linear_velocity_left:", "transport_type:",
                            "serial_startup_timeout_seconds:",
+                           "capability_publish_rate: 100.0",
                            "command_timeout_seconds: 0.20",
                            "sensor_feedback_timeout_seconds: 0.15",
                            "odometry_stationary_wheel_velocity_tolerance: "
