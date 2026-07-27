@@ -1,0 +1,12 @@
+<launch>
+  <!-- Read-only estimator for the unloaded 1 m straight diagnostic. -->
+  <node pkg="multi_agv_control" type="path_state_estimator_node"
+        name="path_state_estimator" output="screen" required="true">
+    <rosparam command="load"
+              file="$(find multi_agv_bringup)/config/path_straight_1m.yaml"/>
+    <rosparam command="load"
+              file="$(find multi_agv_bringup)/config/support_geometry.yaml"/>
+    <rosparam command="load"
+              file="$(find multi_agv_bringup)/config/localization_odom_straight.yaml"/>
+  </node>
+</launch>

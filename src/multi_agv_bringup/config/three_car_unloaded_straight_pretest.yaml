@@ -1,0 +1,7 @@
+# Overrides for the dedicated straight diagnostic. All motion and abort bounds
+# are inherited from three_car_unloaded_bounded_pretest.yaml.
+three_car_unloaded_bounded_pretest:
+  configuration_status: unloaded_0p40m_fixture_1p00m_straight_bounded
+  experiment_id: three_car_unloaded_straight_1m
+  method_id: ODOM_BOUNDED_COMMON_STRAIGHT
+  path_id: straight_1m_bounded

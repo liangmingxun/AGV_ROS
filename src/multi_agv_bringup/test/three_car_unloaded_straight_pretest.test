@@ -1,0 +1,32 @@
+<launch>
+  <include file="$(find multi_agv_bringup)/launch/three_fake_chassis.launch"/>
+  <include file="$(find multi_agv_bringup)/launch/odom_state_estimator_straight.launch"/>
+
+  <node pkg="multi_agv_control"
+        type="three_car_unloaded_bounded_pretest_node"
+        name="three_car_unloaded_straight_pretest_test"
+        output="screen">
+    <rosparam command="load"
+              file="$(find multi_agv_bringup)/config/path_straight_1m.yaml"/>
+    <rosparam command="load"
+              file="$(find multi_agv_bringup)/config/support_geometry.yaml"/>
+    <rosparam command="load"
+              file="$(find multi_agv_bringup)/config/three_car_unloaded_bounded_pretest.yaml"/>
+    <rosparam command="load"
+              file="$(find multi_agv_bringup)/config/three_car_unloaded_straight_pretest.yaml"/>
+    <param name="platform_transport_type" value="fake"/>
+    <param name="command_publication_authorized" value="true"/>
+    <param name="three_car_unloaded_bounded_pretest/start_delay_seconds"
+           value="0.2"/>
+  </node>
+
+  <test test-name="three_car_unloaded_straight_pretest"
+        pkg="multi_agv_control"
+        type="test_three_car_unloaded_bounded_pretest.py"
+        time-limit="32">
+    <param name="expected_experiment_id"
+           value="three_car_unloaded_straight_1m"/>
+    <param name="expected_path_id" value="straight_1m_bounded"/>
+    <param name="expect_straight" value="true"/>
+  </test>
+</launch>

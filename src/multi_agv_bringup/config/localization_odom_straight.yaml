@@ -1,0 +1,49 @@
+# Canonical straight-test world frame. After all three local odometers are
+# reset, the support centres form the frozen 0.40 m equilateral triangle and
+# all base_link headings are zero in this virtual world frame.
+localization_mode: odometry_straight_pretest
+configuration_status: unloaded_equilateral_straight_1m
+hardware_execution_authorized: false
+
+publish_rate: 100.0
+maximum_state_age: 0.15
+maximum_sync_slop: 0.02
+synchronization_queue_size: 64
+maximum_rigid_fit_residual: 0.01
+
+projector:
+  coarse_samples: 81
+  maximum_refinement_iterations: 48
+  convergence_tolerance: 1.0e-9
+  maximum_projection_distance: 0.08
+
+estimator:
+  filter_alpha: 0.8
+  projection_half_window: 0.35
+  initial_progress: 0.0
+  minimum_measurement_interval: 1.0e-5
+  maximum_measurement_interval: 0.2
+  maximum_absolute_speed: 0.5
+
+robots:
+  - robot_id: agv1
+    robot_index: 1
+    odom_topic: /agv1/odom
+    odom_frame: agv1/odom
+    base_frame: agv1/base_link
+    world_to_odom: {x: 0.248770107675850, y: 0.0, yaw: 0.0}
+    base_to_support: {x: -0.01783, y: 0.0, yaw: 0.0}
+  - robot_id: agv2
+    robot_index: 2
+    odom_topic: /agv2/odom
+    odom_frame: agv2/odom
+    base_frame: agv2/base_link
+    world_to_odom: {x: -0.097640053837925, y: 0.20, yaw: 0.0}
+    base_to_support: {x: -0.01783, y: 0.0, yaw: 0.0}
+  - robot_id: agv3
+    robot_index: 3
+    odom_topic: /agv3/odom
+    odom_frame: agv3/odom
+    base_frame: agv3/base_link
+    world_to_odom: {x: -0.097640053837925, y: -0.20, yaw: 0.0}
+    base_to_support: {x: -0.01783, y: 0.0, yaw: 0.0}

@@ -1,0 +1,44 @@
+# 三车空载 1 m 直线协同诊断
+
+## 目的
+
+该入口用于把 S 形支撑几何的差异转向从实验中移除，检查三车在相同
+`0.05 m/s` 直线参考下的相对直行表现。它仍然只使用编码器里程计和 IMU，
+不能替代外部位置测量。
+
+## 实物布置
+
+- 空载，不放置共同载荷；
+- 三个支撑中心构成边长 `0.40 m` 的等边三角形；
+- Robot1 在前，Robot2 左后，Robot3 右后；
+- 三车车头严格平行并朝向同一条地面直线；
+- 轮子落地，前方及停车余量范围内无人员和障碍；
+- 三车电池电压高于门禁值并留有充足余量。
+
+## 运行
+
+三台车必须由 `start_three_car_chassis.sh` 启动且部署同一 Git SHA。在
+Robot1 执行：
+
+```bash
+cd /home/etlab/AGV_ROS/.worktrees/platform-foundation-linux
+
+src/multi_agv_bringup/scripts/run_three_car_unloaded_straight_pretest.sh \
+  --confirm-area-clear \
+  --confirm-wheels-on-floor \
+  --confirm-unloaded-40cm-fixture
+```
+
+脚本会自动启动直线专用状态估计器、复位三车里程计、执行两轮运动门禁、
+录制 bag，并运行 `0.05 m/s × 1.00 m` 的连续直线运动。
+
+## Bag 内容
+
+除三车命令、底盘反馈、能力报告和协同状态外，必须包含：
+
+- `/agv1/imu`、`/agv2/imu`、`/agv3/imu`
+- `/agv1/odom`、`/agv2/odom`、`/agv3/odom`
+
+分析时应分别比较三车航向变化、编码器里程计进度、左右轮实际速度和最终
+相对进度。由于 XY 位置仍是航位推算，肉眼观察与里程计矛盾时，不得用
+里程计结果否定真实物理偏移。

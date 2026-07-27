@@ -1,0 +1,11 @@
+# Dedicated unloaded three-car straight path. It intentionally reuses the
+# arc-length path implementation with zero sinusoidal amplitude.
+path_s_curve:
+  schema_version: 1
+  model: straight_zero_amplitude
+  configuration_status: unloaded_straight_1m_bounded
+  hardware_execution_authorized: false
+
+  amplitude: 0.0
+  longitudinal_length: 1.0
+  lookup_samples: 20001
