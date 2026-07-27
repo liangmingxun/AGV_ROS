@@ -11,6 +11,7 @@ find_package(catkin REQUIRED COMPONENTS
   geometry_msgs
   nav_msgs
   roscpp
+  std_msgs
   tf2
 )
 find_package(Eigen3 REQUIRED NO_MODULE)
@@ -19,18 +20,22 @@ get_target_property(Eigen3_INCLUDE_DIRS Eigen3::Eigen INTERFACE_INCLUDE_DIRECTOR
 catkin_package(
   INCLUDE_DIRS include
   LIBRARIES multi_agv_geometry
-  CATKIN_DEPENDS agv_msgs geometry_msgs nav_msgs roscpp tf2
+  CATKIN_DEPENDS agv_msgs geometry_msgs nav_msgs roscpp std_msgs tf2
   DEPENDS Eigen3
 )
 
 add_library(multi_agv_geometry
   src/capability_mapper.cpp
+  src/dynamic_boundary.cpp
   src/experiment_supervisor.cpp
+  src/formal_execution_gate.cpp
+  src/lower_channel_controller.cpp
   src/path_projector.cpp
   src/planar_support_tracker.cpp
   src/s_curve_path.cpp
   src/state_estimator.cpp
   src/support_geometry.cpp
+  src/upper_reference_generator.cpp
 )
 target_include_directories(multi_agv_geometry
   PUBLIC
@@ -60,6 +65,18 @@ target_include_directories(multi_agv_controller_node PRIVATE
 target_compile_options(multi_agv_controller_node PRIVATE -Wall -Wextra -Wpedantic)
 target_link_libraries(multi_agv_controller_node multi_agv_geometry ${catkin_LIBRARIES})
 add_dependencies(multi_agv_controller_node ${catkin_EXPORTED_TARGETS})
+
+add_executable(formal_fake_algorithm_node src/formal_fake_algorithm_node.cpp)
+target_include_directories(formal_fake_algorithm_node PRIVATE
+  ${CMAKE_CURRENT_SOURCE_DIR}/include
+  ${EIGEN3_INCLUDE_DIRS}
+  ${catkin_INCLUDE_DIRS}
+)
+target_compile_options(formal_fake_algorithm_node
+  PRIVATE -Wall -Wextra -Wpedantic)
+target_link_libraries(formal_fake_algorithm_node
+  multi_agv_geometry ${catkin_LIBRARIES})
+add_dependencies(formal_fake_algorithm_node ${catkin_EXPORTED_TARGETS})
 
 add_executable(single_car_s_pretest_node src/single_car_s_pretest_node.cpp)
 target_include_directories(single_car_s_pretest_node PRIVATE
@@ -106,7 +123,7 @@ target_link_libraries(robot2_raised_derating_pretest_node
   multi_agv_geometry ${catkin_LIBRARIES})
 add_dependencies(robot2_raised_derating_pretest_node ${catkin_EXPORTED_TARGETS})
 
-install(TARGETS multi_agv_geometry path_state_estimator_node multi_agv_controller_node single_car_s_pretest_node three_car_unloaded_bounded_pretest_node experiment_supervisor_node robot2_raised_derating_pretest_node
+install(TARGETS multi_agv_geometry path_state_estimator_node multi_agv_controller_node formal_fake_algorithm_node single_car_s_pretest_node three_car_unloaded_bounded_pretest_node experiment_supervisor_node robot2_raised_derating_pretest_node
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
@@ -122,6 +139,7 @@ if(CATKIN_ENABLE_TESTING)
     test/test_central_readonly_e2e.py
     test/test_constant_reference_e2e.py
     test/test_derating_chain_e2e.py
+    test/test_formal_fake_algorithm_e2e.py
     test/test_robot2_raised_derating_pretest.py
     test/test_single_car_s_pretest.py
     test/test_three_car_bounded_fault_stop.py
@@ -131,6 +149,8 @@ if(CATKIN_ENABLE_TESTING)
   add_rostest(test/central_readonly_e2e.test)
   add_rostest(test/constant_reference_e2e.test)
   add_rostest(test/derating_chain_e2e.test)
+  add_rostest(test/formal_fake_algorithm_e2e.test)
+  add_rostest(test/formal_fake_algorithm_m2a_r4_e2e.test)
   add_rostest(test/robot2_raised_derating_pretest.test)
   add_rostest(test/single_car_s_pretest.test)
   add_rostest(test/three_car_bounded_fault_stop.test)
@@ -142,9 +162,15 @@ if(CATKIN_ENABLE_TESTING)
   catkin_add_gtest(test_capability_mapper test/test_capability_mapper.cpp)
   catkin_add_gtest(test_planar_support_tracker test/test_planar_support_tracker.cpp)
   catkin_add_gtest(test_experiment_supervisor test/test_experiment_supervisor.cpp)
-  foreach(test_target test_s_curve_path test_support_geometry test_path_projector test_state_estimator test_capability_mapper test_planar_support_tracker test_experiment_supervisor)
+  catkin_add_gtest(test_formal_execution_gate test/test_formal_execution_gate.cpp)
+  catkin_add_gtest(test_dynamic_boundary test/test_dynamic_boundary.cpp)
+  catkin_add_gtest(test_upper_reference_generator test/test_upper_reference_generator.cpp)
+  catkin_add_gtest(test_lower_channel_controller test/test_lower_channel_controller.cpp)
+  foreach(test_target test_s_curve_path test_support_geometry test_path_projector test_state_estimator test_capability_mapper test_planar_support_tracker test_experiment_supervisor test_formal_execution_gate test_dynamic_boundary test_upper_reference_generator test_lower_channel_controller)
     if(TARGET ${test_target})
       target_compile_options(${test_target} PRIVATE -Wall -Wextra -Wpedantic)
+      target_compile_definitions(${test_target} PRIVATE
+        MULTI_AGV_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/test/data")
       target_link_libraries(${test_target} multi_agv_geometry gtest_main)
     endif()
   endforeach()

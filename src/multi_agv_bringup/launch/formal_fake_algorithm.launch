@@ -1,0 +1,25 @@
+<launch>
+  <arg name="upper_config"
+       default="$(find multi_agv_bringup)/config/exp2a_M1.yaml"/>
+  <arg name="lower_config"
+       default="$(find multi_agv_bringup)/config/exp3_R1.yaml"/>
+  <arg name="runtime_config"
+       default="$(find multi_agv_bringup)/config/formal_fake_runtime.yaml"/>
+  <arg name="start_state_estimator" default="true"/>
+
+  <include file="$(find multi_agv_bringup)/launch/three_fake_chassis.launch"/>
+  <include if="$(arg start_state_estimator)"
+           file="$(find multi_agv_bringup)/launch/odom_state_estimator.launch"/>
+
+  <node pkg="multi_agv_control" type="formal_fake_algorithm_node"
+        name="formal_fake_algorithm" output="screen" required="true">
+    <rosparam command="load"
+              file="$(find multi_agv_bringup)/config/path_s_curve.yaml"/>
+    <rosparam command="load"
+              file="$(find multi_agv_bringup)/config/support_geometry.yaml"/>
+    <rosparam command="load" file="$(arg runtime_config)"/>
+    <rosparam command="load" file="$(arg upper_config)"/>
+    <rosparam command="load" file="$(arg lower_config)"/>
+    <param name="platform_transport_type" value="fake"/>
+  </node>
+</launch>

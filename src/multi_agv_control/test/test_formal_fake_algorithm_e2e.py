@@ -1,0 +1,199 @@
+#!/usr/bin/env python3
+import math
+import threading
+import unittest
+
+import rosgraph
+import rospy
+import rostest
+from agv_msgs.msg import (ChassisCommand, ControllerState,
+                          CooperativeState, PathReference)
+from std_msgs.msg import Float64MultiArray
+
+
+class FormalFakeAlgorithmE2ETest(unittest.TestCase):
+    OFFSETS = (
+        (0.230940107675850, 0.0),
+        (-0.115470053837925, 0.20),
+        (-0.115470053837925, -0.20),
+    )
+
+    def setUp(self):
+        self._lock = threading.Lock()
+        self.commands = [[], [], []]
+        self.controllers = []
+        self.references = []
+        self.debug = []
+        self.state_publisher = rospy.Publisher(
+            "/multi_agv/cooperative_state", CooperativeState, queue_size=5)
+        for index in range(3):
+            rospy.Subscriber(
+                "/agv{}/chassis_command".format(index + 1),
+                ChassisCommand,
+                lambda message, i=index: self._append(
+                    self.commands[i], message),
+                queue_size=100)
+        rospy.Subscriber(
+            "/multi_agv/controller_state", ControllerState,
+            lambda message: self._append(self.controllers, message),
+            queue_size=100)
+        rospy.Subscriber(
+            "/multi_agv/path_reference", PathReference,
+            lambda message: self._append(self.references, message),
+            queue_size=100)
+        rospy.Subscriber(
+            "/multi_agv/formal_algorithm_state", Float64MultiArray,
+            lambda message: self._append(self.debug, message),
+            queue_size=100)
+
+    def _append(self, target, message):
+        with self._lock:
+            target.append(message)
+            del target[:-500]
+
+    @staticmethod
+    def _sample(xi, offset):
+        amplitude = 0.05
+        wave_number = 2.0 * math.pi
+        y = amplitude * math.sin(wave_number * xi)
+        slope = amplitude * wave_number * math.cos(wave_number * xi)
+        second = -amplitude * wave_number ** 2 * math.sin(wave_number * xi)
+        scale = math.hypot(1.0, slope)
+        tangent = (1.0 / scale, slope / scale)
+        normal = (-tangent[1], tangent[0])
+        curvature = second / scale ** 3
+        qt, qn = offset
+        position = (
+            xi + qt * tangent[0] + qn * normal[0],
+            y + qt * tangent[1] + qn * normal[1])
+        derivative = (
+            (1.0 - curvature * qn) * tangent[0] +
+            curvature * qt * normal[0],
+            (1.0 - curvature * qn) * tangent[1] +
+            curvature * qt * normal[1])
+        return position, math.atan2(derivative[1], derivative[0])
+
+    def _state(self):
+        message = CooperativeState()
+        message.header.stamp = rospy.Time.now()
+        message.header.frame_id = "world"
+        message.robot_localization_source = [
+            CooperativeState.SOURCE_ODOM] * 3
+        for index, offset in enumerate(self.OFFSETS):
+            position, yaw = self._sample(0.0, offset)
+            message.robot_pose_valid[index] = True
+            message.support_pose_valid[index] = True
+            message.path_state_valid[index] = True
+            message.robot_pose_stamp[index] = message.header.stamp
+            message.robot_pose[index].x = (
+                position[0] + 0.01783 * math.cos(yaw))
+            message.robot_pose[index].y = (
+                position[1] + 0.01783 * math.sin(yaw))
+            message.robot_pose[index].theta = yaw
+            message.support_pose[index].x = position[0]
+            message.support_pose[index].y = position[1]
+            message.support_pose[index].theta = yaw
+            message.s_actual[index] = 0.0
+            message.s_dot_actual[index] = 0.0
+        message.load_localization_source = CooperativeState.SOURCE_ODOM
+        message.load_pose_valid = True
+        message.load_path_state_valid = True
+        message.load_pose_stamp = message.header.stamp
+        return message
+
+    def test_formal_chain_records_state_and_fails_to_zero(self):
+        expected_method = rospy.get_param("~expected_method", "M1_R1")
+        deadline = rospy.Time.now() + rospy.Duration(5.0)
+        while (self.state_publisher.get_num_connections() == 0 and
+               rospy.Time.now() < deadline):
+            rospy.sleep(0.02)
+        self.assertGreater(self.state_publisher.get_num_connections(), 0)
+
+        rate = rospy.Rate(100)
+        for _ in range(180):
+            self.state_publisher.publish(self._state())
+            rate.sleep()
+
+        with self._lock:
+            self.assertTrue(all(len(values) > 30 for values in self.commands))
+            self.assertGreater(len(self.controllers), 30)
+            self.assertGreater(len(self.references), 30)
+            self.assertGreater(len(self.debug), 30)
+            command_history = [list(values) for values in self.commands]
+            controller_history = list(self.controllers)
+            reference_history = list(self.references)
+            debug_history = list(self.debug)
+
+        nonzero_commands = [[
+            value for value in values
+            if abs(value.wheel_linear_velocity_left_raw) > 1e-4 or
+            abs(value.wheel_linear_velocity_right_raw) > 1e-4
+        ] for values in command_history]
+        self.assertTrue(
+            all(nonzero_commands),
+            "nonzero command counts={}".format(
+                [len(values) for values in nonzero_commands]))
+        commands = [values[-1] for values in nonzero_commands]
+        valid_controllers = [
+            value for value in controller_history
+            if value.common_load_velocity_reference > 0.0]
+        valid_references = [
+            value for value in reference_history
+            if value.load_path_progress_reference > 0.0]
+        valid_debug = [
+            value for value in debug_history
+            if value.data and value.data[0] == 1.0]
+        self.assertTrue(valid_controllers)
+        self.assertTrue(valid_references)
+        self.assertTrue(valid_debug)
+        controller = valid_controllers[-1]
+        reference = valid_references[-1]
+        debug = valid_debug[-1]
+
+        self.assertEqual(controller.method_id, expected_method)
+        self.assertEqual([value.method_id for value in commands],
+                         [expected_method] * 3)
+        for index in range(1, 4):
+            self.assertEqual(rospy.get_param(
+                "/agv{}/chassis_controller/transport_type".format(index)),
+                "fake")
+        self.assertTrue(all(value.command_seq > 0 for value in commands))
+        self.assertGreater(reference.load_path_progress_reference, 0.0)
+        self.assertGreater(controller.common_load_velocity_reference, 0.0)
+        self.assertEqual(debug.layout.dim[0].label,
+                         "formal_algorithm_state_v1:header9+3x27")
+        self.assertEqual(len(debug.data), 90)
+        self.assertEqual(debug.data[0], 1.0)
+        self.assertGreater(debug.data[8], 0.0)
+        self.assertTrue(all(math.isfinite(value) for value in debug.data))
+
+        # Stop only the cooperative state. Capability reports continue from
+        # fake chassis nodes; stale state alone must zero all three outputs.
+        rospy.sleep(0.35)
+        with self._lock:
+            zero_commands = [values[-1] for values in self.commands]
+            failed_controller = self.controllers[-1]
+            failed_debug = self.debug[-1]
+        self.assertTrue(all(
+            value.linear_velocity_reference == 0.0 and
+            value.angular_velocity_reference == 0.0 and
+            value.wheel_linear_velocity_left_raw == 0.0 and
+            value.wheel_linear_velocity_right_raw == 0.0
+            for value in zero_commands))
+        self.assertEqual(failed_controller.common_load_velocity_reference, 0.0)
+        self.assertEqual(failed_debug.data[0], 0.0)
+
+        publishers, _, _ = rosgraph.Master(
+            rospy.get_name()).getSystemState()
+        publisher_map = dict(publishers)
+        for index in range(1, 4):
+            topic = "/agv{}/chassis_command".format(index)
+            self.assertEqual(len(publisher_map[topic]), 1)
+        self.assertNotIn("/cmd_vel", publisher_map)
+
+
+if __name__ == "__main__":
+    rospy.init_node("test_formal_fake_algorithm_e2e")
+    rostest.rosrun(
+        "multi_agv_control", "formal_fake_algorithm_e2e",
+        FormalFakeAlgorithmE2ETest)

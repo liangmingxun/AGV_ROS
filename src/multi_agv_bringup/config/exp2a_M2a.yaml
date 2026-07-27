@@ -1,0 +1,22 @@
+formal_upper:
+  schema_version: 1
+  mode: M2a
+  configuration_status: mode_isolation_and_fake_ros_loading_verified
+  algorithm_execution_authorized: true
+  hardware_execution_authorized: false
+  golden_vectors_verified: true
+  update_rate: 25.0
+  controller_ticks_per_update: 4
+  capability_policy: log_only_never_used_by_control
+  agents:
+    physical_lower: [-0.15, -0.15, -0.15]
+    physical_upper: [0.58, 0.58, 0.58]
+    physical_margin_lower: [0.02, 0.02, 0.02]
+    physical_margin_upper: [0.02, 0.02, 0.02]
+    zero_margin: [0.03, 0.03, 0.03]
+    minimum_width: [0.15, 0.15, 0.15]
+    inner_margin: [0.01, 0.01, 0.01]
+    initial_lower: [-0.06, -0.06, -0.06]
+    initial_upper: [0.52, 0.52, 0.52]
+    nominal_lower: [-0.06, -0.06, -0.06]
+    nominal_upper: [0.52, 0.52, 0.52]

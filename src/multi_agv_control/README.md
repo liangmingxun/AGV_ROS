@@ -161,3 +161,83 @@ stationary wheel feedback, progress consistency and bounded tracking errors,
 then advances `1.00 m` continuously at `0.05 m/s`. Any invalid state or excessive
 command causes repeated zero commands to all three cars and all-wheel stop
 confirmation.
+
+## Task 13/14 formal algorithm and fake-only ROS integration
+
+The library contains the formal algorithm structure without authorising a
+physical run:
+
+- `DynamicBoundaryProjector` performs a true two-dimensional Euclidean
+  projection onto the five-constraint admissible set and reports its active
+  constraints.
+- `UpperReferenceGenerator` provides isolated M1, M2a and M4 modes. M1 updates
+  at 25 Hz and holds between updates; M2a logs capability but cannot use it in
+  control; M4 uses a pre-registered fixed speed and rejects changes while a
+  run is active.
+- `LowerChannelController` provides the shared constrained-error transform,
+  asymmetric acceleration limiting, parameter/disturbance estimate bounds and
+  isolated R1--R4 adaptation/robust switches at a caller-supplied 100 Hz `dt`.
+  The theoretical acceleration limit is applied exactly once, before the
+  existing chassis wheel limiter.
+
+The approved Python references have now been used to generate deterministic
+100-sample fixtures. The M1 boundary and distributed `z/upsilon/phi` update,
+and the complete R1 lower equations for all three agents, match those fixtures
+to at most `1e-8`. R2--R4 remain the registered two-switch ablations of that
+shared lower core.
+
+The source identities are frozen in
+`test/data/reference_hashes.txt`; the generated fixtures are
+`test/data/m1_golden.csv` and `test/data/lower_m1_golden.csv`. They originate
+from:
+
+```text
+experiment2_v81_paper_faithful_comparison.py
+experiment1_v37_polished_sim.py
+```
+
+The reference programs themselves remain external inputs and are not copied
+into the package. `test/reference/export_golden.py` fails when an approved
+source path is absent and redirects only the reference output directory; it
+does not alter the equations.
+
+`formal_fake_algorithm_node` now loads one `exp2a_M*.yaml`, one
+`exp3_R*.yaml`, the frozen path/support files and
+`formal_fake_runtime.yaml`. It connects capability mapping, the selected
+upper mode, the selected lower mode and the planar tracker to all three fake
+chassis command topics. The formal launch is:
+
+```bash
+roslaunch multi_agv_bringup formal_fake_algorithm.launch
+```
+
+That launch always starts `three_fake_chassis.launch`; no transport argument is
+exposed. The node independently requires `platform_transport_type=fake`,
+algorithm authorization, golden verification and
+`hardware_execution_authorized=false` on both layers. A serial value, missing
+golden gate, hardware authorization or unregistered M4 speed causes startup to
+fail before any command publisher becomes active. In addition, the node does
+not register any `/agvX/chassis_command` publisher until all three actual
+`/agvX/chassis_controller/transport_type` parameters exist and equal `fake`;
+an actual serial chassis binding is fatal, even if the algorithm node's own
+parameter was forged as fake. The experiment YAML files therefore set
+`algorithm_execution_authorized: true` but deliberately retain
+`hardware_execution_authorized: false`.
+
+At 100 Hz the node publishes `/multi_agv/path_reference`,
+`/multi_agv/controller_state` and
+`/multi_agv/formal_algorithm_state`. The last topic has fixed schema label
+`formal_algorithm_state_v1:header9+3x27` and records generation time, selected
+modes, common boundary/reference values, per-robot dynamic-boundary/risk
+state, distributed `z/upsilon/phi` state, constrained-error terms, raw/limited
+input, parameter/disturbance estimates and limit flags. If cooperative state
+or any capability report is missing, stale or invalid—or any algorithm stage
+rejects its input—the node continuously sends explicit zero commands to all
+three fake chassis and marks the public/debug state invalid.
+
+The M1/R1 and M2a/R4 rostests cover non-default configuration loading, the
+complete valid command chain, actual fake-chassis binding, fixed
+internal-state record shape, unique command authority, absence of `/cmd_vel`,
+and cooperative-state loss followed by three-car fail-zero. This is software
+authorization only. There is intentionally no serial launch path for the
+formal controller, and none of these changes authorise a physical experiment.

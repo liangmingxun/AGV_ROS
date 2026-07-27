@@ -1,0 +1,22 @@
+formal_lower:
+  schema_version: 1
+  mode: R3
+  adaptation_enabled: false
+  disturbance_compensation_enabled: true
+  configuration_status: mode_isolation_and_fake_ros_loading_verified
+  algorithm_execution_authorized: true
+  hardware_execution_authorized: false
+  golden_vectors_verified: true
+  update_rate: 100.0
+  composite_gain: 1.2
+  feedback_gain: 2.4
+  adaptation_gain: [0.12, 0.12]
+  disturbance_adaptation_gain: 1.0
+  parameter_leakage: 0.025
+  disturbance_leakage: 0.08
+  robust_boundary_layer: 0.055
+  parameter_min: [-0.8, -0.8]
+  parameter_max: [0.8, 0.8]
+  disturbance_estimate_max: 0.55
+  constraint_margin: 0.00002
+  sustained_saturation_seconds: 0.5
