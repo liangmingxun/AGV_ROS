@@ -1,0 +1,117 @@
+# Task 15 Windows vision sender configuration (UDP protocol v3).
+# Current known values are frozen below; only explicitly marked load parameters
+# remain placeholders.
+frame_id: world
+
+network:
+  windows_bind_ip: 192.168.6.100
+  windows_bind_port: 15000
+  robot1_ip: 192.168.6.101
+  robot1_port: 15001
+  max_send_rate_hz: 30.0
+
+camera:
+  backend: mvs                 # mvs or opencv (bench test only)
+  device_index: 0
+  timeout_ms: 1000
+  mvimport_dir: MvImport
+  video_file: ""
+  # Current timestamp semantics: Windows system-clock time immediately after
+  # the SDK returns the frame, not exposure-start hardware time.
+  capture_timestamp_semantics: frame_retrieval_complete_windows_system_clock
+
+processing:
+  width: 1280
+  height: 1024
+  # Intrinsics below are valid only for this exact full-frame geometry.
+  require_native_resolution: true
+
+camera_calibration:
+  # Frozen candidate from GrabImage202607301908, calibrated at 1280x1024.
+  # Geometry calls undistortPoints/solvePnP with these coefficients. Do not
+  # undistort the full frame as that would apply the model twice.
+  correction_mode: point_model
+  undistort: false
+  image_width: 1280
+  image_height: 1024
+  camera_matrix:
+    - [2317.289137153115, 0.0, 632.3465769435626]
+    - [0.0, 2315.997545743101, 571.4536382208]
+    - [0.0, 0.0, 1.0]
+  # OpenCV order: [k1, k2, p1, p2, k3].
+  distortion_coefficients:
+    - -0.8151092128912962
+    - 9.501269263267982
+    - -0.0001744022832480742
+    - -0.017944942767744745
+    - -28.557739976649703
+
+# Dynamic metric external calibration. No surveyed marker coordinates are used.
+# Physical placement convention:
+#   ID 8  = world origin;
+#   ID 11 = direction from ID 8 defines world +X;
+#   ID 30 = selects the world +Y side;
+#   ID 15 = fourth coplanar fit/monitor marker.
+external_calibration:
+  mode: ground_aruco_dynamic
+  marker_ids: [8, 11, 15, 30]
+  origin_id: 8
+  x_axis_id: 11
+  y_side_id: 30
+  marker_length_m: 0.150
+  collection_seconds: 1.5
+  minimum_samples: 15
+  maximum_samples: 120
+  maximum_marker_reprojection_error_px: 1.5
+  maximum_repeatability_rmse_m: 0.015
+  maximum_repeatability_error_m: 0.030
+  minimum_axis_baseline_m: 0.20
+  monitor_maximum_error_m: 0.040
+  monitor_consecutive_failures: 5
+  maximum_reference_absence_sec: 5.0
+
+# The same world_T_camera supports any horizontal marker plane once its height
+# is known. AGV height is supplied by the user. Load stays disabled at 0.0 m
+# until its marker height and tag-to-load transform are measured.
+planes:
+  agv_marker_plane:
+    height_m: 0.183
+  load_marker_plane:
+    height_m: 0.0
+
+aruco:
+  dictionary: DICT_4X4_50
+  corner_refinement: SUBPIX
+  corner_refinement_win_size: 5
+  corner_refinement_max_iterations: 30
+  corner_refinement_min_accuracy: 0.01
+  detector_parameters: {}
+
+# Windows publishes world_T_tag only. tag->base_link/load-center transforms are
+# intentionally absent and belong exclusively to Task 15 on Robot1.
+entities:
+  - {entity_id: agv1, aruco_id: 1, plane_id: agv_marker_plane, enabled: true}
+  - {entity_id: agv2, aruco_id: 2, plane_id: agv_marker_plane, enabled: true}
+  - {entity_id: agv3, aruco_id: 3, plane_id: agv_marker_plane, enabled: true}
+  - {entity_id: load, aruco_id: 0, plane_id: load_marker_plane, enabled: false}
+
+entities_geometry:
+  marker_length_m: 0.080
+
+detection:
+  # Geometric degeneracy guard only; this is not a confidence gate.
+  min_marker_area_px: 4.0
+  quality_full_scale_area_px: 2500.0
+  quality_reprojection_scale_px: 1.5
+
+display:
+  enabled: true
+  window_name: Task15 ArUco world_T_tag
+
+csv_log:
+  enabled: true
+  directory: logs
+  flush_interval_sec: 1.0
+
+logging:
+  level: INFO

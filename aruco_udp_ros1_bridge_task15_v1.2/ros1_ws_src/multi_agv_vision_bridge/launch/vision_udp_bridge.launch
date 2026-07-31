@@ -1,0 +1,11 @@
+<launch>
+  <arg name="config" default="$(find multi_agv_vision_bridge)/config/vision_udp_bridge.yaml"/>
+  <node pkg="multi_agv_vision_bridge"
+        type="vision_udp_bridge.py"
+        name="vision_udp_bridge"
+        output="screen"
+        respawn="true"
+        respawn_delay="2.0">
+    <rosparam command="load" file="$(arg config)"/>
+  </node>
+</launch>

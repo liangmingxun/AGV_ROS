@@ -1,0 +1,86 @@
+bind_ip: 192.168.6.101
+bind_port: 15001
+expected_source_ip: 192.168.6.100
+expected_source_port: 15000
+frame_id: world
+
+# Packet identity guard for the online metric ground frame. The order and
+# marker roles must match the Windows sender exactly.
+ground_reference:
+  mode: ground_aruco_dynamic
+  marker_ids: [8, 11, 15, 30]
+  origin_id: 8
+  x_axis_id: 11
+  y_side_id: 30
+  marker_length_m: 0.150
+
+# receipt is mandatory for first network integration. capture_synced may be used
+# only after Windows/Robot1 clock synchronization and delay evidence are archived.
+timestamp:
+  mode: receipt
+  maximum_source_processing_sec: 0.10
+  maximum_transport_delay_sec: 0.05
+  maximum_future_offset_sec: 0.02
+
+camera_timeout_sec: 0.50
+diagnostic_detection_timeout_sec: 0.25
+publish_raw_json: false
+
+workspace:
+  enabled: false
+  x_min_m: 0.0
+  x_max_m: 1.0
+  y_min_m: -0.5
+  y_max_m: 0.5
+
+# Dynamic ground-reference calibration quality is checked against these local
+# limits. Heights must remain identical to Windows config.yaml.
+planes:
+  agv_marker_plane:
+    height_m: 0.183
+    min_calibration_points: 8
+    min_inliers: 6
+    min_inlier_ratio: 0.80
+    min_validation_points: 4
+    max_calibration_rmse_m: 0.025
+    max_calibration_point_error_m: 0.050
+    max_validation_rmse_m: 0.030
+    max_validation_point_error_m: 0.060
+  load_marker_plane:
+    height_m: 0.0
+    min_calibration_points: 8
+    min_inliers: 6
+    min_inlier_ratio: 0.80
+    min_validation_points: 4
+    max_calibration_rmse_m: 0.025
+    max_calibration_point_error_m: 0.050
+    max_validation_rmse_m: 0.030
+    max_validation_point_error_m: 0.060
+
+# Entity IDs are distinct from ground-reference IDs 8/11/15/30. Load ID 0 is
+# reserved but Windows leaves it disabled until load height is calibrated.
+entities:
+  - entity_id: agv1
+    aruco_id: 1
+    pose_topic: /camera/world/agv1_tag_pose
+    confidence_topic: /camera/world/agv1_confidence
+    detected_topic: /vision/aruco/agv1_detected
+    plane_id: agv_marker_plane
+  - entity_id: agv2
+    aruco_id: 2
+    pose_topic: /camera/world/agv2_tag_pose
+    confidence_topic: /camera/world/agv2_confidence
+    detected_topic: /vision/aruco/agv2_detected
+    plane_id: agv_marker_plane
+  - entity_id: agv3
+    aruco_id: 3
+    pose_topic: /camera/world/agv3_tag_pose
+    confidence_topic: /camera/world/agv3_confidence
+    detected_topic: /vision/aruco/agv3_detected
+    plane_id: agv_marker_plane
+  - entity_id: load
+    aruco_id: 0
+    pose_topic: /camera/world/load_tag_pose
+    confidence_topic: /camera/world/load_confidence
+    detected_topic: /vision/aruco/load_detected
+    plane_id: load_marker_plane
