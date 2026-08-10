@@ -1,6 +1,6 @@
 robot_id: agv1
 robot_index: 1
-host_ip: 10.134.37.53
+host_ip: 192.168.6.101
 serial_device: /dev/chassis_driver
 transport_type: serial
 wheel_radius: 0.0325

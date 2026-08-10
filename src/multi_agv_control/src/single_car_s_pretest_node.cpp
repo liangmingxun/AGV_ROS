@@ -125,20 +125,20 @@ class SingleCarSPretestNode {
           &SingleCarSPretestNode::receiveCalibrationEpoch, this);
     } else {
       pose_subscriber_ = node_.subscribe(
-          "/agv1/odom", 10,
+          topic_prefix_ + "/odom", 10,
           &SingleCarSPretestNode::receiveOdometry, this);
     }
     feedback_subscriber_ = node_.subscribe(
-        "/agv1/chassis_feedback", 10,
+        topic_prefix_ + "/chassis_feedback", 10,
         &SingleCarSPretestNode::receiveFeedback, this);
     command_publisher_ = node_.advertise<agv_msgs::ChassisCommand>(
-        "/agv1/chassis_command", 1, false);
+        topic_prefix_ + "/chassis_command", 1, false);
     path_publisher_ = node_.advertise<nav_msgs::Path>(
-        "/agv1/s_pretest/reference_path", 1, true);
+        topic_prefix_ + "/s_pretest/reference_path", 1, true);
     reference_publisher_ = node_.advertise<geometry_msgs::PoseStamped>(
-        "/agv1/s_pretest/chassis_reference", 5, false);
+        topic_prefix_ + "/s_pretest/chassis_reference", 5, false);
     result_publisher_ = node_.advertise<std_msgs::String>(
-        "/agv1/s_pretest/result", 1, true);
+        topic_prefix_ + "/s_pretest/result", 1, true);
   }
 
   int run() {
@@ -153,9 +153,9 @@ class SingleCarSPretestNode {
     initialiseAnchor();
     publishReferencePath();
 
-    ROS_WARN("Robot1 bounded S pretest starts in %.1f seconds: "
+    ROS_WARN("%s bounded S pretest starts in %.1f seconds: "
              "A=%.3f m, longitudinal=%.3f m, arc_speed=%.3f m/s",
-             start_delay_, path_->config().amplitude,
+             robot_label_.c_str(), start_delay_, path_->config().amplitude,
              path_->config().longitudinal_length, speed_);
     const ros::WallTime delay_start = ros::WallTime::now();
     while (ros::ok() && !stop_requested.load() &&
@@ -178,15 +178,18 @@ class SingleCarSPretestNode {
       const double dt = (now - previous).toSec();
       previous = now;
       if (actual_wheel_fault_) {
-        ROS_ERROR("Robot1 S pretest aborted by actual-wheel-speed watchdog");
+        ROS_ERROR("%s S pretest aborted by actual-wheel-speed watchdog",
+                  robot_label_.c_str());
         return abortRun(8, "ABORTED_OVERSPEED");
       }
       if (battery_fault_) {
-        ROS_ERROR("Robot1 S pretest aborted by battery-voltage gate");
+        ROS_ERROR("%s S pretest aborted by battery-voltage gate",
+                  robot_label_.c_str());
         return abortRun(10, "ABORTED_LOW_BATTERY");
       }
       if (!stateFresh()) {
-        ROS_ERROR("Robot1 S pretest aborted: localization or chassis feedback stale");
+        ROS_ERROR("%s S pretest aborted: localization or chassis feedback stale",
+                  robot_label_.c_str());
         return abortRun(3, "ABORTED_STALE");
       }
       if (dt > 0.0 && dt <= maximum_step_) {
@@ -194,9 +197,10 @@ class SingleCarSPretestNode {
       }
       const auto tracking = trackingAt(progress);
       if (!tracking.valid || trackingErrorExceeded(tracking)) {
-        ROS_ERROR("Robot1 S pretest aborted: invalid or excessive tracking "
+        ROS_ERROR("%s S pretest aborted: invalid or excessive tracking "
                   "error (longitudinal=%+.3f, lateral=%+.3f, heading=%+.3f)",
-                  tracking.longitudinal_error, tracking.lateral_error,
+                  robot_label_.c_str(), tracking.longitudinal_error,
+                  tracking.lateral_error,
                   tracking.heading_error);
         return abortRun(4, "ABORTED_TRACKING_ERROR");
       }
@@ -204,9 +208,9 @@ class SingleCarSPretestNode {
               maximum_wheel_command_ ||
           std::abs(tracking.wheel_linear_velocity_right_raw) >
               maximum_wheel_command_) {
-        ROS_ERROR("Robot1 S pretest aborted: requested wheel speed exceeds "
+        ROS_ERROR("%s S pretest aborted: requested wheel speed exceeds "
                   "the dedicated %.3f m/s pretest bound (left=%+.3f right=%+.3f)",
-                  maximum_wheel_command_,
+                  robot_label_.c_str(), maximum_wheel_command_,
                   tracking.wheel_linear_velocity_left_raw,
                   tracking.wheel_linear_velocity_right_raw);
         return abortRun(5, "ABORTED_COMMAND_LIMIT");
@@ -214,7 +218,7 @@ class SingleCarSPretestNode {
       publishTracking(tracking);
       publishReference(tracking.chassis_pose_reference);
       if ((now - motion_start).toSec() > maximum_motion_time_) {
-        ROS_ERROR("Robot1 S pretest aborted: motion timeout");
+        ROS_ERROR("%s S pretest aborted: motion timeout", robot_label_.c_str());
         return abortRun(6, "ABORTED_MOTION_TIMEOUT");
       }
       rate.sleep();
@@ -229,19 +233,20 @@ class SingleCarSPretestNode {
     // only as an offline metric.
     publishRepeatedStop();
     if (!waitForStopped(rate)) {
-      ROS_ERROR("Robot1 S pretest stop was commanded, but stopped feedback "
-                "was not confirmed before timeout");
+      ROS_ERROR("%s S pretest stop was commanded, but stopped feedback "
+                "was not confirmed before timeout", robot_label_.c_str());
       return abortRun(7, "ABORTED_STOP_NOT_CONFIRMED");
     }
     if (!recordPassiveStoppedWindow(rate)) {
-      ROS_ERROR("Robot1 S pretest passive stopped window was invalid");
+      ROS_ERROR("%s S pretest passive stopped window was invalid",
+                robot_label_.c_str());
       return abortRun(11, "ABORTED_PASSIVE_WINDOW");
     }
     publishResult("STOP_CONFIRMED");
     ros::WallDuration(0.10).sleep();
-    ROS_INFO("Robot1 bounded S pretest completed; zero wheel speed confirmed "
+    ROS_INFO("%s bounded S pretest completed; zero wheel speed confirmed "
              "and %.1f s passive endpoint window recorded",
-             post_stop_record_seconds_);
+             robot_label_.c_str(), post_stop_record_seconds_);
     return 0;
   }
 
@@ -259,6 +264,10 @@ class SingleCarSPretestNode {
 
   void loadConfiguration() {
     const std::string root = "single_car_s_pretest/";
+    robot_index_ = private_.param("robot_index", 0);
+    robot_name_ = "agv" + std::to_string(robot_index_);
+    robot_label_ = "Robot" + std::to_string(robot_index_);
+    topic_prefix_ = "/" + robot_name_;
     hardware_authorized_ =
         private_.param(root + "hardware_execution_authorized", false);
     command_authorized_ =
@@ -271,7 +280,8 @@ class SingleCarSPretestNode {
     localization_source_ =
         private_.param<std::string>("localization_source", "odom");
     camera_pose_topic_ = private_.param<std::string>(
-        "camera_pose_topic", "/pose_provider/agv1/base_pose_filtered");
+        "camera_pose_topic",
+        "/pose_provider/" + robot_name_ + "/base_pose_filtered");
 
     amplitude_ = finiteParam(private_, root + "path/amplitude", 0.05);
     longitudinal_length_ = finiteParam(
@@ -342,14 +352,17 @@ class SingleCarSPretestNode {
   }
 
   void validateAuthorization() const {
+    if (robot_index_ < 1 || robot_index_ > 3) {
+      throw std::runtime_error("robot_index must be 1, 2 or 3");
+    }
     if (!command_authorized_) {
       throw std::runtime_error(
           "command publication is disabled; pass enable_commands:=true only "
-          "for the supervised Robot1 floor pretest");
+          "for a supervised single-car floor pretest");
     }
     if (!hardware_authorized_) {
       throw std::runtime_error(
-          "dedicated Robot1 S-pretest configuration is not authorized");
+          "dedicated single-car S-pretest configuration is not authorized");
     }
     if (transport_type_ == "serial" &&
         (!confirm_floor_clear_ || !confirm_wheels_on_floor_)) {
@@ -389,7 +402,7 @@ class SingleCarSPretestNode {
         required_subscribers_ < 1 || required_subscribers_ > 8 ||
         command_sequence_ == 0U ||
         command_sequence_ > 0xFFFFFF00U) {
-      throw std::runtime_error("invalid Robot1 S-pretest configuration");
+      throw std::runtime_error("invalid single-car S-pretest configuration");
     }
   }
 
@@ -419,15 +432,16 @@ class SingleCarSPretestNode {
 
   void rejectCompetingPublisher() const {
     std::vector<std::string> publishers;
-    if (topicHasPublisher("/agv1/chassis_command", &publishers)) {
+    const std::string command_topic = topic_prefix_ + "/chassis_command";
+    if (topicHasPublisher(command_topic, &publishers)) {
       std::string names;
       for (const auto& publisher : publishers) {
         if (!names.empty()) names += ", ";
         names += publisher;
       }
       throw std::runtime_error(
-          "refusing Robot1 S pretest because /agv1/chassis_command already "
-          "has publisher(s): " + names);
+          "refusing " + robot_label_ + " S pretest because " +
+          command_topic + " already has publisher(s): " + names);
     }
   }
 
@@ -440,7 +454,8 @@ class SingleCarSPretestNode {
       has_odometry_ = std::isfinite(odometry_pose_.position.x()) &&
                       std::isfinite(odometry_pose_.position.y());
     } catch (const std::exception& error) {
-      ROS_ERROR_THROTTLE(1.0, "Rejected Robot1 odometry: %s", error.what());
+      ROS_ERROR_THROTTLE(1.0, "Rejected %s odometry: %s",
+                         robot_label_.c_str(), error.what());
       has_odometry_ = false;
     }
   }
@@ -467,7 +482,8 @@ class SingleCarSPretestNode {
                       std::isfinite(odometry_pose_.position.y()) &&
                       !camera_epoch_fault_;
     } catch (const std::exception& error) {
-      ROS_ERROR_THROTTLE(1.0, "Rejected Robot1 camera pose: %s", error.what());
+      ROS_ERROR_THROTTLE(1.0, "Rejected %s camera pose: %s",
+                         robot_label_.c_str(), error.what());
       has_odometry_ = false;
     }
   }
@@ -483,13 +499,14 @@ class SingleCarSPretestNode {
       has_calibration_epoch_ = true;
     } else if (message->data != calibration_epoch_) {
       camera_epoch_fault_ = true;
-      ROS_ERROR("Robot1 camera S pretest detected a calibration epoch change");
+      ROS_ERROR("%s camera S pretest detected a calibration epoch change",
+                robot_label_.c_str());
     }
   }
 
   void receiveFeedback(
       const agv_msgs::ChassisFeedback::ConstPtr& message) {
-    if (message->robot_id != 1U) {
+    if (message->robot_id != static_cast<std::uint8_t>(robot_index_)) {
       return;
     }
     feedback_ = *message;
@@ -498,8 +515,9 @@ class SingleCarSPretestNode {
     if (!std::isfinite(message->battery_voltage) ||
         message->battery_voltage < minimum_battery_voltage_) {
       if (!battery_fault_) {
-        ROS_ERROR("Robot1 battery voltage %.3f V is below %.3f V",
-                  message->battery_voltage, minimum_battery_voltage_);
+        ROS_ERROR("%s battery voltage %.3f V is below %.3f V",
+                  robot_label_.c_str(), message->battery_voltage,
+                  minimum_battery_voltage_);
       }
       battery_fault_ = true;
     }
@@ -513,17 +531,20 @@ class SingleCarSPretestNode {
         std::abs(message.wheel_linear_velocity_right_actual));
     if (!std::isfinite(maximum_actual)) {
       actual_wheel_fault_ = true;
-      ROS_ERROR("Robot1 actual wheel feedback is not finite");
+      ROS_ERROR("%s actual wheel feedback is not finite",
+                robot_label_.c_str());
       return;
     }
     if (maximum_actual > actual_wheel_warning_speed_) {
       ROS_WARN_THROTTLE(
-          0.5, "Robot1 actual wheel speed warning: %.4f m/s", maximum_actual);
+          0.5, "%s actual wheel speed warning: %.4f m/s",
+          robot_label_.c_str(), maximum_actual);
     }
     if (maximum_actual > actual_wheel_hard_stop_speed_) {
       actual_wheel_fault_ = true;
-      ROS_ERROR("Robot1 actual wheel speed %.4f exceeds hard stop %.4f m/s",
-                maximum_actual, actual_wheel_hard_stop_speed_);
+      ROS_ERROR("%s actual wheel speed %.4f exceeds hard stop %.4f m/s",
+                robot_label_.c_str(), maximum_actual,
+                actual_wheel_hard_stop_speed_);
       return;
     }
     if (maximum_actual > actual_wheel_sustained_speed_) {
@@ -532,8 +553,8 @@ class SingleCarSPretestNode {
       } else if ((now - actual_wheel_overspeed_start_).toSec() >=
                  actual_wheel_sustained_duration_) {
         actual_wheel_fault_ = true;
-        ROS_ERROR("Robot1 actual wheel speed remained above %.4f m/s for %.3f s",
-                  actual_wheel_sustained_speed_,
+        ROS_ERROR("%s actual wheel speed remained above %.4f m/s for %.3f s",
+                  robot_label_.c_str(), actual_wheel_sustained_speed_,
                   (now - actual_wheel_overspeed_start_).toSec());
       }
     } else {
@@ -552,24 +573,35 @@ class SingleCarSPretestNode {
            (now - feedback_receive_time_).toSec() <= state_timeout_;
   }
 
+  bool feedbackStopped() const {
+    return has_feedback_ &&
+           std::abs(feedback_.wheel_linear_velocity_left_actual) <=
+               stopped_wheel_tolerance_ &&
+           std::abs(feedback_.wheel_linear_velocity_right_actual) <=
+               stopped_wheel_tolerance_;
+  }
+
   bool waitForInputsAndSubscribers(ros::Rate& rate) {
     const ros::WallTime deadline =
         ros::WallTime::now() + ros::WallDuration(subscriber_wait_);
     while (ros::ok() && !stop_requested.load() &&
            ros::WallTime::now() < deadline) {
       ros::spinOnce();
-      if (stateFresh() &&
+      if (stateFresh() && feedbackStopped() && !actual_wheel_fault_ &&
+          !battery_fault_ &&
           command_publisher_.getNumSubscribers() >=
               static_cast<std::uint32_t>(required_subscribers_)) {
-        ROS_INFO("Robot1 S pretest ready: %u command subscribers connected",
-                 command_publisher_.getNumSubscribers());
+        ROS_INFO("%s S pretest ready: %u command subscribers connected",
+                 robot_label_.c_str(), command_publisher_.getNumSubscribers());
         return true;
       }
       rate.sleep();
     }
-    ROS_ERROR("Robot1 S pretest did not start: state fresh=%s, command "
-              "subscribers=%u/%d",
-              stateFresh() ? "true" : "false",
+    ROS_ERROR("%s S pretest did not start: state fresh=%s stopped=%s "
+              "safety_fault=%s command subscribers=%u/%d",
+              robot_label_.c_str(), stateFresh() ? "true" : "false",
+              feedbackStopped() ? "true" : "false",
+              (actual_wheel_fault_ || battery_fault_) ? "true" : "false",
               command_publisher_.getNumSubscribers(), required_subscribers_);
     return false;
   }
@@ -595,22 +627,24 @@ class SingleCarSPretestNode {
         rotate(final_reference.chassis_pose_reference.position -
                    initial_reference.chassis_pose_reference.position,
                -initial_reference.chassis_pose_reference.yaw);
-    ROS_INFO("Robot1 S pretest expected endpoint in the starting base frame: "
+    ROS_INFO("%s S pretest expected endpoint in the starting base frame: "
              "x=%+.3f m y=%+.3f m; final heading equals the starting heading",
-             endpoint_in_starting_base.x(), endpoint_in_starting_base.y());
+             robot_label_.c_str(), endpoint_in_starting_base.x(),
+             endpoint_in_starting_base.y());
   }
 
   void synchroniseCommandSequence() {
     if (feedback_.command_seq_applied >= command_sequence_) {
       if (feedback_.command_seq_applied >= 0xFFFFFF00U) {
         throw std::runtime_error(
-            "Robot1 command sequence is too close to uint32 exhaustion; "
+            robot_label_ +
+            " command sequence is too close to uint32 exhaustion; "
             "restart the chassis node before this pretest");
       }
       command_sequence_ = feedback_.command_seq_applied + 1U;
-      ROS_WARN("Robot1 S pretest advanced its initial command sequence to %u "
+      ROS_WARN("%s S pretest advanced its initial command sequence to %u "
                "to remain newer than the running chassis controller",
-               command_sequence_);
+               robot_label_.c_str(), command_sequence_);
     }
   }
 
@@ -677,7 +711,7 @@ class SingleCarSPretestNode {
       const PlanarTrackingResult& value, const std::string& method_id) {
     agv_msgs::ChassisCommand command;
     command.header.stamp = ros::Time::now();
-    command.robot_id = 1U;
+    command.robot_id = static_cast<std::uint8_t>(robot_index_);
     command.command_seq = ++command_sequence_;
     command.control_mode = 1U;
     command.linear_velocity_reference = value.linear_velocity_raw;
@@ -686,7 +720,7 @@ class SingleCarSPretestNode {
         value.wheel_linear_velocity_left_raw;
     command.wheel_linear_velocity_right_raw =
         value.wheel_linear_velocity_right_raw;
-    command.experiment_id = "robot1_single_s_pretest";
+    command.experiment_id = robot_name_ + "_single_s_pretest";
     command.method_id = method_id;
     command_publisher_.publish(command);
   }
@@ -694,10 +728,10 @@ class SingleCarSPretestNode {
   void publishStop() {
     agv_msgs::ChassisCommand command;
     command.header.stamp = ros::Time::now();
-    command.robot_id = 1U;
+    command.robot_id = static_cast<std::uint8_t>(robot_index_);
     command.command_seq = ++command_sequence_;
     command.control_mode = 1U;
-    command.experiment_id = "robot1_single_s_pretest";
+    command.experiment_id = robot_name_ + "_single_s_pretest";
     command.method_id = activeMethodId() + "_STOP";
     command_publisher_.publish(command);
   }
@@ -808,7 +842,7 @@ class SingleCarSPretestNode {
   ros::NodeHandle node_;
   ros::NodeHandle private_;
   std::string referenceFrame() const {
-    return usesWorldPose() ? camera_frame_id_ : "agv1/odom";
+    return usesWorldPose() ? camera_frame_id_ : robot_name_ + "/odom";
   }
 
   ros::Subscriber pose_subscriber_;
@@ -835,9 +869,13 @@ class SingleCarSPretestNode {
   bool command_authorized_{false};
   bool confirm_floor_clear_{false};
   bool confirm_wheels_on_floor_{false};
+  int robot_index_{0};
+  std::string robot_name_;
+  std::string robot_label_;
+  std::string topic_prefix_;
   std::string transport_type_;
   std::string localization_source_{"odom"};
-  std::string camera_pose_topic_{"/pose_provider/agv1/base_pose_filtered"};
+  std::string camera_pose_topic_;
   std::string camera_frame_id_;
   std::uint64_t calibration_epoch_{0U};
   ros::WallTime actual_wheel_overspeed_start_;
@@ -880,7 +918,7 @@ class SingleCarSPretestNode {
 }  // namespace multi_agv_control
 
 int main(int argc, char** argv) {
-  ros::init(argc, argv, "robot1_single_s_pretest",
+  ros::init(argc, argv, "single_car_s_pretest",
             ros::init_options::NoSigintHandler);
   std::signal(SIGINT, multi_agv_control::requestStop);
   std::signal(SIGTERM, multi_agv_control::requestStop);
@@ -890,7 +928,7 @@ int main(int argc, char** argv) {
     multi_agv_control::SingleCarSPretestNode node;
     result = node.run();
   } catch (const std::exception& error) {
-    ROS_FATAL("Failed to run Robot1 single-car S pretest: %s", error.what());
+    ROS_FATAL("Failed to run single-car S pretest: %s", error.what());
   }
   ros::shutdown();
   return result;

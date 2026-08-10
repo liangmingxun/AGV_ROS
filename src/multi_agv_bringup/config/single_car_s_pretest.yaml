@@ -1,9 +1,8 @@
-# Dedicated Robot1-only, unloaded floor pretest. This authorization applies
-# only to the bounded entry below; it does not authorize the three-car
-# controller or any loaded experiment.
+# Shared Robot1/2/3 unloaded floor pretest. This authorizes only one explicitly
+# selected robot at a time and does not authorize three-car or loaded motion.
 single_car_s_pretest:
-  schema_version: 1
-  configuration_status: robot1_unloaded_low_speed_pretest
+  schema_version: 2
+  configuration_status: three_robot_single_car_low_speed_pretest
   hardware_execution_authorized: true
 
   publish_rate: 100.0
@@ -14,14 +13,14 @@ single_car_s_pretest:
   stopped_wheel_tolerance: 0.01
   maximum_integration_step: 0.1
   maximum_motion_time: 30.0
-  # After the prescribed path ends, command zero and record a passive stopped
-  # endpoint window. Endpoint pose is a metric, never a motion gate.
+  # At the prescribed endpoint command zero and retain a passive stopped
+  # window. Endpoint pose is an offline metric, never a motion gate.
   post_stop_record_seconds: 2.0
   required_command_subscribers: 2
   initial_command_sequence: 31000
 
   # One sine period: x=xi, y=A*sin(2*pi*xi/L). The complete curve is rotated
-  # so its initial tangent matches Robot1's heading when the node starts.
+  # so its initial tangent matches the selected robot heading at node start.
   path:
     amplitude: 0.05
     longitudinal_length: 1.0
@@ -36,13 +35,10 @@ single_car_s_pretest:
 
   tracker:
     longitudinal_gain: 1.0
-    # First camera/IMU-wheel fused tuning step. Offline replay of the previous
-    # run keeps the commanded wheel envelope below 0.057 m/s.
+    # Frozen after the Robot1 repeated-run baseline. Robot2/3 first use the
+    # same bounded setting; any later per-robot tuning must be evidence based.
     lateral_gain: 3.0
     heading_gain: 2.5
-    # The 1.15 / 50 ms A/B trial increased lateral and heading RMSE, so the
-    # original analytic feedforward is restored. Keep these bounded interfaces
-    # available for a future independently identified actuator model.
     angular_feedforward_scale: 1.0
     curvature_preview_seconds: 0.0
     chassis_reference_samples: 10001

@@ -13,11 +13,11 @@ fi
 robot_index="$1"
 robot_name="robot${robot_index}"
 agv_name="agv${robot_index}"
-master_ip="10.134.37.53"
+master_ip="192.168.6.101"
 case "$robot_index" in
-  1) local_ip="10.134.37.53"; launch_file="car1_master.launch" ;;
-  2) local_ip="10.134.37.114"; launch_file="car2_client.launch" ;;
-  3) local_ip="10.134.37.239"; launch_file="car3_client.launch" ;;
+  1) local_ip="192.168.6.101"; launch_file="car1_master.launch" ;;
+  2) local_ip="192.168.6.102"; launch_file="car2_client.launch" ;;
+  3) local_ip="192.168.6.103"; launch_file="car3_client.launch" ;;
 esac
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

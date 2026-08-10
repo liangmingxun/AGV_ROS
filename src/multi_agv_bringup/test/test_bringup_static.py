@@ -122,9 +122,9 @@ class BringupStaticTest(unittest.TestCase):
 
     def test_each_car_config_has_explicit_identity_frames_and_calibration(self):
         expected_host_ips = {
-            1: "10.134.37.53",
-            2: "10.134.37.114",
-            3: "10.134.37.239",
+            1: "192.168.6.101",
+            2: "192.168.6.102",
+            3: "192.168.6.103",
         }
         for index in range(1, 4):
             text = (PACKAGE / "config" / f"agv{index}_chassis.yaml").read_text(
@@ -143,6 +143,17 @@ class BringupStaticTest(unittest.TestCase):
                 self.assertIn(marker, text)
             self.assertIn(
                 "host_ip: {}".format(expected_host_ips[index]), text)
+
+        chassis_entry = (
+            PACKAGE / "scripts" / "start_three_car_chassis.sh"
+        ).read_text(encoding="utf-8")
+        network_entry = (
+            PACKAGE / "scripts" / "setup_ros_network.sh"
+        ).read_text(encoding="utf-8")
+        for address in expected_host_ips.values():
+            self.assertIn(address, chassis_entry)
+        self.assertIn('192.168.6.101', network_entry)
+        self.assertNotIn('10.134.37.', chassis_entry + network_entry)
 
     def test_support_offsets_are_launch_calibration_arguments(self):
         for launch_name in ("car1_master.launch", "car2_client.launch",
@@ -231,14 +242,20 @@ class BringupStaticTest(unittest.TestCase):
                       base)
         self.assertIn('${prefix}support', laser)
 
-    def test_robot1_single_s_pretest_is_isolated_and_bounded(self):
+    def test_single_car_s_pretest_is_generic_isolated_and_bounded(self):
         launch = (
-            PACKAGE / "launch" / "robot1_single_s_pretest.launch"
+            PACKAGE / "launch" / "single_car_s_pretest.launch"
+        ).read_text(encoding="utf-8")
+        capture = (
+            PACKAGE / "launch" / "single_car_camera_s_capture.launch"
         ).read_text(encoding="utf-8")
         config = (
-            PACKAGE / "config" / "robot1_single_s_pretest.yaml"
+            PACKAGE / "config" / "single_car_s_pretest.yaml"
         ).read_text(encoding="utf-8")
         self.assertIn('type="single_car_s_pretest_node"', launch)
+        self.assertIn('name="robot_index" default="0"', launch)
+        self.assertIn('name="robot_index"', capture)
+        self.assertIn("/camera/world/agv$(arg robot_index)_tag_pose", capture)
         self.assertIn('name="enable_commands" default="false"', launch)
         self.assertIn('name="confirm_test_area_clear" default="false"', launch)
         self.assertIn('name="confirm_wheels_on_floor" default="false"', launch)
@@ -251,8 +268,31 @@ class BringupStaticTest(unittest.TestCase):
         self.assertIn("base_to_support_x: -0.01783", config)
         self.assertIn("lateral_gain: 3.0", config)
         self.assertIn("heading_gain: 2.5", config)
-        self.assertIn("maximum_convergence_time: 5.0", config)
+        self.assertIn("post_stop_record_seconds: 2.0", config)
         self.assertIn("hard_stop_speed: 0.09", config)
+
+        runner = (SOURCE_ROOT.parent /
+                  "run_single_car_camera_s_closed_loop.sh").read_text(
+                      encoding="utf-8")
+        self.assertIn('--robot-index {1|2|3}', runner)
+        self.assertIn('ROBOT1_IP="192.168.6.101"', runner)
+        for index, mode in ((1, "local"), (2, "remote"), (3, "remote")):
+            wrapper = (SOURCE_ROOT.parent /
+                       f"run_robot{index}_camera_s_closed_loop.sh").read_text(
+                           encoding="utf-8")
+            self.assertIn(f"--robot-index {index}", wrapper)
+            self.assertIn(f"--chassis-mode {mode}", wrapper)
+
+        environment = (SOURCE_ROOT.parent / "setup_robot_ros.sh").read_text(
+            encoding="utf-8")
+        camera_entry = (SOURCE_ROOT.parent /
+                        "start_camera_formal.sh").read_text(encoding="utf-8")
+        for address in ("192.168.6.101", "192.168.6.102",
+                        "192.168.6.103"):
+            self.assertIn(address, environment)
+        self.assertIn('source "${SCRIPT_DIR}/setup_robot_ros.sh" 1',
+                      camera_entry)
+        self.assertIn("calibration_authorized:=true", camera_entry)
 
     def test_central_readonly_entry_has_no_command_authority(self):
         launch = (

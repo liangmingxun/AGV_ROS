@@ -1,6 +1,6 @@
 robot_id: agv2
 robot_index: 2
-host_ip: 10.134.37.114
+host_ip: 192.168.6.102
 serial_device: /dev/ttyACM0
 transport_type: serial
 wheel_radius: 0.0325

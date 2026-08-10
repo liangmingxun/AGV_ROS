@@ -110,7 +110,7 @@ cd /home/etlab/AGV_ROS/.worktrees/platform-foundation-linux
 source /opt/ros/noetic/setup.bash
 source devel/setup.bash
 source src/multi_agv_bringup/scripts/setup_ros_network.sh \
-  10.134.37.53 10.134.37.53
+  192.168.6.101 192.168.6.101
 
 rosbag record -O /home/etlab/AGV_ROS/three_car_unloaded_bounded_run1.bag \
   /agv1/chassis_command /agv2/chassis_command /agv3/chassis_command \
@@ -133,7 +133,7 @@ cd /home/etlab/AGV_ROS/.worktrees/platform-foundation-linux
 source /opt/ros/noetic/setup.bash
 source devel/setup.bash
 source src/multi_agv_bringup/scripts/setup_ros_network.sh \
-  10.134.37.53 10.134.37.53
+  192.168.6.101 192.168.6.101
 
 roslaunch multi_agv_bringup three_car_unloaded_bounded_pretest.launch \
   platform_transport_type:=serial \

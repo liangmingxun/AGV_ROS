@@ -1,7 +1,6 @@
 <launch>
-  <!-- Robot1-only bounded S run. Camera supplies absolute SE(2); actual-wheel
-       translation and corrected-IMU yaw propagate it at chassis rate. The
-       controller consumes only the resulting fused pose. -->
+  <!-- Robot1 compatibility wrapper: own the local serial chassis, then use
+       the same central controller/recorder entry as Robot2 and Robot3. -->
   <arg name="bag_path"/>
   <arg name="confirm_test_area_clear" default="false"/>
   <arg name="confirm_wheels_on_floor" default="false"/>
@@ -10,37 +9,10 @@
     <arg name="transport_type" value="serial"/>
   </include>
 
-  <node pkg="rosbag" type="record" name="robot1_camera_s_recorder"
-        output="screen" required="true"
-        args="-O $(arg bag_path)
-              /vision/aruco/alive
-              /vision/aruco/calibration_epoch
-              /vision/aruco/diagnostics
-              /camera/world/agv1_tag_pose
-              /camera/world/agv1_confidence
-              /pose_provider/agv1/base_pose_raw
-              /pose_provider/agv1/base_pose_filtered
-              /pose_provider/agv1/base_pose_fused
-              /multi_agv/cooperative_state
-              /agv1/chassis_command
-              /agv1/chassis_feedback
-              /agv1/capability_report
-              /agv1/odom
-              /agv1/imu
-              /agv1/s_pretest/reference_path
-              /agv1/s_pretest/chassis_reference
-              /agv1/s_pretest/result"/>
-
-  <node pkg="multi_agv_control" type="single_car_s_pretest_node"
-        name="robot1_camera_s_pretest" output="screen" required="true">
-    <rosparam command="load"
-              file="$(find multi_agv_bringup)/config/robot1_single_s_pretest.yaml"/>
-    <param name="platform_transport_type" value="serial"/>
-    <param name="command_publication_authorized" value="true"/>
-    <param name="confirm_test_area_clear" value="$(arg confirm_test_area_clear)"/>
-    <param name="confirm_wheels_on_floor" value="$(arg confirm_wheels_on_floor)"/>
-    <param name="localization_source" value="fused"/>
-    <param name="camera_pose_topic"
-           value="/pose_provider/agv1/base_pose_fused"/>
-  </node>
+  <include file="$(find multi_agv_bringup)/launch/single_car_camera_s_capture.launch">
+    <arg name="robot_index" value="1"/>
+    <arg name="bag_path" value="$(arg bag_path)"/>
+    <arg name="confirm_test_area_clear" value="$(arg confirm_test_area_clear)"/>
+    <arg name="confirm_wheels_on_floor" value="$(arg confirm_wheels_on_floor)"/>
+  </include>
 </launch>

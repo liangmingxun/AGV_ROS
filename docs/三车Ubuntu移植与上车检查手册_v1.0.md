@@ -38,7 +38,7 @@
 |---|---|---|---|
 | Ubuntu版本 |  |  |  |
 | 主机名 |  |  |  |
-| 固定IP | `10.134.37.53`（现场冻结） | `10.134.37.114`（现场冻结） | `10.134.37.239`（现场冻结） |
+| 固定IP | `192.168.6.101`（现场冻结） | `192.168.6.102`（现场冻结） | `192.168.6.103`（现场冻结） |
 | 有线网卡名 |  |  |  |
 | 底盘串口设备 | `/dev/chassis_driver`（预设） | `/dev/ttyACM0`（预设） | `/dev/ttyACM0`（预设） |
 | STM32/底盘对应关系 |  |  |  |
@@ -51,9 +51,9 @@
 三台电脑必须在同一个可互相访问的实验局域网中。推荐保持当前规划：
 
 ```text
-car1  10.134.37.53   ROS Master
-car2  10.134.37.114  ROS client
-car3  10.134.37.239  ROS client
+car1  192.168.6.101  ROS Master
+car2  192.168.6.102  ROS client
+car3  192.168.6.103  ROS client
 ```
 
 - [ ] 三个IP没有被其他设备占用。
@@ -227,7 +227,7 @@ support_frame: agv3/support_link
 #### IP记录
 
 ```yaml
-host_ip: 10.134.37.114
+host_ip: 192.168.6.102
 ```
 
 注意：`host_ip`当前主要用于配置审计，不直接设置ROS网络。真正参与通信的是启动终端中的：
@@ -333,7 +333,7 @@ cd ~/AGV_ROS
 source /opt/ros/noetic/setup.bash
 source devel/setup.bash
 source src/multi_agv_bringup/scripts/setup_ros_network.sh \
-  10.134.37.53 10.134.37.53
+  192.168.6.101 192.168.6.101
 ```
 
 ### 6.2 car2
@@ -343,7 +343,7 @@ cd ~/AGV_ROS
 source /opt/ros/noetic/setup.bash
 source devel/setup.bash
 source src/multi_agv_bringup/scripts/setup_ros_network.sh \
-  10.134.37.114 10.134.37.53
+  192.168.6.102 192.168.6.101
 ```
 
 ### 6.3 car3
@@ -353,7 +353,7 @@ cd ~/AGV_ROS
 source /opt/ros/noetic/setup.bash
 source devel/setup.bash
 source src/multi_agv_bringup/scripts/setup_ros_network.sh \
-  10.134.37.239 10.134.37.53
+  192.168.6.103 192.168.6.101
 ```
 
 每台车检查：
@@ -366,10 +366,10 @@ echo "$ROS_MASTER_URI"
 预期：
 
 ```text
-car1 ROS_IP=10.134.37.53
-car2 ROS_IP=10.134.37.114
-car3 ROS_IP=10.134.37.239
-三车 ROS_MASTER_URI=http://10.134.37.53:11311
+car1 ROS_IP=192.168.6.101
+car2 ROS_IP=192.168.6.102
+car3 ROS_IP=192.168.6.103
+三车 ROS_MASTER_URI=http://192.168.6.101:11311
 ```
 
 从car2、car3检查Master：

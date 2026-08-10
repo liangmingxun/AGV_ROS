@@ -1,0 +1,46 @@
+<launch>
+  <!-- Central Robot1 entry for exactly one selected AGV. It never starts a
+       chassis driver, so AGV2/3 serial devices remain owned by their hosts. -->
+  <arg name="robot_index"/>
+  <arg name="bag_path"/>
+  <arg name="confirm_test_area_clear" default="false"/>
+  <arg name="confirm_wheels_on_floor" default="false"/>
+  <arg name="robot_ns" default="$(eval '/agv' + str(arg('robot_index')))"/>
+  <arg name="pose_ns" default="$(eval '/pose_provider/agv' + str(arg('robot_index')))"/>
+
+  <node pkg="rosbag" type="record"
+        name="$(eval 'robot' + str(arg('robot_index')) + '_camera_s_recorder')"
+        output="screen" required="true"
+        args="-O $(arg bag_path)
+              /vision/aruco/alive
+              /vision/aruco/calibration_epoch
+              /vision/aruco/diagnostics
+              /camera/world/agv$(arg robot_index)_tag_pose
+              /camera/world/agv$(arg robot_index)_confidence
+              $(arg pose_ns)/base_pose_raw
+              $(arg pose_ns)/base_pose_filtered
+              $(arg pose_ns)/base_pose_fused
+              /multi_agv/cooperative_state
+              $(arg robot_ns)/chassis_command
+              $(arg robot_ns)/chassis_feedback
+              $(arg robot_ns)/capability_report
+              $(arg robot_ns)/odom
+              $(arg robot_ns)/imu
+              $(arg robot_ns)/s_pretest/reference_path
+              $(arg robot_ns)/s_pretest/chassis_reference
+              $(arg robot_ns)/s_pretest/result"/>
+
+  <node pkg="multi_agv_control" type="single_car_s_pretest_node"
+        name="$(eval 'robot' + str(arg('robot_index')) + '_camera_s_pretest')"
+        output="screen" required="true">
+    <rosparam command="load"
+              file="$(find multi_agv_bringup)/config/single_car_s_pretest.yaml"/>
+    <param name="robot_index" value="$(arg robot_index)"/>
+    <param name="platform_transport_type" value="serial"/>
+    <param name="command_publication_authorized" value="true"/>
+    <param name="confirm_test_area_clear" value="$(arg confirm_test_area_clear)"/>
+    <param name="confirm_wheels_on_floor" value="$(arg confirm_wheels_on_floor)"/>
+    <param name="localization_source" value="fused"/>
+    <param name="camera_pose_topic" value="$(arg pose_ns)/base_pose_fused"/>
+  </node>
+</launch>

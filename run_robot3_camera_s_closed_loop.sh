@@ -2,4 +2,4 @@
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 exec "${SCRIPT_DIR}/run_single_car_camera_s_closed_loop.sh" \
-  --robot-index 1 --chassis-mode local "$@"
+  --robot-index 3 --chassis-mode remote "$@"

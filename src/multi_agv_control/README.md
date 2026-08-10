@@ -143,19 +143,20 @@ have been frozen, repeat it with `--require-valid-state`. That second gate
 requires all three robot/support/path states and the fitted virtual-load pose
 and path state to be valid. Neither invocation authorizes motion.
 
-The unloaded Robot1 floor S gate is intentionally separate from the fleet
-controller. `robot1_single_s_pretest.launch` runs one bounded sine period at
-`0.05 m/s` and is the only pretest node allowed to publish
-`/agv1/chassis_command`. The odometry-only entry anchors to the starting
-odometry pose. The camera entry consumes `/pose_provider/agv1/base_pose_fused`:
+The unloaded single-car floor S gate is intentionally separate from the fleet
+controller. `single_car_s_pretest.launch` accepts `robot_index:=1|2|3`, runs
+one bounded sine period at `0.05 m/s`, and publishes only the selected
+`/agvN/chassis_command`. The odometry-only entry anchors to the selected
+starting odometry pose. The camera entry consumes the selected
+`/pose_provider/agvN/base_pose_fused`:
 camera measurements correct absolute SE(2), while actual-wheel translation
-and corrected-IMU yaw from `/agv1/odom` propagate the pose at chassis rate.
+and corrected-IMU yaw from `/agvN/odom` propagate the pose at chassis rate.
 The bounded curvature-feedforward scale/preview interface defaults to the
 original uncompensated tracker after the first physical A/B trial rejected
 the candidate compensation. At the prescribed endpoint it immediately
 commands zero, confirms stopped wheel feedback, and records a passive endpoint
 window; endpoint pose remains an offline metric and never causes extra motion.
-The latched `/agv1/s_pretest/result` is the run authority, and an independent
+The latched `/agvN/s_pretest/result` is the run authority, and an independent
 actual-wheel-speed watchdog remains active. Serial execution still requires
 explicit command, clear-area and wheels-on-floor launch acknowledgements; the
 launch defaults remain non-moving.

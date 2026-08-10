@@ -77,7 +77,7 @@ fi
 source /opt/ros/noetic/setup.bash
 source devel/setup.bash
 source src/multi_agv_bringup/scripts/setup_ros_network.sh \
-  10.134.37.53 10.134.37.53
+  192.168.6.101 192.168.6.101
 
 local_sha="$(git rev-parse HEAD)"
 for index in 1 2 3; do
@@ -178,9 +178,9 @@ params_path="${bag_dir}/${run_id}_params.yaml"
   echo "run_id=${run_id}"
   echo "git_sha=${local_sha}"
   echo "git_branch=$(git branch --show-current)"
-  echo "robot1_ip=10.134.37.53"
-  echo "robot2_ip=10.134.37.114"
-  echo "robot3_ip=10.134.37.239"
+  echo "robot1_ip=192.168.6.101"
+  echo "robot2_ip=192.168.6.102"
+  echo "robot3_ip=192.168.6.103"
   echo "started_at=$(date --iso-8601=seconds)"
   echo "fixture=unloaded_equilateral_0.40m"
   echo "path=${manifest_path_description}"
