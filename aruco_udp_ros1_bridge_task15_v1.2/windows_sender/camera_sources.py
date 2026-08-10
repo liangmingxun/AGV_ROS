@@ -41,11 +41,17 @@ class OpenCVCameraSource:
 
 
 class MvsCameraSource:
-    def __init__(self, mvimport_dir: str, device_index: int = 0) -> None:
+    def __init__(
+        self,
+        mvimport_dir: str,
+        device_index: int = 0,
+        transport: str = "auto",
+    ) -> None:
         mv_path = str(Path(mvimport_dir).resolve())
         if mv_path not in sys.path:
             sys.path.insert(0, mv_path)
 
+        LOGGER.info("MVS init: importing SDK bindings from %s", mv_path)
         try:
             from MvCameraControl_class import MvCamera  # type: ignore
             from CameraParams_const import (  # type: ignore
@@ -75,6 +81,7 @@ class MvsCameraSource:
                 "failed to import MVS SDK Python bindings; verify MVS is installed "
                 "and MvImport is complete"
             ) from exc
+        LOGGER.info("MVS init: SDK bindings imported")
 
         self.MvCamera = MvCamera
         self.MV_ACCESS_Exclusive = MV_ACCESS_Exclusive
@@ -90,15 +97,35 @@ class MvsCameraSource:
             "yuyv": PixelType_Gvsp_YUV422_YUYV_Packed,
         }
 
-        tlayer_type = (
-            MV_GIGE_DEVICE
-            | MV_USB_DEVICE
-            | MV_UNKNOW_DEVICE
-            | MV_1394_DEVICE
-            | MV_CAMERALINK_DEVICE
-        )
+        transport_key = str(transport).strip().lower()
+        transport_masks = {
+            "usb": MV_USB_DEVICE,
+            "gige": MV_GIGE_DEVICE,
+            "auto": (
+                MV_GIGE_DEVICE
+                | MV_USB_DEVICE
+                | MV_UNKNOW_DEVICE
+                | MV_1394_DEVICE
+                | MV_CAMERALINK_DEVICE
+            ),
+        }
+        if transport_key not in transport_masks:
+            raise CameraError(
+                "MVS transport must be one of: usb, gige, auto"
+            )
+        tlayer_type = transport_masks[transport_key]
         device_list = MV_CC_DEVICE_INFO_LIST()
+        LOGGER.info(
+            "MVS init: enumerating camera devices transport=%s mask=0x%08x",
+            transport_key,
+            int(tlayer_type),
+        )
         ret = MvCamera.MV_CC_EnumDevices(tlayer_type, device_list)
+        LOGGER.info(
+            "MVS init: enumeration returned code=0x%08x count=%d",
+            ret,
+            int(device_list.nDeviceNum),
+        )
         if ret != 0:
             raise CameraError(f"MVS enumerate devices failed: 0x{ret:08x}")
         if device_list.nDeviceNum == 0:
@@ -114,13 +141,17 @@ class MvsCameraSource:
         ).contents
         self._is_gige = device_info.nTLayerType == MV_GIGE_DEVICE
 
+        LOGGER.info("MVS init: creating camera handle for index=%d", device_index)
         ret = self._cam.MV_CC_CreateHandleWithoutLog(device_info)
         if ret != 0:
             raise CameraError(f"MVS create handle failed: 0x{ret:08x}")
+        LOGGER.info("MVS init: camera handle created")
+        LOGGER.info("MVS init: opening camera in exclusive mode")
         ret = self._cam.MV_CC_OpenDevice(MV_ACCESS_Exclusive, 0)
         if ret != 0:
             self._cam.MV_CC_DestroyHandle()
             raise CameraError(f"MVS open device failed: 0x{ret:08x}")
+        LOGGER.info("MVS init: camera opened")
 
         if self._is_gige:
             packet_size = self._cam.MV_CC_GetOptimalPacketSize()
@@ -136,11 +167,13 @@ class MvsCameraSource:
         ret = self._cam.MV_CC_SetGrabStrategy(MV_GrabStrategy_LatestImagesOnly)
         if ret != 0:
             LOGGER.warning("failed to set latest-frame strategy: 0x%08x", ret)
+        LOGGER.info("MVS init: starting free-run acquisition")
         ret = self._cam.MV_CC_StartGrabbing()
         if ret != 0:
             self.close()
             raise CameraError(f"MVS start grabbing failed: 0x{ret:08x}")
         self._started = True
+        LOGGER.info("MVS init: acquisition started")
 
         LOGGER.info(
             "opened MVS camera index=%d, count=%d, transport=%s",

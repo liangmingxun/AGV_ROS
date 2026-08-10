@@ -19,6 +19,7 @@
   <exec_depend>eigen</exec_depend>
 
   <test_depend>gtest</test_depend>
+  <test_depend>rosgraph</test_depend>
   <test_depend>rostest</test_depend>
 
   <export/>

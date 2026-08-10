@@ -1,0 +1,18 @@
+<launch>
+  <node pkg="multi_agv_control" type="camera_pose_adapter_node"
+        name="pose_provider" output="screen" required="true">
+    <rosparam command="load"
+              file="$(find multi_agv_control)/test/camera_pose_adapter_test.yaml"/>
+  </node>
+  <node pkg="multi_agv_control" type="path_state_estimator_node"
+        name="path_state_estimator" output="screen" required="true">
+    <rosparam command="load"
+              file="$(find multi_agv_bringup)/config/path_s_curve.yaml"/>
+    <rosparam command="load"
+              file="$(find multi_agv_bringup)/config/support_geometry.yaml"/>
+    <rosparam command="load"
+              file="$(find multi_agv_control)/test/camera_pose_adapter_test.yaml"/>
+  </node>
+  <test test-name="camera_pose_adapter" pkg="multi_agv_control"
+        type="test_camera_pose_adapter.py" time-limit="35"/>
+</launch>

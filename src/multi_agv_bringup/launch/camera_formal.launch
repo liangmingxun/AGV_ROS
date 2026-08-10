@@ -1,0 +1,31 @@
+<launch>
+  <!-- This launch exposes the Task 15 localization software only. It never
+       starts chassis command publishers. Real use remains blocked until the
+       camera/tag calibration has been measured and archived. -->
+  <arg name="calibration_authorized" default="false"/>
+  <arg name="localization_config"
+       default="$(find multi_agv_bringup)/config/localization_camera.yaml"/>
+  <arg name="fusion_config"
+       default="$(find multi_agv_bringup)/config/localization_fusion.yaml"/>
+
+  <node pkg="multi_agv_control" type="camera_pose_adapter_node"
+        name="pose_provider" output="screen" required="true">
+    <rosparam command="load" file="$(arg localization_config)"/>
+    <param name="camera_adapter/calibration_authorized"
+           value="$(arg calibration_authorized)"/>
+  </node>
+
+  <node pkg="multi_agv_control" type="camera_odom_fusion_node"
+        name="camera_odom_fusion" output="screen" required="true">
+    <rosparam command="load" file="$(arg fusion_config)"/>
+  </node>
+
+  <node pkg="multi_agv_control" type="path_state_estimator_node"
+        name="path_state_estimator" output="screen" required="true">
+    <rosparam command="load"
+              file="$(find multi_agv_bringup)/config/path_s_curve.yaml"/>
+    <rosparam command="load"
+              file="$(find multi_agv_bringup)/config/support_geometry.yaml"/>
+    <rosparam command="load" file="$(arg localization_config)"/>
+  </node>
+</launch>

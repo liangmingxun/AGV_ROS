@@ -1,0 +1,11 @@
+# Task 16 comparison-side registry entry. The actual M1 and R1 parameters
+# remain single-sourced in exp2a_M1.yaml and exp3_R1.yaml; launch files should
+# load those two files. This file freezes their identity for Task 17 archives.
+exp2b_m1:
+  schema_version: 1
+  method_id: M1_R1
+  upper_config: exp2a_M1.yaml
+  lower_config: exp3_R1.yaml
+  capability_feedback_enters_control: true
+  hardware_execution_authorized: false
+  comparison_status: software_ready_physical_gate_closed

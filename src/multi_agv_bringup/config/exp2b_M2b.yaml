@@ -1,0 +1,71 @@
+formal_upper:
+  schema_version: 1
+  mode: M2b
+  configuration_status: golden_verified_fake_only
+  algorithm_execution_authorized: true
+  hardware_execution_authorized: false
+  golden_vectors_verified: true
+  update_rate: 100.0
+  controller_ticks_per_update: 1
+  capability_policy: log_only_never_used_by_control
+  agents:
+    # Compatibility fields for the common execution gate. M2b uses the
+    # fixed literature bounds under formal_m2b, not these M1 boundaries.
+    physical_lower: [-0.15, -0.15, -0.15]
+    physical_upper: [0.58, 0.58, 0.58]
+    physical_margin_lower: [0.02, 0.02, 0.02]
+    physical_margin_upper: [0.02, 0.02, 0.02]
+    zero_margin: [0.03, 0.03, 0.03]
+    minimum_width: [0.15, 0.15, 0.15]
+    inner_margin: [0.01, 0.01, 0.01]
+    initial_lower: [-0.06, -0.06, -0.06]
+    initial_upper: [0.52, 0.52, 0.52]
+    nominal_lower: [-0.06, -0.06, -0.06]
+    nominal_upper: [0.52, 0.52, 0.52]
+
+formal_lower:
+  schema_version: 1
+  mode: M2b
+  configuration_status: golden_verified_fake_only
+  algorithm_execution_authorized: true
+  hardware_execution_authorized: false
+  golden_vectors_verified: true
+  update_rate: 100.0
+  composite_gain: 1.25
+  feedback_gain: 2.75
+  adaptation_gain: [0.0, 0.0]
+  disturbance_adaptation_gain: 0.0
+  parameter_leakage: 0.0
+  disturbance_leakage: 0.0
+  robust_boundary_layer: 0.055
+  parameter_min: [0.0, 0.0]
+  parameter_max: [0.0, 0.0]
+  disturbance_estimate_max: 0.0
+  constraint_margin: 0.00002
+  sustained_saturation_seconds: 0.5
+
+formal_m2b:
+  schema_version: 1
+  source_method: experiment2_v81_method_M2
+  fixed_velocity_bounds: true
+  capability_policy: log_only_never_used_by_control
+  golden_vectors_verified: true
+  alpha: 0.15
+  beta: 0.52
+  l0: 0.90
+  l1: 1.20
+  l2: 2.25
+  l3: 1.10
+  h: [0.006, 0.006, 0.006]
+  k1: [1.25, 1.25, 1.25]
+  k2: [2.75, 2.75, 2.75]
+  # Frozen literature-channel limits. Runtime car capability is log-only in
+  # M2b and is enforced later by the identical chassis-side wheel limiter.
+  fixed_acceleration_limit: [1.10, 1.10, 1.10]
+  fixed_deceleration_limit: [1.10, 1.10, 1.10]
+  generator_guard: 0.00002
+  mapping_guard: 0.00002
+  generator_substeps: 2
+  # Exact sign is required for the frozen reference vectors. Set a positive
+  # value only in a separately preregistered boundary-layer sensitivity run.
+  auxiliary_boundary_layer: 0.0

@@ -1,0 +1,25 @@
+# Camera is the absolute SE(2) authority. Existing chassis odometry already
+# uses actual wheel speed for translation and corrected IMU gyro_z for yaw;
+# it is used only for 100 Hz propagation between accepted camera frames.
+maximum_camera_age: 0.15
+maximum_odometry_interval: 0.05
+minimum_confidence: 0.5
+position_measurement_weight: 0.8
+heading_measurement_weight: 0.8
+
+streams:
+  - entity_id: agv1
+    camera_pose_topic: /pose_provider/agv1/base_pose_raw
+    confidence_topic: /camera/world/agv1_confidence
+    odometry_topic: /agv1/odom
+    output_topic: /pose_provider/agv1/base_pose_fused
+  - entity_id: agv2
+    camera_pose_topic: /pose_provider/agv2/base_pose_raw
+    confidence_topic: /camera/world/agv2_confidence
+    odometry_topic: /agv2/odom
+    output_topic: /pose_provider/agv2/base_pose_fused
+  - entity_id: agv3
+    camera_pose_topic: /pose_provider/agv3/base_pose_raw
+    confidence_topic: /camera/world/agv3_confidence
+    odometry_topic: /agv3/odom
+    output_topic: /pose_provider/agv3/base_pose_fused

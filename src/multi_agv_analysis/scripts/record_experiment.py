@@ -8,13 +8,17 @@ import shutil
 import signal
 import subprocess
 import sys
+import threading
 import time
 from pathlib import Path
 
 import rosgraph
 import rospy
+from std_msgs.msg import Bool, String
+from std_srvs.srv import Trigger, TriggerResponse
 
 from multi_agv_analysis.io_utils import atomic_dump_yaml, sha256_file
+from multi_agv_analysis.approval import verify_approved_configuration
 
 
 def _git(repo, *arguments):
@@ -70,9 +74,36 @@ class ExperimentRecorder:
         self.topics = list(self.recording.get("topics", []))
         self.required_topics = list(
             self.recording.get("required_topics", []))
+        self.camera_mode = rospy.get_param("~camera_mode", False)
+        if self.camera_mode:
+            self.required_topics.extend(
+                self.recording.get("camera_required_topics", []))
+        self.required_topics.extend(
+            self.recording.get("method_required_topics", {}).get(
+                self.method_id, []))
+        self.required_topics = list(dict.fromkeys(self.required_topics))
         self.config_files = [
             Path(value).resolve()
             for value in rospy.get_param("~config_files", [])]
+        camera_config_values = [
+            str(value).strip()
+            for value in rospy.get_param("~camera_config_files", [])
+            if str(value).strip()]
+        if self.camera_mode and len(camera_config_values) != 2:
+            raise RuntimeError(
+                "camera_mode requires Robot1 vision configuration and the "
+                "Windows sender manifest in camera_config_files")
+        if self.camera_mode:
+            self.config_files.extend(
+                Path(value).resolve() for value in camera_config_values)
+        self.require_approved_config = rospy.get_param(
+            "~require_approved_config", False)
+        self.formal_statistics_requested = rospy.get_param(
+            "~formal_statistics_requested", False)
+        self.approval_id = rospy.get_param("~approval_id", "").strip()
+        registry = rospy.get_param("~approval_registry", "").strip()
+        self.approval_registry = (
+            Path(registry).resolve() if registry else None)
         self.run_dir = self.output_root / self.run_id
         if self.run_dir.exists():
             raise RuntimeError(
@@ -83,6 +114,15 @@ class ExperimentRecorder:
         self.bag_node_name = "/task17_bag_{}".format(
             re.sub(r"[^A-Za-z0-9_]", "_", self.run_id))
         self.manifest = {}
+        self.shutdown_lock = threading.Lock()
+        self.closed = False
+        self.stop_service = None
+        self.armed_publisher = rospy.Publisher(
+            "/experiment_recorder/armed", Bool, queue_size=1, latch=True)
+        self.method_publisher = rospy.Publisher(
+            "/experiment_recorder/method_id", String, queue_size=1, latch=True)
+        self.armed_publisher.publish(Bool(data=False))
+        self.method_publisher.publish(String(data=self.method_id))
 
     def preflight(self):
         deadline = time.monotonic() + float(
@@ -127,6 +167,18 @@ class ExperimentRecorder:
             repo = candidate
 
         hashes = []
+        approval = None
+        if self.require_approved_config:
+            if not self.approval_id or self.approval_registry is None:
+                raise RuntimeError(
+                    "approved configuration is required but approval_id or "
+                    "approval_registry is missing")
+            approval = verify_approved_configuration(
+                self.approval_registry, self.approval_id,
+                self.config_files, self.formal_statistics_requested)
+        elif self.formal_statistics_requested:
+            raise RuntimeError(
+                "formal statistics require the approved configuration gate")
         for index, source in enumerate(self.config_files, start=1):
             if not source.is_file():
                 raise RuntimeError(
@@ -155,6 +207,7 @@ class ExperimentRecorder:
             "experiment_id": self.experiment_id,
             "method_id": self.method_id,
             "interface_version": self.interface_version,
+            "camera_mode": self.camera_mode,
             "started_at": datetime.datetime.now(
                 datetime.timezone.utc).isoformat(),
             "recording_armed_at": None,
@@ -172,6 +225,9 @@ class ExperimentRecorder:
             "record_topics": self.topics,
             "required_topics": self.required_topics,
             "config_hashes": hashes,
+            "configuration_approval": approval,
+            "formal_statistics_requested":
+                self.formal_statistics_requested,
             "bag": "{}.bag".format(self.run_id),
             "bag_exit_code": None,
             "communication_age_note": (
@@ -214,23 +270,46 @@ class ExperimentRecorder:
         rospy.loginfo(
             "Experiment recording armed after all required subscriptions "
             "connected: run_id=%s bag=%s", self.run_id, bag_path)
+        self.method_publisher.publish(String(data=self.method_id))
+        self.armed_publisher.publish(Bool(data=True))
+        self.stop_service = rospy.Service(
+            "~stop", Trigger, self.stop_recording)
 
     def shutdown(self):
-        if self.bag_process is not None and self.bag_process.poll() is None:
-            self.bag_process.send_signal(signal.SIGINT)
-            try:
-                self.bag_process.wait(timeout=15.0)
-            except subprocess.TimeoutExpired:
-                self.bag_process.terminate()
-                self.bag_process.wait(timeout=5.0)
-        if self.manifest:
-            self.manifest["finished_at"] = datetime.datetime.now(
-                datetime.timezone.utc).isoformat()
-            self.manifest["bag_exit_code"] = (
-                self.bag_process.returncode
-                if self.bag_process is not None else None)
-            atomic_dump_yaml(
-                self.run_dir / "manifest.yaml", self.manifest)
+        with self.shutdown_lock:
+            if self.closed:
+                return
+            self.armed_publisher.publish(Bool(data=False))
+            if (self.bag_process is not None and
+                    self.bag_process.poll() is None):
+                self.bag_process.send_signal(signal.SIGINT)
+                try:
+                    self.bag_process.wait(timeout=15.0)
+                except subprocess.TimeoutExpired:
+                    self.bag_process.terminate()
+                    self.bag_process.wait(timeout=5.0)
+            if self.manifest:
+                self.manifest["finished_at"] = datetime.datetime.now(
+                    datetime.timezone.utc).isoformat()
+                self.manifest["bag_exit_code"] = (
+                    self.bag_process.returncode
+                    if self.bag_process is not None else None)
+                atomic_dump_yaml(
+                    self.run_dir / "manifest.yaml", self.manifest)
+            self.closed = True
+
+    def stop_recording(self, _request):
+        """Synchronously close the bag before acknowledging a stop request."""
+        self.shutdown()
+        exit_code = (
+            self.bag_process.returncode
+            if self.bag_process is not None else None)
+        success = exit_code == 0
+        return TriggerResponse(
+            success=success,
+            message=("recording closed cleanly" if success else
+                     "recording close failed with status {}".format(
+                         exit_code)))
 
     def spin(self):
         rate = rospy.Rate(5)
@@ -243,6 +322,11 @@ class ExperimentRecorder:
                 raise RuntimeError(
                     "rosbag exited unexpectedly with status {}".format(
                         self.bag_process.returncode))
+            # This is intentionally a heartbeat, not only a latched edge.  An
+            # algorithm that requires the recorder gate can therefore fail to
+            # zero if this process is killed without running shutdown().
+            self.method_publisher.publish(String(data=self.method_id))
+            self.armed_publisher.publish(Bool(data=True))
             current = _command_authority(_system_publishers())
             if current != self.manifest["command_authority"]:
                 violation = {

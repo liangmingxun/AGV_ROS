@@ -1,0 +1,22 @@
+schema_version: 1
+metrics:
+  - wheel.demand_exceedance_time
+  - wheel.limited_time
+  - wheel.maximum_demand_ratio
+  - wheel.tracking_rmse
+  - wheel.speed_limited_time
+  - wheel.acceleration_limited_time
+  - wheel.deceleration_limited_time
+  - path.progress_rmse
+  - path.progress_max_absolute
+  - geometry.load_position_rmse
+  - geometry.load_yaw_rmse
+  - geometry.rigid_fit_residual_rmse
+  - capability.link_margin_minimum
+  - capability.demand_margin_minimum
+  - internal.psi_max_absolute
+  - internal.composite_error_max_absolute
+  - internal.m2b_delta_z_max
+  - internal.m2b_delta_w_max
+  - task.completion_time
+# Pass these entries as repeated --metric arguments to aggregate_experiment.py.

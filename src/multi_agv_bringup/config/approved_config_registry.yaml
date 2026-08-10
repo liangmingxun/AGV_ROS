@@ -1,0 +1,43 @@
+schema_version: 1
+# This registry deliberately contains no formal-statistics approval. Physical
+# camera calibration and signed Stage A-D evidence remain prerequisites.
+approvals:
+  task18_m1_fake_rehearsal_v1:
+    status: software_rehearsal_only
+    formal_statistics_authorized: false
+    notes: Task 16/17 software-chain rehearsal; no physical or paper claim.
+    config_sha256:
+      common_platform.yaml: 87e0a8670d20c016aea3272a12737431c19bf22dab1a511e1549e8fe8914d04f
+      agv1_chassis.yaml: eea00d4f21c60373cd6674438e85e899257ac8d3b65f62bdd89870026e59615c
+      agv2_chassis.yaml: 703e38646ff8b8ba1a5ee41bc4ccf75da983389bec2efa7e143c2ad4b8cc19d7
+      agv3_chassis.yaml: 5cf739525d885d346f3b5c1158d330e870c056e7b651e83fa2ac83e3d4a82268
+      capability_mapping.yaml: eb9eb7bd18b49c87f3a362128b2c9e166a1892f1c3ea8fa25e68d1f165385193
+      path_s_curve.yaml: 461d3daef842a04323d7e57e45956cdc71b30cb8bdf0891d282ce553a8fa7d8a
+      support_geometry.yaml: b87ad9b7fb5fd74f99da93aaa7955472e4ddbcbc76483837a21a8a00ee3979d2
+      localization_odom.yaml: 0a1996ca8d21448ad6495e0a7368a695ab8c38bea0918b0998fe2b2066f682a2
+      formal_fake_runtime.yaml: cfa83e9c4e85f611df609073d1f51c97e4c6fe546d974de3c7253815ea00d798
+      exp2a_M1.yaml: 282862b90752a73dd1199d60ea9b72aa05dbae72145db4b79cd975ca80d10c3f
+      exp3_R1.yaml: f01b322086a9130903afe7c920778ae9f45a9bc73095bf9174e5ec26d57e61bc
+      formal_evaluation_window.yaml: d9c854c557c2995461c90ee39a41668694c94c5043e723bb601786382cb31a68
+      fleet_inventory.yaml: b80883b2f06a9006c9ee8426aa80b9ec302ae4cebb15c6413594a8aabbadd192
+      software_watchdog.yaml: f575259e7f9a2827bab66df15f21e2556d764da606cd0ac5a849f6e0344532b0
+      record_topics.yaml: 69fbac2bd8cd599f8d548c69458bb0a91dc2428c17f55f8a6e9485bfeca46688
+  task18_m2b_fake_rehearsal_v1:
+    status: software_rehearsal_only
+    formal_statistics_authorized: false
+    notes: M2b golden-aligned fake rehearsal; capability is log-only.
+    config_sha256:
+      common_platform.yaml: 87e0a8670d20c016aea3272a12737431c19bf22dab1a511e1549e8fe8914d04f
+      agv1_chassis.yaml: eea00d4f21c60373cd6674438e85e899257ac8d3b65f62bdd89870026e59615c
+      agv2_chassis.yaml: 703e38646ff8b8ba1a5ee41bc4ccf75da983389bec2efa7e143c2ad4b8cc19d7
+      agv3_chassis.yaml: 5cf739525d885d346f3b5c1158d330e870c056e7b651e83fa2ac83e3d4a82268
+      capability_mapping.yaml: eb9eb7bd18b49c87f3a362128b2c9e166a1892f1c3ea8fa25e68d1f165385193
+      path_s_curve.yaml: 461d3daef842a04323d7e57e45956cdc71b30cb8bdf0891d282ce553a8fa7d8a
+      support_geometry.yaml: b87ad9b7fb5fd74f99da93aaa7955472e4ddbcbc76483837a21a8a00ee3979d2
+      localization_odom.yaml: 0a1996ca8d21448ad6495e0a7368a695ab8c38bea0918b0998fe2b2066f682a2
+      formal_fake_runtime.yaml: cfa83e9c4e85f611df609073d1f51c97e4c6fe546d974de3c7253815ea00d798
+      exp2b_M2b.yaml: 690a5a3cdacbe4a9cc10c14f36b355a2d31c3286407de5530500ea5342083507
+      formal_evaluation_window.yaml: d9c854c557c2995461c90ee39a41668694c94c5043e723bb601786382cb31a68
+      fleet_inventory.yaml: b80883b2f06a9006c9ee8426aa80b9ec302ae4cebb15c6413594a8aabbadd192
+      software_watchdog.yaml: f575259e7f9a2827bab66df15f21e2556d764da606cd0ac5a849f6e0344532b0
+      record_topics.yaml: 69fbac2bd8cd599f8d548c69458bb0a91dc2428c17f55f8a6e9485bfeca46688

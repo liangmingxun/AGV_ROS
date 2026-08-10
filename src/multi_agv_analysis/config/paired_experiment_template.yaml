@@ -1,0 +1,7 @@
+schema_version: 1
+experiment_id: replace_with_registered_experiment_id
+methods: [M1_R1, M2a_R1]
+paired_repetitions: 8
+random_seed: 0
+formal_statistics_requested: false
+# This template creates a plan only. It never starts ROS nodes or motion.

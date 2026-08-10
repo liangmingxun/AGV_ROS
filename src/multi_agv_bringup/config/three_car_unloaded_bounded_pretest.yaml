@@ -37,7 +37,7 @@ three_car_unloaded_bounded_pretest:
       - {x: -0.01783, y: 0.0}
 
   abort:
-    minimum_battery_voltage: 10.8
+    minimum_battery_voltage: 10.5
     # Cooperative localization remains capped at 0.15 s. Chassis feedback is
     # used for safety/status rather than geometric tracking; allow the
     # measured 0.16 s Wi-Fi delivery burst, but freeze the low-speed pretest

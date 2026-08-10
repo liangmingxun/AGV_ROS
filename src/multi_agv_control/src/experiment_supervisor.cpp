@@ -19,6 +19,11 @@ ExperimentSupervisor::ExperimentSupervisor(const SupervisorConfig& config)
       !std::isfinite(config_.restoration_progress) ||
       config_.activation_progress < 0.0 ||
       config_.restoration_progress <= config_.activation_progress ||
+      !std::isfinite(config_.evaluation_start_progress) ||
+      !std::isfinite(config_.evaluation_end_progress) ||
+      config_.evaluation_start_progress < 0.0 ||
+      config_.evaluation_end_progress <=
+          config_.evaluation_start_progress ||
       !validRatio(config_.target_speed_ratio_left) ||
       !validRatio(config_.target_speed_ratio_right) ||
       !validRatio(config_.target_acceleration_ratio_left) ||
@@ -41,6 +46,7 @@ bool ExperimentSupervisor::arm() {
   snapshot_.manual_abort = false;
   snapshot_.abort_reason.clear();
   has_actual_progress_ = false;
+  evaluation_started_ = false;
   return true;
 }
 
@@ -50,7 +56,7 @@ bool ExperimentSupervisor::start(double now_seconds) {
     return false;
   }
   setPhase(ExperimentPhase::kRunningNominal, now_seconds);
-  snapshot_.evaluation_active = true;
+  snapshot_.evaluation_active = false;
   return true;
 }
 
@@ -103,6 +109,22 @@ bool ExperimentSupervisor::updateActualProgress(double actual_progress,
   }
   previous_actual_progress_ = actual_progress;
   has_actual_progress_ = true;
+  if (!evaluation_started_ &&
+      actual_progress >= config_.evaluation_start_progress &&
+      actual_progress < config_.evaluation_end_progress) {
+    evaluation_started_ = true;
+    snapshot_.evaluation_active = true;
+  }
+  if (evaluation_started_ &&
+      actual_progress >= config_.evaluation_end_progress) {
+    snapshot_.evaluation_active = false;
+    if (!config_.finish_after_restoration &&
+        snapshot_.phase == ExperimentPhase::kPostRestoration) {
+      setPhase(ExperimentPhase::kFinished, now_seconds);
+      snapshot_.run_active = false;
+      return true;
+    }
+  }
   if (snapshot_.phase == ExperimentPhase::kRunningNominal &&
       actual_progress >= config_.activation_progress) {
     activateDerating(now_seconds);
@@ -128,9 +150,13 @@ bool ExperimentSupervisor::tick(double now_seconds) {
   }
   if (snapshot_.phase == ExperimentPhase::kRestoring &&
       now_seconds - phase_start_time_ >= config_.ramp_up_time) {
-    setPhase(ExperimentPhase::kFinished, now_seconds);
-    snapshot_.run_active = false;
-    snapshot_.evaluation_active = false;
+    if (config_.finish_after_restoration) {
+      setPhase(ExperimentPhase::kFinished, now_seconds);
+      snapshot_.run_active = false;
+      snapshot_.evaluation_active = false;
+    } else {
+      setPhase(ExperimentPhase::kPostRestoration, now_seconds);
+    }
     return true;
   }
   return false;
@@ -171,6 +197,7 @@ bool ExperimentSupervisor::reset() {
   snapshot_ = SupervisorSnapshot{};
   phase_start_time_ = 0.0;
   has_actual_progress_ = false;
+  evaluation_started_ = false;
   previous_actual_progress_ = 0.0;
   return true;
 }
@@ -179,7 +206,8 @@ bool ExperimentSupervisor::runPhase() const noexcept {
   return snapshot_.phase == ExperimentPhase::kRunningNominal ||
          snapshot_.phase == ExperimentPhase::kDeratingDown ||
          snapshot_.phase == ExperimentPhase::kDerated ||
-         snapshot_.phase == ExperimentPhase::kRestoring;
+         snapshot_.phase == ExperimentPhase::kRestoring ||
+         snapshot_.phase == ExperimentPhase::kPostRestoration;
 }
 
 }  // namespace multi_agv_control

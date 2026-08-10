@@ -95,11 +95,11 @@ def test_four_ground_markers_recover_metric_world_without_surveyed_coordinates()
     assert np.allclose(solution.marker_positions_world[30], [0, 1, 0], atol=1e-5)
 
     entity_corners = _project_marker(
-        (0.4, 0.3), 0.183, 0.080,
+        (0.4, 0.3), 0.225, 0.080,
         matrix, distortion, rvec, translation)
     x_m, y_m, yaw, reprojection = ground.entity_pose_on_horizontal_plane(
         entity_corners.reshape(4, 2),
-        0.183,
+        0.225,
         0.080,
         solution,
         matrix,
@@ -120,7 +120,7 @@ def test_current_configuration_freezes_requested_ids_and_camera_model():
     assert config["external_calibration"]["marker_ids"] == [8, 11, 15, 30]
     assert config["external_calibration"]["marker_length_m"] == 0.150
     assert config["entities_geometry"]["marker_length_m"] == 0.080
-    assert config["planes"]["agv_marker_plane"]["height_m"] == 0.183
+    assert config["planes"]["agv_marker_plane"]["height_m"] == 0.225
     assert {
         item["entity_id"]: item["aruco_id"] for item in config["entities"]
     } == {"agv1": 1, "agv2": 2, "agv3": 3, "load": 0}

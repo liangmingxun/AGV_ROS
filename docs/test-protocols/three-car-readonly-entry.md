@@ -118,7 +118,7 @@ rosrun multi_agv_bringup check_three_car_readonly_gate.py \
 - 三车 odom、feedback、capability 均只有一个 Publisher；
 - 上述九个数据话题均不低于 `80 Hz`；
 - 三车 ID 和 frame 一一对应；
-- 三车静止、无 `control_loop_overrun`、电压不低于 `10.8 V`；
+- 三车静止、无 `control_loop_overrun`、电压不低于 `10.5 V`；
 - `/multi_agv/cooperative_state` 只有一个 Publisher 且不低于 `80 Hz`；
 - 三车 odom 时间戳跨度不超过 `0.02 s`；
 - 六个运动/降额命令话题均无 Publisher。

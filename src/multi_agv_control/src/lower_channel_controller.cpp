@@ -22,7 +22,8 @@ LowerMode lowerModeFromString(const std::string& value) {
   if (value == "R2") return LowerMode::kR2;
   if (value == "R3") return LowerMode::kR3;
   if (value == "R4") return LowerMode::kR4;
-  throw std::invalid_argument("lower mode must be R1, R2, R3 or R4");
+  if (value == "M2b") return LowerMode::kM2b;
+  throw std::invalid_argument("lower mode must be R1, R2, R3, R4 or M2b");
 }
 
 const char* lowerModeName(LowerMode mode) {
@@ -31,6 +32,7 @@ const char* lowerModeName(LowerMode mode) {
     case LowerMode::kR2: return "R2";
     case LowerMode::kR3: return "R3";
     case LowerMode::kR4: return "R4";
+    case LowerMode::kM2b: return "M2b";
   }
   return "UNKNOWN";
 }
@@ -98,6 +100,8 @@ void LowerChannelController::reset(
 LowerChannelOutput LowerChannelController::step(
     const LowerChannelInput& input) {
   output_ = {};
+  // The M2b nonlinear mapping is implemented only by M2bController.
+  if (config_.mode == LowerMode::kM2b) return output_;
   const std::array<double, 12> scalar{{
       input.position_actual, input.velocity_actual,
       input.position_reference, input.velocity_reference,

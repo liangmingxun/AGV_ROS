@@ -71,6 +71,14 @@ class ExperimentSupervisorNode {
     private_node_.param("exp2a_derating_pretest/restoration_progress",
                         config.restoration_progress,
                         config.restoration_progress);
+    private_node_.param(
+        "exp2a_derating_pretest/evaluation_start_progress",
+        config.evaluation_start_progress,
+        config.evaluation_start_progress);
+    private_node_.param(
+        "exp2a_derating_pretest/evaluation_end_progress",
+        config.evaluation_end_progress,
+        config.evaluation_end_progress);
     private_node_.param("exp2a_derating_pretest/target_speed_ratio_left",
                         config.target_speed_ratio_left,
                         config.target_speed_ratio_left);
@@ -103,6 +111,10 @@ class ExperimentSupervisorNode {
       throw std::runtime_error("derating mode outside uint8 range");
     }
     config.derating_mode = static_cast<std::uint8_t>(mode);
+    private_node_.param(
+        "exp2a_derating_pretest/finish_after_restoration",
+        config.finish_after_restoration,
+        config.finish_after_restoration);
     return config;
   }
 

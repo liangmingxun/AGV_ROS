@@ -17,6 +17,8 @@
 #include <nav_msgs/Path.h>
 #include <ros/master.h>
 #include <ros/ros.h>
+#include <std_msgs/String.h>
+#include <std_msgs/UInt64.h>
 #include <tf2/LinearMath/Matrix3x3.h>
 #include <tf2/LinearMath/Quaternion.h>
 
@@ -114,8 +116,18 @@ class SingleCarSPretestNode {
     initialiseGeometry();
     rejectCompetingPublisher();
 
-    odom_subscriber_ = node_.subscribe(
-        "/agv1/odom", 10, &SingleCarSPretestNode::receiveOdometry, this);
+    if (usesWorldPose()) {
+      pose_subscriber_ = node_.subscribe(
+          camera_pose_topic_, 10,
+          &SingleCarSPretestNode::receiveCameraPose, this);
+      calibration_epoch_subscriber_ = node_.subscribe(
+          "/vision/aruco/calibration_epoch", 2,
+          &SingleCarSPretestNode::receiveCalibrationEpoch, this);
+    } else {
+      pose_subscriber_ = node_.subscribe(
+          "/agv1/odom", 10,
+          &SingleCarSPretestNode::receiveOdometry, this);
+    }
     feedback_subscriber_ = node_.subscribe(
         "/agv1/chassis_feedback", 10,
         &SingleCarSPretestNode::receiveFeedback, this);
@@ -125,12 +137,17 @@ class SingleCarSPretestNode {
         "/agv1/s_pretest/reference_path", 1, true);
     reference_publisher_ = node_.advertise<geometry_msgs::PoseStamped>(
         "/agv1/s_pretest/chassis_reference", 5, false);
+    result_publisher_ = node_.advertise<std_msgs::String>(
+        "/agv1/s_pretest/result", 1, true);
   }
 
   int run() {
+    publishResult("RUNNING");
     ros::Rate rate(publish_rate_);
     if (!waitForInputsAndSubscribers(rate)) {
-      return stop_requested.load() ? 130 : 2;
+      return abortRun(stop_requested.load() ? 130 : 2,
+                      stop_requested.load() ? "ABORTED_SIGNAL"
+                                            : "ABORTED_NOT_READY");
     }
     synchroniseCommandSequence();
     initialiseAnchor();
@@ -148,8 +165,7 @@ class SingleCarSPretestNode {
       rate.sleep();
     }
     if (!ros::ok() || stop_requested.load()) {
-      publishRepeatedStop();
-      return 130;
+      return abortRun(130, "ABORTED_SIGNAL");
     }
 
     const ros::WallTime motion_start = ros::WallTime::now();
@@ -161,10 +177,17 @@ class SingleCarSPretestNode {
       const ros::WallTime now = ros::WallTime::now();
       const double dt = (now - previous).toSec();
       previous = now;
+      if (actual_wheel_fault_) {
+        ROS_ERROR("Robot1 S pretest aborted by actual-wheel-speed watchdog");
+        return abortRun(8, "ABORTED_OVERSPEED");
+      }
+      if (battery_fault_) {
+        ROS_ERROR("Robot1 S pretest aborted by battery-voltage gate");
+        return abortRun(10, "ABORTED_LOW_BATTERY");
+      }
       if (!stateFresh()) {
-        ROS_ERROR("Robot1 S pretest aborted: odometry or chassis feedback stale");
-        publishRepeatedStop();
-        return 3;
+        ROS_ERROR("Robot1 S pretest aborted: localization or chassis feedback stale");
+        return abortRun(3, "ABORTED_STALE");
       }
       if (dt > 0.0 && dt <= maximum_step_) {
         progress = std::min(path_->length(), progress + speed_ * dt);
@@ -175,8 +198,7 @@ class SingleCarSPretestNode {
                   "error (longitudinal=%+.3f, lateral=%+.3f, heading=%+.3f)",
                   tracking.longitudinal_error, tracking.lateral_error,
                   tracking.heading_error);
-        publishRepeatedStop();
-        return 4;
+        return abortRun(4, "ABORTED_TRACKING_ERROR");
       }
       if (std::abs(tracking.wheel_linear_velocity_left_raw) >
               maximum_wheel_command_ ||
@@ -187,30 +209,54 @@ class SingleCarSPretestNode {
                   maximum_wheel_command_,
                   tracking.wheel_linear_velocity_left_raw,
                   tracking.wheel_linear_velocity_right_raw);
-        publishRepeatedStop();
-        return 5;
+        return abortRun(5, "ABORTED_COMMAND_LIMIT");
       }
       publishTracking(tracking);
       publishReference(tracking.chassis_pose_reference);
       if ((now - motion_start).toSec() > maximum_motion_time_) {
         ROS_ERROR("Robot1 S pretest aborted: motion timeout");
-        publishRepeatedStop();
-        return 6;
+        return abortRun(6, "ABORTED_MOTION_TIMEOUT");
       }
       rate.sleep();
     }
 
+    if (!ros::ok() || stop_requested.load()) {
+      return abortRun(130, "ABORTED_SIGNAL");
+    }
+    // The specified experiment trajectory ends here. Do not add an
+    // unmodelled low-speed terminal manoeuvre just to satisfy an endpoint
+    // accuracy threshold: command zero immediately and retain endpoint error
+    // only as an offline metric.
     publishRepeatedStop();
     if (!waitForStopped(rate)) {
       ROS_ERROR("Robot1 S pretest stop was commanded, but stopped feedback "
                 "was not confirmed before timeout");
-      return 7;
+      return abortRun(7, "ABORTED_STOP_NOT_CONFIRMED");
     }
-    ROS_INFO("Robot1 bounded S pretest completed; zero wheel speed confirmed");
+    if (!recordPassiveStoppedWindow(rate)) {
+      ROS_ERROR("Robot1 S pretest passive stopped window was invalid");
+      return abortRun(11, "ABORTED_PASSIVE_WINDOW");
+    }
+    publishResult("STOP_CONFIRMED");
+    ros::WallDuration(0.10).sleep();
+    ROS_INFO("Robot1 bounded S pretest completed; zero wheel speed confirmed "
+             "and %.1f s passive endpoint window recorded",
+             post_stop_record_seconds_);
     return 0;
   }
 
  private:
+  bool usesWorldPose() const {
+    return localization_source_ == "camera" ||
+           localization_source_ == "fused";
+  }
+
+  std::string activeMethodId() const {
+    if (localization_source_ == "fused") return "FUSED_BOUNDED_S";
+    if (localization_source_ == "camera") return "CAMERA_BOUNDED_S";
+    return "ODOM_BOUNDED_S";
+  }
+
   void loadConfiguration() {
     const std::string root = "single_car_s_pretest/";
     hardware_authorized_ =
@@ -222,6 +268,10 @@ class SingleCarSPretestNode {
         private_.param("confirm_wheels_on_floor", false);
     transport_type_ =
         private_.param<std::string>("platform_transport_type", "serial");
+    localization_source_ =
+        private_.param<std::string>("localization_source", "odom");
+    camera_pose_topic_ = private_.param<std::string>(
+        "camera_pose_topic", "/pose_provider/agv1/base_pose_filtered");
 
     amplitude_ = finiteParam(private_, root + "path/amplitude", 0.05);
     longitudinal_length_ = finiteParam(
@@ -245,6 +295,8 @@ class SingleCarSPretestNode {
         finiteParam(private_, root + "maximum_integration_step", 0.1);
     maximum_motion_time_ =
         finiteParam(private_, root + "maximum_motion_time", 30.0);
+    post_stop_record_seconds_ = finiteParam(
+        private_, root + "post_stop_record_seconds", 2.0);
     maximum_longitudinal_error_ = finiteParam(
         private_, root + "abort/maximum_longitudinal_error", 0.20);
     maximum_lateral_error_ = finiteParam(
@@ -253,6 +305,16 @@ class SingleCarSPretestNode {
         private_, root + "abort/maximum_heading_error", 0.50);
     maximum_wheel_command_ = finiteParam(
         private_, root + "abort/maximum_wheel_linear_velocity", 0.08);
+    minimum_battery_voltage_ = finiteParam(
+        private_, root + "abort/minimum_battery_voltage", 10.5);
+    actual_wheel_warning_speed_ = finiteParam(
+        private_, root + "actual_wheel_watchdog/warning_speed", 0.08);
+    actual_wheel_hard_stop_speed_ = finiteParam(
+        private_, root + "actual_wheel_watchdog/hard_stop_speed", 0.09);
+    actual_wheel_sustained_speed_ = finiteParam(
+        private_, root + "actual_wheel_watchdog/sustained_speed", 0.08);
+    actual_wheel_sustained_duration_ = finiteParam(
+        private_, root + "actual_wheel_watchdog/sustained_duration", 0.05);
     wheel_separation_ =
         finiteParam(private_, root + "geometry/wheel_separation", 0.114);
     support_offset_ = {
@@ -264,6 +326,10 @@ class SingleCarSPretestNode {
         finiteParam(private_, root + "tracker/lateral_gain", 2.0);
     heading_gain_ =
         finiteParam(private_, root + "tracker/heading_gain", 2.0);
+    angular_feedforward_scale_ = finiteParam(
+        private_, root + "tracker/angular_feedforward_scale", 1.0);
+    curvature_preview_seconds_ = finiteParam(
+        private_, root + "tracker/curvature_preview_seconds", 0.0);
     int reference_samples =
         private_.param(root + "tracker/chassis_reference_samples", 10001);
     reference_samples_ =
@@ -294,12 +360,31 @@ class SingleCarSPretestNode {
     if (transport_type_ != "serial" && transport_type_ != "fake") {
       throw std::runtime_error("platform transport must be serial or fake");
     }
+    if (localization_source_ != "odom" && localization_source_ != "camera" &&
+        localization_source_ != "fused") {
+      throw std::runtime_error(
+          "localization_source must be odom, camera or fused");
+    }
+    if (usesWorldPose() && camera_pose_topic_.empty()) {
+      throw std::runtime_error("camera_pose_topic must not be empty");
+    }
     if (!(amplitude_ > 0.0) || !(longitudinal_length_ > 0.0) ||
         std::abs(speed_ - 0.05) > 1e-12 || path_samples_ < 101U ||
         !(publish_rate_ > 0.0) || !(state_timeout_ > 0.0) ||
         !(subscriber_wait_ > 0.0) || start_delay_ < 0.0 ||
         !(maximum_motion_time_ > 0.0) || !(maximum_step_ > 0.0) ||
+        !(post_stop_record_seconds_ >= 1.0) ||
         !(maximum_wheel_command_ > speed_) ||
+        !(minimum_battery_voltage_ >= 10.5) ||
+        !(actual_wheel_warning_speed_ > 0.0) ||
+        !(actual_wheel_hard_stop_speed_ > actual_wheel_warning_speed_) ||
+        !(actual_wheel_sustained_speed_ > 0.0) ||
+        actual_wheel_sustained_speed_ > actual_wheel_hard_stop_speed_ ||
+        !(actual_wheel_sustained_duration_ > 0.0) ||
+        !(angular_feedforward_scale_ >= 1.0 &&
+          angular_feedforward_scale_ <= 1.25) ||
+        !(curvature_preview_seconds_ >= 0.0 &&
+          curvature_preview_seconds_ <= 0.10) ||
         !(wheel_separation_ > 0.0) || reference_samples_ < 2U ||
         required_subscribers_ < 1 || required_subscribers_ > 8 ||
         command_sequence_ == 0U ||
@@ -360,6 +445,48 @@ class SingleCarSPretestNode {
     }
   }
 
+  void receiveCameraPose(
+      const geometry_msgs::PoseStamped::ConstPtr& message) {
+    try {
+      if (message->header.frame_id.rfind("world@", 0U) != 0U) {
+        throw std::runtime_error(
+            "camera pose frame must carry the world@epoch token");
+      }
+      if (camera_frame_id_.empty()) {
+        camera_frame_id_ = message->header.frame_id;
+      } else if (message->header.frame_id != camera_frame_id_) {
+        camera_epoch_fault_ = true;
+        throw std::runtime_error(
+            "camera world frame changed during the bounded run");
+      }
+      odometry_pose_.position = {
+          message->pose.position.x, message->pose.position.y};
+      odometry_pose_.yaw = yawFromQuaternion(message->pose.orientation);
+      odometry_receive_time_ = ros::WallTime::now();
+      has_odometry_ = std::isfinite(odometry_pose_.position.x()) &&
+                      std::isfinite(odometry_pose_.position.y()) &&
+                      !camera_epoch_fault_;
+    } catch (const std::exception& error) {
+      ROS_ERROR_THROTTLE(1.0, "Rejected Robot1 camera pose: %s", error.what());
+      has_odometry_ = false;
+    }
+  }
+
+  void receiveCalibrationEpoch(
+      const std_msgs::UInt64::ConstPtr& message) {
+    if (message->data == 0U) {
+      camera_epoch_fault_ = true;
+      return;
+    }
+    if (!has_calibration_epoch_) {
+      calibration_epoch_ = message->data;
+      has_calibration_epoch_ = true;
+    } else if (message->data != calibration_epoch_) {
+      camera_epoch_fault_ = true;
+      ROS_ERROR("Robot1 camera S pretest detected a calibration epoch change");
+    }
+  }
+
   void receiveFeedback(
       const agv_msgs::ChassisFeedback::ConstPtr& message) {
     if (message->robot_id != 1U) {
@@ -368,11 +495,59 @@ class SingleCarSPretestNode {
     feedback_ = *message;
     feedback_receive_time_ = ros::WallTime::now();
     has_feedback_ = true;
+    if (!std::isfinite(message->battery_voltage) ||
+        message->battery_voltage < minimum_battery_voltage_) {
+      if (!battery_fault_) {
+        ROS_ERROR("Robot1 battery voltage %.3f V is below %.3f V",
+                  message->battery_voltage, minimum_battery_voltage_);
+      }
+      battery_fault_ = true;
+    }
+    monitorActualWheelSpeed(*message, feedback_receive_time_);
+  }
+
+  void monitorActualWheelSpeed(
+      const agv_msgs::ChassisFeedback& message, const ros::WallTime& now) {
+    const double maximum_actual = std::max(
+        std::abs(message.wheel_linear_velocity_left_actual),
+        std::abs(message.wheel_linear_velocity_right_actual));
+    if (!std::isfinite(maximum_actual)) {
+      actual_wheel_fault_ = true;
+      ROS_ERROR("Robot1 actual wheel feedback is not finite");
+      return;
+    }
+    if (maximum_actual > actual_wheel_warning_speed_) {
+      ROS_WARN_THROTTLE(
+          0.5, "Robot1 actual wheel speed warning: %.4f m/s", maximum_actual);
+    }
+    if (maximum_actual > actual_wheel_hard_stop_speed_) {
+      actual_wheel_fault_ = true;
+      ROS_ERROR("Robot1 actual wheel speed %.4f exceeds hard stop %.4f m/s",
+                maximum_actual, actual_wheel_hard_stop_speed_);
+      return;
+    }
+    if (maximum_actual > actual_wheel_sustained_speed_) {
+      if (actual_wheel_overspeed_start_.isZero()) {
+        actual_wheel_overspeed_start_ = now;
+      } else if ((now - actual_wheel_overspeed_start_).toSec() >=
+                 actual_wheel_sustained_duration_) {
+        actual_wheel_fault_ = true;
+        ROS_ERROR("Robot1 actual wheel speed remained above %.4f m/s for %.3f s",
+                  actual_wheel_sustained_speed_,
+                  (now - actual_wheel_overspeed_start_).toSec());
+      }
+    } else {
+      actual_wheel_overspeed_start_ = ros::WallTime();
+    }
   }
 
   bool stateFresh() const {
     const ros::WallTime now = ros::WallTime::now();
-    return has_odometry_ && has_feedback_ &&
+    const bool camera_ready =
+        !usesWorldPose() ||
+        (has_calibration_epoch_ && !camera_epoch_fault_ &&
+         !camera_frame_id_.empty());
+    return has_odometry_ && has_feedback_ && camera_ready &&
            (now - odometry_receive_time_).toSec() <= state_timeout_ &&
            (now - feedback_receive_time_).toSec() <= state_timeout_;
   }
@@ -448,13 +623,43 @@ class SingleCarSPretestNode {
   }
 
   PlanarTrackingResult trackingAt(double progress) const {
+    return trackingAt(progress, speed_);
+  }
+
+  PlanarTrackingResult trackingAt(
+      double progress, double channel_velocity) const {
     const auto robot = odometryInPathFrame();
     PlanarPose support;
     support.position =
         robot.position + rotate(support_offset_, robot.yaw);
     support.yaw = robot.yaw;
-    return tracker_->track(
-        {0U, progress, speed_, robot, support});
+    auto result = tracker_->track(
+        {0U, progress, channel_velocity, robot, support});
+    if (!result.valid || channel_velocity == 0.0) return result;
+
+    const double preview_progress = std::min(
+        path_->length(), progress +
+            std::abs(channel_velocity) * curvature_preview_seconds_);
+    const auto preview = tracker_->track(
+        {0U, preview_progress, channel_velocity, robot, support});
+    if (!preview.valid) return result;
+
+    // Optional bounded compensation affects only analytic curvature
+    // feedforward. The validated default (scale=1, preview=0) is exactly the
+    // original tracker; feedback gains and the frozen path remain unchanged.
+    const double compensated_feedforward =
+        angular_feedforward_scale_ * preview.angular_velocity_feedforward;
+    result.angular_velocity_raw +=
+        compensated_feedforward - result.angular_velocity_feedforward;
+    result.angular_velocity_feedforward = compensated_feedforward;
+    const double half_track = 0.5 * wheel_separation_;
+    result.wheel_linear_velocity_left_raw =
+        result.linear_velocity_raw - half_track * result.angular_velocity_raw;
+    result.wheel_linear_velocity_right_raw =
+        result.linear_velocity_raw + half_track * result.angular_velocity_raw;
+    result.valid = std::isfinite(result.wheel_linear_velocity_left_raw) &&
+                   std::isfinite(result.wheel_linear_velocity_right_raw);
+    return result;
   }
 
   bool trackingErrorExceeded(const PlanarTrackingResult& value) const {
@@ -465,6 +670,11 @@ class SingleCarSPretestNode {
   }
 
   void publishTracking(const PlanarTrackingResult& value) {
+    publishTrackingMessage(value, activeMethodId());
+  }
+
+  void publishTrackingMessage(
+      const PlanarTrackingResult& value, const std::string& method_id) {
     agv_msgs::ChassisCommand command;
     command.header.stamp = ros::Time::now();
     command.robot_id = 1U;
@@ -477,7 +687,7 @@ class SingleCarSPretestNode {
     command.wheel_linear_velocity_right_raw =
         value.wheel_linear_velocity_right_raw;
     command.experiment_id = "robot1_single_s_pretest";
-    command.method_id = "ODOM_BOUNDED_S";
+    command.method_id = method_id;
     command_publisher_.publish(command);
   }
 
@@ -488,7 +698,7 @@ class SingleCarSPretestNode {
     command.command_seq = ++command_sequence_;
     command.control_mode = 1U;
     command.experiment_id = "robot1_single_s_pretest";
-    command.method_id = "ODOM_BOUNDED_S_STOP";
+    command.method_id = activeMethodId() + "_STOP";
     command_publisher_.publish(command);
   }
 
@@ -499,6 +709,18 @@ class SingleCarSPretestNode {
       ros::spinOnce();
       ros::WallDuration(0.05).sleep();
     }
+  }
+
+  void publishResult(const std::string& value) {
+    std_msgs::String message;
+    message.data = value;
+    result_publisher_.publish(message);
+  }
+
+  int abortRun(int code, const std::string& result) {
+    publishResult(result);
+    publishRepeatedStop();
+    return code;
   }
 
   bool waitForStopped(ros::Rate& rate) {
@@ -523,6 +745,25 @@ class SingleCarSPretestNode {
     return false;
   }
 
+  bool recordPassiveStoppedWindow(ros::Rate& rate) {
+    const ros::WallTime deadline = ros::WallTime::now() +
+        ros::WallDuration(post_stop_record_seconds_);
+    while (ros::ok() && !stop_requested.load() &&
+           ros::WallTime::now() < deadline) {
+      ros::spinOnce();
+      publishStop();
+      if (!stateFresh() || actual_wheel_fault_ || battery_fault_ ||
+          std::abs(feedback_.wheel_linear_velocity_left_actual) >
+              stopped_wheel_tolerance_ ||
+          std::abs(feedback_.wheel_linear_velocity_right_actual) >
+              stopped_wheel_tolerance_) {
+        return false;
+      }
+      rate.sleep();
+    }
+    return ros::ok() && !stop_requested.load();
+  }
+
   PlanarPose pathPoseToOdom(const PlanarPose& pose) const {
     return {anchor_translation_ + rotate(pose.position, anchor_yaw_),
             normalizeAngle(pose.yaw + anchor_yaw_)};
@@ -532,7 +773,7 @@ class SingleCarSPretestNode {
                                          const ros::Time& stamp) const {
     geometry_msgs::PoseStamped message;
     message.header.stamp = stamp;
-    message.header.frame_id = "agv1/odom";
+    message.header.frame_id = referenceFrame();
     message.pose.position.x = pose.position.x();
     message.pose.position.y = pose.position.y();
     message.pose.orientation = quaternionFromYaw(pose.yaw);
@@ -547,7 +788,7 @@ class SingleCarSPretestNode {
   void publishReferencePath() {
     nav_msgs::Path message;
     message.header.stamp = ros::Time::now();
-    message.header.frame_id = "agv1/odom";
+    message.header.frame_id = referenceFrame();
     constexpr std::size_t kVisualizationSamples = 501U;
     message.poses.reserve(kVisualizationSamples);
     const PlanarPose dummy{{0.0, 0.0}, 0.0};
@@ -566,11 +807,17 @@ class SingleCarSPretestNode {
 
   ros::NodeHandle node_;
   ros::NodeHandle private_;
-  ros::Subscriber odom_subscriber_;
+  std::string referenceFrame() const {
+    return usesWorldPose() ? camera_frame_id_ : "agv1/odom";
+  }
+
+  ros::Subscriber pose_subscriber_;
+  ros::Subscriber calibration_epoch_subscriber_;
   ros::Subscriber feedback_subscriber_;
   ros::Publisher command_publisher_;
   ros::Publisher path_publisher_;
   ros::Publisher reference_publisher_;
+  ros::Publisher result_publisher_;
   std::unique_ptr<SCurvePath> path_;
   std::unique_ptr<PlanarSupportTracker> tracker_;
 
@@ -580,11 +827,20 @@ class SingleCarSPretestNode {
   ros::WallTime feedback_receive_time_;
   bool has_odometry_{false};
   bool has_feedback_{false};
+  bool has_calibration_epoch_{false};
+  bool camera_epoch_fault_{false};
+  bool actual_wheel_fault_{false};
+  bool battery_fault_{false};
   bool hardware_authorized_{false};
   bool command_authorized_{false};
   bool confirm_floor_clear_{false};
   bool confirm_wheels_on_floor_{false};
   std::string transport_type_;
+  std::string localization_source_{"odom"};
+  std::string camera_pose_topic_{"/pose_provider/agv1/base_pose_filtered"};
+  std::string camera_frame_id_;
+  std::uint64_t calibration_epoch_{0U};
+  ros::WallTime actual_wheel_overspeed_start_;
   double amplitude_{0.05};
   double longitudinal_length_{1.0};
   double speed_{0.05};
@@ -597,15 +853,23 @@ class SingleCarSPretestNode {
   double stopped_wheel_tolerance_{0.01};
   double maximum_step_{0.1};
   double maximum_motion_time_{30.0};
+  double post_stop_record_seconds_{2.0};
   double maximum_longitudinal_error_{0.20};
   double maximum_lateral_error_{0.12};
   double maximum_heading_error_{0.50};
   double maximum_wheel_command_{0.08};
+  double minimum_battery_voltage_{10.5};
+  double actual_wheel_warning_speed_{0.08};
+  double actual_wheel_hard_stop_speed_{0.09};
+  double actual_wheel_sustained_speed_{0.08};
+  double actual_wheel_sustained_duration_{0.05};
   double wheel_separation_{0.114};
   Eigen::Vector2d support_offset_{-0.01783, 0.0};
   double longitudinal_gain_{1.0};
   double lateral_gain_{2.0};
   double heading_gain_{2.0};
+  double angular_feedforward_scale_{1.0};
+  double curvature_preview_seconds_{0.0};
   std::size_t reference_samples_{10001U};
   int required_subscribers_{2};
   std::uint32_t command_sequence_{31000U};

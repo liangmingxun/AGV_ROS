@@ -212,6 +212,51 @@ def _check_authority(manifest, issues):
                 len(violations))))
 
 
+def _check_formal_statistics_gate(
+        converted_dir, manifest, issues, warnings):
+    requested = bool(manifest.get("formal_statistics_requested", False))
+    approval = manifest.get("configuration_approval")
+    rows = _load_rows(converted_dir, "experiment_state.csv")
+    active = [
+        index for index, row in enumerate(rows)
+        if bool_value(row.get("evaluation_active", False))]
+    bounded = bool(active)
+    if bounded:
+        bounded = (
+            active[0] > 0 and active[-1] < len(rows) - 1 and
+            active == list(range(active[0], active[-1] + 1)))
+    if requested:
+        if not isinstance(approval, dict):
+            issues.append(_issue(
+                "CONFIG_APPROVAL_MISSING",
+                "formal statistics were requested without an approval"))
+        elif not approval.get("formal_statistics_authorized", False):
+            issues.append(_issue(
+                "CONFIG_APPROVAL_NOT_FORMAL",
+                "selected approval does not authorize formal statistics"))
+        if not rows:
+            issues.append(_issue(
+                "EVALUATION_WINDOW_MISSING",
+                "formal statistics require ExperimentState"))
+        elif not bounded:
+            issues.append(_issue(
+                "EVALUATION_WINDOW_UNBOUNDED",
+                "formal evaluation window must have inactive samples before "
+                "and after one contiguous active interval"))
+    elif not bounded:
+        warnings.append(_issue(
+            "DRESS_REHEARSAL_ONLY",
+            "no bounded formal evaluation window; outputs are not "
+            "formal-statistics ready"))
+    return {
+        "formal_statistics_requested": requested,
+        "configuration_approval_present": isinstance(approval, dict),
+        "samples": len(rows),
+        "active_samples": len(active),
+        "bounded_and_contiguous": bounded,
+    }
+
+
 def _check_topic_rates(inventory, rules, issues):
     report = {}
     topics = inventory.get("topics", {})
@@ -247,6 +292,91 @@ def _check_topic_rates(inventory, rules, issues):
     return report
 
 
+def _check_camera_evidence(converted_dir, inventory, rules, issues):
+    camera_used = False
+    fused_used = False
+    for row in _load_rows(converted_dir, "cooperative_state.csv"):
+        sources = [finite_float(row.get("load_localization_source"))]
+        sources.extend(
+            finite_float(row.get(
+                "robot_localization_source_{}".format(index)))
+            for index in range(1, 4))
+        if any(source in (2.0, 3.0) for source in sources):
+            camera_used = True
+        if any(source == 3.0 for source in sources):
+            fused_used = True
+    missing = []
+    epoch_values = []
+    epoch_tokens = []
+    if camera_used:
+        observed = set(inventory.get("topics", {}))
+        missing = [
+            topic for topic in rules.get("camera_required_topics", [])
+            if topic not in observed]
+        if fused_used:
+            missing.extend(
+                topic for topic in rules.get("fused_required_topics", [])
+                if topic not in observed)
+        missing = list(dict.fromkeys(missing))
+        for topic in missing:
+            issues.append(_issue(
+                "CAMERA_EVIDENCE_MISSING",
+                "camera/fused localization was used but raw evidence is "
+                "absent: {}".format(topic)))
+        if rules.get("camera_calibration_epoch_required", False):
+            for row in _load_rows(
+                    converted_dir, "camera_calibration_epoch.csv"):
+                value = str(row.get("epoch_unix_ns", "")).strip()
+                if value and value not in epoch_values:
+                    epoch_values.append(value)
+            for row in _load_rows(converted_dir, "camera_pose.csv"):
+                topic = str(row.get("topic", ""))
+                if (not topic.startswith("/camera/world/") or
+                        not topic.endswith("_tag_pose")):
+                    continue
+                token = str(
+                    row.get("calibration_epoch_token", "")).strip()
+                if token not in ("", "0") and token not in epoch_tokens:
+                    epoch_tokens.append(token)
+            if not epoch_values:
+                issues.append(_issue(
+                    "CAMERA_CALIBRATION_EPOCH_MISSING",
+                    "camera localization has no recorded full calibration "
+                    "epoch"))
+            if not epoch_tokens:
+                issues.append(_issue(
+                    "CAMERA_CALIBRATION_TOKEN_MISSING",
+                    "camera raw poses have no nonzero in-band calibration "
+                    "epoch token"))
+            maximum_changes = int(rules.get(
+                "maximum_camera_calibration_epoch_changes", 0))
+            if len(epoch_values) - 1 > maximum_changes:
+                issues.append(_issue(
+                    "CAMERA_CALIBRATION_EPOCH_CHANGED",
+                    "recorded {} calibration epochs; at most {} change(s) "
+                    "are allowed".format(
+                        len(epoch_values), maximum_changes)))
+            if len(epoch_tokens) - 1 > maximum_changes:
+                issues.append(_issue(
+                    "CAMERA_CALIBRATION_TOKEN_CHANGED",
+                    "raw poses contain {} world-frame generation tokens; "
+                    "at most {} change(s) are allowed".format(
+                        len(epoch_tokens), maximum_changes)))
+    return {
+        "camera_or_fused_used": camera_used,
+        "fused_used": fused_used,
+        "required_topics": (
+            list(dict.fromkeys(
+                list(rules.get("camera_required_topics", [])) +
+                (list(rules.get("fused_required_topics", []))
+                 if fused_used else [])))
+            if camera_used else []),
+        "missing_topics": missing,
+        "calibration_epochs": epoch_values,
+        "calibration_epoch_tokens": epoch_tokens,
+    }
+
+
 def validate_converted_run(converted_dir, manifest_path, rules):
     """Return a structured audit; callers must reject ``valid == False``."""
     converted_dir = Path(converted_dir)
@@ -257,7 +387,12 @@ def validate_converted_run(converted_dir, manifest_path, rules):
     inventory_path = converted_dir / "topic_inventory.yaml"
     inventory = load_yaml(inventory_path) if inventory_path.exists() else {}
     observed_topics = set(inventory.get("topics", {}))
-    for topic in rules.get("required_topics", []):
+    required_topics = list(rules.get("required_topics", []))
+    required_topics.extend(
+        rules.get("method_required_topics", {}).get(
+            manifest.get("method_id", ""), []))
+    required_topics = list(dict.fromkeys(required_topics))
+    for topic in required_topics:
         if topic not in observed_topics:
             issues.append(_issue(
                 "MISSING_TOPIC", "required topic absent: {}".format(topic)))
@@ -268,6 +403,8 @@ def validate_converted_run(converted_dir, manifest_path, rules):
                 "recommended topic absent: {}; metrics using this stream "
                 "are not formal-statistics ready".format(topic)))
     topic_rates = _check_topic_rates(inventory, rules, issues)
+    camera_evidence = _check_camera_evidence(
+        converted_dir, inventory, rules, issues)
 
     raw_files = rules.get("stamp_files", [
         "chassis_command.csv",
@@ -310,6 +447,8 @@ def validate_converted_run(converted_dir, manifest_path, rules):
     _check_manual_abort(converted_dir, issues)
     _check_hashes(manifest_path, manifest, issues)
     _check_authority(manifest, issues)
+    formal_gate = _check_formal_statistics_gate(
+        converted_dir, manifest, issues, warnings)
 
     return {
         "schema_version": 1,
@@ -317,8 +456,10 @@ def validate_converted_run(converted_dir, manifest_path, rules):
         "issues": issues,
         "warnings": warnings,
         "topic_rates": topic_rates,
+        "camera_evidence": camera_evidence,
         "localization": localization,
         "communication_ages": _communication_age_report(converted_dir),
+        "formal_statistics_gate": formal_gate,
         "communication_age_claim": (
             "Diagnostic observation only; no independent communication "
             "watchdog safety claim is made."),

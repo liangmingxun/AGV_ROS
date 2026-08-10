@@ -290,7 +290,7 @@ class ThreeCarUnloadedBoundedPretestNode {
     target_progress_ = finiteParam(
         private_, root + "motion/target_progress", 1.00);
     minimum_battery_voltage_ = finiteParam(
-        private_, root + "abort/minimum_battery_voltage", 10.8);
+        private_, root + "abort/minimum_battery_voltage", 10.5);
     maximum_feedback_receive_age_ = finiteParam(
         private_, root + "abort/maximum_feedback_receive_age", 0.25);
     maximum_serial_feedback_age_ = finiteParam(
@@ -434,7 +434,7 @@ class ThreeCarUnloadedBoundedPretestNode {
         !(maximum_step_ > 0.0) || !(maximum_motion_time_ > 0.0) ||
         !authorized_path_speed ||
         std::abs(target_progress_ - 1.00) > 1e-12 ||
-        !(minimum_battery_voltage_ >= 10.8) ||
+        !(minimum_battery_voltage_ >= 10.5) ||
         !(maximum_feedback_receive_age_ > 0.0) ||
         maximum_feedback_receive_age_ > 0.25 ||
         !(maximum_serial_feedback_age_ > 0.0) ||
@@ -934,7 +934,7 @@ class ThreeCarUnloadedBoundedPretestNode {
   double maximum_motion_time_{25.0};
   double speed_{0.05};
   double target_progress_{1.00};
-  double minimum_battery_voltage_{10.8};
+  double minimum_battery_voltage_{10.5};
   double maximum_feedback_receive_age_{0.25};
   double maximum_serial_feedback_age_{0.25};
   double maximum_stamp_spread_{0.02};

@@ -476,7 +476,11 @@ def build_camera(config: Mapping, config_dir: Path):
         mvimport = Path(str(camera_cfg.get("mvimport_dir", "MvImport")))
         if not mvimport.is_absolute():
             mvimport = config_dir / mvimport
-        return MvsCameraSource(str(mvimport), int(camera_cfg.get("device_index", 0)))
+        return MvsCameraSource(
+            str(mvimport),
+            int(camera_cfg.get("device_index", 0)),
+            str(camera_cfg.get("transport", "auto")),
+        )
     if backend == "opencv":
         return OpenCVCameraSource(
             int(camera_cfg.get("device_index", 0)), str(camera_cfg.get("video_file", ""))
@@ -563,7 +567,13 @@ def configure_logging(level: str) -> None:
 def capture_preprocessed_frame(config: Mapping, config_dir: Path, output: Path) -> None:
     camera = build_camera(config, config_dir)
     try:
-        frame, _ = camera.read(int(config["camera"].get("timeout_ms", 1000)))
+        timeout_ms = int(config["camera"].get("timeout_ms", 1000))
+        LOGGER.info("single-frame capture: requesting frame timeout_ms=%d", timeout_ms)
+        frame, _ = camera.read(timeout_ms)
+        LOGGER.info(
+            "single-frame capture: camera read returned frame=%s",
+            "valid" if frame is not None else "none",
+        )
         if frame is None:
             raise RuntimeError("failed to capture frame")
         frame = preprocess_image(frame, config)

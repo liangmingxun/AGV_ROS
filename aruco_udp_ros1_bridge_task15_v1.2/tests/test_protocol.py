@@ -50,7 +50,7 @@ def body():
             "agv_marker_plane_inlier_count": 8,
             "agv_marker_plane_total_count": 8,
             "agv_marker_plane_validation_count": 4,
-            "agv_marker_plane_height_m": 0.183,
+            "agv_marker_plane_height_m": 0.225,
             "load_marker_plane_rmse_m": 0.005,
             "load_marker_plane_max_error_m": 0.011,
             "load_marker_plane_validation_rmse_m": 0.006,

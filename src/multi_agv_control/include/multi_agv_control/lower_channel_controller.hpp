@@ -11,6 +11,7 @@ enum class LowerMode {
   kR2,
   kR3,
   kR4,
+  kM2b,
 };
 
 struct LowerChannelConfig {

@@ -1,0 +1,18 @@
+<launch>
+  <arg name="platform_transport_type" default="fake"/>
+  <arg name="derating_publication_authorized" default="false"/>
+  <arg name="run_id" default="software_dress_rehearsal"/>
+  <arg name="method_id" default="M1_R1"/>
+
+  <node pkg="multi_agv_control" type="experiment_supervisor_node"
+        name="formal_evaluation_supervisor" output="screen" required="true">
+    <rosparam command="load"
+              file="$(find multi_agv_bringup)/config/formal_evaluation_window.yaml"/>
+    <param name="exp2a_derating_pretest/run_id" value="$(arg run_id)"/>
+    <param name="exp2a_derating_pretest/method_id" value="$(arg method_id)"/>
+    <param name="platform_transport_type"
+           value="$(arg platform_transport_type)"/>
+    <param name="derating_publication_authorized"
+           value="$(arg derating_publication_authorized)"/>
+  </node>
+</launch>

@@ -77,3 +77,40 @@ TEST(ExperimentSupervisor, NonFiniteAndBackwardReferenceCannotTrigger) {
       std::numeric_limits<double>::quiet_NaN(), true, 0.1));
   EXPECT_EQ(supervisor.snapshot().phase, ExperimentPhase::kRunningNominal);
 }
+
+TEST(ExperimentSupervisor, EvaluationWindowUsesActualProgressOnly) {
+  SupervisorConfig config;
+  config.evaluation_start_progress = 0.2;
+  config.evaluation_end_progress = 0.8;
+  ExperimentSupervisor supervisor(config);
+  ASSERT_TRUE(supervisor.arm());
+  ASSERT_TRUE(supervisor.start(0.0));
+  EXPECT_FALSE(supervisor.snapshot().evaluation_active);
+  EXPECT_FALSE(supervisor.updateActualProgress(0.3, false, 0.1));
+  EXPECT_FALSE(supervisor.snapshot().evaluation_active);
+  EXPECT_FALSE(supervisor.updateActualProgress(0.2, true, 0.2));
+  EXPECT_TRUE(supervisor.snapshot().evaluation_active);
+  EXPECT_TRUE(supervisor.updateActualProgress(0.8, true, 0.3));
+  EXPECT_FALSE(supervisor.snapshot().evaluation_active);
+}
+
+TEST(ExperimentSupervisor, FormalWindowContinuesAfterRestoration) {
+  SupervisorConfig config;
+  config.finish_after_restoration = false;
+  config.evaluation_start_progress = 0.2;
+  config.evaluation_end_progress = 0.8;
+  ExperimentSupervisor supervisor(config);
+  ASSERT_TRUE(supervisor.arm());
+  ASSERT_TRUE(supervisor.start(0.0));
+  ASSERT_TRUE(supervisor.updateActualProgress(0.3, true, 0.1));
+  ASSERT_TRUE(supervisor.updateActualProgress(0.6, true, 0.2));
+  ASSERT_TRUE(supervisor.tick(0.8));
+  EXPECT_EQ(
+      supervisor.snapshot().phase, ExperimentPhase::kPostRestoration);
+  EXPECT_TRUE(supervisor.snapshot().run_active);
+  EXPECT_TRUE(supervisor.snapshot().evaluation_active);
+  EXPECT_TRUE(supervisor.updateActualProgress(0.8, true, 0.9));
+  EXPECT_EQ(supervisor.snapshot().phase, ExperimentPhase::kFinished);
+  EXPECT_FALSE(supervisor.snapshot().run_active);
+  EXPECT_FALSE(supervisor.snapshot().evaluation_active);
+}

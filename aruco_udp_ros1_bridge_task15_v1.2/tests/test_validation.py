@@ -16,9 +16,9 @@ from multi_agv_vision_bridge.validation import (  # noqa: E402
 )
 
 SPECS = {
-    "agv1": EntitySpec("agv1", 1, "agv_marker_plane", 0.183),
-    "agv2": EntitySpec("agv2", 2, "agv_marker_plane", 0.183),
-    "agv3": EntitySpec("agv3", 3, "agv_marker_plane", 0.183),
+    "agv1": EntitySpec("agv1", 1, "agv_marker_plane", 0.225),
+    "agv2": EntitySpec("agv2", 2, "agv_marker_plane", 0.225),
+    "agv3": EntitySpec("agv3", 3, "agv_marker_plane", 0.225),
     "load": EntitySpec("load", 0, "load_marker_plane", 0.0),
 }
 GROUND_REFERENCE = GroundReferenceSpec(
@@ -26,7 +26,7 @@ GROUND_REFERENCE = GroundReferenceSpec(
 )
 CALIBRATION_LIMITS = {
     "agv_marker_plane": PlaneCalibrationLimits(
-        0.183, 0.025, 0.050, 6, 0.80, 0.030, 0.060, 4, 8
+        0.225, 0.025, 0.050, 6, 0.80, 0.030, 0.060, 4, 8
     ),
     "load_marker_plane": PlaneCalibrationLimits(
         0.0, 0.025, 0.050, 6, 0.80, 0.030, 0.060, 4, 8
@@ -39,7 +39,7 @@ POLICY_SYNCED = TimestampPolicy("capture_synced", 0.1, 0.05, 0.02)
 
 def calibration():
     result = {}
-    for plane, height in (("agv_marker_plane", 0.183), ("load_marker_plane", 0.0)):
+    for plane, height in (("agv_marker_plane", 0.225), ("load_marker_plane", 0.0)):
         result.update(
             {
                 f"{plane}_rmse_m": 0.004,

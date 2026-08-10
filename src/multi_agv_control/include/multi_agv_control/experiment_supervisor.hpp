@@ -14,11 +14,14 @@ enum class ExperimentPhase : std::uint8_t {
   kRestoring = 5U,
   kFinished = 6U,
   kAborted = 7U,
+  kPostRestoration = 8U,
 };
 
 struct SupervisorConfig {
   double activation_progress{0.3};
   double restoration_progress{0.6};
+  double evaluation_start_progress{0.0};
+  double evaluation_end_progress{1.0};
   double target_speed_ratio_left{0.4};
   double target_speed_ratio_right{0.4};
   double target_acceleration_ratio_left{0.5};
@@ -28,6 +31,7 @@ struct SupervisorConfig {
   double ramp_down_time{0.5};
   double ramp_up_time{0.5};
   std::uint8_t derating_mode{1U};
+  bool finish_after_restoration{true};
 };
 
 struct DeratingTarget {
@@ -78,6 +82,7 @@ class ExperimentSupervisor {
   SupervisorSnapshot snapshot_;
   double phase_start_time_{0.0};
   bool has_actual_progress_{false};
+  bool evaluation_started_{false};
   double previous_actual_progress_{0.0};
 };
 

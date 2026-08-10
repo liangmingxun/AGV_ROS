@@ -2,7 +2,7 @@
 
 ## 已完成
 
-- Windows四固定码在线米制世界系、畸变点模型和183 mm实体平面求交；
+- Windows四固定码在线米制世界系、畸变点模型和225 mm实体平面求交；
 - `DICT_4X4_50`与实体ID `1/2/3/0`、地面ID `8/11/15/30`；
 - Windows仅输出`world_T_tag`，载荷暂时禁用；
 - UDP v3 CRC、固定源端点、会话、序号、时间和四实体校验；
@@ -15,7 +15,7 @@
 
 ```text
 Python静态编译：通过
-四固定码米制几何与183 mm高度求交：通过
+四固定码米制几何与225 mm高度求交：通过
 协议/CRC/几何/ROS接口合同用例：通过（20项）
 standalone与工作树ROS桥关键源文件一致：通过
 platform-foundation-linux完整catkin_make：通过

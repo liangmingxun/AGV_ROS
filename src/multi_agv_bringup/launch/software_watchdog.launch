@@ -1,0 +1,10 @@
+<launch>
+  <!-- Observer only: never publishes chassis commands or safety claims. -->
+  <arg name="monitoring_enabled" default="false"/>
+  <node if="$(arg monitoring_enabled)"
+        pkg="multi_agv_analysis" type="software_watchdog.py"
+        name="multi_agv_software_watchdog" output="screen" required="true">
+    <rosparam command="load"
+              file="$(find multi_agv_bringup)/config/software_watchdog.yaml"/>
+  </node>
+</launch>

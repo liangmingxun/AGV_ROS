@@ -29,7 +29,7 @@ workspace:
   y_max_m: 0.5
 planes:
   agv_marker_plane:
-    height_m: 0.183
+    height_m: 0.225
     min_calibration_points: 8
     min_inliers: 6
     min_inlier_ratio: 0.80

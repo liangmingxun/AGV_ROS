@@ -1,0 +1,70 @@
+localization_mode: camera
+require_calibration_epoch: true
+publish_rate: 100.0
+maximum_state_age: 0.15
+maximum_sync_slop: 0.02
+synchronization_queue_size: 64
+maximum_rigid_fit_residual: 0.01
+load_pose_topic: /pose_provider/load/pose_filtered
+
+camera_adapter:
+  calibration_authorized: true
+  extrinsics_frozen: true
+  world_frame: world
+  maximum_input_age: 0.15
+  maximum_future_offset: 0.02
+  minimum_confidence: 0.5
+  require_confidence: true
+  require_calibration_epoch: true
+  filter_alpha: 0.7
+  streams:
+    - {entity_id: agv1, input_topic: /camera/world/agv1_tag_pose,
+       confidence_topic: /camera/world/agv1_confidence,
+       raw_output_topic: /pose_provider/agv1/base_pose_raw,
+       filtered_output_topic: /pose_provider/agv1/base_pose_filtered,
+       tag_to_target_x: 0.02, tag_to_target_y: 0.0,
+       tag_to_target_yaw: 0.0}
+    - {entity_id: agv2, input_topic: /camera/world/agv2_tag_pose,
+       confidence_topic: /camera/world/agv2_confidence,
+       raw_output_topic: /pose_provider/agv2/base_pose_raw,
+       filtered_output_topic: /pose_provider/agv2/base_pose_filtered,
+       tag_to_target_x: 0.02, tag_to_target_y: 0.0,
+       tag_to_target_yaw: 0.0}
+    - {entity_id: agv3, input_topic: /camera/world/agv3_tag_pose,
+       confidence_topic: /camera/world/agv3_confidence,
+       raw_output_topic: /pose_provider/agv3/base_pose_raw,
+       filtered_output_topic: /pose_provider/agv3/base_pose_filtered,
+       tag_to_target_x: 0.02, tag_to_target_y: 0.0,
+       tag_to_target_yaw: 0.0}
+    - {entity_id: load, input_topic: /camera/world/load_tag_pose,
+       confidence_topic: /camera/world/load_confidence,
+       raw_output_topic: /pose_provider/load/pose_raw,
+       filtered_output_topic: /pose_provider/load/pose_filtered,
+       tag_to_target_x: 0.03, tag_to_target_y: 0.0,
+       tag_to_target_yaw: 0.0}
+
+projector:
+  coarse_samples: 81
+  maximum_refinement_iterations: 48
+  convergence_tolerance: 1.0e-9
+  maximum_projection_distance: 0.08
+estimator:
+  filter_alpha: 0.8
+  projection_half_window: 0.35
+  initial_progress: 0.0
+  minimum_measurement_interval: 1.0e-5
+  maximum_measurement_interval: 0.2
+  maximum_absolute_speed: 0.5
+robots:
+  - {robot_id: agv1, robot_index: 1,
+     pose_topic: /pose_provider/agv1/base_pose_filtered,
+     base_frame: agv1/base_link,
+     base_to_support: {x: -0.01783, y: 0.0, yaw: 0.0}}
+  - {robot_id: agv2, robot_index: 2,
+     pose_topic: /pose_provider/agv2/base_pose_filtered,
+     base_frame: agv2/base_link,
+     base_to_support: {x: -0.01783, y: 0.0, yaw: 0.0}}
+  - {robot_id: agv3, robot_index: 3,
+     pose_topic: /pose_provider/agv3/base_pose_filtered,
+     base_frame: agv3/base_link,
+     base_to_support: {x: -0.01783, y: 0.0, yaw: 0.0}}

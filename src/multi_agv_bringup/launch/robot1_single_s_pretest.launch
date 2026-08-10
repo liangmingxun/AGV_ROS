@@ -7,6 +7,9 @@
   <arg name="enable_commands" default="false"/>
   <arg name="confirm_test_area_clear" default="false"/>
   <arg name="confirm_wheels_on_floor" default="false"/>
+  <arg name="localization_source" default="odom"/>
+  <arg name="camera_pose_topic"
+       default="/pose_provider/agv1/base_pose_filtered"/>
 
   <node pkg="multi_agv_control" type="single_car_s_pretest_node"
         name="robot1_single_s_pretest" output="screen">
@@ -16,5 +19,7 @@
     <param name="command_publication_authorized" value="$(arg enable_commands)"/>
     <param name="confirm_test_area_clear" value="$(arg confirm_test_area_clear)"/>
     <param name="confirm_wheels_on_floor" value="$(arg confirm_wheels_on_floor)"/>
+    <param name="localization_source" value="$(arg localization_source)"/>
+    <param name="camera_pose_topic" value="$(arg camera_pose_topic)"/>
   </node>
 </launch>

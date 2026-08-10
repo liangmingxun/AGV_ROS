@@ -42,9 +42,83 @@ class BringupStaticTest(unittest.TestCase):
         self.assertIn("/multi_agv/experiment_state", topics)
         self.assertIn("rosbag did not subscribe to required topics", recorder)
         self.assertIn('"recording_armed_at": None', recorder)
+        self.assertIn("/experiment_recorder/armed", recorder)
+        self.assertIn("Bool(data=True)", recorder)
         self.assertIn("command authority changed while recording", recorder)
         self.assertIn('"all_samples_fallback"', metrics)
         self.assertIn('"formal_statistics_ready"', metrics)
+
+    def test_task15_camera_entry_is_decoupled_and_hardware_blocked(self):
+        launch = (
+            PACKAGE / "launch" / "camera_formal.launch"
+        ).read_text(encoding="utf-8")
+        config = (
+            PACKAGE / "config" / "localization_camera.yaml"
+        ).read_text(encoding="utf-8")
+        adapter = (
+            SOURCE_ROOT / "multi_agv_control" / "src" /
+            "camera_pose_adapter_node.cpp"
+        ).read_text(encoding="utf-8")
+        estimator = (
+            SOURCE_ROOT / "multi_agv_control" / "src" /
+            "path_state_estimator_node.cpp"
+        ).read_text(encoding="utf-8")
+        recorded = (
+            PACKAGE / "config" / "record_topics.yaml"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn('name="calibration_authorized" default="false"', launch)
+        self.assertIn(
+            "three_agv_tag_extrinsics_measured_load_pending_readonly", config)
+        self.assertIn("calibration_authorized: false", config)
+        self.assertIn("extrinsics_frozen: false", config)
+        self.assertIn("require_confidence: true", config)
+        self.assertEqual(config.count("tag_to_target_x:"), 4)
+        self.assertIn("SOURCE_CAMERA", estimator)
+        self.assertIn("SOURCE_FUSED", estimator)
+        self.assertIn('localization_mode_ != "fused"', estimator)
+        self.assertIn("retained as raw but rejected", adapter)
+        self.assertNotIn("TransformBroadcaster", adapter)
+        self.assertIn("/camera/world/agv1_tag_pose", recorded)
+        self.assertIn("/pose_provider/load/pose_filtered", recorded)
+        self.assertIn("/pose_provider/agv1/base_pose_fused", recorded)
+
+    def test_task16_and_task18_remain_fake_or_rehearsal_only(self):
+        m2b = (
+            PACKAGE / "config" / "exp2b_M2b.yaml"
+        ).read_text(encoding="utf-8")
+        registry = (
+            PACKAGE / "config" / "approved_config_registry.yaml"
+        ).read_text(encoding="utf-8")
+        launch = (
+            PACKAGE / "launch" / "formal_fake_m2b.launch"
+        ).read_text(encoding="utf-8")
+        formal_gate = (
+            SOURCE_ROOT.parent / "docs" / "test-protocols" /
+            "formal-exp2a-gate.md"
+        ).read_text(encoding="utf-8")
+        self.assertEqual(m2b.count("hardware_execution_authorized: false"), 2)
+        self.assertIn("capability_policy: log_only_never_used_by_control",
+                      m2b)
+        self.assertIn("formal_fake_algorithm.launch", launch)
+        self.assertNotIn("serial", launch)
+        self.assertNotIn("formal_statistics_authorized: true", registry)
+        self.assertIn("software_rehearsal_only", registry)
+        self.assertIn("状态：**关闭", formal_gate)
+
+    def test_optional_software_watchdog_is_observer_only(self):
+        launch = (
+            PACKAGE / "launch" / "software_watchdog.launch"
+        ).read_text(encoding="utf-8")
+        script = (
+            SOURCE_ROOT / "multi_agv_analysis" / "scripts" /
+            "software_watchdog.py"
+        ).read_text(encoding="utf-8")
+        self.assertIn('name="monitoring_enabled" default="false"', launch)
+        self.assertIn("/multi_agv/software_watchdog_ok", script)
+        self.assertIn("/multi_agv/software_watchdog_diagnostics", script)
+        self.assertNotIn("ChassisCommand", script)
+        self.assertNotIn("/chassis_command", script)
 
     def test_each_car_config_has_explicit_identity_frames_and_calibration(self):
         expected_host_ips = {
@@ -168,12 +242,17 @@ class BringupStaticTest(unittest.TestCase):
         self.assertIn('name="enable_commands" default="false"', launch)
         self.assertIn('name="confirm_test_area_clear" default="false"', launch)
         self.assertIn('name="confirm_wheels_on_floor" default="false"', launch)
+        self.assertIn('name="localization_source" default="odom"', launch)
         self.assertNotIn("central_odom_pretest", launch)
         self.assertIn("amplitude: 0.05", config)
         self.assertIn("longitudinal_length: 1.0", config)
         self.assertIn("arc_length_speed: 0.05", config)
         self.assertIn("maximum_wheel_linear_velocity: 0.08", config)
         self.assertIn("base_to_support_x: -0.01783", config)
+        self.assertIn("lateral_gain: 3.0", config)
+        self.assertIn("heading_gain: 2.5", config)
+        self.assertIn("maximum_convergence_time: 5.0", config)
+        self.assertIn("hard_stop_speed: 0.09", config)
 
     def test_central_readonly_entry_has_no_command_authority(self):
         launch = (
@@ -229,7 +308,7 @@ class BringupStaticTest(unittest.TestCase):
                 "target_progress: 1.00",
                 "required_command_subscribers: 2",
                 "readiness_stable_samples: 20",
-                "minimum_battery_voltage: 10.8",
+                "minimum_battery_voltage: 10.5",
                 "maximum_feedback_receive_age: 0.25",
                 "maximum_serial_feedback_age: 0.25",
                 "maximum_stamp_spread: 0.02",

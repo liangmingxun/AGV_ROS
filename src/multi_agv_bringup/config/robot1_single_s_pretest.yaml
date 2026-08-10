@@ -14,6 +14,9 @@ single_car_s_pretest:
   stopped_wheel_tolerance: 0.01
   maximum_integration_step: 0.1
   maximum_motion_time: 30.0
+  # After the prescribed path ends, command zero and record a passive stopped
+  # endpoint window. Endpoint pose is a metric, never a motion gate.
+  post_stop_record_seconds: 2.0
   required_command_subscribers: 2
   initial_command_sequence: 31000
 
@@ -33,11 +36,25 @@ single_car_s_pretest:
 
   tracker:
     longitudinal_gain: 1.0
-    lateral_gain: 2.0
-    heading_gain: 2.0
+    # First camera/IMU-wheel fused tuning step. Offline replay of the previous
+    # run keeps the commanded wheel envelope below 0.057 m/s.
+    lateral_gain: 3.0
+    heading_gain: 2.5
+    # The 1.15 / 50 ms A/B trial increased lateral and heading RMSE, so the
+    # original analytic feedforward is restored. Keep these bounded interfaces
+    # available for a future independently identified actuator model.
+    angular_feedforward_scale: 1.0
+    curvature_preview_seconds: 0.0
     chassis_reference_samples: 10001
 
+  actual_wheel_watchdog:
+    warning_speed: 0.08
+    hard_stop_speed: 0.09
+    sustained_speed: 0.08
+    sustained_duration: 0.05
+
   abort:
+    minimum_battery_voltage: 10.5
     maximum_longitudinal_error: 0.20
     maximum_lateral_error: 0.12
     maximum_heading_error: 0.50

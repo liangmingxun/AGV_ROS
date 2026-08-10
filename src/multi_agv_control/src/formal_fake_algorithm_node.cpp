@@ -16,12 +16,15 @@
 #include <agv_msgs/PathReference.h>
 #include <geometry_msgs/Pose2D.h>
 #include <ros/ros.h>
+#include <std_msgs/Bool.h>
 #include <std_msgs/Float64MultiArray.h>
+#include <std_msgs/String.h>
 #include <tf2/LinearMath/Scalar.h>
 
 #include "multi_agv_control/capability_mapper.hpp"
 #include "multi_agv_control/formal_execution_gate.hpp"
 #include "multi_agv_control/lower_channel_controller.hpp"
+#include "multi_agv_control/m2b_controller.hpp"
 #include "multi_agv_control/planar_support_tracker.hpp"
 #include "multi_agv_control/s_curve_path.hpp"
 #include "multi_agv_control/support_geometry.hpp"
@@ -130,8 +133,24 @@ class FormalFakeAlgorithmNode {
     enforceFakeOnlyGates(upper_config, lower_config);
     upper_mode_ = upper_config.mode;
     lower_mode_ = lower_config.mode;
+    m2b_selected_ =
+        upper_mode_ == UpperMode::kM2b && lower_mode_ == LowerMode::kM2b;
+    if ((upper_mode_ == UpperMode::kM2b) !=
+        (lower_mode_ == LowerMode::kM2b)) {
+      throw std::runtime_error(
+          "M2b is a complete literature method: upper and lower must both "
+          "select M2b");
+    }
     upper_generator_ =
         std::make_unique<UpperReferenceGenerator>(upper_config);
+    if (m2b_selected_) {
+      m2b_controller_ = std::make_unique<M2bController>(loadM2bConfig());
+      M2bGeneratorState initial;
+      initial.position = distributed_state_.position;
+      initial.velocity = distributed_state_.velocity;
+      initial.auxiliary = distributed_state_.auxiliary;
+      m2b_controller_->reset(initial);
+    }
     for (std::size_t index = 0; index < kRobotCount; ++index) {
       lower_controllers_[index] =
           std::make_unique<LowerChannelController>(lower_config);
@@ -144,6 +163,15 @@ class FormalFakeAlgorithmNode {
     state_subscriber_ = node_.subscribe(
         "/multi_agv/cooperative_state", 5,
         &FormalFakeAlgorithmNode::receiveState, this);
+    recorder_armed_subscriber_ = node_.subscribe(
+        "/experiment_recorder/armed", 1,
+        &FormalFakeAlgorithmNode::receiveRecorderArmed, this);
+    recorder_method_subscriber_ = node_.subscribe(
+        "/experiment_recorder/method_id", 1,
+        &FormalFakeAlgorithmNode::receiveRecorderMethod, this);
+    watchdog_subscriber_ = node_.subscribe(
+        "/multi_agv/software_watchdog_ok", 1,
+        &FormalFakeAlgorithmNode::receiveWatchdog, this);
     for (std::size_t index = 0; index < kRobotCount; ++index) {
       capability_subscribers_[index] = node_.subscribe<agv_msgs::CapabilityReport>(
           "/agv" + std::to_string(index + 1U) + "/capability_report", 5,
@@ -157,6 +185,8 @@ class FormalFakeAlgorithmNode {
         "/multi_agv/controller_state", 10, false);
     debug_publisher_ = node_.advertise<std_msgs::Float64MultiArray>(
         "/multi_agv/formal_algorithm_state", 10, false);
+    m2b_debug_publisher_ = node_.advertise<std_msgs::Float64MultiArray>(
+        "/multi_agv/m2b_algorithm_state", 10, false);
     timer_ = node_.createTimer(
         ros::Duration(1.0 / publish_rate_),
         &FormalFakeAlgorithmNode::step, this);
@@ -274,6 +304,11 @@ class FormalFakeAlgorithmNode {
     private_node_.param(
         root + "require_valid_load_state", require_valid_load_state_, true);
     private_node_.param(
+        root + "require_recorder_armed", require_recorder_armed_, false);
+    private_node_.param(
+        root + "maximum_recorder_armed_age",
+        maximum_recorder_armed_age_, 0.50);
+    private_node_.param(
         root + "initial_progress", reference_progress_, 0.0);
     private_node_.param(
         root + "target_progress", target_progress_, path_.length());
@@ -309,6 +344,12 @@ class FormalFakeAlgorithmNode {
         root + "risk/position_safe_margin",
         position_safe_margin_, 0.06);
     private_node_.param(
+        root + "risk/require_software_watchdog",
+        require_software_watchdog_, false);
+    private_node_.param(
+        root + "risk/maximum_watchdog_age",
+        maximum_watchdog_age_, 0.25);
+    private_node_.param(
         root + "lower/velocity_lower_bound",
         velocity_lower_bound_, -0.15);
     private_node_.param(
@@ -321,6 +362,8 @@ class FormalFakeAlgorithmNode {
         lower_initial_disturbance_, 0.08);
     if (!(publish_rate_ > 0.0) || !(maximum_state_age_ > 0.0) ||
         !(maximum_capability_age_ > 0.0) ||
+        !(maximum_recorder_armed_age_ > 0.0) ||
+        !(maximum_watchdog_age_ > 0.0) ||
         !(target_progress_ > reference_progress_) ||
         target_progress_ > path_.length() ||
         velocity_lower_bound_ >= velocity_upper_bound_) {
@@ -443,6 +486,48 @@ class FormalFakeAlgorithmNode {
     private_node_.param(
         "formal_lower/golden_vectors_verified",
         config.golden_vectors_verified, false);
+    return config;
+  }
+
+  M2bConfig loadM2bConfig() {
+    M2bConfig config;
+    const std::string root = "formal_m2b/";
+    private_node_.param(root + "alpha", config.alpha, config.alpha);
+    private_node_.param(root + "beta", config.beta, config.beta);
+    private_node_.param(root + "l0", config.l0, config.l0);
+    private_node_.param(root + "l1", config.l1, config.l1);
+    private_node_.param(root + "l2", config.l2, config.l2);
+    private_node_.param(root + "l3", config.l3, config.l3);
+    config.h = array3(private_node_, root + "h");
+    config.k1 = array3(private_node_, root + "k1");
+    config.k2 = array3(private_node_, root + "k2");
+    config.fixed_acceleration_limit = array3(
+        private_node_, root + "fixed_acceleration_limit");
+    config.fixed_deceleration_limit = array3(
+        private_node_, root + "fixed_deceleration_limit");
+    private_node_.param(
+        root + "generator_guard", config.generator_guard,
+        config.generator_guard);
+    private_node_.param(
+        root + "mapping_guard", config.mapping_guard,
+        config.mapping_guard);
+    private_node_.param(
+        root + "auxiliary_boundary_layer",
+        config.auxiliary_boundary_layer,
+        config.auxiliary_boundary_layer);
+    int substeps = static_cast<int>(config.generator_substeps);
+    private_node_.param(root + "generator_substeps", substeps, substeps);
+    if (substeps <= 0) {
+      throw std::runtime_error("formal_m2b/generator_substeps must be positive");
+    }
+    config.generator_substeps = static_cast<std::size_t>(substeps);
+    private_node_.param(
+        root + "golden_vectors_verified",
+        config.golden_vectors_verified, false);
+    if (!config.golden_vectors_verified) {
+      throw std::runtime_error(
+          "M2b execution refused until golden vectors are verified");
+    }
     return config;
   }
 
@@ -642,6 +727,22 @@ class FormalFakeAlgorithmNode {
     }
   }
 
+  void receiveRecorderArmed(const std_msgs::Bool::ConstPtr& message) {
+    recorder_armed_ = message->data;
+    recorder_armed_receive_time_ = ros::Time::now();
+    has_recorder_armed_ = true;
+  }
+
+  void receiveRecorderMethod(const std_msgs::String::ConstPtr& message) {
+    recorder_method_id_ = message->data;
+  }
+
+  void receiveWatchdog(const std_msgs::Bool::ConstPtr& message) {
+    watchdog_ok_ = message->data;
+    watchdog_receive_time_ = ros::Time::now();
+    has_watchdog_ = true;
+  }
+
   void publishDebug(
       bool valid, const UpperReferenceOutput& upper,
       const DistributedReferenceOutput& distributed,
@@ -746,6 +847,40 @@ class FormalFakeAlgorithmNode {
     controller_publisher_.publish(controller);
   }
 
+  void publishM2bDebug(const M2bOutput& value) {
+    std_msgs::Float64MultiArray message;
+    constexpr std::size_t fields_per_robot = 20U;
+    constexpr std::size_t header_fields = 6U;
+    message.layout.dim.resize(1);
+    message.layout.dim[0].label =
+        "m2b_algorithm_state_v1:header6+3x20";
+    message.layout.dim[0].size =
+        header_fields + kRobotCount * fields_per_robot;
+    message.layout.dim[0].stride = message.layout.dim[0].size;
+    message.data.reserve(message.layout.dim[0].size);
+    message.data.push_back(value.valid ? 1.0 : 0.0);
+    message.data.push_back(-0.15);
+    message.data.push_back(0.52);
+    message.data.push_back(value.load_progress_reference);
+    message.data.push_back(value.load_velocity_reference);
+    message.data.push_back(ros::Time::now().toSec());
+    for (std::size_t i = 0; i < kRobotCount; ++i) {
+      const std::array<double, fields_per_robot> fields{{
+          value.current.position[i], value.current.velocity[i],
+          value.current.auxiliary[i], value.reference_acceleration[i],
+          value.position_disagreement[i], value.velocity_disagreement[i],
+          value.auxiliary_disagreement[i], state_.s_actual[i],
+          state_.s_dot_actual[i], value.position_error[i],
+          value.velocity_error[i], value.transformed_error[i],
+          value.transformation_gain[i], value.inverse_gain_term[i],
+          value.composite_error[i], value.input_raw[i],
+          value.input_limited[i], value.reported_capability[i],
+          value.delta_inverse[i], value.mapping_zeta[i]}};
+      message.data.insert(message.data.end(), fields.begin(), fields.end());
+    }
+    m2b_debug_publisher_.publish(message);
+  }
+
   void step(const ros::TimerEvent& event) {
     const ros::Time now = ros::Time::now();
     double dt = (event.current_real - event.last_real).toSec();
@@ -756,6 +891,24 @@ class FormalFakeAlgorithmNode {
     std::array<PlanarTrackingResult, 3> tracking;
     DistributedReferenceOutput distributed = current_distributed_;
     if (!refreshFakeChassisBinding()) {
+      publishPublicState(now, false, lower, tracking);
+      publishDebug(false, current_upper_, distributed, lower);
+      return;
+    }
+    const std::string expected_method_id =
+        std::string(upperModeName(upper_mode_)) + "_" +
+        lowerModeName(lower_mode_);
+    const bool recorder_gate_ok =
+        has_recorder_armed_ && recorder_armed_ &&
+        (now - recorder_armed_receive_time_).toSec() <=
+            maximum_recorder_armed_age_ &&
+        recorder_method_id_ == expected_method_id;
+    if (require_recorder_armed_ && !recorder_gate_ok) {
+      ROS_WARN_THROTTLE(
+          1.0, "Formal algorithm held at zero until a fresh experiment "
+          "recorder heartbeat confirms method_id=%s",
+          expected_method_id.c_str());
+      publishZero(now);
       publishPublicState(now, false, lower, tracking);
       publishDebug(false, current_upper_, distributed, lower);
       return;
@@ -798,7 +951,106 @@ class FormalFakeAlgorithmNode {
       return;
     }
 
+    if (m2b_selected_) {
+      M2bInput input;
+      input.leader_position = leader_position_;
+      input.leader_velocity = leader_velocity_;
+      input.leader_acceleration = leader_acceleration_;
+      input.dt_seconds = dt;
+      for (std::size_t i = 0; i < kRobotCount; ++i) {
+        input.position_actual[i] = state_.s_actual[i];
+        input.velocity_actual[i] = state_.s_dot_actual[i];
+        input.reported_capability[i] =
+            fleet.robots[i].actuator_upper_velocity;
+      }
+      const M2bOutput m2b = m2b_controller_->step(input);
+      if (!m2b.valid) {
+        ROS_WARN_THROTTLE(
+            1.0, "Formal fake M2b fail-zero: generator or nonlinear "
+            "mapping reached its frozen guard");
+        publishZero(now);
+        publishPublicState(now, false, lower, tracking);
+        publishM2bDebug(m2b);
+        return;
+      }
+      current_upper_ = {};
+      current_upper_.valid = true;
+      current_upper_.updated = true;
+      current_upper_.common_lower = -0.15;
+      current_upper_.common_upper = 0.52;
+      current_upper_.common_velocity = m2b.load_velocity_reference;
+      reference_progress_ = std::clamp(
+          m2b.load_progress_reference, 0.0, target_progress_);
+      current_velocity_reference_ =
+          reference_progress_ >= target_progress_
+              ? 0.0 : m2b.load_velocity_reference;
+      current_acceleration_reference_ =
+          reference_progress_ >= target_progress_
+              ? 0.0 : m2b.load_acceleration_reference;
+      leader_position_ += dt * leader_velocity_;
+
+      for (std::size_t i = 0; i < kRobotCount; ++i) {
+        lower[i].position_error = m2b.position_error[i];
+        lower[i].velocity_error = m2b.velocity_error[i];
+        lower[i].transformed_error = m2b.transformed_error[i];
+        lower[i].transformation_gain = m2b.transformation_gain[i];
+        lower[i].inverse_gain_term = m2b.inverse_gain_term[i];
+        lower[i].composite_error = m2b.composite_error[i];
+        lower[i].input_raw = m2b.input_raw[i];
+        lower[i].input_limited = m2b.input_limited[i];
+        lower[i].input_plant = m2b.input_limited[i];
+        lower[i].input_limit_active = m2b.input_limit_active[i];
+        lower[i].channel_velocity_command = std::clamp(
+            state_.s_dot_actual[i] + dt * m2b.input_limited[i],
+            -0.15, 0.52);
+        lower[i].valid = true;
+
+        PlanarTrackingInput tracking_input;
+        tracking_input.support_index = i;
+        tracking_input.load_progress_reference = reference_progress_;
+        tracking_input.channel_velocity_command =
+            lower[i].channel_velocity_command;
+        tracking_input.robot_pose_actual = poseValue(state_.robot_pose[i]);
+        tracking_input.support_pose_actual =
+            poseValue(state_.support_pose[i]);
+        tracking[i] = tracker_.track(tracking_input);
+        if (!tracking[i].valid) {
+          publishZero(now);
+          publishPublicState(now, false, lower, tracking);
+          publishM2bDebug(m2b);
+          return;
+        }
+      }
+      for (std::size_t i = 0; i < kRobotCount; ++i) {
+        agv_msgs::ChassisCommand command;
+        command.header.stamp = now;
+        command.robot_id = static_cast<std::uint8_t>(i + 1U);
+        command.command_seq = ++command_sequence_[i];
+        command.control_mode = 1U;
+        command.linear_velocity_reference = tracking[i].linear_velocity_raw;
+        command.angular_velocity_reference =
+            tracking[i].angular_velocity_raw;
+        command.wheel_linear_velocity_left_raw =
+            tracking[i].wheel_linear_velocity_left_raw;
+        command.wheel_linear_velocity_right_raw =
+            tracking[i].wheel_linear_velocity_right_raw;
+        command.experiment_id = experiment_id_;
+        command.method_id = "M2b_M2b";
+        command_publishers_[i].publish(command);
+      }
+      publishPublicState(now, true, lower, tracking);
+      publishDebug(true, current_upper_, distributed, lower);
+      publishM2bDebug(m2b);
+      return;
+    }
+
     std::array<UpperAgentInput, 3> upper_input;
+    const double failure_margin =
+        !require_software_watchdog_
+            ? 1.0
+            : (has_watchdog_ && watchdog_ok_ &&
+               (now - watchdog_receive_time_).toSec() <=
+                   maximum_watchdog_age_ ? 1.0 : 0.0);
     for (std::size_t index = 0; index < kRobotCount; ++index) {
       auto& value = upper_input[index];
       value.candidate_velocity = distributed_state_.velocity[index];
@@ -826,7 +1078,7 @@ class FormalFakeAlgorithmNode {
           position_safe_margin_);
       value.normalised_causal_margins = {{
           capability_margin, input_margin, wheel_margin,
-          position_margin, 1.0}};
+          position_margin, failure_margin}};
     }
     current_upper_ = upper_generator_->step(upper_input, dt);
     if (!current_upper_.valid) {
@@ -987,6 +1239,7 @@ class FormalFakeAlgorithmNode {
   PlanarSupportTracker tracker_;
   CapabilityMapper capability_mapper_;
   std::unique_ptr<UpperReferenceGenerator> upper_generator_;
+  std::unique_ptr<M2bController> m2b_controller_;
   std::array<std::unique_ptr<LowerChannelController>, 3> lower_controllers_;
   DistributedReferenceConfig distributed_config_;
   DistributedReferenceState distributed_state_;
@@ -996,11 +1249,15 @@ class FormalFakeAlgorithmNode {
   LowerMode lower_mode_{LowerMode::kR1};
 
   ros::Subscriber state_subscriber_;
+  ros::Subscriber recorder_armed_subscriber_;
+  ros::Subscriber recorder_method_subscriber_;
+  ros::Subscriber watchdog_subscriber_;
   std::array<ros::Subscriber, 3> capability_subscribers_;
   std::array<ros::Publisher, 3> command_publishers_;
   ros::Publisher reference_publisher_;
   ros::Publisher controller_publisher_;
   ros::Publisher debug_publisher_;
+  ros::Publisher m2b_debug_publisher_;
   ros::Timer timer_;
   agv_msgs::CooperativeState state_;
   std::array<agv_msgs::CapabilityReport, 3> capability_;
@@ -1009,8 +1266,15 @@ class FormalFakeAlgorithmNode {
   bool has_state_{false};
   std::array<bool, 3> has_capability_{{false, false, false}};
   bool require_valid_load_state_{true};
+  bool require_recorder_armed_{false};
+  bool has_recorder_armed_{false};
+  bool recorder_armed_{false};
+  bool require_software_watchdog_{false};
+  bool has_watchdog_{false};
+  bool watchdog_ok_{false};
   bool command_publication_authorized_{false};
   bool command_outputs_ready_{false};
+  bool m2b_selected_{false};
   std::size_t upper_ticks_per_update_{4U};
 
   std::array<std::uint32_t, 3> command_sequence_{{0U, 0U, 0U}};
@@ -1040,6 +1304,11 @@ class FormalFakeAlgorithmNode {
   double wheel_safe_margin_{0.08};
   double position_limit_{0.12};
   double position_safe_margin_{0.06};
+  double maximum_watchdog_age_{0.25};
+  double maximum_recorder_armed_age_{0.50};
+  ros::Time recorder_armed_receive_time_;
+  std::string recorder_method_id_;
+  ros::Time watchdog_receive_time_;
   std::string experiment_id_;
 };
 

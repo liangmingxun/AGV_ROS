@@ -8,7 +8,7 @@ import rospy
 import rostest
 from agv_msgs.msg import (ChassisCommand, ControllerState,
                           CooperativeState, PathReference)
-from std_msgs.msg import Float64MultiArray
+from std_msgs.msg import Bool, Float64MultiArray, String
 
 
 class FormalFakeAlgorithmE2ETest(unittest.TestCase):
@@ -24,8 +24,14 @@ class FormalFakeAlgorithmE2ETest(unittest.TestCase):
         self.controllers = []
         self.references = []
         self.debug = []
+        self.m2b_debug = []
         self.state_publisher = rospy.Publisher(
             "/multi_agv/cooperative_state", CooperativeState, queue_size=5)
+        self.armed_publisher = rospy.Publisher(
+            "/experiment_recorder/armed", Bool, queue_size=1)
+        self.recorder_method_publisher = rospy.Publisher(
+            "/experiment_recorder/method_id", String, queue_size=1,
+            latch=True)
         for index in range(3):
             rospy.Subscriber(
                 "/agv{}/chassis_command".format(index + 1),
@@ -44,6 +50,10 @@ class FormalFakeAlgorithmE2ETest(unittest.TestCase):
         rospy.Subscriber(
             "/multi_agv/formal_algorithm_state", Float64MultiArray,
             lambda message: self._append(self.debug, message),
+            queue_size=100)
+        rospy.Subscriber(
+            "/multi_agv/m2b_algorithm_state", Float64MultiArray,
+            lambda message: self._append(self.m2b_debug, message),
             queue_size=100)
 
     def _append(self, target, message):
@@ -103,6 +113,8 @@ class FormalFakeAlgorithmE2ETest(unittest.TestCase):
 
     def test_formal_chain_records_state_and_fails_to_zero(self):
         expected_method = rospy.get_param("~expected_method", "M1_R1")
+        exercise_recorder_gate = rospy.get_param(
+            "~exercise_recorder_gate", False)
         deadline = rospy.Time.now() + rospy.Duration(5.0)
         while (self.state_publisher.get_num_connections() == 0 and
                rospy.Time.now() < deadline):
@@ -111,6 +123,10 @@ class FormalFakeAlgorithmE2ETest(unittest.TestCase):
 
         rate = rospy.Rate(100)
         for _ in range(180):
+            if exercise_recorder_gate:
+                self.recorder_method_publisher.publish(
+                    String(data=expected_method))
+                self.armed_publisher.publish(Bool(data=True))
             self.state_publisher.publish(self._state())
             rate.sleep()
 
@@ -123,6 +139,7 @@ class FormalFakeAlgorithmE2ETest(unittest.TestCase):
             controller_history = list(self.controllers)
             reference_history = list(self.references)
             debug_history = list(self.debug)
+            m2b_debug_history = list(self.m2b_debug)
 
         nonzero_commands = [[
             value for value in values
@@ -166,6 +183,35 @@ class FormalFakeAlgorithmE2ETest(unittest.TestCase):
         self.assertEqual(debug.data[0], 1.0)
         self.assertGreater(debug.data[8], 0.0)
         self.assertTrue(all(math.isfinite(value) for value in debug.data))
+        if rospy.get_param("~expect_m2b_debug", False):
+            valid_m2b = [
+                value for value in m2b_debug_history
+                if value.data and value.data[0] == 1.0]
+            self.assertTrue(valid_m2b)
+            self.assertEqual(
+                valid_m2b[-1].layout.dim[0].label,
+                "m2b_algorithm_state_v1:header6+3x20")
+            self.assertEqual(len(valid_m2b[-1].data), 66)
+            self.assertTrue(
+                all(math.isfinite(value) for value in valid_m2b[-1].data))
+
+        if exercise_recorder_gate:
+            # Keep primary state fresh while deliberately stopping only the
+            # recorder heartbeat. The command path must fail zero after the
+            # configured heartbeat age, proving abrupt recorder loss is not
+            # masked by the original latched true value.
+            for _ in range(80):
+                self.state_publisher.publish(self._state())
+                rate.sleep()
+            with self._lock:
+                recorder_loss_commands = [
+                    values[-1] for values in self.commands]
+                recorder_loss_debug = self.debug[-1]
+            self.assertTrue(all(
+                value.wheel_linear_velocity_left_raw == 0.0 and
+                value.wheel_linear_velocity_right_raw == 0.0
+                for value in recorder_loss_commands))
+            self.assertEqual(recorder_loss_debug.data[0], 0.0)
 
         # Stop only the cooperative state. Capability reports continue from
         # fake chassis nodes; stale state alone must zero all three outputs.

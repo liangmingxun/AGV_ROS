@@ -12,6 +12,7 @@ network:
 
 camera:
   backend: mvs                 # mvs or opencv (bench test only)
+  transport: usb               # usb, gige, or auto; avoid unrelated SDK layers
   device_index: 0
   timeout_ms: 1000
   mvimport_dir: MvImport
@@ -75,7 +76,7 @@ external_calibration:
 # until its marker height and tag-to-load transform are measured.
 planes:
   agv_marker_plane:
-    height_m: 0.183
+    height_m: 0.225
   load_marker_plane:
     height_m: 0.0
 

@@ -11,6 +11,7 @@ namespace multi_agv_control {
 enum class UpperMode {
   kM1,
   kM2a,
+  kM2b,
   kM4,
 };
 

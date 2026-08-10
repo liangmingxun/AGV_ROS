@@ -1,0 +1,16 @@
+<launch>
+  <include file="$(find multi_agv_bringup)/launch/formal_fake_algorithm.launch">
+    <arg name="upper_config"
+         value="$(find multi_agv_bringup)/config/exp2b_M2b.yaml"/>
+    <arg name="lower_config"
+         value="$(find multi_agv_bringup)/config/exp2b_M2b.yaml"/>
+    <arg name="start_state_estimator" value="false"/>
+  </include>
+  <test test-name="formal_fake_algorithm_m2b_e2e"
+        pkg="multi_agv_control"
+        type="test_formal_fake_algorithm_e2e.py"
+        time-limit="30">
+    <param name="expected_method" value="M2b_M2b"/>
+    <param name="expect_m2b_debug" value="true"/>
+  </test>
+</launch>

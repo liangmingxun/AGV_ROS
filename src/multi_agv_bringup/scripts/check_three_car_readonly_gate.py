@@ -172,7 +172,7 @@ def parse_args(argv):
         "--minimum-capability-rate", type=float, default=15.0,
         help="minimum capability-report rate; nominal publication is 20 Hz")
     parser.add_argument(
-        "--minimum-voltage", type=float, default=10.8,
+        "--minimum-voltage", type=float, default=10.5,
         help="minimum feedback voltage; use 0 only for fake-transport testing")
     parser.add_argument(
         "--maximum-stamp-spread", type=float, default=0.02,

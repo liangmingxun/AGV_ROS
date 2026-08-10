@@ -1,0 +1,9 @@
+<launch>
+  <!-- Complete Task-16 method, structurally restricted to fake chassis. -->
+  <include file="$(find multi_agv_bringup)/launch/formal_fake_algorithm.launch">
+    <arg name="upper_config"
+         value="$(find multi_agv_bringup)/config/exp2b_M2b.yaml"/>
+    <arg name="lower_config"
+         value="$(find multi_agv_bringup)/config/exp2b_M2b.yaml"/>
+  </include>
+</launch>

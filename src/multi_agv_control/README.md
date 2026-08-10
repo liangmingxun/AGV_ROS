@@ -145,12 +145,20 @@ and path state to be valid. Neither invocation authorizes motion.
 
 The unloaded Robot1 floor S gate is intentionally separate from the fleet
 controller. `robot1_single_s_pretest.launch` runs one bounded sine period at
-`0.05 m/s`, consumes only `/agv1/odom` and `/agv1/chassis_feedback`, and is the
-only pretest node allowed to publish `/agv1/chassis_command`. It anchors the
-path to the starting odometry pose and uses the measured rear support offset
-when constructing the nonholonomic chassis reference. Serial execution still
-requires explicit command, clear-area and wheels-on-floor launch
-acknowledgements; the launch defaults remain non-moving.
+`0.05 m/s` and is the only pretest node allowed to publish
+`/agv1/chassis_command`. The odometry-only entry anchors to the starting
+odometry pose. The camera entry consumes `/pose_provider/agv1/base_pose_fused`:
+camera measurements correct absolute SE(2), while actual-wheel translation
+and corrected-IMU yaw from `/agv1/odom` propagate the pose at chassis rate.
+The bounded curvature-feedforward scale/preview interface defaults to the
+original uncompensated tracker after the first physical A/B trial rejected
+the candidate compensation. At the prescribed endpoint it immediately
+commands zero, confirms stopped wheel feedback, and records a passive endpoint
+window; endpoint pose remains an offline metric and never causes extra motion.
+The latched `/agv1/s_pretest/result` is the run authority, and an independent
+actual-wheel-speed watchdog remains active. Serial execution still requires
+explicit command, clear-area and wheels-on-floor launch acknowledgements; the
+launch defaults remain non-moving.
 
 After the distributed three-car read-only gate has passed repeatedly, the
 first fleet motion uses `three_car_unloaded_bounded_pretest.launch`, not the
@@ -241,3 +249,67 @@ internal-state record shape, unique command authority, absence of `/cmd_vel`,
 and cooperative-state loss followed by three-car fail-zero. This is software
 authorization only. There is intentionally no serial launch path for the
 formal controller, and none of these changes authorise a physical experiment.
+
+## Task 15 camera localization software boundary
+
+`camera_pose_adapter_node` accepts four calibrated world-frame
+`geometry_msgs/PoseStamped` streams for agv1/agv2/agv3/load plus independent
+confidence streams. It applies configured planar tag-to-target rigid
+transforms, preserves transformed raw poses, emits only causal filtered poses
+when confidence/time/frame gates pass, and never publishes `/tf` or chassis
+commands. `path_state_estimator_node` selects `localization_mode: camera`,
+retains each original measurement stamp and publishes the unchanged
+`CooperativeState` schema with `SOURCE_CAMERA`.
+
+Camera dropout is independent: losing one robot tag invalidates only that
+robot's pose/support/path flags; the other robots and directly observed load
+remain available. Consumers still subscribe only to
+`/multi_agv/cooperative_state`, so switching odometry/camera does not change
+the controller interface or command authority.
+
+Camera `PoseStamped.frame_id` uses `world@xxxxxxxx`, where the hexadecimal
+suffix is a nonzero ground-calibration generation token. ROS1 owns and
+rewrites `header.seq`, so it has no calibration meaning. A generation change clears all four adapter filters and all
+camera state-estimator histories; late samples from a retired generation are
+rejected. A stream that returns after a stale gap also restarts its own pose
+filter from the first accepted measurement.
+
+The checked-in `localization_camera.yaml` is deliberately blocked by both
+`calibration_authorized: false` and `extrinsics_frozen: false`. Its zero
+tag-to-target transforms are placeholders, not measurements. The software
+test uses a separate synthetic, authorized calibration. Do not pass
+`calibration_authorized:=true` on `camera_formal.launch` until camera intrinsics,
+world extrinsics, all four tag transforms, confidence semantics, latency and
+occlusion thresholds have been measured and archived.
+
+## Task 16–18 software completion boundary
+
+`M2bController` implements the complete Experiment2 literature comparison:
+fixed velocity bounds, constrained distributed generator, RK4 substeps,
+nonlinear error mapping and literature lower law. The checked-in
+`m2b_golden.csv` matches 100 authoritative samples, capability feedback is
+log-only, and `/multi_agv/m2b_algorithm_state` preserves all paper mapping
+terms. `formal_fake_m2b.launch` remains structurally fake-only.
+
+M2b owns frozen literature-channel acceleration/deceleration limits. Runtime
+`CapabilityReport` values are log-only inside `M2bController`; physical
+capability is enforced later by the identical chassis-side wheel limiter used
+by the other methods. The exact-sign zero-boundary-layer setting is retained
+only for authoritative golden reproduction. Positive boundary layers are
+supported and continuity-tested for separately preregistered physical
+configurations.
+
+The supervisor now opens and closes one contiguous evaluation interval from
+actual progress and can continue through post-restoration until its registered
+end. Task 17 recording can require an exact SHA approval; the checked-in
+registry authorizes only software rehearsals and refuses formal statistics.
+Stage A–D and formal-camera protocols live under `docs/test-protocols/`.
+They are unsigned templates, not evidence that physical gates passed.
+
+The recorder publishes `/experiment_recorder/armed` at 5 Hz only after
+rosbag has subscribed to every required stream, alongside the latched
+`/experiment_recorder/method_id`. The formal algorithm can require a fresh,
+method-matching heartbeat and will retain command authority while repeatedly
+publishing zero without advancing its reference. The optional software
+watchdog Boolean can feed the fifth causal risk margin; stale primary state
+still causes immediate fail-zero.

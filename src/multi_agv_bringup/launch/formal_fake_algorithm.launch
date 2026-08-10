@@ -6,6 +6,7 @@
   <arg name="runtime_config"
        default="$(find multi_agv_bringup)/config/formal_fake_runtime.yaml"/>
   <arg name="start_state_estimator" default="true"/>
+  <arg name="require_recorder_armed" default="false"/>
 
   <include file="$(find multi_agv_bringup)/launch/three_fake_chassis.launch"/>
   <include if="$(arg start_state_estimator)"
@@ -21,5 +22,7 @@
     <rosparam command="load" file="$(arg upper_config)"/>
     <rosparam command="load" file="$(arg lower_config)"/>
     <param name="platform_transport_type" value="fake"/>
+    <param name="formal_fake_runtime/require_recorder_armed"
+           value="$(arg require_recorder_armed)"/>
   </node>
 </launch>

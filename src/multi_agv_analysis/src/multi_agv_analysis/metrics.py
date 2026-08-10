@@ -25,12 +25,68 @@ def _maximum_absolute(values):
     return max((abs(value) for value in values), default=None)
 
 
+def _wrap_angle(value):
+    return math.atan2(math.sin(value), math.cos(value))
+
+
+def _rigid_fit_residual(actual, reference):
+    if len(actual) != 3 or len(reference) != 3:
+        return math.nan
+    values = [coordinate for point in actual + reference
+              for coordinate in point]
+    if not all(math.isfinite(value) for value in values):
+        return math.nan
+    actual_center = (
+        sum(point[0] for point in actual) / 3.0,
+        sum(point[1] for point in actual) / 3.0)
+    reference_center = (
+        sum(point[0] for point in reference) / 3.0,
+        sum(point[1] for point in reference) / 3.0)
+    dot = 0.0
+    cross = 0.0
+    for measured, expected in zip(actual, reference):
+        ax = measured[0] - actual_center[0]
+        ay = measured[1] - actual_center[1]
+        rx = expected[0] - reference_center[0]
+        ry = expected[1] - reference_center[1]
+        dot += rx * ax + ry * ay
+        cross += rx * ay - ry * ax
+    yaw = math.atan2(cross, dot)
+    cosine, sine = math.cos(yaw), math.sin(yaw)
+    squared = []
+    for measured, expected in zip(actual, reference):
+        rx = expected[0] - reference_center[0]
+        ry = expected[1] - reference_center[1]
+        predicted = (
+            actual_center[0] + cosine * rx - sine * ry,
+            actual_center[1] + sine * rx + cosine * ry)
+        squared.append(
+            (measured[0] - predicted[0]) ** 2 +
+            (measured[1] - predicted[1]) ** 2)
+    return math.sqrt(sum(squared) / len(squared))
+
+
 def _first_time(rows, predicate, not_before=-math.inf):
     for row in rows:
         stamp = finite_float(row.get("stamp"))
         if stamp >= not_before and predicate(row):
             return stamp
     return None
+
+
+def _reported_capability(row, robot):
+    """Return the causal upper capability exposed by the active method.
+
+    M2b deliberately owns a separate debug schema, so its reported capability
+    takes precedence when present.  M1 and legacy converted runs fall back to
+    the mapped upper bound in the formal debug stream.
+    """
+    value = finite_float(row.get(
+        "m2b_agv{}_reported_capability".format(robot)))
+    if math.isfinite(value):
+        return value
+    return finite_float(row.get(
+        "agv{}_mapped_velocity_upper".format(robot)))
 
 
 def compute_metrics(rows, sample_period, command_epsilon=1e-6,
@@ -76,10 +132,24 @@ def compute_metrics(rows, sample_period, command_epsilon=1e-6,
     ratios_seen = 0
     wheel_errors = []
     path_errors = []
+    path_velocity_errors = {robot: [] for robot in range(1, 4)}
+    path_progress_errors = {robot: [] for robot in range(1, 4)}
+    support_errors = {robot: [] for robot in range(1, 4)}
+    load_position_errors = []
+    load_yaw_errors = []
+    rigid_residuals = []
+    link_margins = []
+    demand_margins = []
+    limiter_samples = {"speed": 0, "acceleration": 0, "deceleration": 0}
+    internal = {
+        "psi": [], "composite_error": [], "theta_hat": [],
+        "disturbance_estimate": [], "m2b_delta_z": [],
+        "m2b_delta_w": []}
 
     for row in rows:
         demanded = False
         limited = False
+        limiter_active = {name: False for name in limiter_samples}
         for robot, side in WHEELS:
             prefix = "agv{}_wheel_{}".format(robot, side)
             raw = finite_float(row.get(prefix + "_raw"))
@@ -95,13 +165,99 @@ def compute_metrics(rows, sample_period, command_epsilon=1e-6,
                 limited = limited or abs(applied - raw) > command_epsilon
             if math.isfinite(actual) and math.isfinite(applied):
                 wheel_errors.append(actual - applied)
+            limiter_active["speed"] |= bool_value(
+                row.get(prefix + "_speed_limit_active", False))
+            limiter_active["acceleration"] |= bool_value(
+                row.get(prefix + "_accel_limit_active", False))
+            limiter_active["deceleration"] |= bool_value(
+                row.get(prefix + "_decel_limit_active", False))
         demand_samples += int(demanded)
         limited_samples += int(limited)
+        for name, active in limiter_active.items():
+            limiter_samples[name] += int(active)
 
         actual_progress = finite_float(row.get("load_s_actual"))
         reference_progress = finite_float(row.get("load_s_reference"))
         if math.isfinite(actual_progress) and math.isfinite(reference_progress):
             path_errors.append(actual_progress - reference_progress)
+        actual_supports = []
+        reference_supports = []
+        for robot in range(1, 4):
+            actual_s = finite_float(row.get("agv{}_s_actual".format(robot)))
+            actual_v = finite_float(
+                row.get("agv{}_s_dot_actual".format(robot)))
+            reference_s = reference_progress
+            reference_v = finite_float(row.get("load_velocity_reference"))
+            if math.isfinite(actual_s) and math.isfinite(reference_s):
+                path_progress_errors[robot].append(actual_s - reference_s)
+            if math.isfinite(actual_v) and math.isfinite(reference_v):
+                path_velocity_errors[robot].append(actual_v - reference_v)
+            actual = (
+                finite_float(row.get(
+                    "agv{}_support_pose_x".format(robot))),
+                finite_float(row.get(
+                    "agv{}_support_pose_y".format(robot))))
+            reference = (
+                finite_float(row.get(
+                    "agv{}_support_reference_x".format(robot))),
+                finite_float(row.get(
+                    "agv{}_support_reference_y".format(robot))))
+            actual_supports.append(actual)
+            reference_supports.append(reference)
+            if all(math.isfinite(value) for value in actual + reference):
+                support_errors[robot].append(math.hypot(
+                    actual[0] - reference[0], actual[1] - reference[1]))
+            for name in ("psi", "composite_error", "disturbance_estimate"):
+                value = finite_float(row.get(
+                    "agv{}_{}".format(robot, name)))
+                if math.isfinite(value):
+                    internal[name].append(value)
+            for index in (1, 2):
+                value = finite_float(row.get(
+                    "agv{}_theta_hat_{}".format(robot, index)))
+                if math.isfinite(value):
+                    internal["theta_hat"].append(value)
+        rigid = _rigid_fit_residual(actual_supports, reference_supports)
+        if math.isfinite(rigid):
+            rigid_residuals.append(rigid)
+        load_actual = (
+            finite_float(row.get("load_pose_x")),
+            finite_float(row.get("load_pose_y")))
+        load_reference = (
+            finite_float(row.get("load_x_reference")),
+            finite_float(row.get("load_y_reference")))
+        if all(math.isfinite(value)
+               for value in load_actual + load_reference):
+            load_position_errors.append(math.hypot(
+                load_actual[0] - load_reference[0],
+                load_actual[1] - load_reference[1]))
+        load_yaw = finite_float(row.get("load_pose_yaw"))
+        load_yaw_reference = finite_float(row.get("load_yaw_reference"))
+        if math.isfinite(load_yaw) and math.isfinite(load_yaw_reference):
+            load_yaw_errors.append(
+                _wrap_angle(load_yaw - load_yaw_reference))
+        mapped = [
+            _reported_capability(row, robot)
+            for robot in range(1, 4)]
+        common_upper = finite_float(row.get("mapped_common_velocity_upper"))
+        if all(math.isfinite(value) for value in mapped) and math.isfinite(
+                common_upper):
+            link_margins.append(min(mapped) - common_upper)
+            demands = [
+                finite_float(row.get(
+                    "m2b_agv{}_upsilon".format(robot)))
+                for robot in range(1, 4)]
+            if not all(math.isfinite(value) for value in demands):
+                common = finite_float(row.get("common_velocity_reference"))
+                demands = [common] * 3
+            if all(math.isfinite(value) for value in demands):
+                demand_margins.append(min(
+                    mapped[index] - abs(demands[index])
+                    for index in range(3)))
+        for name in ("m2b_delta_z", "m2b_delta_w"):
+            value = finite_float(row.get(name))
+            if math.isfinite(value):
+                internal[name].append(value)
 
     capability_recovery_time = None
     common_velocity_recovery_time = None
@@ -117,13 +273,11 @@ def compute_metrics(rows, sample_period, command_epsilon=1e-6,
         threshold = 0.95 * nominal_agv2_capability
         derating_observed_stamp = _first_time(
             rows,
-            lambda row: finite_float(
-                row.get("agv2_mapped_velocity_upper")) < threshold)
+            lambda row: _reported_capability(row, 2) < threshold)
         if derating_observed_stamp is not None:
             capability_recovery_stamp = _first_time(
                 rows,
-                lambda row: finite_float(
-                    row.get("agv2_mapped_velocity_upper")) >= threshold,
+                lambda row: _reported_capability(row, 2) >= threshold,
                 not_before=derating_observed_stamp)
             if capability_recovery_stamp is not None:
                 capability_recovery_time = (
@@ -164,6 +318,16 @@ def compute_metrics(rows, sample_period, command_epsilon=1e-6,
         evaluation_source = "partial_experiment_state"
     else:
         evaluation_source = "all_samples_fallback"
+    active_indices = [
+        index for index, row in enumerate(all_rows)
+        if bool_value(row.get("evaluation_active", False))]
+    bounded_window = bool(active_indices)
+    if bounded_window:
+        bounded_window = (
+            active_indices[0] > 0 and
+            active_indices[-1] < len(all_rows) - 1 and
+            active_indices == list(range(
+                active_indices[0], active_indices[-1] + 1)))
     return {
         "schema_version": 1,
         "causal_unfiltered": True,
@@ -178,8 +342,9 @@ def compute_metrics(rows, sample_period, command_epsilon=1e-6,
         },
         "evaluation_window": {
             "source": evaluation_source,
+            "bounded_and_contiguous": bounded_window,
             "formal_statistics_ready":
-                evaluation_source == "experiment_state",
+                evaluation_source == "experiment_state" and bounded_window,
         },
         "wheel": {
             "demand_exceedance_samples": demand_samples,
@@ -190,13 +355,62 @@ def compute_metrics(rows, sample_period, command_epsilon=1e-6,
                 maximum_ratio if ratios_seen else None),
             "tracking_rmse": _rmse(wheel_errors),
             "tracking_max_absolute": _maximum_absolute(wheel_errors),
+            "speed_limited_time":
+                limiter_samples["speed"] * sample_period,
+            "acceleration_limited_time":
+                limiter_samples["acceleration"] * sample_period,
+            "deceleration_limited_time":
+                limiter_samples["deceleration"] * sample_period,
         },
         "path": {
             "progress_rmse": _rmse(path_errors),
             "progress_max_absolute": _maximum_absolute(path_errors),
+            "per_robot": {
+                "agv{}".format(robot): {
+                    "progress_rmse": _rmse(path_progress_errors[robot]),
+                    "progress_max_absolute":
+                        _maximum_absolute(path_progress_errors[robot]),
+                    "velocity_rmse": _rmse(path_velocity_errors[robot]),
+                    "velocity_max_absolute":
+                        _maximum_absolute(path_velocity_errors[robot]),
+                } for robot in range(1, 4)},
+        },
+        "geometry": {
+            "support": {
+                "agv{}".format(robot): {
+                    "position_rmse": _rmse(support_errors[robot]),
+                    "position_max": _maximum_absolute(
+                        support_errors[robot]),
+                } for robot in range(1, 4)},
+            "load_position_rmse": _rmse(load_position_errors),
+            "load_position_max": _maximum_absolute(load_position_errors),
+            "load_yaw_rmse": _rmse(load_yaw_errors),
+            "load_yaw_max_absolute": _maximum_absolute(load_yaw_errors),
+            "rigid_fit_residual_rmse": _rmse(rigid_residuals),
+            "rigid_fit_residual_max": _maximum_absolute(rigid_residuals),
+        },
+        "capability": {
+            "link_margin_minimum": (
+                min(link_margins) if link_margins else None),
+            "demand_margin_minimum": (
+                min(demand_margins) if demand_margins else None),
+        },
+        "internal": {
+            "psi_max_absolute": _maximum_absolute(internal["psi"]),
+            "composite_error_max_absolute":
+                _maximum_absolute(internal["composite_error"]),
+            "theta_hat_max_absolute":
+                _maximum_absolute(internal["theta_hat"]),
+            "disturbance_estimate_max":
+                max(internal["disturbance_estimate"], default=None),
+            "m2b_delta_z_max":
+                max(internal["m2b_delta_z"], default=None),
+            "m2b_delta_w_max":
+                max(internal["m2b_delta_w"], default=None),
         },
         "recovery": {
-            "capability_source": "agv2_mapped_velocity_upper",
+            "capability_source":
+                "m2b_reported_capability_else_mapped_velocity_upper",
             "derating_observed_stamp": derating_observed_stamp,
             "capability_95_stamp": capability_recovery_stamp,
             "capability_95_time": capability_recovery_time,

@@ -6,11 +6,12 @@ import unittest
 from pathlib import Path
 
 import rosbag
-import rosnode
 import rospkg
 import rospy
 import rostest
 import yaml
+from std_srvs.srv import Trigger
+from std_msgs.msg import Bool, String
 
 from multi_agv_analysis.conversion import convert_bag
 from multi_agv_analysis.io_utils import load_yaml, read_csv
@@ -37,6 +38,12 @@ class ExperimentRecordingTest(unittest.TestCase):
         self.assertTrue(
             manifest.get("recording_armed_at"),
             "experiment recorder never reached its subscription-ready state")
+        armed = rospy.wait_for_message(
+            "/experiment_recorder/armed", Bool, timeout=5.0)
+        self.assertTrue(armed.data)
+        recorder_method = rospy.wait_for_message(
+            "/experiment_recorder/method_id", String, timeout=5.0)
+        self.assertEqual(recorder_method.data, "M1_R1")
         self.assertEqual(manifest["interface_version"],
                          "agv_ros_interfaces_v1")
         self.assertEqual(manifest["method_id"], "M1_R1")
@@ -53,7 +60,10 @@ class ExperimentRecordingTest(unittest.TestCase):
         # armed transition cannot be missed. Keep the fake graph alive briefly
         # so every required periodic stream contributes at least one message.
         rospy.sleep(0.5)
-        rosnode.kill_nodes(["/experiment_recorder"])
+        rospy.wait_for_service("/experiment_recorder/stop", timeout=5.0)
+        stop = rospy.ServiceProxy("/experiment_recorder/stop", Trigger)
+        stop_result = stop()
+        self.assertTrue(stop_result.success, stop_result.message)
         bag_path = run_dir / manifest["bag"]
         deadline = time.monotonic() + 15.0
         while (not bag_path.exists() or

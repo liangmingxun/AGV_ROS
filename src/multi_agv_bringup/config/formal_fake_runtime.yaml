@@ -6,6 +6,12 @@ formal_fake_runtime:
   maximum_state_age: 0.15
   maximum_capability_age: 0.20
   require_valid_load_state: true
+  # Keep false for standalone fake regression. Formal experiment launch must
+  # override this to true so progress cannot begin before rosbag is armed.
+  require_recorder_armed: false
+  # Recorder publishes a 5 Hz heartbeat. Abrupt recorder loss therefore
+  # returns the command path to fail-zero instead of trusting a stale latch.
+  maximum_recorder_armed_age: 0.50
   initial_progress: 0.0
   target_progress: 1.0
   experiment_id: formal_algorithm_fake_integration
@@ -27,6 +33,10 @@ formal_fake_runtime:
     wheel_safe_margin: 0.08
     position_limit: 0.12
     position_safe_margin: 0.06
+    # Optional fifth causal risk input. Keep disabled for standalone golden
+    # regression; approved physical orchestration should enable it.
+    require_software_watchdog: false
+    maximum_watchdog_age: 0.25
 
   capability_reserve:
     body_linear_velocity: 0.0

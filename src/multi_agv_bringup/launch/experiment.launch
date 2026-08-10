@@ -6,6 +6,12 @@
   <arg name="experiment_id" default="formal_algorithm_fake_integration"/>
   <arg name="method_id" default="M1_R1"/>
   <arg name="interface_version" default="agv_ros_interfaces_v1"/>
+  <arg name="camera_mode" default="false"/>
+  <arg name="vision_bridge_config"
+       default="$(find multi_agv_vision_bridge)/config/vision_udp_bridge.yaml"/>
+  <!-- Generate this JSON on Windows with create_manifest.py and copy it to
+       Robot1 before a formal camera run. Empty is deliberately rejected. -->
+  <arg name="windows_sender_manifest" default=""/>
   <arg name="path_config"
        default="$(find multi_agv_bringup)/config/path_s_curve.yaml"/>
   <arg name="support_config"
@@ -18,10 +24,17 @@
        default="$(find multi_agv_bringup)/config/exp2a_M1.yaml"/>
   <arg name="lower_config"
        default="$(find multi_agv_bringup)/config/exp3_R1.yaml"/>
+  <arg name="evaluation_config"
+       default="$(find multi_agv_bringup)/config/formal_evaluation_window.yaml"/>
   <!-- Must be frozen from the mapped nominal baseline before recovery metrics. -->
   <arg name="nominal_agv2_mapped_capability" default="0.0"/>
   <arg name="nominal_common_velocity" default="0.08"/>
   <arg name="evaluation_target" default="1.0"/>
+  <arg name="require_approved_config" default="false"/>
+  <arg name="formal_statistics_requested" default="false"/>
+  <arg name="approval_id" default=""/>
+  <arg name="approval_registry"
+       default="$(find multi_agv_bringup)/config/approved_config_registry.yaml"/>
 
   <node pkg="multi_agv_analysis" type="record_experiment.py"
         name="experiment_recorder" output="screen" required="true">
@@ -31,6 +44,13 @@
     <param name="experiment_id" value="$(arg experiment_id)"/>
     <param name="method_id" value="$(arg method_id)"/>
     <param name="interface_version" value="$(arg interface_version)"/>
+    <param name="camera_mode" value="$(arg camera_mode)"/>
+    <param name="require_approved_config"
+           value="$(arg require_approved_config)"/>
+    <param name="formal_statistics_requested"
+           value="$(arg formal_statistics_requested)"/>
+    <param name="approval_id" value="$(arg approval_id)"/>
+    <param name="approval_registry" value="$(arg approval_registry)"/>
     <param name="workspace" value="$(find multi_agv_bringup)/../../.."/>
     <param name="connection_wait_seconds" value="5.0"/>
     <param name="preflight_wait_seconds" value="15.0"/>
@@ -48,7 +68,13 @@
        "$(arg runtime_config)",
        "$(arg upper_config)",
        "$(arg lower_config)",
+       "$(arg evaluation_config)",
+       "$(find multi_agv_bringup)/config/fleet_inventory.yaml",
+       "$(find multi_agv_bringup)/config/software_watchdog.yaml",
        "$(find multi_agv_bringup)/config/record_topics.yaml"]
+    </rosparam>
+    <rosparam param="camera_config_files" subst_value="true">
+      ["$(arg vision_bridge_config)", "$(arg windows_sender_manifest)"]
     </rosparam>
     <param name="metrics/nominal_agv2_capability"
            value="$(arg nominal_agv2_mapped_capability)"/>

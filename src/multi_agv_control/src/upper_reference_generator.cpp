@@ -139,14 +139,16 @@ DistributedReferenceOutput stepDistributedReference(
 UpperMode upperModeFromString(const std::string& value) {
   if (value == "M1") return UpperMode::kM1;
   if (value == "M2a") return UpperMode::kM2a;
+  if (value == "M2b") return UpperMode::kM2b;
   if (value == "M4") return UpperMode::kM4;
-  throw std::invalid_argument("upper mode must be M1, M2a or M4");
+  throw std::invalid_argument("upper mode must be M1, M2a, M2b or M4");
 }
 
 const char* upperModeName(UpperMode mode) {
   switch (mode) {
     case UpperMode::kM1: return "M1";
     case UpperMode::kM2a: return "M2a";
+    case UpperMode::kM2b: return "M2b";
     case UpperMode::kM4: return "M4";
   }
   return "UNKNOWN";
@@ -194,6 +196,12 @@ bool UpperReferenceGenerator::setFixedM4Speed(double speed) {
 UpperReferenceOutput UpperReferenceGenerator::step(
     const std::array<UpperAgentInput, 3>& input,
     double controller_dt_seconds) {
+  // M2b is a complete coupled literature method and must use
+  // M2bController; silently treating it as M2a would invalidate Exp2b.
+  if (config_.mode == UpperMode::kM2b) {
+    output_ = {};
+    return output_;
+  }
   if (!finite(controller_dt_seconds) || controller_dt_seconds <= 0.0) {
     output_.valid = false;
     return output_;

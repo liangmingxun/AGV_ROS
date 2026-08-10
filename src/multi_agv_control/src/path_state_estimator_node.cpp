@@ -1,16 +1,19 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstdint>
 #include <deque>
 #include <limits>
 #include <memory>
 #include <stdexcept>
 #include <string>
+#include <unordered_set>
 #include <utility>
 
 #include <XmlRpcValue.h>
 #include <agv_msgs/CooperativeState.h>
 #include <geometry_msgs/Pose2D.h>
+#include <geometry_msgs/PoseStamped.h>
 #include <nav_msgs/Odometry.h>
 #include <ros/ros.h>
 
@@ -66,6 +69,20 @@ class PathStateEstimatorNode {
  public:
   PathStateEstimatorNode() : private_node_("~"), path_(loadPathConfig()),
       geometry_(path_, loadGeometryConfig()) {
+    private_node_.param("localization_mode", localization_mode_,
+                        std::string("odometry_pretest"));
+    if (localization_mode_ != "odometry_pretest" &&
+        localization_mode_ != "camera" &&
+        localization_mode_ != "fused") {
+      throw std::runtime_error(
+          "localization_mode must be odometry_pretest, camera or fused");
+    }
+    camera_mode_ = localization_mode_ != "odometry_pretest";
+    robot_pose_source_ = localization_mode_ == "fused"
+        ? agv_msgs::CooperativeState::SOURCE_FUSED
+        : agv_msgs::CooperativeState::SOURCE_CAMERA;
+    private_node_.param("require_calibration_epoch",
+                        require_calibration_epoch_, true);
     private_node_.param("publish_rate", publish_rate_, 100.0);
     private_node_.param("maximum_state_age", maximum_state_age_, 0.15);
     private_node_.param("maximum_sync_slop", maximum_sync_slop_, 0.02);
@@ -108,6 +125,17 @@ class PathStateEstimatorNode {
         projector_config);
     load_estimator_ =
         std::make_unique<StateEstimator>(std::move(load_projector), estimator_config);
+    if (camera_mode_) {
+      private_node_.param("load_pose_topic", load_pose_topic_, std::string());
+      if (load_pose_topic_.empty()) {
+        throw std::runtime_error(
+            "camera localization requires load_pose_topic");
+      }
+      load_pose_subscriber_ = node_.subscribe<geometry_msgs::PoseStamped>(
+          load_pose_topic_, 10,
+          &PathStateEstimatorNode::receiveCameraLoad, this,
+          ros::TransportHints().reliable().tcpNoDelay());
+    }
 
     state_publisher_ = node_.advertise<agv_msgs::CooperativeState>(
         "/multi_agv/cooperative_state", 5, false);
@@ -126,6 +154,7 @@ class PathStateEstimatorNode {
   struct RobotState {
     std::string robot_id;
     std::string odom_topic;
+    std::string pose_topic;
     std::string odom_frame;
     std::string base_frame;
     PlanarPose world_to_odom;
@@ -240,10 +269,7 @@ class PathStateEstimatorNode {
         robot.robot_id != "agv" + std::to_string(index + 1U)) {
       throw std::runtime_error("robot entries must be ordered agv1, agv2, agv3");
     }
-    robot.odom_topic = xmlString(value, "odom_topic");
-    robot.odom_frame = xmlString(value, "odom_frame");
     robot.base_frame = xmlString(value, "base_frame");
-    robot.world_to_odom = xmlPose(value, "world_to_odom");
     robot.base_to_support = xmlPose(value, "base_to_support");
     PathProjector projector(
         path_.length(),
@@ -255,16 +281,176 @@ class PathStateEstimatorNode {
         projector_config);
     robot.estimator =
         std::make_unique<StateEstimator>(std::move(projector), estimator_config);
-    const boost::function<void(const nav_msgs::Odometry::ConstPtr&)> callback =
-        [this, index](const nav_msgs::Odometry::ConstPtr& message) {
-          receiveOdometry(index, message);
-        };
-    robot.subscriber = node_.subscribe<nav_msgs::Odometry>(
-        robot.odom_topic, 10, callback, ros::VoidConstPtr(),
-        // Cooperative odometry is state, not disposable telemetry. Reliable
-        // TCP plus the timestamp-matching history below avoids turning a
-        // short Wi-Fi delivery pause into a fabricated three-robot pose.
-        ros::TransportHints().reliable().tcpNoDelay());
+    if (camera_mode_) {
+      robot.pose_topic = xmlString(value, "pose_topic");
+      const boost::function<void(
+          const geometry_msgs::PoseStamped::ConstPtr&)> callback =
+          [this, index](const geometry_msgs::PoseStamped::ConstPtr& message) {
+            receiveCameraRobot(index, message);
+          };
+      robot.subscriber = node_.subscribe<geometry_msgs::PoseStamped>(
+          robot.pose_topic, 10, callback, ros::VoidConstPtr(),
+          ros::TransportHints().reliable().tcpNoDelay());
+    } else {
+      robot.odom_topic = xmlString(value, "odom_topic");
+      robot.odom_frame = xmlString(value, "odom_frame");
+      robot.world_to_odom = xmlPose(value, "world_to_odom");
+      const boost::function<void(const nav_msgs::Odometry::ConstPtr&)> callback =
+          [this, index](const nav_msgs::Odometry::ConstPtr& message) {
+            receiveOdometry(index, message);
+          };
+      robot.subscriber = node_.subscribe<nav_msgs::Odometry>(
+          robot.odom_topic, 10, callback, ros::VoidConstPtr(),
+          // Cooperative odometry is state, not disposable telemetry. Reliable
+          // TCP plus the timestamp-matching history below avoids turning a
+          // short Wi-Fi delivery pause into a fabricated three-robot pose.
+          ros::TransportHints().reliable().tcpNoDelay());
+    }
+  }
+
+  bool calibrationToken(const std::string& frame_id,
+                        std::uint32_t* token) const {
+    if (frame_id == "world" && !require_calibration_epoch_) {
+      *token = 0U;
+      return true;
+    }
+    const std::string prefix = "world@";
+    if (frame_id.compare(0U, prefix.size(), prefix) != 0 ||
+        frame_id.size() != prefix.size() + 8U) {
+      return false;
+    }
+    try {
+      std::size_t consumed = 0U;
+      const unsigned long parsed =
+          std::stoul(frame_id.substr(prefix.size()), &consumed, 16);
+      if (consumed != 8U || parsed == 0UL ||
+          parsed > std::numeric_limits<std::uint32_t>::max()) {
+        return false;
+      }
+      *token = static_cast<std::uint32_t>(parsed);
+      return true;
+    } catch (const std::exception&) {
+      return false;
+    }
+  }
+
+  bool validWorldPose(const geometry_msgs::PoseStamped& message,
+                      std::uint32_t* epoch_token) const {
+    const auto& p = message.pose.position;
+    return !message.header.stamp.isZero() &&
+        calibrationToken(message.header.frame_id, epoch_token) &&
+        std::isfinite(p.x) &&
+        std::isfinite(p.y) &&
+        std::isfinite(quaternionYaw(message.pose.orientation));
+  }
+
+  PlanarPose planarPose(const geometry_msgs::PoseStamped& message) const {
+    return {{message.pose.position.x, message.pose.position.y},
+            quaternionYaw(message.pose.orientation)};
+  }
+
+  bool acceptCameraEpoch(std::uint32_t epoch_token) {
+    if (require_calibration_epoch_ && epoch_token == 0U) {
+      ROS_WARN_THROTTLE(
+          1.0, "Rejected camera pose with zero calibration epoch token");
+      return false;
+    }
+    if (epoch_token == camera_epoch_token_) {
+      return true;
+    }
+    if (retired_camera_epoch_tokens_.count(epoch_token) != 0U) {
+      ROS_WARN_THROTTLE(
+          1.0, "Rejected pose from retired camera calibration epoch");
+      return false;
+    }
+    if (camera_epoch_token_ != 0U) {
+      retired_camera_epoch_tokens_.insert(camera_epoch_token_);
+      ROS_ERROR(
+          "Camera calibration epoch changed (%u -> %u): cleared all "
+          "CooperativeState camera histories; restart any formal experiment",
+          camera_epoch_token_, epoch_token);
+    } else {
+      ROS_INFO("State estimator accepted camera calibration epoch token=%u",
+               epoch_token);
+    }
+    camera_epoch_token_ = epoch_token;
+
+    // Preserve each local path seed only to allow a non-formal diagnostic run
+    // to recover. All timestamps, velocity histories and cross-robot samples
+    // are cleared, so measurements from two world frames are never combined.
+    for (auto& robot : robots_) {
+      const double progress_seed = robot.estimator->lastEstimate().progress;
+      robot.samples.clear();
+      robot.estimator->reset(progress_seed);
+    }
+    const double load_progress_seed = load_estimator_->lastEstimate().progress;
+    load_camera_samples_.clear();
+    load_estimator_->reset(load_progress_seed);
+    last_load_path_state_ = StateEstimate{};
+    last_load_measurement_stamp_ = ros::Time();
+    return true;
+  }
+
+  void receiveCameraRobot(
+      std::size_t index,
+      const geometry_msgs::PoseStamped::ConstPtr& message) {
+    auto& robot = robots_[index];
+    std::uint32_t epoch_token = 0U;
+    if (!validWorldPose(*message, &epoch_token)) {
+      ROS_WARN_THROTTLE(1.0, "Rejected %s camera pose with invalid stamp or frame",
+                        robot.robot_id.c_str());
+      return;
+    }
+    if (!acceptCameraEpoch(epoch_token)) {
+      return;
+    }
+    if (!robot.samples.empty() &&
+        message->header.stamp <= robot.samples.back().stamp) {
+      ROS_WARN_THROTTLE(
+          1.0, "Rejected non-increasing %s camera timestamp",
+          robot.robot_id.c_str());
+      return;
+    }
+    OdometrySample sample;
+    sample.stamp = message->header.stamp;
+    sample.robot_pose = planarPose(*message);
+    sample.support_pose =
+        composePose(sample.robot_pose, robot.base_to_support);
+    sample.path_state = robot.estimator->update(
+        sample.support_pose.position, sample.stamp.toSec());
+    robot.samples.push_back(std::move(sample));
+    while (robot.samples.size() > synchronization_queue_size_) {
+      robot.samples.pop_front();
+    }
+  }
+
+  void receiveCameraLoad(
+      const geometry_msgs::PoseStamped::ConstPtr& message) {
+    std::uint32_t epoch_token = 0U;
+    if (!validWorldPose(*message, &epoch_token)) {
+      ROS_WARN_THROTTLE(
+          1.0, "Rejected load camera pose with invalid stamp or frame");
+      return;
+    }
+    if (!acceptCameraEpoch(epoch_token)) {
+      return;
+    }
+    if (!load_camera_samples_.empty() &&
+        message->header.stamp <= load_camera_samples_.back().stamp) {
+      ROS_WARN_THROTTLE(
+          1.0, "Rejected non-increasing load camera timestamp");
+      return;
+    }
+    OdometrySample sample;
+    sample.stamp = message->header.stamp;
+    sample.robot_pose = planarPose(*message);
+    sample.support_pose = sample.robot_pose;
+    sample.path_state = load_estimator_->update(
+        sample.robot_pose.position, sample.stamp.toSec());
+    load_camera_samples_.push_back(std::move(sample));
+    while (load_camera_samples_.size() > synchronization_queue_size_) {
+      load_camera_samples_.pop_front();
+    }
   }
 
   void receiveOdometry(std::size_t index,
@@ -375,11 +561,62 @@ class PathStateEstimatorNode {
             maximum_sync_slop_);
   }
 
+  void fillCameraState(const ros::Time& now,
+                       agv_msgs::CooperativeState* state) {
+    for (std::size_t index = 0U; index < kRobotCount; ++index) {
+      const auto* sample = latestFreshSample(robots_[index], now);
+      const bool valid = sample != nullptr;
+      state->robot_localization_source[index] =
+          valid ? robot_pose_source_
+                : static_cast<std::uint8_t>(
+                      agv_msgs::CooperativeState::SOURCE_UNKNOWN);
+      state->robot_pose_valid[index] = valid;
+      state->support_pose_valid[index] = valid;
+      state->path_state_valid[index] =
+          valid && sample->path_state.valid;
+      if (sample != nullptr) {
+        state->robot_pose_stamp[index] = sample->stamp;
+        state->robot_pose[index] = toMessage(sample->robot_pose);
+        state->support_pose[index] = toMessage(sample->support_pose);
+        if (sample->path_state.valid) {
+          state->s_actual[index] = sample->path_state.progress;
+          state->s_dot_actual[index] = sample->path_state.speed;
+        }
+      }
+    }
+
+    const OdometrySample* load_sample = nullptr;
+    for (auto sample = load_camera_samples_.rbegin();
+         sample != load_camera_samples_.rend(); ++sample) {
+      if (fresh(*sample, now)) {
+        load_sample = &*sample;
+        break;
+      }
+    }
+    if (load_sample != nullptr) {
+      state->load_localization_source =
+          agv_msgs::CooperativeState::SOURCE_CAMERA;
+      state->load_pose_valid = true;
+      state->load_pose_stamp = load_sample->stamp;
+      state->load_pose = toMessage(load_sample->robot_pose);
+      state->load_path_state_valid = load_sample->path_state.valid;
+      if (load_sample->path_state.valid) {
+        state->load_s_actual = load_sample->path_state.progress;
+        state->load_s_dot_actual = load_sample->path_state.speed;
+      }
+    }
+  }
+
   void publish(const ros::TimerEvent&) {
     const ros::Time now = ros::Time::now();
     agv_msgs::CooperativeState state;
     state.header.stamp = now;
     state.header.frame_id = "world";
+    if (camera_mode_) {
+      fillCameraState(now, &state);
+      state_publisher_.publish(state);
+      return;
+    }
     std::array<const OdometrySample*, kRobotCount> synchronized_samples{};
     const bool synchronized =
         selectSynchronizedSamples(now, &synchronized_samples);
@@ -409,8 +646,10 @@ class PathStateEstimatorNode {
       is_fresh[index] =
           synchronized && sample != nullptr && fresh(*sample, now);
       state.robot_localization_source[index] =
-          is_fresh[index] ? agv_msgs::CooperativeState::SOURCE_ODOM
-                          : agv_msgs::CooperativeState::SOURCE_UNKNOWN;
+          is_fresh[index] ? static_cast<std::uint8_t>(
+                                agv_msgs::CooperativeState::SOURCE_ODOM)
+                          : static_cast<std::uint8_t>(
+                                agv_msgs::CooperativeState::SOURCE_UNKNOWN);
       state.robot_pose_valid[index] = is_fresh[index];
       state.support_pose_valid[index] = is_fresh[index];
       state.path_state_valid[index] =
@@ -469,16 +708,26 @@ class PathStateEstimatorNode {
   SCurvePath path_;
   SupportGeometry geometry_;
   std::array<RobotState, kRobotCount> robots_;
+  std::deque<OdometrySample> load_camera_samples_;
   std::unique_ptr<StateEstimator> load_estimator_;
   StateEstimate last_load_path_state_;
   ros::Time last_load_measurement_stamp_;
   ros::Publisher state_publisher_;
+  ros::Subscriber load_pose_subscriber_;
   ros::Timer timer_;
   double publish_rate_{100.0};
   double maximum_state_age_{0.15};
   double maximum_sync_slop_{0.02};
   std::size_t synchronization_queue_size_{64U};
   double maximum_rigid_fit_residual_{0.05};
+  std::string localization_mode_{"odometry_pretest"};
+  std::string load_pose_topic_;
+  bool camera_mode_{false};
+  std::uint8_t robot_pose_source_{
+      agv_msgs::CooperativeState::SOURCE_CAMERA};
+  bool require_calibration_epoch_{true};
+  std::uint32_t camera_epoch_token_{0U};
+  std::unordered_set<std::uint32_t> retired_camera_epoch_tokens_;
 };
 
 }  // namespace multi_agv_control

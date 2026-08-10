@@ -30,6 +30,7 @@ add_library(multi_agv_geometry
   src/experiment_supervisor.cpp
   src/formal_execution_gate.cpp
   src/lower_channel_controller.cpp
+  src/m2b_controller.cpp
   src/path_projector.cpp
   src/planar_support_tracker.cpp
   src/s_curve_path.cpp
@@ -55,6 +56,24 @@ target_include_directories(path_state_estimator_node PRIVATE
 target_compile_options(path_state_estimator_node PRIVATE -Wall -Wextra -Wpedantic)
 target_link_libraries(path_state_estimator_node multi_agv_geometry ${catkin_LIBRARIES})
 add_dependencies(path_state_estimator_node ${catkin_EXPORTED_TARGETS})
+
+add_executable(camera_pose_adapter_node src/camera_pose_adapter_node.cpp)
+target_include_directories(camera_pose_adapter_node PRIVATE
+  ${catkin_INCLUDE_DIRS}
+)
+target_compile_options(camera_pose_adapter_node
+  PRIVATE -Wall -Wextra -Wpedantic)
+target_link_libraries(camera_pose_adapter_node ${catkin_LIBRARIES})
+add_dependencies(camera_pose_adapter_node ${catkin_EXPORTED_TARGETS})
+
+add_executable(camera_odom_fusion_node src/camera_odom_fusion_node.cpp)
+target_include_directories(camera_odom_fusion_node PRIVATE
+  ${catkin_INCLUDE_DIRS}
+)
+target_compile_options(camera_odom_fusion_node
+  PRIVATE -Wall -Wextra -Wpedantic)
+target_link_libraries(camera_odom_fusion_node ${catkin_LIBRARIES})
+add_dependencies(camera_odom_fusion_node ${catkin_EXPORTED_TARGETS})
 
 add_executable(multi_agv_controller_node src/multi_agv_controller_node.cpp)
 target_include_directories(multi_agv_controller_node PRIVATE
@@ -123,7 +142,7 @@ target_link_libraries(robot2_raised_derating_pretest_node
   multi_agv_geometry ${catkin_LIBRARIES})
 add_dependencies(robot2_raised_derating_pretest_node ${catkin_EXPORTED_TARGETS})
 
-install(TARGETS multi_agv_geometry path_state_estimator_node multi_agv_controller_node formal_fake_algorithm_node single_car_s_pretest_node three_car_unloaded_bounded_pretest_node experiment_supervisor_node robot2_raised_derating_pretest_node
+install(TARGETS multi_agv_geometry path_state_estimator_node camera_pose_adapter_node camera_odom_fusion_node multi_agv_controller_node formal_fake_algorithm_node single_car_s_pretest_node three_car_unloaded_bounded_pretest_node experiment_supervisor_node robot2_raised_derating_pretest_node
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
@@ -136,6 +155,7 @@ if(CATKIN_ENABLE_TESTING)
   find_package(rostest REQUIRED)
   catkin_install_python(PROGRAMS
     test/test_odom_state_estimator.py
+    test/test_camera_pose_adapter.py
     test/test_central_readonly_e2e.py
     test/test_constant_reference_e2e.py
     test/test_derating_chain_e2e.py
@@ -146,11 +166,14 @@ if(CATKIN_ENABLE_TESTING)
     test/test_three_car_unloaded_bounded_pretest.py
     DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
   add_rostest(test/odom_state_estimator.test)
+  add_rostest(test/camera_pose_adapter.test)
   add_rostest(test/central_readonly_e2e.test)
   add_rostest(test/constant_reference_e2e.test)
   add_rostest(test/derating_chain_e2e.test)
   add_rostest(test/formal_fake_algorithm_e2e.test)
+  add_rostest(test/formal_fake_algorithm_recorder_gate_e2e.test)
   add_rostest(test/formal_fake_algorithm_m2a_r4_e2e.test)
+  add_rostest(test/formal_fake_algorithm_m2b_e2e.test)
   add_rostest(test/robot2_raised_derating_pretest.test)
   add_rostest(test/single_car_s_pretest.test)
   add_rostest(test/three_car_bounded_fault_stop.test)
@@ -166,7 +189,8 @@ if(CATKIN_ENABLE_TESTING)
   catkin_add_gtest(test_dynamic_boundary test/test_dynamic_boundary.cpp)
   catkin_add_gtest(test_upper_reference_generator test/test_upper_reference_generator.cpp)
   catkin_add_gtest(test_lower_channel_controller test/test_lower_channel_controller.cpp)
-  foreach(test_target test_s_curve_path test_support_geometry test_path_projector test_state_estimator test_capability_mapper test_planar_support_tracker test_experiment_supervisor test_formal_execution_gate test_dynamic_boundary test_upper_reference_generator test_lower_channel_controller)
+  catkin_add_gtest(test_m2b_controller test/test_m2b_controller.cpp)
+  foreach(test_target test_s_curve_path test_support_geometry test_path_projector test_state_estimator test_capability_mapper test_planar_support_tracker test_experiment_supervisor test_formal_execution_gate test_dynamic_boundary test_upper_reference_generator test_lower_channel_controller test_m2b_controller)
     if(TARGET ${test_target})
       target_compile_options(${test_target} PRIVATE -Wall -Wextra -Wpedantic)
       target_compile_definitions(${test_target} PRIVATE

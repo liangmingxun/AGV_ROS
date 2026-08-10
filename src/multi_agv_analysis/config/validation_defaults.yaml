@@ -24,6 +24,38 @@ experiment_recording:
   recommended_topics:
     - /multi_agv/experiment_state
 
+  method_required_topics:
+    M2b_M2b:
+      - /multi_agv/m2b_algorithm_state
+
+  # Applied conditionally only when CooperativeState reports CAMERA or FUSED.
+  camera_required_topics:
+    - /vision/aruco/calibration_epoch
+    - /camera/world/agv1_tag_pose
+    - /camera/world/agv2_tag_pose
+    - /camera/world/agv3_tag_pose
+    - /camera/world/load_tag_pose
+    - /camera/world/agv1_confidence
+    - /camera/world/agv2_confidence
+    - /camera/world/agv3_confidence
+    - /camera/world/load_confidence
+    - /pose_provider/agv1/base_pose_raw
+    - /pose_provider/agv2/base_pose_raw
+    - /pose_provider/agv3/base_pose_raw
+    - /pose_provider/load/pose_raw
+    - /pose_provider/agv1/base_pose_filtered
+    - /pose_provider/agv2/base_pose_filtered
+    - /pose_provider/agv3/base_pose_filtered
+    - /pose_provider/load/pose_filtered
+
+  fused_required_topics:
+    - /pose_provider/agv1/base_pose_fused
+    - /pose_provider/agv2/base_pose_fused
+    - /pose_provider/agv3/base_pose_fused
+
+  camera_calibration_epoch_required: true
+  maximum_camera_calibration_epoch_changes: 0
+
   minimum_topic_rates:
     /agv1/chassis_command: 90.0
     /agv2/chassis_command: 90.0
@@ -44,6 +76,7 @@ experiment_recording:
     /multi_agv/path_reference: 90.0
     /multi_agv/controller_state: 90.0
     /multi_agv/formal_algorithm_state: 90.0
+    /multi_agv/m2b_algorithm_state: 90.0
 
   stamp_files:
     - chassis_command.csv
@@ -56,6 +89,7 @@ experiment_recording:
     - derating_command.csv
     - imu.csv
     - odometry.csv
+    - camera_pose.csv
 
   sequence_rules:
     - {file: chassis_command.csv, group_by: robot_id, field: command_seq,
