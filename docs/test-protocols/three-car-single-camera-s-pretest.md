@@ -12,6 +12,11 @@
 ./run_robot3_camera_s_closed_loop.sh
 ```
 
+Robot3 uses the evidence-based `robot3_camera_s_lateral_recovery_v1`
+tracker overlay: lateral gain 4.0, heading gain 3.0 and 0.05 s curvature
+preview. Robot1 and Robot2 retain the shared frozen tracker values. The
+profile is written into every run's `metadata.txt`.
+
 每个命令都必须附加：
 
 ```text
@@ -34,6 +39,16 @@ Robot2/3 测试前，分别在对应电脑运行：
 rosrun multi_agv_bringup start_three_car_chassis.sh 2
 rosrun multi_agv_bringup start_three_car_chassis.sh 3
 ```
+
+三车 ROS 配置统一使用 `/dev/chassis_driver`。首次部署或更换 USB 转串口后，
+在对应电脑以真实临时设备名运行一次：
+
+```text
+sudo ./src/multi_agv_bringup/scripts/configure_chassis_udev.sh /dev/ttyUSB0
+```
+
+该命令依据设备 `ID_SERIAL` 建立稳定 udev 别名；ROS 不再依赖可能随插拔
+顺序变化的 `ttyUSB0`/`ttyACM0`。
 
 通用控制器由 `robot_index` 选择 `/agvN/*` 和
 `/pose_provider/agvN/base_pose_fused`。入口拒绝并发的底盘命令发布者、错误

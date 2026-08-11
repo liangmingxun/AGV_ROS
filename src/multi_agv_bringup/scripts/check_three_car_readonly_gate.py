@@ -183,6 +183,9 @@ def parse_args(argv):
     parser.add_argument(
         "--require-valid-state", action="store_true",
         help="also require all cooperative robot/support/path validity flags")
+    parser.add_argument(
+        "--require-fused-cooperative-state", action="store_true",
+        help="require three_car_path and SOURCE_FUSED for all robots/load")
     return parser.parse_args(argv)
 
 
@@ -268,21 +271,34 @@ def main(argv=None):
         stamp_spreads = []
         missing_stamp_samples = 0
         invalid_state_samples = 0
+        wrong_authority_samples = 0
         for observed in evaluated:
+            fully_valid = (
+                all(observed.robot_pose_valid) and
+                all(observed.support_pose_valid) and
+                all(observed.path_state_valid) and
+                observed.load_pose_valid and
+                observed.load_path_state_valid)
             stamps = [
                 stamp.to_sec() for stamp in observed.robot_pose_stamp
                 if stamp.to_sec() > 0.0]
-            if len(stamps) == ROBOT_COUNT:
+            # Invalid snapshots may intentionally carry latest diagnostic
+            # stamps from unmatched streams. They are rejected by the
+            # validity/authority gates and must not be misreported as a host
+            # clock fault.
+            if fully_valid and len(stamps) == ROBOT_COUNT:
                 stamp_spreads.append(max(stamps) - min(stamps))
-            else:
+            elif fully_valid:
                 missing_stamp_samples += 1
-            if not (
-                    all(observed.robot_pose_valid) and
-                    all(observed.support_pose_valid) and
-                    all(observed.path_state_valid) and
-                    observed.load_pose_valid and
-                    observed.load_path_state_valid):
+            if not fully_valid:
                 invalid_state_samples += 1
+            if args.require_fused_cooperative_state and not (
+                    observed.header.frame_id == "three_car_path" and
+                    all(source == CooperativeState.SOURCE_FUSED
+                        for source in observed.robot_localization_source) and
+                    observed.load_localization_source ==
+                    CooperativeState.SOURCE_FUSED):
+                wrong_authority_samples += 1
         if stamp_spreads:
             maximum_observed_spread = max(stamp_spreads)
             rospy.loginfo(
@@ -305,6 +321,11 @@ def main(argv=None):
                 "{} of {} cooperative samples were not fully valid, "
                 "including the virtual load fit".format(
                     invalid_state_samples, len(evaluated)))
+        if args.require_fused_cooperative_state and wrong_authority_samples:
+            errors.append(
+                "{} of {} cooperative samples did not use three_car_path "
+                "with fused robot/load authority".format(
+                    wrong_authority_samples, len(evaluated)))
 
     if errors:
         for error in errors:

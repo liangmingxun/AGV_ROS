@@ -4,7 +4,12 @@ host_ip: 192.168.6.102
 serial_device: /dev/ttyACM0
 transport_type: serial
 wheel_radius: 0.0325
-wheel_separation: 0.114
+# Frozen as robot2_camera_s_frozen_v1 after the three-cycle camera/IMU
+# calibration 20260810_195509 and three completed S validations.
+# These values are Robot2-specific and must not be copied to Robot1/Robot3.
+wheel_separation: 0.139284482
+wheel_feedback_scale_left: 1.091612663
+wheel_feedback_scale_right: 1.102973507
 base_link_z: 0.05969
 control_loop_overrun_seconds: 0.008
 command_timeout_seconds: 0.20

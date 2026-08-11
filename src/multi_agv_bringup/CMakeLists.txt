@@ -5,7 +5,10 @@ find_package(catkin REQUIRED)
 catkin_package()
 
 catkin_install_python(PROGRAMS
+  scripts/analyze_three_car_cooperative_bag.py
+  scripts/camera_wheel_turn_calibration.py
   scripts/check_three_car_readonly_gate.py
+  scripts/initialize_three_car_camera_formation.py
   scripts/run_timed_straight_test.py
   test/test_namespace_isolation.py
   test/test_command_authority.py
@@ -15,6 +18,7 @@ catkin_install_python(PROGRAMS
 )
 
 install(PROGRAMS
+        scripts/configure_chassis_udev.sh
         scripts/check_local_clock_sync.sh
         scripts/require_three_car_motion_gate.sh
         scripts/run_robot1_camera_dynamic_capture.sh

@@ -55,6 +55,32 @@ double xmlNumber(const XmlRpc::XmlRpcValue& value, const char* key) {
   throw std::runtime_error(std::string("field is not numeric: ") + key);
 }
 
+std::array<double, kRobotCount> numericArrayParam(
+    ros::NodeHandle& node, const std::string& name,
+    const std::array<double, kRobotCount>& fallback) {
+  XmlRpc::XmlRpcValue values;
+  if (!node.getParam(name, values)) return fallback;
+  if (values.getType() != XmlRpc::XmlRpcValue::TypeArray ||
+      values.size() != static_cast<int>(kRobotCount)) {
+    throw std::runtime_error(name + " must contain exactly three numbers");
+  }
+  std::array<double, kRobotCount> result{};
+  for (std::size_t index = 0; index < kRobotCount; ++index) {
+    const auto& value = values[static_cast<int>(index)];
+    if (value.getType() == XmlRpc::XmlRpcValue::TypeInt) {
+      result[index] = static_cast<int>(value);
+    } else if (value.getType() == XmlRpc::XmlRpcValue::TypeDouble) {
+      result[index] = static_cast<double>(value);
+    } else {
+      throw std::runtime_error(name + " contains a non-numeric value");
+    }
+    if (!std::isfinite(result[index])) {
+      throw std::runtime_error(name + " contains a non-finite value");
+    }
+  }
+  return result;
+}
+
 PlanarPose poseValue(const geometry_msgs::Pose2D& pose) {
   return {{pose.x, pose.y}, pose.theta};
 }
@@ -325,6 +351,41 @@ class ThreeCarUnloadedBoundedPretestNode {
         root + "method_id", "ODOM_BOUNDED_COMMON");
     path_id_ = private_.param<std::string>(
         root + "path_id", "s_curve_1m_bounded");
+    validation_profile_ = private_.param<std::string>(
+        root + "validation_profile", "legacy_unloaded_bounded");
+    wheel_separation_ = numericArrayParam(
+        private_, root + "tracker/wheel_separation",
+        {{0.114, 0.114, 0.114}});
+    longitudinal_gain_per_robot_ = numericArrayParam(
+        private_, root + "tracker/longitudinal_gain_per_robot",
+        {{1.0, 1.0, 1.0}});
+    lateral_gain_per_robot_ = numericArrayParam(
+        private_, root + "tracker/lateral_gain_per_robot",
+        {{2.0, 2.0, 2.0}});
+    heading_gain_per_robot_ = numericArrayParam(
+        private_, root + "tracker/heading_gain_per_robot",
+        {{2.0, 2.0, 2.0}});
+    angular_feedforward_scale_positive_ = numericArrayParam(
+        private_, root + "tracker/angular_feedforward_scale_positive",
+        {{1.0, 1.0, 1.0}});
+    angular_feedforward_scale_negative_ = numericArrayParam(
+        private_, root + "tracker/angular_feedforward_scale_negative",
+        {{1.0, 1.0, 1.0}});
+    formation_longitudinal_gain_ = finiteParam(
+        private_, root + "tracker/formation_longitudinal_gain", 0.0);
+    formation_lateral_gain_ = finiteParam(
+        private_, root + "tracker/formation_lateral_gain", 0.0);
+    formation_heading_gain_ = finiteParam(
+        private_, root + "tracker/formation_heading_gain", 0.0);
+    const auto legacy_curvature_preview_seconds = numericArrayParam(
+        private_, root + "tracker/curvature_preview_seconds",
+        {{0.0, 0.0, 0.0}});
+    curvature_preview_seconds_positive_ = numericArrayParam(
+        private_, root + "tracker/curvature_preview_seconds_positive",
+        legacy_curvature_preview_seconds);
+    curvature_preview_seconds_negative_ = numericArrayParam(
+        private_, root + "tracker/curvature_preview_seconds_negative",
+        legacy_curvature_preview_seconds);
   }
 
   SCurveConfig loadPathConfig() {
@@ -377,12 +438,6 @@ class ThreeCarUnloadedBoundedPretestNode {
     config.chassis_reference_samples =
         static_cast<std::size_t>(std::max(samples, 0));
 
-    XmlRpc::XmlRpcValue separation;
-    if (!private_.getParam(root + "wheel_separation", separation) ||
-        separation.getType() != XmlRpc::XmlRpcValue::TypeArray ||
-        separation.size() != static_cast<int>(kRobotCount)) {
-      throw std::runtime_error("tracker wheel_separation must have three values");
-    }
     XmlRpc::XmlRpcValue offsets;
     if (!private_.getParam(root + "base_to_support", offsets) ||
         offsets.getType() != XmlRpc::XmlRpcValue::TypeArray ||
@@ -391,11 +446,7 @@ class ThreeCarUnloadedBoundedPretestNode {
           "tracker base_to_support must contain three offsets");
     }
     for (std::size_t index = 0; index < kRobotCount; ++index) {
-      const auto& wheel = separation[static_cast<int>(index)];
-      config.wheel_separation[index] =
-          wheel.getType() == XmlRpc::XmlRpcValue::TypeInt
-              ? static_cast<int>(wheel)
-              : static_cast<double>(wheel);
+      config.wheel_separation[index] = wheel_separation_[index];
       const auto& offset = offsets[static_cast<int>(index)];
       config.base_to_support[index] =
           {xmlNumber(offset, "x"), xmlNumber(offset, "y")};
@@ -405,10 +456,20 @@ class ThreeCarUnloadedBoundedPretestNode {
 
   void validateAuthorization() const {
     const bool authorized_path_speed =
-        (path_id_ == "s_curve_1m_bounded" &&
-         std::abs(speed_ - 0.05) <= 1e-12) ||
-        (path_id_ == "straight_1m_bounded" &&
-         std::abs(speed_ - 0.08) <= 1e-12);
+        (validation_profile_ == "camera_fused_s_1p00" &&
+         path_id_ == "s_curve_1m_bounded" &&
+         std::abs(speed_ - 0.05) <= 1e-12 &&
+         std::abs(target_progress_ - 1.00) <= 1e-12) ||
+        (validation_profile_ == "camera_fused_straight_0p30" &&
+         path_id_ == "straight_1m_bounded" &&
+         std::abs(speed_ - 0.03) <= 1e-12 &&
+         std::abs(target_progress_ - 0.30) <= 1e-12) ||
+        (validation_profile_ == "legacy_unloaded_bounded" &&
+         std::abs(target_progress_ - 1.00) <= 1e-12 &&
+         ((path_id_ == "s_curve_1m_bounded" &&
+           std::abs(speed_ - 0.05) <= 1e-12) ||
+          (path_id_ == "straight_1m_bounded" &&
+           std::abs(speed_ - 0.08) <= 1e-12)));
     if (!command_authorized_) {
       throw std::runtime_error(
           "command publication is disabled; this dedicated entry requires "
@@ -432,8 +493,7 @@ class ThreeCarUnloadedBoundedPretestNode {
         !(stop_confirmation_timeout_ > 0.0) ||
         !(stopped_wheel_tolerance_ >= 0.0) ||
         !(maximum_step_ > 0.0) || !(maximum_motion_time_ > 0.0) ||
-        !authorized_path_speed ||
-        std::abs(target_progress_ - 1.00) > 1e-12 ||
+        !authorized_path_speed || !(target_progress_ > 0.0) ||
         !(minimum_battery_voltage_ >= 10.5) ||
         !(maximum_feedback_receive_age_ > 0.0) ||
         maximum_feedback_receive_age_ > 0.25 ||
@@ -447,6 +507,12 @@ class ThreeCarUnloadedBoundedPretestNode {
         !(maximum_lateral_error_ > 0.0) ||
         !(maximum_heading_error_ > 0.0) ||
         !(maximum_wheel_command_ > speed_) ||
+        formation_longitudinal_gain_ < 0.0 ||
+        formation_longitudinal_gain_ > 2.0 ||
+        formation_lateral_gain_ < 0.0 ||
+        formation_lateral_gain_ > 2.0 ||
+        formation_heading_gain_ < 0.0 ||
+        formation_heading_gain_ > 2.0 ||
         required_subscribers_ < 1 || required_subscribers_ > 8 ||
         readiness_stable_samples_ < 1 ||
         initial_command_sequence_ == 0U ||
@@ -454,6 +520,24 @@ class ThreeCarUnloadedBoundedPretestNode {
         experiment_id_.empty() || method_id_.empty() || path_id_.empty()) {
       throw std::runtime_error(
           "invalid three-car unloaded bounded-pretest configuration");
+    }
+    for (std::size_t index = 0; index < kRobotCount; ++index) {
+      if (!(wheel_separation_[index] > 0.0) ||
+          longitudinal_gain_per_robot_[index] < 0.0 ||
+          lateral_gain_per_robot_[index] < 0.0 ||
+          heading_gain_per_robot_[index] < 0.0 ||
+          angular_feedforward_scale_positive_[index] < 0.75 ||
+          angular_feedforward_scale_positive_[index] > 1.25 ||
+          angular_feedforward_scale_negative_[index] < 0.75 ||
+          angular_feedforward_scale_negative_[index] > 1.25 ||
+          curvature_preview_seconds_positive_[index] < 0.0 ||
+          curvature_preview_seconds_positive_[index] > 0.20 ||
+          curvature_preview_seconds_negative_[index] < 0.0 ||
+          curvature_preview_seconds_negative_[index] > 0.20) {
+        throw std::runtime_error(
+            "invalid per-robot tracker parameters for agv" +
+            std::to_string(index + 1U));
+      }
     }
   }
 
@@ -666,11 +750,28 @@ class ThreeCarUnloadedBoundedPretestNode {
       *reason = "virtual load pose or path state is invalid";
       return false;
     }
+    const bool camera_fused_profile =
+        validation_profile_ == "camera_fused_s_1p00" ||
+        validation_profile_ == "camera_fused_straight_0p30";
+    if (camera_fused_profile && transport_type_ == "serial" &&
+        (state_.header.frame_id != "three_car_path" ||
+         state_.load_localization_source !=
+             agv_msgs::CooperativeState::SOURCE_FUSED)) {
+      *reason = "camera-fused validation requires a fused virtual load in three_car_path";
+      return false;
+    }
     for (std::size_t index = 0; index < kRobotCount; ++index) {
       if (!state_.robot_pose_valid[index] ||
           !state_.support_pose_valid[index] ||
           !state_.path_state_valid[index]) {
         *reason = "robot/support/path validity dropped for agv" +
+                  std::to_string(index + 1U);
+        return false;
+      }
+      if (camera_fused_profile && transport_type_ == "serial" &&
+          state_.robot_localization_source[index] !=
+              agv_msgs::CooperativeState::SOURCE_FUSED) {
+        *reason = "camera-fused localization authority dropped for agv" +
                   std::to_string(index + 1U);
         return false;
       }
@@ -702,7 +803,7 @@ class ThreeCarUnloadedBoundedPretestNode {
       }
     }
     if (stampSpread() > maximum_stamp_spread_) {
-      *reason = "three-car odometry timestamp spread exceeds bound";
+      *reason = "three-car localization timestamp spread exceeds bound";
       return false;
     }
     if (require_stopped && !allStopped()) {
@@ -738,7 +839,97 @@ class ThreeCarUnloadedBoundedPretestNode {
       robot[index] = poseValue(state_.robot_pose[index]);
       support[index] = poseValue(state_.support_pose[index]);
     }
-    return tracker_->trackFleet(progress, velocity, robot, support);
+    auto result = tracker_->trackFleet(progress, velocity, robot, support);
+
+    // Separate rigid fleet motion from deformation of the triangle.  The
+    // ordinary per-robot tracker remains responsible for following the
+    // virtual-load path.  These centred errors therefore cannot translate or
+    // rotate the fleet as a whole; they only tighten relative formation.
+    Eigen::Vector2d mean_world_error = Eigen::Vector2d::Zero();
+    double heading_error_sine_sum = 0.0;
+    double heading_error_cosine_sum = 0.0;
+    std::size_t valid_count = 0U;
+    for (std::size_t index = 0; index < kRobotCount; ++index) {
+      if (!result[index].valid) continue;
+      mean_world_error +=
+          result[index].chassis_pose_reference.position -
+          robot[index].position;
+      heading_error_sine_sum += std::sin(result[index].heading_error);
+      heading_error_cosine_sum += std::cos(result[index].heading_error);
+      ++valid_count;
+    }
+    if (valid_count > 0U) {
+      mean_world_error /= static_cast<double>(valid_count);
+    }
+    const double mean_heading_error =
+        std::atan2(heading_error_sine_sum, heading_error_cosine_sum);
+
+    for (std::size_t index = 0; index < kRobotCount; ++index) {
+      if (!result[index].valid) continue;
+      double feedforward = result[index].angular_velocity_feedforward;
+      const double preview_seconds =
+          feedforward > 0.0
+              ? curvature_preview_seconds_positive_[index]
+              : (feedforward < 0.0
+                     ? curvature_preview_seconds_negative_[index]
+                     : 0.0);
+      if (velocity != 0.0 && preview_seconds > 0.0) {
+        const double preview_progress = std::min(
+            path_->length(), progress +
+                std::abs(velocity) * preview_seconds);
+        const auto preview = tracker_->trackFleet(
+            preview_progress, velocity, robot, support);
+        if (preview[index].valid) {
+          feedforward = preview[index].angular_velocity_feedforward;
+        }
+      }
+      const double directional_scale =
+          feedforward > 0.0
+              ? angular_feedforward_scale_positive_[index]
+              : (feedforward < 0.0
+                     ? angular_feedforward_scale_negative_[index]
+                     : 1.0);
+      result[index].angular_velocity_feedforward =
+          directional_scale * feedforward;
+
+      const Eigen::Vector2d relative_world_error =
+          result[index].chassis_pose_reference.position -
+          robot[index].position - mean_world_error;
+      const double c = std::cos(robot[index].yaw);
+      const double s = std::sin(robot[index].yaw);
+      const double relative_longitudinal_error =
+          c * relative_world_error.x() + s * relative_world_error.y();
+      const double relative_lateral_error =
+          -s * relative_world_error.x() + c * relative_world_error.y();
+      const double relative_heading_error = std::atan2(
+          std::sin(result[index].heading_error - mean_heading_error),
+          std::cos(result[index].heading_error - mean_heading_error));
+
+      result[index].linear_velocity_raw =
+          result[index].linear_velocity_feedforward *
+              std::cos(result[index].heading_error) +
+          longitudinal_gain_per_robot_[index] *
+              result[index].longitudinal_error +
+          formation_longitudinal_gain_ * relative_longitudinal_error;
+      result[index].angular_velocity_raw =
+          result[index].angular_velocity_feedforward +
+          lateral_gain_per_robot_[index] * result[index].lateral_error +
+          heading_gain_per_robot_[index] *
+              std::sin(result[index].heading_error) +
+          formation_lateral_gain_ * relative_lateral_error +
+          formation_heading_gain_ * std::sin(relative_heading_error);
+      const double half_track = 0.5 * wheel_separation_[index];
+      result[index].wheel_linear_velocity_left_raw =
+          result[index].linear_velocity_raw -
+          half_track * result[index].angular_velocity_raw;
+      result[index].wheel_linear_velocity_right_raw =
+          result[index].linear_velocity_raw +
+          half_track * result[index].angular_velocity_raw;
+      result[index].valid =
+          std::isfinite(result[index].wheel_linear_velocity_left_raw) &&
+          std::isfinite(result[index].wheel_linear_velocity_right_raw);
+    }
+    return result;
   }
 
   bool trackingSafe(
@@ -842,7 +1033,7 @@ class ThreeCarUnloadedBoundedPretestNode {
     const ros::Time stamp = ros::Time::now();
     agv_msgs::PathReference reference;
     reference.header.stamp = stamp;
-    reference.header.frame_id = "world";
+    reference.header.frame_id = state_.header.frame_id;
     reference.path_id = path_id_;
     reference.path_version = 1U;
     reference.load_path_progress_reference = progress;
@@ -862,7 +1053,7 @@ class ThreeCarUnloadedBoundedPretestNode {
 
     agv_msgs::ControllerState controller;
     controller.header.stamp = stamp;
-    controller.header.frame_id = "world";
+    controller.header.frame_id = state_.header.frame_id;
     controller.experiment_id = experiment_id_;
     controller.method_id = method_id_;
     controller.common_load_velocity_reference = velocity;
@@ -949,6 +1140,20 @@ class ThreeCarUnloadedBoundedPretestNode {
   int readiness_stable_samples_{20};
   std::uint32_t initial_command_sequence_{41000U};
   std::string path_id_{"s_curve_1m_bounded"};
+  std::string validation_profile_{"legacy_unloaded_bounded"};
+  std::array<double, kRobotCount> wheel_separation_{{0.114, 0.114, 0.114}};
+  std::array<double, kRobotCount> longitudinal_gain_per_robot_{{1.0, 1.0, 1.0}};
+  std::array<double, kRobotCount> lateral_gain_per_robot_{{2.0, 2.0, 2.0}};
+  std::array<double, kRobotCount> heading_gain_per_robot_{{2.0, 2.0, 2.0}};
+  std::array<double, kRobotCount> angular_feedforward_scale_positive_{{1.0, 1.0, 1.0}};
+  std::array<double, kRobotCount> angular_feedforward_scale_negative_{{1.0, 1.0, 1.0}};
+  double formation_longitudinal_gain_{0.0};
+  double formation_lateral_gain_{0.0};
+  double formation_heading_gain_{0.0};
+  std::array<double, kRobotCount> curvature_preview_seconds_positive_{{
+      0.0, 0.0, 0.0}};
+  std::array<double, kRobotCount> curvature_preview_seconds_negative_{{
+      0.0, 0.0, 0.0}};
 };
 
 }  // namespace multi_agv_control

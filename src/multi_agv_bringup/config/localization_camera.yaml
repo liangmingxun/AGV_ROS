@@ -15,7 +15,9 @@ load_pose_topic: /pose_provider/load/pose_filtered
 
 camera_adapter:
   calibration_authorized: false
-  extrinsics_frozen: false
+  # All enabled streams below have measured and frozen tag-to-base transforms.
+  # The unresolved load stream remains present in the protocol but disabled.
+  extrinsics_frozen: true
   world_frame: world
   maximum_input_age: 0.15
   maximum_future_offset: 0.02
@@ -28,6 +30,7 @@ camera_adapter:
   filter_alpha: 0.7
   streams:
     - entity_id: agv1
+      enabled: true
       input_topic: /camera/world/agv1_tag_pose
       confidence_topic: /camera/world/agv1_confidence
       raw_output_topic: /pose_provider/agv1/base_pose_raw
@@ -38,26 +41,30 @@ camera_adapter:
       tag_to_target_y: -0.13274
       tag_to_target_yaw: 1.5707963267948966
     - entity_id: agv2
+      enabled: true
       input_topic: /camera/world/agv2_tag_pose
       confidence_topic: /camera/world/agv2_confidence
       raw_output_topic: /pose_provider/agv2/base_pose_raw
       filtered_output_topic: /pose_provider/agv2/base_pose_filtered
-      # Marker +Y points toward vehicle +X. The marker center is 33.33 mm
-      # behind the drive-axle midpoint (base_link).
+      # Marker +Y points toward vehicle +X. Dynamic rotation-centre fits from
+      # 20260811 runs 170430/171423/183204 give a 94.14--97.26 mm
+      # longitudinal offset; freeze the requested common value at 97.2 mm.
       tag_to_target_x: 0.0
-      tag_to_target_y: 0.03333
+      tag_to_target_y: 0.0972
       tag_to_target_yaw: 1.5707963267948966
     - entity_id: agv3
+      enabled: true
       input_topic: /camera/world/agv3_tag_pose
       confidence_topic: /camera/world/agv3_confidence
       raw_output_topic: /pose_provider/agv3/base_pose_raw
       filtered_output_topic: /pose_provider/agv3/base_pose_filtered
-      # Marker +Y points toward vehicle +X. The marker center is 33.33 mm
-      # behind the drive-axle midpoint (base_link).
+      # Robot3 uses the same rear-marker installation value requested for
+      # Robot2. Its independent rotation-centre validation remains required.
       tag_to_target_x: 0.0
-      tag_to_target_y: 0.03333
+      tag_to_target_y: 0.0972
       tag_to_target_yaw: 1.5707963267948966
     - entity_id: load
+      enabled: false
       input_topic: /camera/world/load_tag_pose
       confidence_topic: /camera/world/load_confidence
       raw_output_topic: /pose_provider/load/pose_raw

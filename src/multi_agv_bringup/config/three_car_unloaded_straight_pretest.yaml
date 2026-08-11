@@ -1,12 +1,14 @@
-# Overrides for the dedicated faster straight diagnostic. The S-path keeps its
-# previously validated 0.05 m/s and 0.08 m/s wheel-command bound.
+# First cooperative gate: deliberately short and slow. Camera output is
+# recorded as independent truth but is not fed back into this controller.
 three_car_unloaded_bounded_pretest:
-  configuration_status: unloaded_0p40m_fixture_1p00m_straight_0p08_bounded
-  experiment_id: three_car_unloaded_straight_008_1m
-  method_id: ODOM_BOUNDED_COMMON_STRAIGHT
+  configuration_status: camera_fused_closed_loop_unloaded_0p40m_fixture_0p30m_straight_v1
+  experiment_id: three_car_cooperative_camera_fused_straight_0p30m
+  method_id: CAMERA_IMU_WHEEL_FUSED_CLOSED_LOOP_STRAIGHT
   path_id: straight_1m_bounded
-  maximum_motion_time: 18.0
+  validation_profile: camera_fused_straight_0p30
+  maximum_motion_time: 15.0
   motion:
-    load_path_speed: 0.08
+    load_path_speed: 0.03
+    target_progress: 0.30
   abort:
-    maximum_wheel_linear_velocity: 0.11
+    maximum_wheel_linear_velocity: 0.06

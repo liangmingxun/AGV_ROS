@@ -11,6 +11,10 @@ namespace chassis_controller {
 struct ChassisConfig {
   std::uint8_t robot_index{0};
   double wheel_separation{0.114};
+  // Multipliers that convert STM32-reported wheel speed to measured physical
+  // wheel speed. Keep them at 1.0 until a camera/IMU calibration is accepted.
+  double wheel_feedback_scale_left{1.0};
+  double wheel_feedback_scale_right{1.0};
   WheelLimits nominal_limits{};
   double control_loop_overrun_seconds{0.008};
   double command_timeout_seconds{0.20};

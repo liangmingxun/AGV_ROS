@@ -1,13 +1,11 @@
 <launch>
-  <!-- Dedicated 0.08 m/s by 1.00 m unloaded straight diagnostic. -->
+  <!-- First cooperative gate: 0.03 m/s by 0.30 m, camera observed. -->
   <arg name="platform_transport_type" default="serial"/>
   <arg name="enable_commands" default="false"/>
   <arg name="confirm_readonly_gate_passed" default="false"/>
   <arg name="confirm_test_area_clear" default="false"/>
   <arg name="confirm_wheels_on_floor" default="false"/>
   <arg name="confirm_unloaded_40cm_fixture" default="false"/>
-
-  <include file="$(find multi_agv_bringup)/launch/odom_state_estimator_straight.launch"/>
 
   <node pkg="multi_agv_control"
         type="three_car_unloaded_bounded_pretest_node"

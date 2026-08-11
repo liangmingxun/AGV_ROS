@@ -275,13 +275,13 @@ camera state-estimator histories; late samples from a retired generation are
 rejected. A stream that returns after a stale gap also restarts its own pose
 filter from the first accepted measurement.
 
-The checked-in `localization_camera.yaml` is deliberately blocked by both
-`calibration_authorized: false` and `extrinsics_frozen: false`. Its zero
-tag-to-target transforms are placeholders, not measurements. The software
-test uses a separate synthetic, authorized calibration. Do not pass
-`calibration_authorized:=true` on `camera_formal.launch` until camera intrinsics,
-world extrinsics, all four tag transforms, confidence semantics, latency and
-occlusion thresholds have been measured and archived.
+The checked-in `localization_camera.yaml` retains the launch-time
+`calibration_authorized: false` gate. The three AGV tag-to-base transforms are
+measured and frozen. The unresolved load entity remains in the four-entity
+protocol but its adapter stream is explicitly disabled, so the zero placeholder
+can never produce a load pose. `camera_formal.launch calibration_authorized:=true`
+therefore authorizes only the three measured AGV streams; load output remains
+blocked until its transform is measured and enabled.
 
 ## Task 16–18 software completion boundary
 

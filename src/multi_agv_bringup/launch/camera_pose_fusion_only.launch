@@ -1,0 +1,22 @@
+<launch>
+  <!-- Camera base poses and camera/IMU-wheel fusion for observation. The
+       cooperative path-state estimator is intentionally excluded so the
+       bounded fleet runner can own /multi_agv/cooperative_state. -->
+  <arg name="calibration_authorized" default="false"/>
+  <arg name="localization_config"
+       default="$(find multi_agv_bringup)/config/localization_camera.yaml"/>
+  <arg name="fusion_config"
+       default="$(find multi_agv_bringup)/config/localization_fusion.yaml"/>
+
+  <node pkg="multi_agv_control" type="camera_pose_adapter_node"
+        name="pose_provider" output="screen" required="true">
+    <rosparam command="load" file="$(arg localization_config)"/>
+    <param name="camera_adapter/calibration_authorized"
+           value="$(arg calibration_authorized)"/>
+  </node>
+
+  <node pkg="multi_agv_control" type="camera_odom_fusion_node"
+        name="camera_odom_fusion" output="screen" required="true">
+    <rosparam command="load" file="$(arg fusion_config)"/>
+  </node>
+</launch>

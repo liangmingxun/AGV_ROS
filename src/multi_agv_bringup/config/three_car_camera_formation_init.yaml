@@ -1,0 +1,45 @@
+three_car_camera_formation_init:
+  schema_version: 1
+  configuration_status: camera_fused_sequential_formation_init_v1
+  hardware_execution_authorized: true
+  publish_rate: 50.0
+  subscriber_wait_seconds: 10.0
+  maximum_pose_age: 0.15
+  maximum_feedback_age: 0.25
+  minimum_battery_voltage: 10.5
+  minimum_battery_voltage_duration: 0.5
+
+  geometry:
+    side_length: 0.40
+    base_to_support_x: -0.01783
+    final_side_tolerance: 0.015
+    final_heading_tolerance: 0.05236
+
+  motion:
+    maximum_linear_speed: 0.025
+    maximum_angular_speed: 0.25
+    maximum_wheel_speed: 0.05
+    wheel_separation: [0.135484339, 0.139284482, 0.136802843]
+    heading_realign_threshold: 0.20
+    near_target_distance: 0.06
+    near_target_speed: 0.010
+    docking_distance: 0.03
+    docking_speed: 0.005
+    # Robot2's 20260811_183204 run settled at 12.73--13.01 mm while its
+    # commanded 1.6 mm/s was inside the measured zero-motion deadband.
+    # The fleet-level side-length gate below remains independently at 15 mm.
+    position_tolerance: 0.015
+    final_heading_recovery_distance: 0.025
+    heading_tolerance: 0.03491
+    stable_samples: 15
+    maximum_seconds_per_robot: 45.0
+    maximum_no_progress_seconds: 12.0
+
+  safety:
+    maximum_initial_target_distance: 0.65
+    minimum_robot_separation: 0.22
+    maximum_stationary_position_drift: 0.025
+    maximum_stationary_heading_drift: 0.05236
+    maximum_actual_wheel_speed: 0.105
+    stopped_wheel_tolerance: 0.01
+    required_command_subscribers: 2

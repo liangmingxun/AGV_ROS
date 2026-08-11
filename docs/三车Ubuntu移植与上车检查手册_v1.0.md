@@ -40,7 +40,7 @@
 | 主机名 |  |  |  |
 | 固定IP | `192.168.6.101`（现场冻结） | `192.168.6.102`（现场冻结） | `192.168.6.103`（现场冻结） |
 | 有线网卡名 |  |  |  |
-| 底盘串口设备 | `/dev/chassis_driver`（预设） | `/dev/ttyACM0`（预设） | `/dev/ttyACM0`（预设） |
+| 底盘串口设备 | `/dev/chassis_driver` | `/dev/chassis_driver` | `/dev/chassis_driver` |
 | STM32/底盘对应关系 |  |  |  |
 | ROS版本 |  |  |  |
 | Git提交号 |  |  |  |

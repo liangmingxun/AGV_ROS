@@ -127,6 +127,20 @@ TEST(ChassisCore, ConvertsMillimetresPerSecondAndReportsOverrun) {
   EXPECT_TRUE(core.feedback().control_loop_overrun);
 }
 
+TEST(ChassisCore, AppliesIndependentWheelFeedbackCalibration) {
+  auto config = testConfig();
+  config.wheel_feedback_scale_left = 1.10;
+  config.wheel_feedback_scale_right = 0.95;
+  ChassisCore core(config);
+  SensorInput sensor;
+  sensor.wheel_left_mm_per_second = 200.0;
+  sensor.wheel_right_mm_per_second = 400.0;
+  core.updateSensors(sensor);
+  core.step(0.02);
+  EXPECT_NEAR(core.feedback().actual.left, 0.22, 1e-12);
+  EXPECT_NEAR(core.feedback().actual.right, 0.38, 1e-12);
+}
+
 TEST(ChassisCore, ResetOdometryClearsPoseAndVelocity) {
   ChassisCore core(testConfig());
   SensorInput sensor;
@@ -154,5 +168,8 @@ TEST(ChassisCore, RejectsUnsafeConfiguration) {
   EXPECT_THROW(ChassisCore core(config), std::invalid_argument);
   config = testConfig();
   config.sensor_feedback_timeout_seconds = 0.0;
+  EXPECT_THROW(ChassisCore core(config), std::invalid_argument);
+  config = testConfig();
+  config.wheel_feedback_scale_left = 1.51;
   EXPECT_THROW(ChassisCore core(config), std::invalid_argument);
 }

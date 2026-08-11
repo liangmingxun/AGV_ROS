@@ -9,3 +9,4 @@ __pycache__/
 *.pyc
 /src/rosserial_stm32/
 .bag
+/experiment_data/

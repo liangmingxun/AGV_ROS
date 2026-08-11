@@ -1,0 +1,22 @@
+<launch>
+  <!-- Robot1 is the fixed anchor. Robot2 and Robot3 move sequentially into
+       the camera-fused 0.40 m equilateral support-centre formation. -->
+  <arg name="confirm_test_area_clear" default="false"/>
+  <arg name="confirm_wheels_on_floor" default="false"/>
+  <arg name="confirm_automatic_formation" default="false"/>
+
+  <node pkg="multi_agv_bringup"
+        type="initialize_three_car_camera_formation.py"
+        name="three_car_camera_formation_init"
+        output="screen"
+        required="true">
+    <rosparam command="load"
+              file="$(find multi_agv_bringup)/config/three_car_camera_formation_init.yaml"/>
+    <param name="confirm_test_area_clear"
+           value="$(arg confirm_test_area_clear)"/>
+    <param name="confirm_wheels_on_floor"
+           value="$(arg confirm_wheels_on_floor)"/>
+    <param name="confirm_automatic_formation"
+           value="$(arg confirm_automatic_formation)"/>
+  </node>
+</launch>

@@ -317,29 +317,69 @@ class SingleCarSPretestNode {
         private_, root + "abort/maximum_wheel_linear_velocity", 0.08);
     minimum_battery_voltage_ = finiteParam(
         private_, root + "abort/minimum_battery_voltage", 10.5);
-    actual_wheel_warning_speed_ = finiteParam(
-        private_, root + "actual_wheel_watchdog/warning_speed", 0.08);
-    actual_wheel_hard_stop_speed_ = finiteParam(
-        private_, root + "actual_wheel_watchdog/hard_stop_speed", 0.09);
-    actual_wheel_sustained_speed_ = finiteParam(
-        private_, root + "actual_wheel_watchdog/sustained_speed", 0.08);
-    actual_wheel_sustained_duration_ = finiteParam(
-        private_, root + "actual_wheel_watchdog/sustained_duration", 0.05);
-    wheel_separation_ =
-        finiteParam(private_, root + "geometry/wheel_separation", 0.114);
+    const std::string common_watchdog =
+        root + "actual_wheel_watchdog/";
+    const std::string robot_watchdog =
+        root + "robot_overrides/" + robot_name_ +
+        "/actual_wheel_watchdog/";
+    const auto watchdogParam = [this, &common_watchdog, &robot_watchdog](
+                                   const std::string& name,
+                                   double fallback) {
+      const double common =
+          finiteParam(private_, common_watchdog + name, fallback);
+      return finiteParam(private_, robot_watchdog + name, common);
+    };
+    actual_wheel_warning_speed_ = watchdogParam("warning_speed", 0.08);
+    actual_wheel_hard_stop_speed_ =
+        watchdogParam("hard_stop_speed", 0.09);
+    const int common_hard_stop_consecutive_samples = private_.param(
+        common_watchdog + "hard_stop_consecutive_samples", 2);
+    actual_wheel_hard_stop_consecutive_samples_ = private_.param(
+        robot_watchdog + "hard_stop_consecutive_samples",
+        common_hard_stop_consecutive_samples);
+    actual_wheel_emergency_stop_speed_ =
+        watchdogParam("emergency_stop_speed", 0.12);
+    actual_wheel_sustained_speed_ =
+        watchdogParam("sustained_speed", 0.08);
+    actual_wheel_sustained_duration_ =
+        watchdogParam("sustained_duration", 0.05);
+    const std::string common_geometry = root + "geometry/";
+    const std::string robot_geometry =
+        root + "robot_overrides/" + robot_name_ + "/geometry/";
+    const auto geometryParam = [this, &common_geometry, &robot_geometry](
+                                   const std::string& name,
+                                   double fallback) {
+      const double common =
+          finiteParam(private_, common_geometry + name, fallback);
+      return finiteParam(private_, robot_geometry + name, common);
+    };
+    wheel_separation_ = geometryParam("wheel_separation", 0.114);
     support_offset_ = {
-        finiteParam(private_, root + "geometry/base_to_support_x", -0.01783),
-        finiteParam(private_, root + "geometry/base_to_support_y", 0.0)};
-    longitudinal_gain_ =
-        finiteParam(private_, root + "tracker/longitudinal_gain", 1.0);
-    lateral_gain_ =
-        finiteParam(private_, root + "tracker/lateral_gain", 2.0);
-    heading_gain_ =
-        finiteParam(private_, root + "tracker/heading_gain", 2.0);
-    angular_feedforward_scale_ = finiteParam(
-        private_, root + "tracker/angular_feedforward_scale", 1.0);
-    curvature_preview_seconds_ = finiteParam(
-        private_, root + "tracker/curvature_preview_seconds", 0.0);
+        geometryParam("base_to_support_x", -0.01783),
+        geometryParam("base_to_support_y", 0.0)};
+    const std::string common_tracker = root + "tracker/";
+    const std::string robot_tracker =
+        root + "robot_overrides/" + robot_name_ + "/tracker/";
+    const auto trackerParam = [this, &common_tracker, &robot_tracker](
+                                  const std::string& name,
+                                  double fallback) {
+      const double common =
+          finiteParam(private_, common_tracker + name, fallback);
+      return finiteParam(private_, robot_tracker + name, common);
+    };
+    tracker_profile_ = private_.param<std::string>(
+        root + "robot_overrides/" + robot_name_ + "/profile", "shared");
+    longitudinal_gain_ = trackerParam("longitudinal_gain", 1.0);
+    lateral_gain_ = trackerParam("lateral_gain", 2.0);
+    heading_gain_ = trackerParam("heading_gain", 2.0);
+    angular_feedforward_scale_ =
+        trackerParam("angular_feedforward_scale", 1.0);
+    angular_feedforward_scale_positive_ = trackerParam(
+        "angular_feedforward_scale_positive", angular_feedforward_scale_);
+    angular_feedforward_scale_negative_ = trackerParam(
+        "angular_feedforward_scale_negative", angular_feedforward_scale_);
+    curvature_preview_seconds_ =
+        trackerParam("curvature_preview_seconds", 0.0);
     int reference_samples =
         private_.param(root + "tracker/chassis_reference_samples", 10001);
     reference_samples_ =
@@ -391,11 +431,19 @@ class SingleCarSPretestNode {
         !(minimum_battery_voltage_ >= 10.5) ||
         !(actual_wheel_warning_speed_ > 0.0) ||
         !(actual_wheel_hard_stop_speed_ > actual_wheel_warning_speed_) ||
+        actual_wheel_hard_stop_consecutive_samples_ < 2 ||
+        actual_wheel_hard_stop_consecutive_samples_ > 10 ||
+        !(actual_wheel_emergency_stop_speed_ >
+          actual_wheel_hard_stop_speed_) ||
         !(actual_wheel_sustained_speed_ > 0.0) ||
         actual_wheel_sustained_speed_ > actual_wheel_hard_stop_speed_ ||
         !(actual_wheel_sustained_duration_ > 0.0) ||
         !(angular_feedforward_scale_ >= 1.0 &&
           angular_feedforward_scale_ <= 1.25) ||
+        !(angular_feedforward_scale_positive_ >= 0.75 &&
+          angular_feedforward_scale_positive_ <= 1.25) ||
+        !(angular_feedforward_scale_negative_ >= 0.75 &&
+          angular_feedforward_scale_negative_ <= 1.25) ||
         !(curvature_preview_seconds_ >= 0.0 &&
           curvature_preview_seconds_ <= 0.10) ||
         !(wheel_separation_ > 0.0) || reference_samples_ < 2U ||
@@ -424,6 +472,22 @@ class SingleCarSPretestNode {
     tracker_config.chassis_reference_samples = reference_samples_;
     tracker_.reset(new PlanarSupportTracker(
         std::move(geometry), tracker_config));
+    ROS_INFO("%s tracker profile=%s longitudinal=%.3f lateral=%.3f "
+             "heading=%.3f feedforward_scale=%.3f positive=%.3f "
+             "negative=%.3f preview=%.3f s wheel_separation=%.6f m",
+             robot_label_.c_str(), tracker_profile_.c_str(),
+             longitudinal_gain_, lateral_gain_, heading_gain_,
+             angular_feedforward_scale_,
+             angular_feedforward_scale_positive_,
+             angular_feedforward_scale_negative_,
+             curvature_preview_seconds_, wheel_separation_);
+    ROS_INFO("%s actual-wheel watchdog warning=%.3f hard=%.3f "
+             "confirmation=%d samples emergency=%.3f sustained=%.3f/%.3f s",
+             robot_label_.c_str(), actual_wheel_warning_speed_,
+             actual_wheel_hard_stop_speed_,
+             actual_wheel_hard_stop_consecutive_samples_,
+             actual_wheel_emergency_stop_speed_,
+             actual_wheel_sustained_speed_, actual_wheel_sustained_duration_);
     if (maximum_motion_time_ < path_->length() / speed_ + 1.0) {
       throw std::runtime_error(
           "maximum_motion_time is too short for the configured S path");
@@ -540,25 +604,78 @@ class SingleCarSPretestNode {
           0.5, "%s actual wheel speed warning: %.4f m/s",
           robot_label_.c_str(), maximum_actual);
     }
-    if (maximum_actual > actual_wheel_hard_stop_speed_) {
+    if (maximum_actual > actual_wheel_emergency_stop_speed_) {
       actual_wheel_fault_ = true;
-      ROS_ERROR("%s actual wheel speed %.4f exceeds hard stop %.4f m/s",
+      ROS_ERROR("%s actual wheel speed %.4f exceeds immediate emergency "
+                "stop %.4f m/s",
                 robot_label_.c_str(), maximum_actual,
-                actual_wheel_hard_stop_speed_);
+                actual_wheel_emergency_stop_speed_);
       return;
     }
-    if (maximum_actual > actual_wheel_sustained_speed_) {
-      if (actual_wheel_overspeed_start_.isZero()) {
-        actual_wheel_overspeed_start_ = now;
-      } else if ((now - actual_wheel_overspeed_start_).toSec() >=
-                 actual_wheel_sustained_duration_) {
+    if (maximum_actual > actual_wheel_hard_stop_speed_) {
+      ++actual_wheel_hard_stop_consecutive_count_;
+      if (actual_wheel_hard_stop_consecutive_count_ >=
+          actual_wheel_hard_stop_consecutive_samples_) {
         actual_wheel_fault_ = true;
-        ROS_ERROR("%s actual wheel speed remained above %.4f m/s for %.3f s",
+        ROS_ERROR("%s actual wheel speed %.4f exceeded hard stop %.4f m/s "
+                  "for %d consecutive samples",
+                  robot_label_.c_str(), maximum_actual,
+                  actual_wheel_hard_stop_speed_,
+                  actual_wheel_hard_stop_consecutive_count_);
+        return;
+      }
+      ROS_WARN_THROTTLE(
+          0.5, "%s isolated hard-threshold wheel-speed sample %.4f m/s "
+          "(%d/%d); awaiting confirmation",
+          robot_label_.c_str(), maximum_actual,
+          actual_wheel_hard_stop_consecutive_count_,
+          actual_wheel_hard_stop_consecutive_samples_);
+    } else {
+      actual_wheel_hard_stop_consecutive_count_ = 0;
+    }
+    // Remote TCPROS delivery can batch several feedback messages. Measuring
+    // persistence with callback wall time then turns two samples only a few
+    // milliseconds apart at the chassis into an apparent long overspeed.
+    // Use the source timestamp and require a genuinely consecutive sequence.
+    const double serial_sample_time = message.serial_receive_stamp.toSec();
+    const double header_sample_time = message.header.stamp.toSec();
+    double sample_time = now.toSec();
+    if (!message.serial_receive_stamp.isZero() &&
+        std::isfinite(serial_sample_time)) {
+      sample_time = serial_sample_time;
+    } else if (!message.header.stamp.isZero() &&
+               std::isfinite(header_sample_time)) {
+      sample_time = header_sample_time;
+    }
+    const double maximum_consecutive_gap =
+        std::max(0.03, 3.0 / publish_rate_);
+    if (maximum_actual > actual_wheel_sustained_speed_) {
+      const bool sequence_continues =
+          actual_wheel_overspeed_sample_count_ > 0 &&
+          sample_time > actual_wheel_overspeed_last_sample_time_ &&
+          sample_time - actual_wheel_overspeed_last_sample_time_ <=
+              maximum_consecutive_gap;
+      if (!sequence_continues) {
+        actual_wheel_overspeed_start_time_ = sample_time;
+        actual_wheel_overspeed_sample_count_ = 1;
+      } else {
+        ++actual_wheel_overspeed_sample_count_;
+      }
+      actual_wheel_overspeed_last_sample_time_ = sample_time;
+      const double sustained_time =
+          sample_time - actual_wheel_overspeed_start_time_;
+      if (actual_wheel_overspeed_sample_count_ >= 2 &&
+          sustained_time >= actual_wheel_sustained_duration_) {
+        actual_wheel_fault_ = true;
+        ROS_ERROR("%s actual wheel speed remained above %.4f m/s for "
+                  "%.3f s (%d consecutive source samples)",
                   robot_label_.c_str(), actual_wheel_sustained_speed_,
-                  (now - actual_wheel_overspeed_start_).toSec());
+                  sustained_time, actual_wheel_overspeed_sample_count_);
       }
     } else {
-      actual_wheel_overspeed_start_ = ros::WallTime();
+      actual_wheel_overspeed_start_time_ = 0.0;
+      actual_wheel_overspeed_last_sample_time_ = 0.0;
+      actual_wheel_overspeed_sample_count_ = 0;
     }
   }
 
@@ -681,8 +798,14 @@ class SingleCarSPretestNode {
     // Optional bounded compensation affects only analytic curvature
     // feedforward. The validated default (scale=1, preview=0) is exactly the
     // original tracker; feedback gains and the frozen path remain unchanged.
+    double directional_scale = angular_feedforward_scale_;
+    if (preview.angular_velocity_feedforward > 0.0) {
+      directional_scale = angular_feedforward_scale_positive_;
+    } else if (preview.angular_velocity_feedforward < 0.0) {
+      directional_scale = angular_feedforward_scale_negative_;
+    }
     const double compensated_feedforward =
-        angular_feedforward_scale_ * preview.angular_velocity_feedforward;
+        directional_scale * preview.angular_velocity_feedforward;
     result.angular_velocity_raw +=
         compensated_feedforward - result.angular_velocity_feedforward;
     result.angular_velocity_feedforward = compensated_feedforward;
@@ -878,7 +1001,9 @@ class SingleCarSPretestNode {
   std::string camera_pose_topic_;
   std::string camera_frame_id_;
   std::uint64_t calibration_epoch_{0U};
-  ros::WallTime actual_wheel_overspeed_start_;
+  double actual_wheel_overspeed_start_time_{0.0};
+  double actual_wheel_overspeed_last_sample_time_{0.0};
+  int actual_wheel_overspeed_sample_count_{0};
   double amplitude_{0.05};
   double longitudinal_length_{1.0};
   double speed_{0.05};
@@ -899,6 +1024,9 @@ class SingleCarSPretestNode {
   double minimum_battery_voltage_{10.5};
   double actual_wheel_warning_speed_{0.08};
   double actual_wheel_hard_stop_speed_{0.09};
+  int actual_wheel_hard_stop_consecutive_samples_{2};
+  int actual_wheel_hard_stop_consecutive_count_{0};
+  double actual_wheel_emergency_stop_speed_{0.12};
   double actual_wheel_sustained_speed_{0.08};
   double actual_wheel_sustained_duration_{0.05};
   double wheel_separation_{0.114};
@@ -907,7 +1035,10 @@ class SingleCarSPretestNode {
   double lateral_gain_{2.0};
   double heading_gain_{2.0};
   double angular_feedforward_scale_{1.0};
+  double angular_feedforward_scale_positive_{1.0};
+  double angular_feedforward_scale_negative_{1.0};
   double curvature_preview_seconds_{0.0};
+  std::string tracker_profile_{"shared"};
   std::size_t reference_samples_{10001U};
   int required_subscribers_{2};
   std::uint32_t command_sequence_{31000U};

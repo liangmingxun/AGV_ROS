@@ -43,9 +43,80 @@ single_car_s_pretest:
     curvature_preview_seconds: 0.0
     chassis_reference_samples: 10001
 
+  # Per-robot overlays are applied after the shared tracker values. Robot3's
+  # first valid camera S run (20260810_181136) showed a 56 mm inside-corner
+  # error and a roughly 0.17 s delayed turn peak, while its endpoint error was
+  # only 8 mm. This conservative profile advances only the curvature
+  # feedforward and strengthens lateral recovery/heading damping; it does not
+  # change speed, path geometry, endpoint behaviour or safety limits.
+  robot_overrides:
+    agv1:
+      profile: robot1_camera_wheel_turn_candidate_v1
+      geometry:
+        # Review-only joint candidate from 20260811_140136. Keep this paired
+        # with the chassis feedback scales and directional values recorded in
+        # robot1_camera_wheel_turn_candidate_v1.yaml.
+        wheel_separation: 0.135484339
+      tracker:
+        angular_feedforward_scale_positive: 0.803566413
+        angular_feedforward_scale_negative: 0.845593913
+      actual_wheel_watchdog:
+        # Applying the roughly 1.12 feedback scale moves the observed S-run
+        # peak from 0.0856 to about 0.097 m/s. Preserve the immediate 0.12
+        # emergency gate and place confirmed limits above that normal range.
+        warning_speed: 0.09
+        hard_stop_speed: 0.105
+        hard_stop_consecutive_samples: 5
+        emergency_stop_speed: 0.12
+        sustained_speed: 0.10
+        sustained_duration: 0.10
+    agv2:
+      profile: robot2_camera_s_frozen_v1
+      geometry:
+        # Frozen joint values: keep this paired with the two directional
+        # feedforward values below. Evidence is in the Robot2 freeze manifest.
+        wheel_separation: 0.139284482
+      tracker:
+        angular_feedforward_scale_positive: 0.780810219
+        angular_feedforward_scale_negative: 0.918767785
+      actual_wheel_watchdog:
+        # Calibrated feedback exposes alternating encoder spikes. Preserve
+        # the 0.09 m/s threshold, but require about 50 ms of confirmation;
+        # the raw 0.12 m/s emergency gate remains immediate.
+        hard_stop_consecutive_samples: 5
+    agv3:
+      profile: robot3_camera_s_frozen_v1
+      geometry:
+        # Frozen joint Robot3 values. Keep this paired with both directional
+        # feedforward values; see robot3_camera_s_freeze_v1.yaml.
+        wheel_separation: 0.136802843
+      tracker:
+        lateral_gain: 4.0
+        heading_gain: 3.0
+        angular_feedforward_scale: 1.0
+        angular_feedforward_scale_positive: 0.850009371
+        angular_feedforward_scale_negative: 0.883228287
+        curvature_preview_seconds: 0.05
+      actual_wheel_watchdog:
+        # The 13.5% feedback calibration raises normal curved-path readings:
+        # two validation runs measured p99 <= 0.0951 m/s and isolated peaks
+        # <= 0.1016 m/s. Keep 0.12 m/s as the immediate emergency gate while
+        # placing confirmed limits above this measured operating envelope.
+        warning_speed: 0.09
+        hard_stop_speed: 0.105
+        hard_stop_consecutive_samples: 5
+        emergency_stop_speed: 0.12
+        sustained_speed: 0.10
+        sustained_duration: 0.10
+
   actual_wheel_watchdog:
     warning_speed: 0.08
+    # Encoder-derived instantaneous velocity can contain an isolated sample
+    # spike. Two consecutive samples above the hard threshold are required,
+    # while a genuinely extreme sample still stops immediately.
     hard_stop_speed: 0.09
+    hard_stop_consecutive_samples: 2
+    emergency_stop_speed: 0.12
     sustained_speed: 0.08
     sustained_duration: 0.05
 

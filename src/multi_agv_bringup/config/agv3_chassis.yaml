@@ -1,10 +1,16 @@
 robot_id: agv3
 robot_index: 3
 host_ip: 192.168.6.103
-serial_device: /dev/ttyACM0
+serial_device: /dev/chassis_driver
 transport_type: serial
+# Mechanical metadata only: the STM32 reports wheel velocity directly in
+# mm/s. ROS calibration is performed by the two feedback scale parameters.
 wheel_radius: 0.0325
-wheel_separation: 0.114
+# Frozen as robot3_camera_s_frozen_v1 after the accepted three-cycle camera
+# calibration 20260811_114743 and three STOP_CONFIRMED S validations.
+wheel_separation: 0.136802843
+wheel_feedback_scale_left: 1.134911374
+wheel_feedback_scale_right: 1.137011300
 base_link_z: 0.05969
 control_loop_overrun_seconds: 0.008
 command_timeout_seconds: 0.20

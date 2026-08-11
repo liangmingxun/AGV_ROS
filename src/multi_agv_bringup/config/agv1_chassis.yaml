@@ -4,7 +4,12 @@ host_ip: 192.168.6.101
 serial_device: /dev/chassis_driver
 transport_type: serial
 wheel_radius: 0.0325
-wheel_separation: 0.114
+# Review-only joint candidate from camera calibration 20260811_140136,
+# explicitly enabled for S-path validation. Do not freeze or copy it to
+# another robot until three independent STOP_CONFIRMED validations pass.
+wheel_separation: 0.135484339
+wheel_feedback_scale_left: 1.129384768
+wheel_feedback_scale_right: 1.115373526
 base_link_z: 0.05969
 control_loop_overrun_seconds: 0.008
 command_timeout_seconds: 0.20

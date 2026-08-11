@@ -71,9 +71,14 @@ class BringupStaticTest(unittest.TestCase):
         self.assertIn(
             "three_agv_tag_extrinsics_measured_load_pending_readonly", config)
         self.assertIn("calibration_authorized: false", config)
-        self.assertIn("extrinsics_frozen: false", config)
+        self.assertIn("extrinsics_frozen: true", config)
+        self.assertEqual(config.count("enabled: true"), 3)
+        self.assertEqual(config.count("enabled: false"), 1)
+        self.assertIn("if (!stream.enabled)", adapter)
         self.assertIn("require_confidence: true", config)
         self.assertEqual(config.count("tag_to_target_x:"), 4)
+        self.assertEqual(config.count("tag_to_target_y: 0.0972"), 2)
+        self.assertIn("tag_to_target_y: -0.13274", config)
         self.assertIn("SOURCE_CAMERA", estimator)
         self.assertIn("SOURCE_FUSED", estimator)
         self.assertIn('localization_mode_ != "fused"', estimator)
@@ -126,6 +131,16 @@ class BringupStaticTest(unittest.TestCase):
             2: "192.168.6.102",
             3: "192.168.6.103",
         }
+        expected_serial_devices = {
+            1: "/dev/chassis_driver",
+            2: "/dev/ttyACM0",
+            3: "/dev/chassis_driver",
+        }
+        expected_wheel_calibration = {
+            1: ("0.135484339", "1.129384768", "1.115373526"),
+            2: ("0.139284482", "1.091612663", "1.102973507"),
+            3: ("0.136802843", "1.134911374", "1.137011300"),
+        }
         for index in range(1, 4):
             text = (PACKAGE / "config" / f"agv{index}_chassis.yaml").read_text(
                 encoding="utf-8")
@@ -143,6 +158,15 @@ class BringupStaticTest(unittest.TestCase):
                 self.assertIn(marker, text)
             self.assertIn(
                 "host_ip: {}".format(expected_host_ips[index]), text)
+            self.assertIn(
+                "serial_device: {}".format(expected_serial_devices[index]),
+                text)
+            track, left_scale, right_scale = expected_wheel_calibration[index]
+            self.assertIn("wheel_separation: {}".format(track), text)
+            self.assertIn(
+                "wheel_feedback_scale_left: {}".format(left_scale), text)
+            self.assertIn(
+                "wheel_feedback_scale_right: {}".format(right_scale), text)
 
         chassis_entry = (
             PACKAGE / "scripts" / "start_three_car_chassis.sh"
@@ -193,7 +217,13 @@ class BringupStaticTest(unittest.TestCase):
                 "ros::TransportHints().reliable().tcpNoDelay()",
                 "synchronized && sample != nullptr"):
             self.assertIn(marker, estimator_source)
-        self.assertNotIn(".unreliable()", estimator_source)
+        self.assertIn('if (localization_mode_ == "fused")',
+                      estimator_source)
+        self.assertIn("pose_transport_hints", estimator_source)
+        self.assertIn(".unreliable()", estimator_source)
+        self.assertIn(
+            "Cooperative odometry is state, not disposable telemetry",
+            estimator_source)
 
         tracker = (
             PACKAGE / "config" / "pretest_constant_reference.yaml"
@@ -268,20 +298,117 @@ class BringupStaticTest(unittest.TestCase):
         self.assertIn("base_to_support_x: -0.01783", config)
         self.assertIn("lateral_gain: 3.0", config)
         self.assertIn("heading_gain: 2.5", config)
+        self.assertIn(
+            "profile: robot1_camera_wheel_turn_candidate_v1", config)
+        self.assertIn("wheel_separation: 0.135484339", config)
+        self.assertIn(
+            "angular_feedforward_scale_positive: 0.803566413", config)
+        self.assertIn(
+            "angular_feedforward_scale_negative: 0.845593913", config)
+        self.assertIn(
+            "profile: robot2_camera_s_frozen_v1", config)
+        self.assertIn("wheel_separation: 0.139284482", config)
+        self.assertIn(
+            "angular_feedforward_scale_positive: 0.780810219", config)
+        self.assertIn(
+            "angular_feedforward_scale_negative: 0.918767785", config)
+        self.assertIn("hard_stop_consecutive_samples: 5", config)
+        self.assertIn(
+            "profile: robot3_camera_s_frozen_v1", config)
+        self.assertIn("lateral_gain: 4.0", config)
+        self.assertIn("heading_gain: 3.0", config)
+        self.assertIn("curvature_preview_seconds: 0.05", config)
+        self.assertIn("wheel_separation: 0.136802843", config)
+        self.assertIn(
+            "angular_feedforward_scale_positive: 0.850009371", config)
+        self.assertIn(
+            "angular_feedforward_scale_negative: 0.883228287", config)
+        self.assertIn("hard_stop_speed: 0.105", config)
+        self.assertIn("sustained_speed: 0.10", config)
+        self.assertIn("sustained_duration: 0.10", config)
         self.assertIn("post_stop_record_seconds: 2.0", config)
         self.assertIn("hard_stop_speed: 0.09", config)
+        self.assertIn("hard_stop_consecutive_samples: 2", config)
+        self.assertIn("emergency_stop_speed: 0.12", config)
 
         runner = (SOURCE_ROOT.parent /
                   "run_single_car_camera_s_closed_loop.sh").read_text(
                       encoding="utf-8")
         self.assertIn('--robot-index {1|2|3}', runner)
         self.assertIn('ROBOT1_IP="192.168.6.101"', runner)
+        self.assertIn(
+            'TRACKER_PROFILE="robot1_camera_wheel_turn_candidate_v1"',
+            runner)
+        self.assertIn(
+            'TRACKER_PROFILE="robot2_camera_s_frozen_v1"',
+            runner)
+        self.assertIn(
+            'TRACKER_FEEDFORWARD_SCALE_POSITIVE="0.780810219"', runner)
+        self.assertIn(
+            'TRACKER_FEEDFORWARD_SCALE_NEGATIVE="0.918767785"', runner)
+        self.assertIn('TRACKER_WHEEL_SEPARATION="0.139284482"', runner)
+        self.assertIn(
+            'WHEEL_HARD_STOP_CONSECUTIVE_SAMPLES="5"', runner)
+        self.assertIn(
+            'TRACKER_PROFILE="robot3_camera_s_frozen_v1"',
+            runner)
+        self.assertIn(
+            'TRACKER_FEEDFORWARD_SCALE_POSITIVE="0.850009371"', runner)
+        self.assertIn(
+            'TRACKER_FEEDFORWARD_SCALE_NEGATIVE="0.883228287"', runner)
+        self.assertIn('TRACKER_WHEEL_SEPARATION="0.136802843"', runner)
+        freeze = (PACKAGE / "config" /
+                  "robot2_camera_s_freeze_v1.yaml").read_text(
+                      encoding="utf-8")
+        self.assertIn("freeze_id: robot2_camera_s_frozen_v1", freeze)
+        self.assertIn("status: frozen", freeze)
+        for run_id in ("20260810_202045", "20260810_202854",
+                       "20260810_203055"):
+            self.assertIn(run_id, freeze)
+        robot3_freeze = (PACKAGE / "config" /
+                         "robot3_camera_s_freeze_v1.yaml").read_text(
+                             encoding="utf-8")
+        self.assertIn("freeze_id: robot3_camera_s_frozen_v1",
+                      robot3_freeze)
+        self.assertIn("status: frozen", robot3_freeze)
+        for run_id in ("20260811_115644", "20260811_133644",
+                       "20260811_133735"):
+            self.assertIn(run_id, robot3_freeze)
         for index, mode in ((1, "local"), (2, "remote"), (3, "remote")):
             wrapper = (SOURCE_ROOT.parent /
                        f"run_robot{index}_camera_s_closed_loop.sh").read_text(
                            encoding="utf-8")
             self.assertIn(f"--robot-index {index}", wrapper)
             self.assertIn(f"--chassis-mode {mode}", wrapper)
+
+        calibration = (SOURCE_ROOT.parent /
+                       "run_single_car_camera_wheel_calibration.sh").read_text(
+                           encoding="utf-8")
+        calibrator = (PACKAGE / "scripts" /
+                      "camera_wheel_turn_calibration.py").read_text(
+                          encoding="utf-8")
+        self.assertIn("--robot-index {1|2|3}", calibration)
+        self.assertIn("--confirm-test-area-clear", calibration)
+        self.assertIn("--confirm-wheels-on-floor", calibration)
+        self.assertIn("parameters_automatically_applied=false", calibration)
+        self.assertIn("--cycles 3", calibration)
+        self.assertIn("--straight-duration 7.0", calibration)
+        self.assertIn("--arc-duration 6.0", calibration)
+        for index in (1, 2, 3):
+            wrapper = (SOURCE_ROOT.parent /
+                       f"run_robot{index}_camera_wheel_calibration.sh").read_text(
+                           encoding="utf-8")
+            self.assertIn(f"--robot-index {index}", wrapper)
+        robot1_calibration = (SOURCE_ROOT.parent /
+                              "run_robot1_camera_wheel_calibration.sh").read_text(
+                                  encoding="utf-8")
+        self.assertIn("car1_master.launch", robot1_calibration)
+        self.assertIn("trap cleanup EXIT INT TERM HUP", robot1_calibration)
+        self.assertIn("REVIEW ONLY", calibrator)
+        self.assertIn("component_status", calibrator)
+        self.assertIn("geometry_outlier_cycles", calibrator)
+        self.assertIn("wheel_feedback_scale_left_candidate", calibrator)
+        self.assertIn("angular_feedforward_scale_positive_candidate", calibrator)
 
         environment = (SOURCE_ROOT.parent / "setup_robot_ros.sh").read_text(
             encoding="utf-8")
@@ -345,7 +472,21 @@ class BringupStaticTest(unittest.TestCase):
         for marker in (
                 "hardware_execution_authorized: true",
                 "load_path_speed: 0.05",
+                "start_delay_seconds: 3.0",
                 "target_progress: 1.00",
+                "validation_profile: camera_fused_s_1p00",
+                "wheel_separation: [0.135484339, 0.139284482, 0.136802843]",
+                "angular_feedforward_scale_positive:",
+                "angular_feedforward_scale_negative:",
+                "lateral_gain_per_robot: [4.0, 3.0, 4.0]",
+                "heading_gain_per_robot: [3.0, 2.5, 3.0]",
+                "angular_feedforward_scale_positive: [0.78, 0.780810219, 0.850009371]",
+                "angular_feedforward_scale_negative: [0.89, 0.918767785, 0.883228287]",
+                "formation_longitudinal_gain: 0.25",
+                "formation_lateral_gain: 0.50",
+                "formation_heading_gain: 0.50",
+                "curvature_preview_seconds_positive: [0.0, 0.0, 0.05]",
+                "curvature_preview_seconds_negative: [0.05, 0.0, 0.05]",
                 "required_command_subscribers: 2",
                 "readiness_stable_samples: 20",
                 "minimum_battery_voltage: 10.5",
@@ -363,6 +504,13 @@ class BringupStaticTest(unittest.TestCase):
                 "STM32 serial feedback is stale or future-dated",
                 "chassis feedback receive age",
                 "STM32 packet sequence age",
+                "curvature_preview_seconds_positive_",
+                "curvature_preview_seconds_negative_",
+                "formation_longitudinal_gain_",
+                "formation_lateral_gain_",
+                "formation_heading_gain_",
+                "mean_world_error",
+                "relative_heading_error",
                 "all six wheels must be stopped before motion"):
             self.assertIn(marker, node)
 
@@ -404,8 +552,22 @@ class BringupStaticTest(unittest.TestCase):
         self.assertIn("require_three_car_motion_gate.sh", run)
         self.assertIn("--require-valid-state", motion_gate)
         self.assertIn("PASSED ${passes} CONSECUTIVE WINDOW", motion_gate)
-        self.assertIn("/reset_odometry", run)
+        self.assertNotIn("/reset_odometry", run)
         self.assertIn("rosbag record", run)
+        self.assertIn(
+            "camera_role=absolute_position_and_heading_closed_loop_authority",
+            run)
+        self.assertIn("virtual_load=rigid_fit_from_three_fused_support_centres",
+                      run)
+        self.assertIn("/pose_provider/agv1/base_pose_raw", run)
+        self.assertIn("analyze_three_car_cooperative_bag.py", run)
+        self.assertIn(
+            "rosparam delete /three_car_unloaded_bounded_pretest", run)
+        self.assertIn(
+            "parameter_snapshot_timing=after_motion_node_parameter_load_before_start_delay",
+            run)
+        self.assertIn(
+            "curvature_preview_seconds_negative", run)
         self.assertIn(
             "/multi_agv/three_car_unloaded_pretest_result_code", run)
         self.assertIn("motion node exited without a valid result code", run)
@@ -446,22 +608,109 @@ class BringupStaticTest(unittest.TestCase):
         self.assertEqual(localization.count("yaw: 0.0}"), 6)
         self.assertIn("maximum_state_age: 0.20", localization)
         self.assertIn("maximum_sync_slop: 0.02", localization)
-        self.assertIn("odom_state_estimator_straight.launch", launch)
+        self.assertNotIn("odom_state_estimator_straight.launch", launch)
         self.assertIn("localization_odom_straight.yaml", estimator_launch)
         self.assertIn("path_straight_1m.yaml", launch)
         self.assertIn(
             "three_car_unloaded_straight_pretest.yaml", launch)
         self.assertIn("AGV_THREE_CAR_PATH_MODE=straight", wrapper)
-        self.assertIn("load_path_speed: 0.08", straight_config)
-        self.assertIn("maximum_wheel_linear_velocity: 0.11",
+        self.assertIn("load_path_speed: 0.03", straight_config)
+        self.assertIn("target_progress: 0.30", straight_config)
+        self.assertIn("maximum_wheel_linear_velocity: 0.06",
                       straight_config)
-        self.assertIn("maximum_motion_time: 18.0", straight_config)
+        self.assertIn("maximum_motion_time: 15.0", straight_config)
         self.assertIn('motion_launch=\"three_car_unloaded_straight_pretest.launch\"',
                       runner)
-        self.assertIn("reset_all_odometry", runner)
-        self.assertIn("post_gate_odometry_reset=true", runner)
+        self.assertNotIn("reset_all_odometry", runner)
+        self.assertIn("post_gate_odometry_reset=false", runner)
+        self.assertIn("camera_fused_virtual_load_state_estimator.launch",
+                      runner)
         for topic in ("/agv1/imu", "/agv2/imu", "/agv3/imu"):
             self.assertIn(topic, runner)
+
+    def test_three_car_closed_loop_uses_fused_virtual_load(self):
+        launch = (
+            PACKAGE / "launch" /
+            "camera_fused_virtual_load_state_estimator.launch"
+        ).read_text(encoding="utf-8")
+        config = (
+            PACKAGE / "config" /
+            "localization_camera_three_car_closed_loop.yaml"
+        ).read_text(encoding="utf-8")
+        estimator = (
+            SOURCE_ROOT / "multi_agv_control" / "src" /
+            "path_state_estimator_node.cpp"
+        ).read_text(encoding="utf-8")
+        self.assertIn("localization_camera.yaml", launch)
+        self.assertIn("localization_camera_three_car_closed_loop.yaml",
+                      launch)
+        self.assertIn("derive_virtual_load_from_robots: true", config)
+        self.assertIn("auto_anchor_from_robot_poses: true", config)
+        self.assertIn("output_frame: three_car_path", config)
+        self.assertIn("maximum_state_age: 0.22", config)
+        self.assertIn("maximum_sync_slop: 0.02", config)
+        self.assertIn("synchronization_queue_size: 64", config)
+        self.assertIn("localization_mode_ == \"fused\"", estimator)
+        self.assertIn("pose_transport_hints", estimator)
+        self.assertIn(".unreliable()", estimator)
+        self.assertIn(".maxDatagramSize(1400)", estimator)
+        self.assertIn("initializeCameraPathAnchor", estimator)
+        self.assertIn("fitRigidLoadPose", estimator)
+
+    def test_camera_formation_initialization_is_sequential_and_bounded(self):
+        launch = (
+            PACKAGE / "launch" / "three_car_camera_formation_init.launch"
+        ).read_text(encoding="utf-8")
+        config = (
+            PACKAGE / "config" / "three_car_camera_formation_init.yaml"
+        ).read_text(encoding="utf-8")
+        node = (
+            PACKAGE / "scripts" /
+            "initialize_three_car_camera_formation.py"
+        ).read_text(encoding="utf-8")
+        runner = (
+            SOURCE_ROOT.parent / "run_three_car_camera_formation_init.sh"
+        ).read_text(encoding="utf-8")
+
+        for marker in (
+                'name="confirm_test_area_clear" default="false"',
+                'name="confirm_wheels_on_floor" default="false"',
+                'name="confirm_automatic_formation" default="false"'):
+            self.assertIn(marker, launch)
+        for marker in (
+                "side_length: 0.40",
+                "base_to_support_x: -0.01783",
+                "maximum_linear_speed: 0.025",
+                "near_target_speed: 0.010",
+                "docking_speed: 0.005",
+                "final_heading_recovery_distance: 0.025",
+                "maximum_no_progress_seconds: 12.0",
+                "maximum_wheel_speed: 0.05",
+                "maximum_initial_target_distance: 0.65",
+                "minimum_robot_separation: 0.22",
+                "minimum_battery_voltage: 10.5",
+                "minimum_battery_voltage_duration: 0.5",
+                "required_command_subscribers: 2"):
+            self.assertIn(marker, config)
+        for marker in (
+                "_reject_competing_publishers",
+                "all six wheels must be stopped before initialization",
+                "battery remained below the bound",
+                "for index in (1, 2)",
+                "_check_separation",
+                "_check_stationary",
+                "FORMATION_INIT_APPROACH_REVERSE",
+                "FORMATION_INIT_FINAL_HEADING",
+                "latched final-heading phase",
+                "FORMATION_INIT_POSITION_RECOVERY",
+                "failed to make position progress",
+                "all-six-wheel stop confirmation failed",
+                "FORMATION_CONFIRMED"):
+            self.assertIn(marker, node)
+        self.assertIn("--confirm-automatic-formation", runner)
+        self.assertIn("rosbag record", runner)
+        self.assertIn("/pose_provider/agv1/base_pose_fused", runner)
+        self.assertIn("/multi_agv/formation_init/result_code", runner)
 
 
 if __name__ == "__main__":

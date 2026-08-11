@@ -19,8 +19,8 @@
 - 记录器保存相机 raw/filtered/置信度，CSV 导出实际三车、支撑点和载荷位姿。
 - 记录器保存标定代次与Windows配置/源码清单；正式校验拒绝一包中出现多个
   世界坐标代次。
-- 默认配置同时以 `calibration_authorized=false` 和
-  `extrinsics_frozen=false` 阻止误接实物。
+- 默认 launch 仍以 `calibration_authorized=false` 阻止误接实物；三辆 AGV
+  外参已冻结，未标定的载荷流保留协议接口但明确设置为 `enabled=false`。
 
 ## 接入真实相机前必须测量
 
@@ -35,11 +35,10 @@
 9. Windows `create_manifest.py`生成的配置快照/源码哈希清单，以及Robot1
    `vision_udp_bridge.yaml`的归档副本。
 
-上述数据归档后，复制并修改 `localization_camera.yaml`，将占位变换替换为
-实测值，完成只读静态/动态标记测试。只有测试通过且配置哈希冻结后，才可同时
-设置 `extrinsics_frozen=true` 并以
-`camera_formal.launch calibration_authorized:=true` 启动。此 launch 只启动
-定位链，不授权底盘运动。
+载荷数据归档后，修改 `localization_camera.yaml`，将载荷占位变换替换为
+实测值并把载荷流设为 `enabled=true`，再完成只读静态/动态标记测试。当前
+`camera_formal.launch calibration_authorized:=true` 只授权三路已冻结 AGV
+定位；载荷仍不输出。此 launch 只启动定位链，不授权底盘运动。
 
 当前外参实现由四个固定地面码在线解算，不要求预先输入四点世界坐标；
 `world`原点和轴由ID 8/11/30定义。在线拟合残差只能证明内部重复性，不能

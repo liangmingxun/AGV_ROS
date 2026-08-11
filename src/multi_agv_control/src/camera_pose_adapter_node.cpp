@@ -38,6 +38,16 @@ std::string xmlString(const XmlRpc::XmlRpcValue& value, const char* key) {
   return static_cast<std::string>(value[key]);
 }
 
+bool xmlBool(const XmlRpc::XmlRpcValue& value, const char* key,
+             bool fallback) {
+  if (!value.hasMember(key)) return fallback;
+  if (value[key].getType() != XmlRpc::XmlRpcValue::TypeBoolean) {
+    throw std::runtime_error(std::string("parameter field is not boolean: ") +
+                             key);
+  }
+  return static_cast<bool>(value[key]);
+}
+
 double yawFromQuaternion(const geometry_msgs::Quaternion& q) {
   const double norm =
       std::sqrt(q.x * q.x + q.y * q.y + q.z * q.z + q.w * q.w);
@@ -114,6 +124,7 @@ class CameraPoseAdapterNode {
  private:
   struct Stream {
     std::string entity_id;
+    bool enabled{true};
     std::string input_topic;
     std::string confidence_topic;
     std::string raw_output_topic;
@@ -137,6 +148,7 @@ class CameraPoseAdapterNode {
   void loadStream(std::size_t index, const XmlRpc::XmlRpcValue& value) {
     auto& stream = streams_[index];
     stream.entity_id = xmlString(value, "entity_id");
+    stream.enabled = xmlBool(value, "enabled", true);
     static const std::array<std::string, kStreamCount> expected{
         "agv1", "agv2", "agv3", "load"};
     if (stream.entity_id != expected[index]) {
@@ -158,6 +170,12 @@ class CameraPoseAdapterNode {
         !std::isfinite(stream.transform_y) ||
         !std::isfinite(stream.transform_yaw)) {
       throw std::runtime_error("invalid camera stream configuration");
+    }
+    if (!stream.enabled) {
+      ROS_WARN("Camera stream %s is configured but disabled because its "
+               "rigid transform has not been frozen",
+               stream.entity_id.c_str());
+      return;
     }
     stream.raw_publisher = node_.advertise<geometry_msgs::PoseStamped>(
         stream.raw_output_topic, 10, false);

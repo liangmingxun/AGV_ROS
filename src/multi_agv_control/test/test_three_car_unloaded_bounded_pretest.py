@@ -21,6 +21,8 @@ class ThreeCarUnloadedBoundedPretestTest(unittest.TestCase):
             "~expected_motion_speed", 0.05)
         self._maximum_wheel_command = rospy.get_param(
             "~maximum_wheel_command", 0.08)
+        self._expected_target_progress = rospy.get_param(
+            "~expected_target_progress", 1.00)
         self._condition = threading.Condition()
         self._commands = [[], [], []]
         self._references = []
@@ -71,7 +73,7 @@ class ThreeCarUnloadedBoundedPretestTest(unittest.TestCase):
             for message in messages[-5:])
 
     def test_common_bounded_motion_and_all_car_stop(self):
-        deadline = rospy.Time.now() + rospy.Duration(28.0)
+        deadline = rospy.Time.now() + rospy.Duration(36.0)
         with self._condition:
             while rospy.Time.now() < deadline:
                 if (all(len(self._nonzero(messages)) > 20
@@ -81,7 +83,8 @@ class ThreeCarUnloadedBoundedPretestTest(unittest.TestCase):
                         and self._references
                         and abs(
                             self._references[-1]
-                            .load_path_progress_reference - 1.00) < 1.0e-6
+                            .load_path_progress_reference -
+                            self._expected_target_progress) < 1.0e-6
                         and abs(
                             self._references[-1]
                             .load_path_velocity_reference) < 1.0e-9
@@ -134,7 +137,7 @@ class ThreeCarUnloadedBoundedPretestTest(unittest.TestCase):
                 for reference in self._references))
         self.assertAlmostEqual(
             self._references[-1].load_path_progress_reference,
-            1.00, places=6)
+            self._expected_target_progress, places=6)
         self.assertAlmostEqual(
             self._references[-1].load_path_velocity_reference,
             0.0, places=9)

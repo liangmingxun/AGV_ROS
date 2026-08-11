@@ -21,12 +21,13 @@
   <test test-name="three_car_unloaded_bounded_pretest"
         pkg="multi_agv_control"
         type="test_three_car_unloaded_bounded_pretest.py"
-        time-limit="32">
+        time-limit="40">
     <param name="expected_experiment_id"
-           value="three_car_unloaded_s_1m"/>
+           value="three_car_cooperative_camera_fused_s_1m"/>
     <param name="expected_path_id" value="s_curve_1m_bounded"/>
     <param name="expect_straight" value="false"/>
     <param name="expected_motion_speed" value="0.05"/>
+    <param name="expected_target_progress" value="1.00"/>
     <param name="maximum_wheel_command" value="0.08"/>
   </test>
 </launch>

@@ -31,6 +31,12 @@ bool validConfig(const ChassisConfig& config) {
   const auto& limits = config.nominal_limits;
   return config.robot_index >= 1 && config.robot_index <= 3 &&
          validPositive(config.wheel_separation) &&
+         std::isfinite(config.wheel_feedback_scale_left) &&
+         std::isfinite(config.wheel_feedback_scale_right) &&
+         config.wheel_feedback_scale_left >= 0.5 &&
+         config.wheel_feedback_scale_left <= 1.5 &&
+         config.wheel_feedback_scale_right >= 0.5 &&
+         config.wheel_feedback_scale_right <= 1.5 &&
          validPositive(config.control_loop_overrun_seconds) &&
          validPositive(config.command_timeout_seconds) &&
          validPositive(config.sensor_feedback_timeout_seconds) &&
@@ -195,8 +201,12 @@ void ChassisCore::updateSensors(const SensorInput& sensor) {
   }
   has_sensor_ = true;
   sensor_ = sensor;
-  feedback_.actual.left = sensor.wheel_left_mm_per_second / 1000.0;
-  feedback_.actual.right = sensor.wheel_right_mm_per_second / 1000.0;
+  feedback_.actual.left =
+      config_.wheel_feedback_scale_left *
+      sensor.wheel_left_mm_per_second / 1000.0;
+  feedback_.actual.right =
+      config_.wheel_feedback_scale_right *
+      sensor.wheel_right_mm_per_second / 1000.0;
   feedback_.battery_voltage = sensor.battery_voltage;
   feedback_.packet_sequence = sensor.packet_sequence;
 }

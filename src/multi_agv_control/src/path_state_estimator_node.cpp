@@ -41,6 +41,14 @@ geometry_msgs::Pose2D toMessage(const PlanarPose& pose) {
   return message;
 }
 
+PlanarPose inversePose(const PlanarPose& pose) {
+  const double c = std::cos(pose.yaw);
+  const double s = std::sin(pose.yaw);
+  return {{-c * pose.position.x() - s * pose.position.y(),
+           s * pose.position.x() - c * pose.position.y()},
+          -pose.yaw};
+}
+
 double xmlNumber(const XmlRpc::XmlRpcValue& value, const char* key) {
   if (!value.hasMember(key)) {
     throw std::runtime_error(std::string("missing parameter field: ") + key);
@@ -93,6 +101,12 @@ class PathStateEstimatorNode {
                         synchronization_queue_size);
     private_node_.param("maximum_rigid_fit_residual",
                         maximum_rigid_fit_residual_, 0.05);
+    private_node_.param("derive_virtual_load_from_robots",
+                        derive_virtual_load_from_robots_, false);
+    private_node_.param("auto_anchor_from_robot_poses",
+                        auto_anchor_from_robot_poses_, false);
+    private_node_.param("output_frame", output_frame_,
+                        std::string("world"));
     if (!(publish_rate_ > 0.0) || !(maximum_state_age_ > 0.0) ||
         !(maximum_sync_slop_ >= 0.0) ||
         synchronization_queue_size < 3 ||
@@ -125,7 +139,7 @@ class PathStateEstimatorNode {
         projector_config);
     load_estimator_ =
         std::make_unique<StateEstimator>(std::move(load_projector), estimator_config);
-    if (camera_mode_) {
+    if (camera_mode_ && !derive_virtual_load_from_robots_) {
       private_node_.param("load_pose_topic", load_pose_topic_, std::string());
       if (load_pose_topic_.empty()) {
         throw std::runtime_error(
@@ -135,6 +149,16 @@ class PathStateEstimatorNode {
           load_pose_topic_, 10,
           &PathStateEstimatorNode::receiveCameraLoad, this,
           ros::TransportHints().reliable().tcpNoDelay());
+    }
+    if ((derive_virtual_load_from_robots_ ||
+         auto_anchor_from_robot_poses_) && !camera_mode_) {
+      throw std::runtime_error(
+          "virtual-load derivation and automatic anchoring require camera/fused mode");
+    }
+    if (auto_anchor_from_robot_poses_ &&
+        !derive_virtual_load_from_robots_) {
+      throw std::runtime_error(
+          "automatic anchoring requires virtual load derived from the three robots");
     }
 
     state_publisher_ = node_.advertise<agv_msgs::CooperativeState>(
@@ -288,9 +312,23 @@ class PathStateEstimatorNode {
           [this, index](const geometry_msgs::PoseStamped::ConstPtr& message) {
             receiveCameraRobot(index, message);
           };
+      ros::TransportHints pose_transport_hints;
+      if (localization_mode_ == "fused") {
+        // A fused pose is a high-rate latest-state stream. Prefer UDPROS so a
+        // lost Wi-Fi packet cannot hold newer Robot2/3 poses behind a TCP
+        // retransmission. TCP remains an automatic fallback for ROS peers
+        // that cannot negotiate UDP.
+        pose_transport_hints
+            .unreliable()
+            .reliable()
+            .maxDatagramSize(1400)
+            .tcpNoDelay();
+      } else {
+        pose_transport_hints.reliable().tcpNoDelay();
+      }
       robot.subscriber = node_.subscribe<geometry_msgs::PoseStamped>(
           robot.pose_topic, 10, callback, ros::VoidConstPtr(),
-          ros::TransportHints().reliable().tcpNoDelay());
+          pose_transport_hints);
     } else {
       robot.odom_topic = xmlString(value, "odom_topic");
       robot.odom_frame = xmlString(value, "odom_frame");
@@ -374,6 +412,8 @@ class PathStateEstimatorNode {
                epoch_token);
     }
     camera_epoch_token_ = epoch_token;
+    path_anchor_initialized_ = false;
+    path_frame_to_camera_world_ = PlanarPose{};
 
     // Preserve each local path seed only to allow a non-formal diagnostic run
     // to recover. All timestamps, velocity histories and cross-robot samples
@@ -414,10 +454,16 @@ class PathStateEstimatorNode {
     OdometrySample sample;
     sample.stamp = message->header.stamp;
     sample.robot_pose = planarPose(*message);
+    if (path_anchor_initialized_) {
+      sample.robot_pose = composePose(
+          path_frame_to_camera_world_, sample.robot_pose);
+    }
     sample.support_pose =
         composePose(sample.robot_pose, robot.base_to_support);
-    sample.path_state = robot.estimator->update(
-        sample.support_pose.position, sample.stamp.toSec());
+    if (!auto_anchor_from_robot_poses_ || path_anchor_initialized_) {
+      sample.path_state = robot.estimator->update(
+          sample.support_pose.position, sample.stamp.toSec());
+    }
     robot.samples.push_back(std::move(sample));
     while (robot.samples.size() > synchronization_queue_size_) {
       robot.samples.pop_front();
@@ -561,11 +607,79 @@ class PathStateEstimatorNode {
             maximum_sync_slop_);
   }
 
+  bool initializeCameraPathAnchor(
+      const std::array<const OdometrySample*, kRobotCount>& selected) {
+    std::array<Eigen::Vector2d, kRobotCount> supports;
+    std::array<SupportOffset, kRobotCount> offsets;
+    for (std::size_t index = 0U; index < kRobotCount; ++index) {
+      supports[index] = selected[index]->support_pose.position;
+      offsets[index] = geometry_.config().offsets[index];
+    }
+    const auto fit = fitRigidLoadPose(supports, offsets);
+    if (!fit.valid || fit.rms_residual > maximum_rigid_fit_residual_) {
+      const double distance_12 = (supports[0] - supports[1]).norm();
+      const double distance_13 = (supports[0] - supports[2]).norm();
+      const double distance_23 = (supports[1] - supports[2]).norm();
+      ROS_WARN_THROTTLE(
+          1.0,
+          "Cannot anchor camera-fused fleet: initial rigid-fit residual %.6f m exceeds %.6f m; support distances d12=%.4f d13=%.4f d23=%.4f m (required approximately 0.4000 m each)",
+          fit.rms_residual, maximum_rigid_fit_residual_,
+          distance_12, distance_13, distance_23);
+      return false;
+    }
+    const auto start = path_.sample(0.0);
+    const PlanarPose path_start{{start.position.x(), start.position.y()},
+                                start.heading};
+    // path_frame_T_camera_world maps the measured initial virtual-load pose
+    // onto the canonical s=0 path pose. Raw and fused camera topics remain in
+    // the calibrated world frame; only CooperativeState uses this run-local
+    // path frame.
+    path_frame_to_camera_world_ =
+        composePose(path_start, inversePose(fit.pose));
+    path_anchor_initialized_ = true;
+
+    for (auto& robot : robots_) {
+      robot.estimator->reset(0.0);
+      for (auto& sample : robot.samples) {
+        sample.robot_pose = composePose(
+            path_frame_to_camera_world_, sample.robot_pose);
+        sample.support_pose =
+            composePose(sample.robot_pose, robot.base_to_support);
+        sample.path_state = robot.estimator->update(
+            sample.support_pose.position, sample.stamp.toSec());
+      }
+    }
+    load_estimator_->reset(0.0);
+    last_load_path_state_ = StateEstimate{};
+    last_load_measurement_stamp_ = ros::Time();
+    ROS_INFO(
+        "Anchored camera-fused three-robot state to path start: initial rigid-fit RMS=%.6f m",
+        fit.rms_residual);
+    return true;
+  }
+
   void fillCameraState(const ros::Time& now,
                        agv_msgs::CooperativeState* state) {
+    std::array<const OdometrySample*, kRobotCount> synchronized_samples{};
+    bool synchronized =
+        selectSynchronizedSamples(now, &synchronized_samples);
+    if (synchronized && auto_anchor_from_robot_poses_ &&
+        !path_anchor_initialized_) {
+      synchronized = initializeCameraPathAnchor(synchronized_samples) &&
+          selectSynchronizedSamples(now, &synchronized_samples);
+    }
+    if (!synchronized) {
+      ROS_WARN_THROTTLE(
+          1.0,
+          "No synchronized camera-fused three-robot snapshot (slop=%.6f s)",
+          maximum_sync_slop_);
+    }
     for (std::size_t index = 0U; index < kRobotCount; ++index) {
-      const auto* sample = latestFreshSample(robots_[index], now);
-      const bool valid = sample != nullptr;
+      const auto* sample = synchronized
+          ? synchronized_samples[index] : latestSample(robots_[index]);
+      const bool valid = synchronized && sample != nullptr &&
+          fresh(*sample, now) &&
+          (!auto_anchor_from_robot_poses_ || path_anchor_initialized_);
       state->robot_localization_source[index] =
           valid ? robot_pose_source_
                 : static_cast<std::uint8_t>(
@@ -583,6 +697,48 @@ class PathStateEstimatorNode {
           state->s_dot_actual[index] = sample->path_state.speed;
         }
       }
+    }
+
+    if (derive_virtual_load_from_robots_) {
+      if (!synchronized ||
+          (auto_anchor_from_robot_poses_ && !path_anchor_initialized_)) {
+        return;
+      }
+      const auto minmax = std::minmax_element(
+          synchronized_samples.begin(), synchronized_samples.end(),
+          [](const OdometrySample* lhs, const OdometrySample* rhs) {
+            return lhs->stamp < rhs->stamp;
+          });
+      std::array<Eigen::Vector2d, kRobotCount> supports;
+      std::array<SupportOffset, kRobotCount> offsets;
+      for (std::size_t index = 0U; index < kRobotCount; ++index) {
+        supports[index] = synchronized_samples[index]->support_pose.position;
+        offsets[index] = geometry_.config().offsets[index];
+      }
+      const auto fit = fitRigidLoadPose(supports, offsets);
+      if (!fit.valid || fit.rms_residual > maximum_rigid_fit_residual_) {
+        ROS_WARN_THROTTLE(
+            1.0,
+            "Camera-fused virtual-load rigid-fit residual %.6f m exceeds %.6f m",
+            fit.rms_residual, maximum_rigid_fit_residual_);
+        return;
+      }
+      state->load_localization_source = robot_pose_source_;
+      state->load_pose_valid = true;
+      state->load_pose_stamp = (*minmax.first)->stamp;
+      state->load_pose = toMessage(fit.pose);
+      if (last_load_measurement_stamp_.isZero() ||
+          state->load_pose_stamp > last_load_measurement_stamp_) {
+        last_load_path_state_ = load_estimator_->update(
+            fit.pose.position, state->load_pose_stamp.toSec());
+        last_load_measurement_stamp_ = state->load_pose_stamp;
+      }
+      state->load_path_state_valid = last_load_path_state_.valid;
+      if (last_load_path_state_.valid) {
+        state->load_s_actual = last_load_path_state_.progress;
+        state->load_s_dot_actual = last_load_path_state_.speed;
+      }
+      return;
     }
 
     const OdometrySample* load_sample = nullptr;
@@ -611,7 +767,7 @@ class PathStateEstimatorNode {
     const ros::Time now = ros::Time::now();
     agv_msgs::CooperativeState state;
     state.header.stamp = now;
-    state.header.frame_id = "world";
+    state.header.frame_id = output_frame_;
     if (camera_mode_) {
       fillCameraState(now, &state);
       state_publisher_.publish(state);
@@ -722,7 +878,12 @@ class PathStateEstimatorNode {
   double maximum_rigid_fit_residual_{0.05};
   std::string localization_mode_{"odometry_pretest"};
   std::string load_pose_topic_;
+  std::string output_frame_{"world"};
   bool camera_mode_{false};
+  bool derive_virtual_load_from_robots_{false};
+  bool auto_anchor_from_robot_poses_{false};
+  bool path_anchor_initialized_{false};
+  PlanarPose path_frame_to_camera_world_;
   std::uint8_t robot_pose_source_{
       agv_msgs::CooperativeState::SOURCE_CAMERA};
   bool require_calibration_epoch_{true};

@@ -1,0 +1,49 @@
+schema_version: 1
+candidate_id: robot1_camera_wheel_turn_candidate_v1
+status: validation_pending
+enabled_on: "2026-08-11"
+robot_id: agv1
+scope: robot1_camera_fused_s_path
+copy_to_other_robots: false
+
+source_evidence:
+  baseline_run: robot1_camera_s_closed_loop/20260811_135207
+  calibration_run: robot1_camera_wheel_calibration/20260811_140136
+  calibration_automatic_status: REJECTED
+  rejected_component: wheel_feedback
+  rejection_reason: more_than_one_straight_segment_is_an_outlier
+  application_authority: explicit_user_request_for_single_s_validation
+
+parameters:
+  chassis:
+    wheel_feedback_scale_left: 1.129384768
+    wheel_feedback_scale_right: 1.115373526
+    wheel_separation: 0.135484339
+  tracker:
+    longitudinal_gain: 1.0
+    lateral_gain: 3.0
+    heading_gain: 2.5
+    angular_feedforward_scale_positive: 0.803566413
+    angular_feedforward_scale_negative: 0.845593913
+    curvature_preview_seconds: 0.0
+  actual_wheel_watchdog:
+    warning_speed_mps: 0.09
+    hard_stop_speed_mps: 0.105
+    hard_stop_consecutive_samples: 5
+    emergency_stop_speed_mps: 0.12
+    sustained_speed_mps: 0.10
+    sustained_duration_sec: 0.10
+
+calibration_quality:
+  translation_fit_rmse_m: 0.003955790
+  yaw_fit_rmse_rad: 0.030951261
+  geometry_inlier_cycles: [1, 2]
+  geometry_outlier_cycles: [3]
+  straight_segment_inlier_count: 3
+  positive_turn_inlier_cycles: [1, 2, 3]
+  negative_turn_inlier_cycles: [1, 2, 3]
+
+validation_gate:
+  current_completed_s_runs: 0
+  required_completed_s_runs_for_freeze: 3
+  revert_on_tracking_or_safety_failure: true

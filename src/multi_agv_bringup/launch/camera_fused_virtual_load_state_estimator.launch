@@ -1,0 +1,16 @@
+<launch>
+  <!-- Requires pose_provider and camera_odom_fusion to be running already. -->
+  <arg name="path_config"
+       default="$(find multi_agv_bringup)/config/path_s_curve.yaml"/>
+
+  <node pkg="multi_agv_control" type="path_state_estimator_node"
+        name="path_state_estimator" output="screen" required="true">
+    <rosparam command="load" file="$(arg path_config)"/>
+    <rosparam command="load"
+              file="$(find multi_agv_bringup)/config/support_geometry.yaml"/>
+    <rosparam command="load"
+              file="$(find multi_agv_bringup)/config/localization_camera.yaml"/>
+    <rosparam command="load"
+              file="$(find multi_agv_bringup)/config/localization_camera_three_car_closed_loop.yaml"/>
+  </node>
+</launch>

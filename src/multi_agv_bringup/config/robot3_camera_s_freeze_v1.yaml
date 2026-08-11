@@ -1,0 +1,70 @@
+schema_version: 1
+freeze_id: robot3_camera_s_frozen_v1
+status: frozen
+frozen_on: "2026-08-11"
+robot_id: agv3
+scope: robot3_camera_fused_s_path
+copy_to_other_robots: false
+
+parameters:
+  chassis:
+    wheel_feedback_scale_left: 1.134911374
+    wheel_feedback_scale_right: 1.137011300
+    wheel_separation: 0.136802843
+  tracker:
+    longitudinal_gain: 1.0
+    lateral_gain: 4.0
+    heading_gain: 3.0
+    angular_feedforward_scale_positive: 0.850009371
+    angular_feedforward_scale_negative: 0.883228287
+    curvature_preview_seconds: 0.05
+  actual_wheel_watchdog:
+    warning_speed_mps: 0.09
+    hard_stop_speed_mps: 0.105
+    hard_stop_consecutive_samples: 5
+    emergency_stop_speed_mps: 0.12
+    sustained_speed_mps: 0.10
+    sustained_duration_sec: 0.10
+
+evidence:
+  baseline_run: robot3_camera_s_closed_loop/20260810_181136
+  calibration_run: robot3_camera_wheel_calibration/20260811_114743
+  completed_validation_runs:
+    - robot3_camera_s_closed_loop/20260811_115644
+    - robot3_camera_s_closed_loop/20260811_133644
+    - robot3_camera_s_closed_loop/20260811_133735
+  excluded_runs:
+    - run: robot3_camera_s_closed_loop/20260811_120141
+      reason: callback_wall_time_false_sustained_overspeed_aborted_passive_window
+
+three_run_summary:
+  status: accepted
+  stop_confirmed_runs: 3
+  longitudinal_rms_mean_m: 0.005476659
+  lateral_rms_mean_m: 0.024058331
+  lateral_max_mean_m: 0.041012381
+  yaw_rms_mean_rad: 0.033140185
+  yaw_max_mean_rad: 0.062596209
+  endpoint_position_error_mean_m: 0.010256196
+  camera_forward_displacement_mean_m: 0.960877512
+  odom_forward_displacement_mean_m: 0.986638226
+  signed_odom_minus_camera_forward_ratio: 0.026810
+  camera_planar_displacement_mean_m: 1.006799096
+  odom_planar_displacement_mean_m: 1.035752418
+  signed_odom_minus_camera_planar_ratio: 0.028758
+  left_turn_lateral_rms_mean_m: 0.019406702
+  right_turn_lateral_rms_mean_m: 0.025495292
+  maximum_feedback_speed_across_runs_mps: 0.100141486
+  samples_above_hard_stop: 0
+  samples_above_emergency_stop: 0
+  minimum_battery_voltage_across_runs: 11.328791618
+
+known_residuals:
+  right_turn_lateral_rms_exceeds_left_turn: true
+  right_to_left_lateral_rms_ratio: 1.313739
+  disposition: accepted_as_stable_robot3_baseline
+
+change_control:
+  modification_requires_new_calibration: true
+  modification_requires_three_completed_s_validation_runs: true
+  retain_previous_evidence: true

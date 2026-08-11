@@ -124,6 +124,10 @@ class ChassisControllerNode {
     }
     config_.robot_index = static_cast<std::uint8_t>(robot_index);
     config_.wheel_separation = private_.param("wheel_separation", 0.114);
+    config_.wheel_feedback_scale_left =
+        private_.param("wheel_feedback_scale_left", 1.0);
+    config_.wheel_feedback_scale_right =
+        private_.param("wheel_feedback_scale_right", 1.0);
     config_.control_loop_overrun_seconds =
         private_.param("control_loop_overrun_seconds", 0.008);
     config_.command_timeout_seconds =
@@ -178,6 +182,9 @@ class ChassisControllerNode {
           "base_link_z, capability publish rate or serial startup timeout is "
           "invalid");
     }
+    ROS_INFO("%s wheel feedback calibration: left=%.6f right=%.6f",
+             robot_id_.c_str(), config_.wheel_feedback_scale_left,
+             config_.wheel_feedback_scale_right);
 
     acc_bias_ = vectorParam(private_, "imu/acc_bias", Eigen::Vector3f::Zero());
     acc_scale_ = vectorParam(private_, "imu/acc_scale", Eigen::Vector3f::Ones());
