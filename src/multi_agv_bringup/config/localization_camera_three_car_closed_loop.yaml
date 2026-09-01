@@ -19,3 +19,4 @@ maximum_state_age: 0.22
 maximum_sync_slop: 0.02
 synchronization_queue_size: 64
 maximum_rigid_fit_residual: 0.025
+maximum_load_path_transient_hold: 0.05

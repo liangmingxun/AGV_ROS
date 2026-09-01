@@ -72,6 +72,59 @@ TEST(SCurvePath, ZeroAmplitudeIsAnExactStraightLine) {
   }
 }
 
+TEST(SCurvePath, RadiusOneCircleIsArcLengthParameterizedAndClosed) {
+  SCurveConfig config;
+  config.amplitude = 0.0;
+  config.longitudinal_length = 2.0 * kPi;
+  config.lookup_samples = 20001;
+  config.model = "circle";
+  config.circle_radius = 1.0;
+  const SCurvePath path(config);
+
+  EXPECT_NEAR(path.length(), 2.0 * kPi, 1e-10);
+  EXPECT_NEAR(path.maximumAbsoluteCurvature(), 1.0, 1e-12);
+  const auto start = path.sample(0.0);
+  const auto quarter = path.sample(0.5 * kPi);
+  const auto finish = path.sample(2.0 * kPi);
+  EXPECT_NEAR(start.position.x(), 0.0, 1e-12);
+  EXPECT_NEAR(start.position.y(), 0.0, 1e-12);
+  EXPECT_NEAR(quarter.position.x(), 1.0, 1e-12);
+  EXPECT_NEAR(quarter.position.y(), 1.0, 1e-12);
+  EXPECT_NEAR(finish.position.x(), 0.0, 1e-12);
+  EXPECT_NEAR(finish.position.y(), 0.0, 1e-12);
+  EXPECT_NEAR(quarter.curvature, 1.0, 1e-12);
+  EXPECT_NEAR(quarter.first_derivative.norm(), 1.0, 1e-12);
+}
+
+TEST(SCurvePath, ClockwiseHalfMetreCircleHasSmoothCurvatureEntry) {
+  SCurveConfig config;
+  config.amplitude = 0.0;
+  config.circle_radius = 0.5;
+  config.entry_straight_length = 0.20;
+  config.curvature_ramp_length = 0.40;
+  config.circle_direction = -1.0;
+  config.longitudinal_length = 0.60 + kPi;
+  config.lookup_samples = 40001;
+  config.model = "circle_smooth_entry";
+  const SCurvePath path(config);
+
+  EXPECT_NEAR(path.length(), 0.60 + kPi, 1e-10);
+  EXPECT_NEAR(path.maximumAbsoluteCurvature(), 2.0, 1e-12);
+  EXPECT_DOUBLE_EQ(path.sample(0.0).heading, 0.0);
+  EXPECT_DOUBLE_EQ(path.sample(0.20).curvature, 0.0);
+  EXPECT_NEAR(path.sample(0.40).curvature, -1.0, 1e-12);
+  EXPECT_NEAR(path.sample(0.60).curvature, -2.0, 1e-12);
+  EXPECT_NEAR(path.sample(0.60).heading, -0.4, 1e-12);
+  EXPECT_NEAR(path.sample(path.length()).heading,
+              -0.4 - 2.0 * kPi, 1e-10);
+
+  const double epsilon = 1e-6;
+  EXPECT_NEAR(path.sample(0.20 - epsilon).curvature,
+              path.sample(0.20 + epsilon).curvature, 1e-8);
+  EXPECT_NEAR(path.sample(0.60 - epsilon).curvature,
+              path.sample(0.60 + epsilon).curvature, 1e-8);
+}
+
 TEST(SCurvePath, ArcLengthLookupIsMonotonicAndInvertible) {
   const auto path = testPath();
   EXPECT_GT(path.length(), path.config().longitudinal_length);

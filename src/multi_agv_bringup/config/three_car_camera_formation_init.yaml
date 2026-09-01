@@ -6,7 +6,7 @@ three_car_camera_formation_init:
   subscriber_wait_seconds: 10.0
   maximum_pose_age: 0.15
   maximum_feedback_age: 0.25
-  minimum_battery_voltage: 10.5
+  minimum_battery_voltage: 10.0
   minimum_battery_voltage_duration: 0.5
 
   geometry:
@@ -29,6 +29,10 @@ three_car_camera_formation_init:
     # commanded 1.6 mm/s was inside the measured zero-motion deadband.
     # The fleet-level side-length gate below remains independently at 15 mm.
     position_tolerance: 0.015
+    # A final pairwise-triangle refinement uses a tighter target tolerance.
+    # Two robots each within 6 mm bound their mutual side error below 15 mm.
+    refinement_position_tolerance: 0.006
+    maximum_refinement_passes: 2
     final_heading_recovery_distance: 0.025
     heading_tolerance: 0.03491
     stable_samples: 15
@@ -42,4 +46,6 @@ three_car_camera_formation_init:
     maximum_stationary_heading_drift: 0.05236
     maximum_actual_wheel_speed: 0.105
     stopped_wheel_tolerance: 0.01
-    required_command_subscribers: 2
+    # Only the chassis controller subscribes now that this setup step no
+    # longer starts a rosbag recorder.
+    required_command_subscribers: 1

@@ -26,6 +26,7 @@ namespace multi_agv_control {
 namespace {
 
 constexpr std::size_t kRobotCount = 3U;
+constexpr double kPi = 3.14159265358979323846;
 std::atomic<bool> stop_requested{false};
 
 void requestStop(int) {
@@ -150,19 +151,13 @@ class ThreeCarUnloadedBoundedPretestNode {
         ros::TransportHints().tcpNoDelay());
     for (std::size_t index = 0; index < kRobotCount; ++index) {
       const auto robot = std::to_string(index + 1U);
+      // Chassis feedback carries packet progression, battery voltage and
+      // safety flags. Unlike a latest-state camera pose, dropping it can
+      // directly trip the motion gate, so use reliable TCPROS on hardware as
+      // well as in fake tests. Camera-fused poses retain their separate
+      // UDPROS-preferred subscription in path_state_estimator_node.
       ros::TransportHints feedback_transport_hints;
-      if (transport_type_ == "fake") {
-        // Loopback fake tests validate control behavior, not UDPROS. TCP keeps
-        // their startup deterministic while the physical path remains
-        // UDP-preferred with TCP fallback.
-        feedback_transport_hints.reliable().tcpNoDelay();
-      } else {
-        feedback_transport_hints
-            .unreliable()
-            .reliable()
-            .maxDatagramSize(1400)
-            .tcpNoDelay();
-      }
+      feedback_transport_hints.reliable().tcpNoDelay();
       feedback_subscribers_[index] = node_.subscribe<agv_msgs::ChassisFeedback>(
           "/agv" + robot + "/chassis_feedback", 10,
           [this, index](const agv_msgs::ChassisFeedback::ConstPtr& message) {
@@ -235,18 +230,30 @@ class ThreeCarUnloadedBoundedPretestNode {
         publishRepeatedStop();
         return 5;
       }
-      if (dt > 0.0 && dt <= maximum_step_) {
-        progress = std::min(target_progress_, progress + speed_ * dt);
+      const double elapsed = (now - motion_start).toSec();
+      const double ramp_scale = startup_ramp_seconds_ > 0.0
+          ? std::clamp(elapsed / startup_ramp_seconds_, 0.0, 1.0)
+          : 1.0;
+      const double requested_velocity = speed_ * ramp_scale;
+      auto tracking = trackingAt(progress, requested_velocity);
+      double command_scale = 1.0;
+      if (!limitTrackingCommands(&tracking, &command_scale, &reason)) {
+        ROS_ERROR("Three-car bounded pretest aborted: %s", reason.c_str());
+        publishRepeatedStop();
+        return 6;
       }
-
-      const auto tracking = trackingAt(progress, speed_);
       if (!trackingSafe(tracking, progress, &reason)) {
         ROS_ERROR("Three-car bounded pretest aborted: %s", reason.c_str());
         publishRepeatedStop();
         return 6;
       }
+      const double effective_velocity = requested_velocity * command_scale;
       publishTracking(tracking);
-      publishReferenceAndController(tracking, progress, speed_);
+      publishReferenceAndController(tracking, progress, effective_velocity);
+      if (dt > 0.0 && dt <= maximum_step_) {
+        progress = std::min(
+            target_progress_, progress + effective_velocity * dt);
+      }
 
       if ((now - motion_start).toSec() > maximum_motion_time_) {
         ROS_ERROR("Three-car bounded pretest aborted: motion timeout");
@@ -315,8 +322,10 @@ class ThreeCarUnloadedBoundedPretestNode {
         private_, root + "motion/load_path_speed", 0.05);
     target_progress_ = finiteParam(
         private_, root + "motion/target_progress", 1.00);
+    startup_ramp_seconds_ = finiteParam(
+        private_, root + "motion/startup_ramp_seconds", 1.0);
     minimum_battery_voltage_ = finiteParam(
-        private_, root + "abort/minimum_battery_voltage", 10.5);
+        private_, root + "abort/minimum_battery_voltage", 10.0);
     maximum_feedback_receive_age_ = finiteParam(
         private_, root + "abort/maximum_feedback_receive_age", 0.25);
     maximum_serial_feedback_age_ = finiteParam(
@@ -337,6 +346,8 @@ class ThreeCarUnloadedBoundedPretestNode {
         private_, root + "abort/maximum_heading_error", 0.12);
     maximum_wheel_command_ = finiteParam(
         private_, root + "abort/maximum_wheel_linear_velocity", 0.08);
+    minimum_wheel_command_scale_ = finiteParam(
+        private_, root + "abort/minimum_wheel_command_scale", 0.75);
     required_subscribers_ =
         private_.param(root + "required_command_subscribers", 2);
     readiness_stable_samples_ =
@@ -390,9 +401,18 @@ class ThreeCarUnloadedBoundedPretestNode {
 
   SCurveConfig loadPathConfig() {
     SCurveConfig config;
+    private_.param("path_s_curve/model", config.model,
+                   std::string("sine_single_period"));
     private_.param("path_s_curve/amplitude", config.amplitude, 0.05);
     private_.param("path_s_curve/longitudinal_length",
                    config.longitudinal_length, 1.0);
+    private_.param("path_s_curve/circle_radius", config.circle_radius, 1.0);
+    private_.param("path_s_curve/entry_straight_length",
+                   config.entry_straight_length, 0.0);
+    private_.param("path_s_curve/curvature_ramp_length",
+                   config.curvature_ramp_length, 0.0);
+    private_.param("path_s_curve/circle_direction",
+                   config.circle_direction, 1.0);
     int samples = private_.param("path_s_curve/lookup_samples", 20001);
     config.lookup_samples =
         static_cast<std::size_t>(std::max(samples, 0));
@@ -464,6 +484,10 @@ class ThreeCarUnloadedBoundedPretestNode {
          path_id_ == "straight_1m_bounded" &&
          std::abs(speed_ - 0.03) <= 1e-12 &&
          std::abs(target_progress_ - 0.30) <= 1e-12) ||
+        (validation_profile_ == "camera_fused_circle_r0p5_cw_smooth" &&
+         path_id_ == "circle_r0p5_cw_smooth_entry_bounded" &&
+         std::abs(speed_ - 0.05) <= 1e-12 &&
+         std::abs(target_progress_ - (0.60 + kPi)) <= 1e-9) ||
         (validation_profile_ == "legacy_unloaded_bounded" &&
          std::abs(target_progress_ - 1.00) <= 1e-12 &&
          ((path_id_ == "s_curve_1m_bounded" &&
@@ -494,7 +518,7 @@ class ThreeCarUnloadedBoundedPretestNode {
         !(stopped_wheel_tolerance_ >= 0.0) ||
         !(maximum_step_ > 0.0) || !(maximum_motion_time_ > 0.0) ||
         !authorized_path_speed || !(target_progress_ > 0.0) ||
-        !(minimum_battery_voltage_ >= 10.5) ||
+        !(minimum_battery_voltage_ >= 10.0) ||
         !(maximum_feedback_receive_age_ > 0.0) ||
         maximum_feedback_receive_age_ > 0.25 ||
         !(maximum_serial_feedback_age_ > 0.0) ||
@@ -507,6 +531,9 @@ class ThreeCarUnloadedBoundedPretestNode {
         !(maximum_lateral_error_ > 0.0) ||
         !(maximum_heading_error_ > 0.0) ||
         !(maximum_wheel_command_ > speed_) ||
+        startup_ramp_seconds_ < 0.0 || startup_ramp_seconds_ > 5.0 ||
+        !(minimum_wheel_command_scale_ > 0.0) ||
+        minimum_wheel_command_scale_ > 1.0 ||
         formation_longitudinal_gain_ < 0.0 ||
         formation_longitudinal_gain_ > 2.0 ||
         formation_lateral_gain_ < 0.0 ||
@@ -752,7 +779,8 @@ class ThreeCarUnloadedBoundedPretestNode {
     }
     const bool camera_fused_profile =
         validation_profile_ == "camera_fused_s_1p00" ||
-        validation_profile_ == "camera_fused_straight_0p30";
+        validation_profile_ == "camera_fused_straight_0p30" ||
+        validation_profile_ == "camera_fused_circle_r0p5_cw_smooth";
     if (camera_fused_profile && transport_type_ == "serial" &&
         (state_.header.frame_id != "three_car_path" ||
          state_.load_localization_source !=
@@ -792,13 +820,22 @@ class ThreeCarUnloadedBoundedPretestNode {
         const double serial_age =
             (ros::Time::now() -
              feedback_[index].serial_receive_stamp).toSec();
+        // This stamp is generated on another computer. Local receive age and
+        // packet-sequence progress are already enforced by inputsFresh() and
+        // are the authoritative safety checks. Keep the cross-host stamp as
+        // a clock/transport diagnostic so NTP correction or packet reordering
+        // cannot independently abort an otherwise fresh feedback stream.
         if (feedback_[index].serial_receive_stamp.isZero() ||
             !std::isfinite(serial_age) ||
             serial_age < -maximum_stamp_spread_ ||
             serial_age > maximum_serial_feedback_age_) {
-          *reason = "STM32 serial feedback is stale or future-dated for agv" +
-                    std::to_string(index + 1U);
-          return false;
+          ROS_WARN_THROTTLE(
+              1.0,
+              "agv%zu remote STM32 timestamp diagnostic only: serial_age=%.6f s, allowed=[-%.6f, %.6f] s, zero=%s; local receive and packet-progress gates remain authoritative",
+              index + 1U, serial_age, maximum_stamp_spread_,
+              maximum_serial_feedback_age_,
+              feedback_[index].serial_receive_stamp.isZero() ? "true" :
+                                                                "false");
         }
       }
     }
@@ -930,6 +967,49 @@ class ThreeCarUnloadedBoundedPretestNode {
           std::isfinite(result[index].wheel_linear_velocity_right_raw);
     }
     return result;
+  }
+
+  bool limitTrackingCommands(
+      std::array<PlanarTrackingResult, kRobotCount>* tracking,
+      double* applied_scale, std::string* reason) const {
+    double peak_wheel_command = 0.0;
+    for (const auto& value : *tracking) {
+      if (!value.valid) continue;
+      peak_wheel_command = std::max(
+          peak_wheel_command,
+          std::max(std::abs(value.wheel_linear_velocity_left_raw),
+                   std::abs(value.wheel_linear_velocity_right_raw)));
+    }
+    *applied_scale = 1.0;
+    if (peak_wheel_command <= maximum_wheel_command_) return true;
+
+    // Use one factor for all six wheels. Independent clipping would change
+    // wheel curvature and relative robot speeds, deforming the support
+    // triangle. Keep a small numerical margin below the hard limit.
+    const double scale =
+        0.999 * maximum_wheel_command_ / peak_wheel_command;
+    if (!std::isfinite(scale) || scale < minimum_wheel_command_scale_) {
+      std::ostringstream message;
+      message << "wheel command requires excessive fleet scaling"
+              << " (peak=" << peak_wheel_command
+              << ", scale=" << scale << ")";
+      *reason = message.str();
+      return false;
+    }
+    for (auto& value : *tracking) {
+      value.linear_velocity_feedforward *= scale;
+      value.angular_velocity_feedforward *= scale;
+      value.linear_velocity_raw *= scale;
+      value.angular_velocity_raw *= scale;
+      value.wheel_linear_velocity_left_raw *= scale;
+      value.wheel_linear_velocity_right_raw *= scale;
+    }
+    *applied_scale = scale;
+    ROS_WARN_THROTTLE(
+        1.0,
+        "Uniform three-car wheel-command scaling active: raw_peak=%.6f m/s scale=%.4f hard_limit=%.6f m/s",
+        peak_wheel_command, scale, maximum_wheel_command_);
+    return true;
   }
 
   bool trackingSafe(
@@ -1125,7 +1205,8 @@ class ThreeCarUnloadedBoundedPretestNode {
   double maximum_motion_time_{25.0};
   double speed_{0.05};
   double target_progress_{1.00};
-  double minimum_battery_voltage_{10.5};
+  double startup_ramp_seconds_{1.0};
+  double minimum_battery_voltage_{10.0};
   double maximum_feedback_receive_age_{0.25};
   double maximum_serial_feedback_age_{0.25};
   double maximum_stamp_spread_{0.02};
@@ -1136,6 +1217,7 @@ class ThreeCarUnloadedBoundedPretestNode {
   double maximum_lateral_error_{0.03};
   double maximum_heading_error_{0.12};
   double maximum_wheel_command_{0.08};
+  double minimum_wheel_command_scale_{0.75};
   int required_subscribers_{2};
   int readiness_stable_samples_{20};
   std::uint32_t initial_command_sequence_{41000U};

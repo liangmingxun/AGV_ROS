@@ -220,7 +220,10 @@ class BringupStaticTest(unittest.TestCase):
         self.assertIn('if (localization_mode_ == "fused")',
                       estimator_source)
         self.assertIn("pose_transport_hints", estimator_source)
-        self.assertIn(".unreliable()", estimator_source)
+        self.assertNotIn(".unreliable()", estimator_source)
+        self.assertIn(
+            "static_cast<std::uint32_t>(synchronization_queue_size_)",
+            estimator_source)
         self.assertIn(
             "Cooperative odometry is state, not disposable telemetry",
             estimator_source)
@@ -473,6 +476,7 @@ class BringupStaticTest(unittest.TestCase):
                 "hardware_execution_authorized: true",
                 "load_path_speed: 0.05",
                 "start_delay_seconds: 3.0",
+                "startup_ramp_seconds: 1.0",
                 "target_progress: 1.00",
                 "validation_profile: camera_fused_s_1p00",
                 "wheel_separation: [0.135484339, 0.139284482, 0.136802843]",
@@ -485,23 +489,25 @@ class BringupStaticTest(unittest.TestCase):
                 "formation_longitudinal_gain: 0.25",
                 "formation_lateral_gain: 0.50",
                 "formation_heading_gain: 0.50",
-                "curvature_preview_seconds_positive: [0.0, 0.0, 0.05]",
+                "curvature_preview_seconds_positive: [0.05, 0.0, 0.05]",
                 "curvature_preview_seconds_negative: [0.05, 0.0, 0.05]",
                 "required_command_subscribers: 2",
                 "readiness_stable_samples: 20",
-                "minimum_battery_voltage: 10.5",
+                "minimum_battery_voltage: 10.0",
                 "maximum_feedback_receive_age: 0.25",
                 "maximum_serial_feedback_age: 0.25",
                 "maximum_stamp_spread: 0.02",
                 "maximum_wheel_linear_velocity: 0.08"):
             self.assertIn(marker, config)
+        self.assertIn("minimum_wheel_command_scale: 0.75", config)
         for marker in (
                 "rejectCompetingPublishers",
                 "publishRepeatedStop",
                 "waitForStopped",
                 "virtual load pose or path state is invalid",
                 "control loop overrun reported",
-                "STM32 serial feedback is stale or future-dated",
+                "remote STM32 timestamp diagnostic only",
+                "local receive and packet-progress gates remain authoritative",
                 "chassis feedback receive age",
                 "STM32 packet sequence age",
                 "curvature_preview_seconds_positive_",
@@ -509,10 +515,15 @@ class BringupStaticTest(unittest.TestCase):
                 "formation_longitudinal_gain_",
                 "formation_lateral_gain_",
                 "formation_heading_gain_",
+                "limitTrackingCommands",
+                "Uniform three-car wheel-command scaling active",
+                "startup_ramp_seconds_",
                 "mean_world_error",
                 "relative_heading_error",
                 "all six wheels must be stopped before motion"):
             self.assertIn(marker, node)
+        self.assertIn(
+            "feedback_transport_hints.reliable().tcpNoDelay()", node)
 
     def test_three_car_host_and_orchestration_scripts_are_safety_gated(self):
         start = (
@@ -628,6 +639,41 @@ class BringupStaticTest(unittest.TestCase):
         for topic in ("/agv1/imu", "/agv2/imu", "/agv3/imu"):
             self.assertIn(topic, runner)
 
+    def test_three_car_clockwise_half_metre_circle_has_smooth_entry(self):
+        path = (PACKAGE / "config" /
+                "path_circle_r0p5_cw_smooth.yaml").read_text(
+            encoding="utf-8")
+        override = (
+            PACKAGE / "config" / "three_car_unloaded_circle_pretest.yaml"
+        ).read_text(encoding="utf-8")
+        launch = (
+            PACKAGE / "launch" / "three_car_unloaded_circle_pretest.launch"
+        ).read_text(encoding="utf-8")
+        runner = (
+            PACKAGE / "scripts" / "run_three_car_unloaded_pretest.sh"
+        ).read_text(encoding="utf-8")
+        wrapper = (SOURCE_ROOT.parent /
+                   "run_three_car_cooperative_circle_validation.sh").read_text(
+                       encoding="utf-8")
+
+        self.assertIn("model: circle_smooth_entry", path)
+        self.assertIn("circle_radius: 0.5", path)
+        self.assertIn("circle_direction: -1.0", path)
+        self.assertIn("entry_straight_length: 0.20", path)
+        self.assertIn("curvature_ramp_length: 0.40", path)
+        self.assertIn("longitudinal_length: 3.741592653589793", path)
+        self.assertIn("camera_fused_circle_r0p5_cw_smooth", override)
+        self.assertIn("load_path_speed: 0.05", override)
+        self.assertIn("target_progress: 3.741592653589793", override)
+        self.assertIn("maximum_motion_time: 90.0", override)
+        self.assertIn("path_circle_r0p5_cw_smooth.yaml", launch)
+        self.assertIn("three_car_unloaded_circle_pretest.yaml", launch)
+        self.assertIn("AGV_THREE_CAR_PATH_MODE=circle", wrapper)
+        self.assertIn("--confirm-circle-area-clear", runner)
+        self.assertIn(
+            'motion_launch="three_car_unloaded_circle_pretest.launch"',
+            runner)
+
     def test_three_car_closed_loop_uses_fused_virtual_load(self):
         launch = (
             PACKAGE / "launch" /
@@ -652,8 +698,11 @@ class BringupStaticTest(unittest.TestCase):
         self.assertIn("synchronization_queue_size: 64", config)
         self.assertIn("localization_mode_ == \"fused\"", estimator)
         self.assertIn("pose_transport_hints", estimator)
-        self.assertIn(".unreliable()", estimator)
-        self.assertIn(".maxDatagramSize(1400)", estimator)
+        self.assertNotIn(".unreliable()", estimator)
+        self.assertNotIn(".maxDatagramSize(1400)", estimator)
+        self.assertIn(
+            "static_cast<std::uint32_t>(synchronization_queue_size_)",
+            estimator)
         self.assertIn("initializeCameraPathAnchor", estimator)
         self.assertIn("fitRigidLoadPose", estimator)
 
@@ -683,33 +732,38 @@ class BringupStaticTest(unittest.TestCase):
                 "maximum_linear_speed: 0.025",
                 "near_target_speed: 0.010",
                 "docking_speed: 0.005",
+                "refinement_position_tolerance: 0.006",
+                "maximum_refinement_passes: 2",
                 "final_heading_recovery_distance: 0.025",
                 "maximum_no_progress_seconds: 12.0",
                 "maximum_wheel_speed: 0.05",
                 "maximum_initial_target_distance: 0.65",
                 "minimum_robot_separation: 0.22",
-                "minimum_battery_voltage: 10.5",
+                "minimum_battery_voltage: 10.0",
                 "minimum_battery_voltage_duration: 0.5",
-                "required_command_subscribers: 2"):
+                "required_command_subscribers: 1"):
             self.assertIn(marker, config)
         for marker in (
                 "_reject_competing_publishers",
                 "all six wheels must be stopped before initialization",
                 "battery remained below the bound",
+                "_refine_final_triangle",
+                "FORMATION_REFINE",
                 "for index in (1, 2)",
                 "_check_separation",
                 "_check_stationary",
-                "FORMATION_INIT_APPROACH_REVERSE",
-                "FORMATION_INIT_FINAL_HEADING",
+                'phase + "_APPROACH_REVERSE"',
+                'phase + "_FINAL_HEADING"',
                 "latched final-heading phase",
-                "FORMATION_INIT_POSITION_RECOVERY",
+                'phase + "_POSITION_RECOVERY"',
                 "failed to make position progress",
                 "all-six-wheel stop confirmation failed",
                 "FORMATION_CONFIRMED"):
             self.assertIn(marker, node)
         self.assertIn("--confirm-automatic-formation", runner)
-        self.assertIn("rosbag record", runner)
-        self.assertIn("/pose_provider/agv1/base_pose_fused", runner)
+        self.assertNotIn("rosbag record", runner)
+        self.assertNotIn("experiment_data", runner)
+        self.assertIn('/pose_provider/agv${index}/base_pose_fused', runner)
         self.assertIn("/multi_agv/formation_init/result_code", runner)
 
 

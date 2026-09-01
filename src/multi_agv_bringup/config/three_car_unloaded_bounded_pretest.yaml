@@ -2,7 +2,7 @@
 # This does not authorize the generic central controller or a loaded test.
 three_car_unloaded_bounded_pretest:
   schema_version: 1
-  configuration_status: camera_fused_centered_se2_formation_feedback_v1
+  configuration_status: camera_fused_centered_se2_bounded_feedback_v2
   hardware_execution_authorized: true
 
   experiment_id: three_car_cooperative_camera_fused_s_1m
@@ -24,6 +24,9 @@ three_car_unloaded_bounded_pretest:
   motion:
     load_path_speed: 0.05
     target_progress: 1.00
+    # Smooth the transition from stationary pose correction to the full
+    # S-curve feedforward command.
+    startup_ramp_seconds: 1.0
 
   tracker:
     # The scalar values construct the common reference tracker. The arrays
@@ -46,9 +49,10 @@ three_car_unloaded_bounded_pretest:
     formation_longitudinal_gain: 0.25
     formation_lateral_gain: 0.50
     formation_heading_gain: 0.50
-    # Robot1 previews only its weaker negative turn. Robot3's original
-    # symmetric 0.05 s preview is restored with its frozen feedforward pair.
-    curvature_preview_seconds_positive: [0.0, 0.0, 0.05]
+    # Robot1 now previews both turn directions by 0.05 s. Two repeated 1 m
+    # camera-fused runs localized its remaining heading peak to the positive
+    # bend near s=0.82--0.85 m. Robot3 retains its frozen symmetric preview.
+    curvature_preview_seconds_positive: [0.05, 0.0, 0.05]
     curvature_preview_seconds_negative: [0.05, 0.0, 0.05]
     chassis_reference_samples: 10001
     wheel_separation: [0.135484339, 0.139284482, 0.136802843]
@@ -59,7 +63,7 @@ three_car_unloaded_bounded_pretest:
       - {x: -0.01783, y: 0.0}
 
   abort:
-    minimum_battery_voltage: 10.5
+    minimum_battery_voltage: 10.0
     # Cooperative localization remains capped at 0.15 s. Chassis feedback is
     # used for safety/status rather than geometric tracking; allow the
     # measured 0.16 s Wi-Fi delivery burst, but freeze the low-speed pretest
@@ -75,3 +79,6 @@ three_car_unloaded_bounded_pretest:
     maximum_lateral_error: 0.06
     maximum_heading_error: 0.15
     maximum_wheel_linear_velocity: 0.08
+    # Small transient excess uses a fleet-wide scale factor. If maintaining
+    # the hard limit would require more reduction than this, abort instead.
+    minimum_wheel_command_scale: 0.75

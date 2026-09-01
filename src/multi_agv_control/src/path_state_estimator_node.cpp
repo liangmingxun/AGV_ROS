@@ -101,6 +101,8 @@ class PathStateEstimatorNode {
                         synchronization_queue_size);
     private_node_.param("maximum_rigid_fit_residual",
                         maximum_rigid_fit_residual_, 0.05);
+    private_node_.param("maximum_load_path_transient_hold",
+                        maximum_load_path_transient_hold_, 0.05);
     private_node_.param("derive_virtual_load_from_robots",
                         derive_virtual_load_from_robots_, false);
     private_node_.param("auto_anchor_from_robot_poses",
@@ -110,7 +112,9 @@ class PathStateEstimatorNode {
     if (!(publish_rate_ > 0.0) || !(maximum_state_age_ > 0.0) ||
         !(maximum_sync_slop_ >= 0.0) ||
         synchronization_queue_size < 3 ||
-        !(maximum_rigid_fit_residual_ > 0.0)) {
+        !(maximum_rigid_fit_residual_ > 0.0) ||
+        maximum_load_path_transient_hold_ < 0.0 ||
+        maximum_load_path_transient_hold_ > 0.10) {
       throw std::runtime_error("invalid localization timing or residual configuration");
     }
     synchronization_queue_size_ =
@@ -190,9 +194,19 @@ class PathStateEstimatorNode {
 
   SCurveConfig loadPathConfig() {
     SCurveConfig config;
+    private_node_.param("path_s_curve/model", config.model,
+                        std::string("sine_single_period"));
     private_node_.param("path_s_curve/amplitude", config.amplitude, 0.05);
     private_node_.param("path_s_curve/longitudinal_length",
                         config.longitudinal_length, 1.0);
+    private_node_.param("path_s_curve/circle_radius", config.circle_radius,
+                        1.0);
+    private_node_.param("path_s_curve/entry_straight_length",
+                        config.entry_straight_length, 0.0);
+    private_node_.param("path_s_curve/curvature_ramp_length",
+                        config.curvature_ramp_length, 0.0);
+    private_node_.param("path_s_curve/circle_direction",
+                        config.circle_direction, 1.0);
     int samples = 20001;
     private_node_.param("path_s_curve/lookup_samples", samples, 20001);
     if (samples < 3) {
@@ -311,23 +325,22 @@ class PathStateEstimatorNode {
           const geometry_msgs::PoseStamped::ConstPtr&)> callback =
           [this, index](const geometry_msgs::PoseStamped::ConstPtr& message) {
             receiveCameraRobot(index, message);
-          };
+      };
       ros::TransportHints pose_transport_hints;
       if (localization_mode_ == "fused") {
-        // A fused pose is a high-rate latest-state stream. Prefer UDPROS so a
-        // lost Wi-Fi packet cannot hold newer Robot2/3 poses behind a TCP
-        // retransmission. TCP remains an automatic fallback for ROS peers
-        // that cannot negotiate UDP.
-        pose_transport_hints
-            .unreliable()
-            .reliable()
-            .maxDatagramSize(1400)
-            .tcpNoDelay();
+        // camera_odom_fusion and this estimator run together on Robot1. This
+        // local control-state hop must be lossless: UDPROS drops created
+        // one-sample invalid CooperativeState bursts even while all remote
+        // odometry streams remained at 100 Hz. Wi-Fi behavior is handled on
+        // the upstream odometry subscriptions, not by discarding fused poses.
+        pose_transport_hints.reliable().tcpNoDelay();
       } else {
         pose_transport_hints.reliable().tcpNoDelay();
       }
       robot.subscriber = node_.subscribe<geometry_msgs::PoseStamped>(
-          robot.pose_topic, 10, callback, ros::VoidConstPtr(),
+          robot.pose_topic,
+          static_cast<std::uint32_t>(synchronization_queue_size_),
+          callback, ros::VoidConstPtr(),
           pose_transport_hints);
     } else {
       robot.odom_topic = xmlString(value, "odom_topic");
@@ -428,6 +441,7 @@ class PathStateEstimatorNode {
     load_estimator_->reset(load_progress_seed);
     last_load_path_state_ = StateEstimate{};
     last_load_measurement_stamp_ = ros::Time();
+    last_valid_load_path_stamp_ = ros::Time();
     return true;
   }
 
@@ -652,6 +666,7 @@ class PathStateEstimatorNode {
     load_estimator_->reset(0.0);
     last_load_path_state_ = StateEstimate{};
     last_load_measurement_stamp_ = ros::Time();
+    last_valid_load_path_stamp_ = ros::Time();
     ROS_INFO(
         "Anchored camera-fused three-robot state to path start: initial rigid-fit RMS=%.6f m",
         fit.rms_residual);
@@ -727,12 +742,7 @@ class PathStateEstimatorNode {
       state->load_pose_valid = true;
       state->load_pose_stamp = (*minmax.first)->stamp;
       state->load_pose = toMessage(fit.pose);
-      if (last_load_measurement_stamp_.isZero() ||
-          state->load_pose_stamp > last_load_measurement_stamp_) {
-        last_load_path_state_ = load_estimator_->update(
-            fit.pose.position, state->load_pose_stamp.toSec());
-        last_load_measurement_stamp_ = state->load_pose_stamp;
-      }
+      updateDerivedLoadPath(fit.pose.position, synchronized_samples);
       state->load_path_state_valid = last_load_path_state_.valid;
       if (last_load_path_state_.valid) {
         state->load_s_actual = last_load_path_state_.progress;
@@ -761,6 +771,56 @@ class PathStateEstimatorNode {
         state->load_s_dot_actual = load_sample->path_state.speed;
       }
     }
+  }
+
+  ros::Time representativeLoadStamp(
+      const std::array<const OdometrySample*, kRobotCount>& samples) const {
+    std::array<ros::Time, kRobotCount> stamps{{
+        samples[0]->stamp, samples[1]->stamp, samples[2]->stamp}};
+    std::sort(stamps.begin(), stamps.end());
+    return stamps[1];
+  }
+
+  void updateDerivedLoadPath(
+      const Eigen::Vector2d& position,
+      const std::array<const OdometrySample*, kRobotCount>& samples) {
+    // A rigid fit represents all three synchronized poses.  Using the oldest
+    // sample as its derivative timestamp makes the timestamp source switch
+    // between robots and can create artificial 2--4 ms intervals.  The
+    // median is representative, remains within the synchronization slop and
+    // is insensitive to either edge sample.
+    const ros::Time measurement_stamp = representativeLoadStamp(samples);
+    if (!last_load_measurement_stamp_.isZero() &&
+        measurement_stamp <= last_load_measurement_stamp_) {
+      return;
+    }
+
+    const StateEstimate candidate = load_estimator_->update(
+        position, measurement_stamp.toSec());
+    last_load_measurement_stamp_ = measurement_stamp;
+    if (candidate.valid) {
+      last_load_path_state_ = candidate;
+      last_valid_load_path_stamp_ = measurement_stamp;
+      return;
+    }
+
+    // StateEstimator deliberately returns one invalid result while
+    // re-synchronizing after an implausible derivative.  If the spatial path
+    // projection itself is still valid, retain the preceding path state for
+    // a tightly bounded interval.  A true off-path projection is never held.
+    const double hold_age = last_valid_load_path_stamp_.isZero()
+        ? std::numeric_limits<double>::infinity()
+        : (measurement_stamp - last_valid_load_path_stamp_).toSec();
+    if (candidate.projection.valid && last_load_path_state_.valid &&
+        hold_age >= 0.0 &&
+        hold_age <= maximum_load_path_transient_hold_) {
+      ROS_WARN_THROTTLE(
+          1.0,
+          "Holding the last valid virtual-load path state for %.6f s after a temporal estimator resynchronization",
+          hold_age);
+      return;
+    }
+    last_load_path_state_ = candidate;
   }
 
   void publish(const ros::TimerEvent&) {
@@ -843,12 +903,7 @@ class PathStateEstimatorNode {
         state.load_pose_valid = true;
         state.load_pose_stamp = (*minmax.first)->stamp;
         state.load_pose = toMessage(fit.pose);
-        if (last_load_measurement_stamp_.isZero() ||
-            state.load_pose_stamp > last_load_measurement_stamp_) {
-          last_load_path_state_ = load_estimator_->update(
-              fit.pose.position, state.load_pose_stamp.toSec());
-          last_load_measurement_stamp_ = state.load_pose_stamp;
-        }
+        updateDerivedLoadPath(fit.pose.position, synchronized_samples);
         state.load_path_state_valid = last_load_path_state_.valid;
         if (last_load_path_state_.valid) {
           state.load_s_actual = last_load_path_state_.progress;
@@ -868,6 +923,7 @@ class PathStateEstimatorNode {
   std::unique_ptr<StateEstimator> load_estimator_;
   StateEstimate last_load_path_state_;
   ros::Time last_load_measurement_stamp_;
+  ros::Time last_valid_load_path_stamp_;
   ros::Publisher state_publisher_;
   ros::Subscriber load_pose_subscriber_;
   ros::Timer timer_;
@@ -876,6 +932,7 @@ class PathStateEstimatorNode {
   double maximum_sync_slop_{0.02};
   std::size_t synchronization_queue_size_{64U};
   double maximum_rigid_fit_residual_{0.05};
+  double maximum_load_path_transient_hold_{0.05};
   std::string localization_mode_{"odometry_pretest"};
   std::string load_pose_topic_;
   std::string output_frame_{"world"};

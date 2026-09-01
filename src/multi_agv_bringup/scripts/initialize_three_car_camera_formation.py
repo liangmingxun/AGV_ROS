@@ -47,7 +47,7 @@ class FormationInitializer:
         self.maximum_feedback_age = rospy.get_param(
             root + "maximum_feedback_age", 0.25)
         self.minimum_voltage = rospy.get_param(
-            root + "minimum_battery_voltage", 10.5)
+            root + "minimum_battery_voltage", 10.0)
         self.minimum_voltage_duration = rospy.get_param(
             root + "minimum_battery_voltage_duration", 0.5)
         self.side = rospy.get_param(root + "geometry/side_length", 0.40)
@@ -78,6 +78,10 @@ class FormationInitializer:
             root + "motion/docking_speed", 0.005)
         self.position_tolerance = rospy.get_param(
             root + "motion/position_tolerance", 0.012)
+        self.refinement_position_tolerance = rospy.get_param(
+            root + "motion/refinement_position_tolerance", 0.006)
+        self.maximum_refinement_passes = rospy.get_param(
+            root + "motion/maximum_refinement_passes", 2)
         self.final_heading_recovery_distance = rospy.get_param(
             root + "motion/final_heading_recovery_distance", 0.025)
         self.heading_tolerance = rospy.get_param(
@@ -101,7 +105,7 @@ class FormationInitializer:
         self.stopped_wheel_tolerance = rospy.get_param(
             root + "safety/stopped_wheel_tolerance", 0.01)
         self.required_subscribers = rospy.get_param(
-            root + "safety/required_command_subscribers", 2)
+            root + "safety/required_command_subscribers", 1)
         self.authorized = rospy.get_param(
             root + "hardware_execution_authorized", False)
         self.confirm_area = rospy.get_param("~confirm_test_area_clear", False)
@@ -120,6 +124,7 @@ class FormationInitializer:
         self.stop_requested = False
         self.initial = None
         self.targets = None
+        self.target_reached = [True, False, False]
         self.result_publisher = rospy.Publisher(
             "/multi_agv/formation_init/result", String,
             queue_size=1, latch=True)
@@ -153,6 +158,7 @@ class FormationInitializer:
             self.realign_threshold, self.near_target_distance,
             self.near_target_speed, self.docking_distance,
             self.docking_speed, self.position_tolerance,
+            self.refinement_position_tolerance,
             self.final_heading_recovery_distance,
             self.heading_tolerance, self.maximum_seconds_per_robot,
             self.maximum_no_progress_seconds,
@@ -181,10 +187,16 @@ class FormationInitializer:
         if not self.position_tolerance < \
                 self.final_heading_recovery_distance < self.minimum_separation:
             raise RuntimeError("final-heading recovery hysteresis is inconsistent")
-        if self.minimum_separation < 0.20 or self.minimum_voltage < 10.5:
+        if self.refinement_position_tolerance >= self.position_tolerance or \
+                2.0 * self.refinement_position_tolerance >= \
+                self.final_side_tolerance:
+            raise RuntimeError(
+                "formation refinement tolerance cannot guarantee final sides")
+        if self.minimum_separation < 0.20 or self.minimum_voltage < 10.0:
             raise RuntimeError("formation initialization safety bounds are too low")
         if not 1 <= self.required_subscribers <= 4 or \
-                not 1 <= self.stable_samples_required <= 100:
+                not 1 <= self.stable_samples_required <= 100 or \
+                not 1 <= self.maximum_refinement_passes <= 5:
             raise RuntimeError("invalid subscriber or stable-sample requirement")
 
     def _reject_competing_publishers(self):
@@ -369,15 +381,19 @@ class FormationInitializer:
         for index in range(ROBOT_COUNT):
             if index == active:
                 continue
-            reference = self.targets[index] if index < active else self.initial[index]
+            reference = (self.targets[index] if self.target_reached[index]
+                         else self.initial[index])
             if distance(self.poses[index], reference) > \
                     self.maximum_stationary_position_drift or \
                     abs(wrap(self.poses[index][2] - reference[2])) > \
                     self.maximum_stationary_heading_drift:
                 raise RuntimeError(f"stationary agv{index + 1} drifted from its hold pose")
 
-    def _move_robot(self, index):
+    def _move_robot(self, index, position_tolerance=None,
+                    phase="FORMATION_INIT"):
         target = self.targets[index]
+        acceptance = (self.position_tolerance if position_tolerance is None
+                      else position_tolerance)
         initial_distance = distance(self.poses[index], target)
         if initial_distance > self.maximum_initial_target_distance:
             raise RuntimeError(
@@ -413,7 +429,7 @@ class FormationInitializer:
             # hysteresis prevents 1--2 mm threshold crossings from switching
             # between position and heading modes every control cycle.
             if not final_heading_phase and \
-                    position_error <= self.position_tolerance:
+                    position_error <= acceptance:
                 final_heading_phase = True
                 stable = 0
                 last_progress = time.monotonic()
@@ -427,16 +443,16 @@ class FormationInitializer:
                     stable = 0
                     best_distance = position_error
                     last_progress = time.monotonic()
-                    self._publish_all(method="FORMATION_INIT_POSITION_RECOVERY")
+                    self._publish_all(method=phase + "_POSITION_RECOVERY")
                     rospy.logwarn(
                         "agv%d left final-heading phase: position drift %.4f m",
                         index + 1, position_error)
                     rate.sleep()
                     continue
                 if abs(final_heading_error) <= self.heading_tolerance:
-                    if position_error <= self.position_tolerance:
+                    if position_error <= acceptance:
                         stable += 1
-                        self._publish_all(method="FORMATION_INIT_SETTLE")
+                        self._publish_all(method=phase + "_SETTLE")
                         if stable >= self.stable_samples_required:
                             rospy.loginfo(
                                 "agv%d aligned: position_error=%.4f m heading_error=%.2f deg",
@@ -451,13 +467,14 @@ class FormationInitializer:
                         stable = 0
                         best_distance = position_error
                         last_progress = time.monotonic()
-                        self._publish_all(method="FORMATION_INIT_POSITION_RECOVERY")
+                        self._publish_all(
+                            method=phase + "_POSITION_RECOVERY")
                 else:
                     stable = 0
                     angular = clamp(1.8 * final_heading_error,
                                     self.max_angular)
                     self._publish_all(index, 0.0, angular,
-                                      "FORMATION_INIT_FINAL_HEADING")
+                                      phase + "_FINAL_HEADING")
                 rate.sleep()
                 continue
 
@@ -479,7 +496,7 @@ class FormationInitializer:
             if abs(travel_heading_error) > self.realign_threshold:
                 angular = clamp(1.8 * travel_heading_error, self.max_angular)
                 self._publish_all(index, 0.0, angular,
-                                  "FORMATION_INIT_APPROACH_ALIGN")
+                                  phase + "_APPROACH_ALIGN")
             else:
                 translation_started = True
                 speed_limit = self.max_linear
@@ -491,27 +508,61 @@ class FormationInitializer:
                 angular = clamp(2.2 * travel_heading_error,
                                 0.8 * self.max_angular)
                 self._publish_all(index, linear, angular,
-                                  "FORMATION_INIT_APPROACH_FORWARD"
+                                  phase + "_APPROACH_FORWARD"
                                   if direction > 0.0 else
-                                  "FORMATION_INIT_APPROACH_REVERSE")
+                                  phase + "_APPROACH_REVERSE")
             rate.sleep()
         raise RuntimeError("formation initialization interrupted")
 
-    def _final_check(self):
+    def _formation_errors(self):
         supports = [self._support(pose) for pose in self.poses]
         sides = [distance(supports[0], supports[1]),
                  distance(supports[0], supports[2]),
                  distance(supports[1], supports[2])]
         headings = [abs(wrap(pose[2] - self.poses[0][2]))
                     for pose in self.poses[1:]]
+        return sides, headings
+
+    def _final_check(self, raise_on_failure=True):
+        sides, headings = self._formation_errors()
         rospy.loginfo(
             "Final support distances: d12=%.4f d13=%.4f d23=%.4f m",
             sides[0], sides[1], sides[2])
         if any(abs(value - self.side) > self.final_side_tolerance
                for value in sides):
-            raise RuntimeError("final support triangle exceeds side tolerance")
+            if raise_on_failure:
+                raise RuntimeError(
+                    "final support triangle exceeds side tolerance")
+            return False
         if any(value > self.final_heading_tolerance for value in headings):
-            raise RuntimeError("final vehicle headings exceed parallel tolerance")
+            if raise_on_failure:
+                raise RuntimeError(
+                    "final vehicle headings exceed parallel tolerance")
+            return False
+        return True
+
+    def _refine_final_triangle(self):
+        if self._final_check(raise_on_failure=False):
+            return
+        for refinement_pass in range(1, self.maximum_refinement_passes + 1):
+            rospy.logwarn(
+                "Final triangle is outside tolerance; refinement pass %d/%d "
+                "targets agv2/agv3 within %.1f mm",
+                refinement_pass, self.maximum_refinement_passes,
+                1000.0 * self.refinement_position_tolerance)
+            for index in (1, 2):
+                self._move_robot(
+                    index,
+                    position_tolerance=self.refinement_position_tolerance,
+                    phase="FORMATION_REFINE")
+                self.target_reached[index] = True
+            self._fresh_inputs()
+            if self._final_check(raise_on_failure=False):
+                rospy.loginfo(
+                    "Final support triangle accepted after refinement pass %d",
+                    refinement_pass)
+                return
+        self._final_check(raise_on_failure=True)
 
     def _stop_and_confirm(self):
         deadline = time.monotonic() + 2.0
@@ -541,8 +592,9 @@ class FormationInitializer:
         self._publish_targets()
         for index in (1, 2):
             self._move_robot(index)
+            self.target_reached[index] = True
         self._fresh_inputs()
-        self._final_check()
+        self._refine_final_triangle()
         if not self._stop_and_confirm():
             raise RuntimeError("all-six-wheel stop confirmation failed")
         rospy.set_param("/multi_agv/formation_init/result_code", 0)

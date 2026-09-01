@@ -1,0 +1,17 @@
+# Clockwise R=0.5 m circle with a curvature-continuous entry.
+# The virtual load first travels 0.20 m straight, ramps curvature smoothly
+# from 0 to -2.0 1/m over 0.40 m, then completes one clockwise revolution.
+path_s_curve:
+  schema_version: 1
+  model: circle_smooth_entry
+  configuration_status: unloaded_circle_r0p5_cw_smooth_entry
+  hardware_execution_authorized: false
+
+  amplitude: 0.0
+  circle_radius: 0.5
+  circle_direction: -1.0
+  entry_straight_length: 0.20
+  curvature_ramp_length: 0.40
+  # 0.20 m straight + 0.40 m ramp + 2*pi*0.5 m circle.
+  longitudinal_length: 3.741592653589793
+  lookup_samples: 40001

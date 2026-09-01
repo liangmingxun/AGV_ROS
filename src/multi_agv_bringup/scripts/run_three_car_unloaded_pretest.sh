@@ -6,21 +6,26 @@ usage() {
 usage:
   run_three_car_unloaded_pretest.sh \
     --confirm-area-clear \
+    [--confirm-circle-area-clear] \
     --confirm-wheels-on-floor \
     --confirm-unloaded-40cm-fixture
 
 This command performs topology and camera-observation checks, resets all three
 odometers, records a bag and runs the selected bounded unloaded cooperative
 validation. Run the 0.30 m straight gate before the 1.00 m S gate.
+Circle mode additionally requires --confirm-circle-area-clear and reserves the
+0.20 m straight entry, 0.40 m curvature ramp and full clockwise R=0.5 m circle.
 EOF
 }
 
 confirm_area=false
+confirm_circle_area=false
 confirm_floor=false
 confirm_fixture=false
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --confirm-area-clear) confirm_area=true ;;
+    --confirm-circle-area-clear) confirm_circle_area=true ;;
     --confirm-wheels-on-floor) confirm_floor=true ;;
     --confirm-unloaded-40cm-fixture) confirm_fixture=true ;;
     -h|--help) usage; exit 0 ;;
@@ -52,6 +57,19 @@ case "$path_mode" in
     manifest_path_description="continuous_straight_0.30m"
     run_speed="0.03"
     validation_profile="camera_fused_straight_0p30"
+    ;;
+  circle)
+    if [[ "$confirm_circle_area" != true ]]; then
+      echo "ERROR: circle mode requires --confirm-circle-area-clear" >&2
+      usage
+      exit 2
+    fi
+    estimator_path_file="path_circle_r0p5_cw_smooth.yaml"
+    motion_launch="three_car_unloaded_circle_pretest.launch"
+    run_prefix="three_car_cooperative_circle_r0p5_cw_smooth"
+    manifest_path_description="straight_0.20m_ramp_0.40m_clockwise_circle_R0.50m_full"
+    run_speed="0.05"
+    validation_profile="camera_fused_circle_r0p5_cw_smooth"
     ;;
   *)
     echo "ERROR: unsupported AGV_THREE_CAR_PATH_MODE=${path_mode}" >&2

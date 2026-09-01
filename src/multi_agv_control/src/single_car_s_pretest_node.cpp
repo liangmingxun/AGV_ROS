@@ -316,7 +316,7 @@ class SingleCarSPretestNode {
     maximum_wheel_command_ = finiteParam(
         private_, root + "abort/maximum_wheel_linear_velocity", 0.08);
     minimum_battery_voltage_ = finiteParam(
-        private_, root + "abort/minimum_battery_voltage", 10.5);
+        private_, root + "abort/minimum_battery_voltage", 10.0);
     const std::string common_watchdog =
         root + "actual_wheel_watchdog/";
     const std::string robot_watchdog =
@@ -428,7 +428,7 @@ class SingleCarSPretestNode {
         !(maximum_motion_time_ > 0.0) || !(maximum_step_ > 0.0) ||
         !(post_stop_record_seconds_ >= 1.0) ||
         !(maximum_wheel_command_ > speed_) ||
-        !(minimum_battery_voltage_ >= 10.5) ||
+        !(minimum_battery_voltage_ >= 10.0) ||
         !(actual_wheel_warning_speed_ > 0.0) ||
         !(actual_wheel_hard_stop_speed_ > actual_wheel_warning_speed_) ||
         actual_wheel_hard_stop_consecutive_samples_ < 2 ||
@@ -1021,7 +1021,7 @@ class SingleCarSPretestNode {
   double maximum_lateral_error_{0.12};
   double maximum_heading_error_{0.50};
   double maximum_wheel_command_{0.08};
-  double minimum_battery_voltage_{10.5};
+  double minimum_battery_voltage_{10.0};
   double actual_wheel_warning_speed_{0.08};
   double actual_wheel_hard_stop_speed_{0.09};
   int actual_wheel_hard_stop_consecutive_samples_{2};

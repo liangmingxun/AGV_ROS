@@ -1,0 +1,36 @@
+# Overrides for a smooth-entry clockwise R=0.5 m circle of the virtual load.
+three_car_unloaded_bounded_pretest:
+  configuration_status: camera_fused_circle_r0p5_cw_smooth_candidate_v4
+  experiment_id: three_car_cooperative_camera_fused_circle_r0p5_cw_smooth
+  path_id: circle_r0p5_cw_smooth_entry_bounded
+  validation_profile: camera_fused_circle_r0p5_cw_smooth
+  maximum_motion_time: 90.0
+
+  motion:
+    load_path_speed: 0.05
+    target_progress: 3.741592653589793
+    startup_ramp_seconds: 1.0
+
+  tracker:
+    # Circle candidate v4. Run 20260901_191022 showed that v2 improved
+    # Robot1's clockwise heading error (-2.62 -> -2.33 deg mean) but reducing
+    # its lateral gain allowed the lateral error to grow from +39.0 to
+    # +46.5 mm and drove the rigid-fit residual above 25 mm. Run
+    # 20260901_191534 reduced peak deformation but Robot1 still carried
+    # +46.0 mm mean lateral error. At the requested lower 0.05 m/s speed,
+    # restore the better-heading 0.94 clockwise feedforward and strengthen
+    # Robot1/centred lateral recovery. Robot2/3 retain their v3 values because
+    # their constant-circle errors remained bounded. The S-path freeze is
+    # unchanged.
+    lateral_gain_per_robot: [4.8, 2.7, 4.0]
+    heading_gain_per_robot: [3.5, 3.0, 3.0]
+    angular_feedforward_scale_negative: [0.94, 0.89, 0.883228287]
+    formation_longitudinal_gain: 0.25
+    formation_lateral_gain: 0.85
+    formation_heading_gain: 0.70
+
+  abort:
+    # R=0.5 m needs unequal support and wheel speeds. Use the requested
+    # 0.05 m/s common load speed while retaining a hard per-wheel ceiling.
+    maximum_wheel_linear_velocity: 0.14
+    minimum_wheel_command_scale: 0.75

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstddef>
+#include <string>
 #include <vector>
 
 #include <Eigen/Core>
@@ -11,6 +12,11 @@ struct SCurveConfig {
   double amplitude{0.0};
   double longitudinal_length{1.0};
   std::size_t lookup_samples{10001};
+  std::string model{"sine_single_period"};
+  double circle_radius{1.0};
+  double entry_straight_length{0.0};
+  double curvature_ramp_length{0.0};
+  double circle_direction{1.0};
 };
 
 struct PathSample {
@@ -51,6 +57,7 @@ class SCurvePath {
   double maximum_absolute_curvature_{0.0};
   std::vector<double> xi_;
   std::vector<double> arc_length_;
+  std::vector<Eigen::Vector2d> path_position_;
 };
 
 }  // namespace multi_agv_control

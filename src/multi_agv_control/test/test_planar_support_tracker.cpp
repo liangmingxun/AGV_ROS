@@ -184,6 +184,61 @@ TEST(PlanarSupportTracker, Robot1ShortSPretestStaysInsideDedicatedWheelBound) {
   EXPECT_GT(maximum_wheel_difference, 1e-3);
 }
 
+TEST(PlanarSupportTracker, SmoothClockwiseHalfMetreCircleStaysInsideWheelBound) {
+  multi_agv_control::SCurveConfig path_config;
+  path_config.amplitude = 0.0;
+  path_config.longitudinal_length =
+      0.60 + 3.14159265358979323846;
+  path_config.lookup_samples = 40001;
+  path_config.model = "circle_smooth_entry";
+  path_config.circle_radius = 0.5;
+  path_config.entry_straight_length = 0.20;
+  path_config.curvature_ramp_length = 0.40;
+  path_config.circle_direction = -1.0;
+  const SCurvePath path(path_config);
+  SupportGeometryConfig geometry_config;
+  geometry_config.offsets = {
+      {0.230940107675850, 0.0},
+      {-0.115470053837925, 0.20},
+      {-0.115470053837925, -0.20}};
+  const SupportGeometry circle_geometry(path, geometry_config);
+  PlanarTrackerConfig tracker_config;
+  tracker_config.wheel_separation = {
+      0.135484339, 0.139284482, 0.136802843};
+  const PlanarSupportTracker circle_tracker(
+      circle_geometry, tracker_config);
+
+  double maximum_wheel_speed = 0.0;
+  double maximum_initial_heading = 0.0;
+  const PlanarPose dummy{{0.0, 0.0}, 0.0};
+  for (std::size_t step = 0U; step <= 4000U; ++step) {
+    const double progress = path.length() *
+        static_cast<double>(step) / 4000.0;
+    for (std::size_t robot = 0U; robot < 3U; ++robot) {
+      const auto preview = circle_tracker.track(
+          {robot, progress, 0.08, dummy, dummy});
+      ASSERT_TRUE(preview.valid);
+      if (step == 0U) {
+        maximum_initial_heading = std::max(
+            maximum_initial_heading,
+            std::abs(preview.chassis_pose_reference.yaw));
+      }
+      const auto exact = circle_tracker.track(
+          {robot, progress, 0.08, preview.chassis_pose_reference,
+           preview.support_pose_reference});
+      ASSERT_TRUE(exact.valid);
+      maximum_wheel_speed = std::max(
+          maximum_wheel_speed,
+          std::max(std::abs(exact.wheel_linear_velocity_left_raw),
+                   std::abs(exact.wheel_linear_velocity_right_raw)));
+    }
+  }
+  // The straight entry must be compatible with the existing parallel camera
+  // formation initializer; the old immediate circle violated this property.
+  EXPECT_LT(maximum_initial_heading, 0.05);
+  EXPECT_LT(maximum_wheel_speed, 0.14);
+}
+
 TEST(PlanarSupportTracker,
      FrozenEquilateralFixtureMatchesStartTransformsAndWheelBound) {
   const auto fixture_geometry = geometry();

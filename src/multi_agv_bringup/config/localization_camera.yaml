@@ -11,6 +11,10 @@ maximum_state_age: 0.15
 maximum_sync_slop: 0.02
 synchronization_queue_size: 64
 maximum_rigid_fit_residual: 0.01
+# A spatially valid virtual-load projection may be held only while the speed
+# estimator re-synchronizes after asynchronous three-robot timestamp changes.
+# Spatial projection failures and holds longer than 50 ms remain invalid.
+maximum_load_path_transient_hold: 0.05
 load_pose_topic: /pose_provider/load/pose_filtered
 
 camera_adapter:

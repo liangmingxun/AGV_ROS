@@ -23,19 +23,46 @@ double clampFinite(double value, double lower, double upper,
 }  // namespace
 
 SCurvePath::SCurvePath(const SCurveConfig& config) : config_(config) {
+  const bool circle = config_.model == "circle";
+  const bool smooth_circle = config_.model == "circle_smooth_entry";
+  const bool graph_path = config_.model == "sine_single_period" ||
+                          config_.model == "straight_zero_amplitude";
   if (!std::isfinite(config_.amplitude) ||
       !std::isfinite(config_.longitudinal_length) ||
       config_.longitudinal_length <= 0.0 ||
+      (!circle && !smooth_circle && !graph_path) ||
+      (circle && (!std::isfinite(config_.circle_radius) ||
+                  config_.circle_radius <= 0.0 ||
+                  std::abs(config_.longitudinal_length -
+                           2.0 * kPi * config_.circle_radius) > 1e-6)) ||
+      (smooth_circle &&
+       (!std::isfinite(config_.circle_radius) ||
+        config_.circle_radius <= 0.0 ||
+        !std::isfinite(config_.entry_straight_length) ||
+        config_.entry_straight_length < 0.0 ||
+        !std::isfinite(config_.curvature_ramp_length) ||
+        config_.curvature_ramp_length <= 0.0 ||
+        !std::isfinite(config_.circle_direction) ||
+        std::abs(std::abs(config_.circle_direction) - 1.0) > 1e-12 ||
+        std::abs(config_.longitudinal_length -
+                 (config_.entry_straight_length +
+                  config_.curvature_ramp_length +
+                  2.0 * kPi * config_.circle_radius)) > 1e-6)) ||
       config_.lookup_samples < kMinimumLookupSamples) {
-    throw std::invalid_argument("invalid S-curve configuration");
+    throw std::invalid_argument("invalid planar-path configuration");
   }
 
   wave_number_ = 2.0 * kPi / config_.longitudinal_length;
-  // For y=A*sin(k*xi), |curvature| is maximal where cos(k*xi)=0.
-  maximum_absolute_curvature_ =
-      std::abs(config_.amplitude) * wave_number_ * wave_number_;
+  maximum_absolute_curvature_ = (circle || smooth_circle)
+      ? 1.0 / config_.circle_radius
+      // For y=A*sin(k*xi), |curvature| is maximal where cos(k*xi)=0.
+      : std::abs(config_.amplitude) * wave_number_ * wave_number_;
   xi_.resize(config_.lookup_samples);
   arc_length_.resize(config_.lookup_samples);
+  if (smooth_circle) {
+    path_position_.resize(config_.lookup_samples,
+                          Eigen::Vector2d::Zero());
+  }
   xi_.front() = 0.0;
   arc_length_.front() = 0.0;
 
@@ -53,6 +80,32 @@ SCurvePath::SCurvePath(const SCurveConfig& config) : config_(config) {
     if (!std::isfinite(arc_length_[index]) ||
         arc_length_[index] <= arc_length_[index - 1]) {
       throw std::invalid_argument("S-curve arc-length table is not monotonic");
+    }
+    if (smooth_circle) {
+      const auto heading_at = [this](double s) {
+        const double straight = config_.entry_straight_length;
+        const double ramp = config_.curvature_ramp_length;
+        const double signed_curvature =
+            config_.circle_direction / config_.circle_radius;
+        if (s <= straight) return 0.0;
+        if (s < straight + ramp) {
+          const double t = (s - straight) / ramp;
+          // Integral of kappa=k*(3*t^2-2*t^3): C2 curvature entry.
+          return signed_curvature * ramp *
+              (t * t * t - 0.5 * t * t * t * t);
+        }
+        return 0.5 * signed_curvature * ramp +
+            signed_curvature * (s - straight - ramp);
+      };
+      const double lower_heading = heading_at(lower);
+      const double midpoint_heading = heading_at(midpoint);
+      const double upper_heading = heading_at(upper);
+      path_position_[index] = path_position_[index - 1] +
+          (upper - lower) / 6.0 *
+          (Eigen::Vector2d(std::cos(lower_heading), std::sin(lower_heading)) +
+           4.0 * Eigen::Vector2d(std::cos(midpoint_heading),
+                                 std::sin(midpoint_heading)) +
+           Eigen::Vector2d(std::cos(upper_heading), std::sin(upper_heading)));
     }
   }
 }
@@ -72,6 +125,8 @@ double SCurvePath::rawThirdDerivative(double xi) const noexcept {
 }
 
 double SCurvePath::rawSpeed(double xi) const noexcept {
+  if (config_.model == "circle" ||
+      config_.model == "circle_smooth_entry") return 1.0;
   return std::hypot(1.0, rawSlope(xi));
 }
 
@@ -110,6 +165,68 @@ PathSample SCurvePath::sample(double s) const {
   PathSample value;
   value.s = clampFinite(s, 0.0, length(), "arc length");
   value.xi = xiForArcLength(value.s);
+
+  if (config_.model == "circle") {
+    const double angle = value.s / config_.circle_radius;
+    const double cosine = std::cos(angle);
+    const double sine = std::sin(angle);
+    value.position = {config_.circle_radius * sine,
+                      config_.circle_radius * (1.0 - cosine)};
+    value.tangent = {cosine, sine};
+    value.normal = {-sine, cosine};
+    value.heading = std::atan2(sine, cosine);
+    value.curvature = 1.0 / config_.circle_radius;
+    value.curvature_derivative = 0.0;
+    value.first_derivative = value.tangent;
+    value.second_derivative = value.curvature * value.normal;
+    return value;
+  }
+
+  if (config_.model == "circle_smooth_entry") {
+    const double straight = config_.entry_straight_length;
+    const double ramp = config_.curvature_ramp_length;
+    const double signed_curvature =
+        config_.circle_direction / config_.circle_radius;
+    if (value.s <= straight) {
+      value.heading = 0.0;
+      value.curvature = 0.0;
+      value.curvature_derivative = 0.0;
+    } else if (value.s < straight + ramp) {
+      const double t = (value.s - straight) / ramp;
+      value.heading = signed_curvature * ramp *
+          (t * t * t - 0.5 * t * t * t * t);
+      value.curvature = signed_curvature *
+          (3.0 * t * t - 2.0 * t * t * t);
+      value.curvature_derivative = signed_curvature *
+          (6.0 * t - 6.0 * t * t) / ramp;
+    } else {
+      value.heading = 0.5 * signed_curvature * ramp +
+          signed_curvature * (value.s - straight - ramp);
+      value.curvature = signed_curvature;
+      value.curvature_derivative = 0.0;
+    }
+    value.tangent = {std::cos(value.heading), std::sin(value.heading)};
+    value.normal = {-value.tangent.y(), value.tangent.x()};
+    value.first_derivative = value.tangent;
+    value.second_derivative = value.curvature * value.normal;
+
+    const auto upper = std::upper_bound(
+        arc_length_.begin(), arc_length_.end(), value.s);
+    if (upper == arc_length_.begin()) {
+      value.position = path_position_.front();
+    } else if (upper == arc_length_.end()) {
+      value.position = path_position_.back();
+    } else {
+      const std::size_t upper_index = static_cast<std::size_t>(
+          std::distance(arc_length_.begin(), upper));
+      const std::size_t lower_index = upper_index - 1;
+      const double ratio = (value.s - arc_length_[lower_index]) /
+          (arc_length_[upper_index] - arc_length_[lower_index]);
+      value.position = path_position_[lower_index] + ratio *
+          (path_position_[upper_index] - path_position_[lower_index]);
+    }
+    return value;
+  }
 
   const double phase = wave_number_ * value.xi;
   const double slope = rawSlope(value.xi);

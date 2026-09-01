@@ -11,7 +11,8 @@ usage:
 
 Robot1 remains fixed and defines formation forward. Robot2 then Robot3 move
 sequentially at no more than 0.025 m/s into a 0.40 m equilateral triangle of
-support centres. The command records a rosbag and aborts all cars on any gate.
+support centres. This setup step does not record a rosbag; it aborts all cars
+on any safety or convergence gate.
 EOF
 }
 
@@ -82,63 +83,14 @@ for index in 1 2 3; do
   fi
 done
 
-run_stamp="$(date +%Y%m%d_%H%M%S)"
-run_dir="${AGV_BAG_DIR:-${script_dir}/experiment_data/three_car_camera_formation_init}/${run_stamp}"
-mkdir -p "$run_dir"
-bag_path="${run_dir}/three_car_camera_formation_init_${run_stamp}.bag"
-manifest_path="${run_dir}/three_car_camera_formation_init_${run_stamp}_manifest.txt"
-params_path="${run_dir}/three_car_camera_formation_init_${run_stamp}_params.yaml"
-
-{
-  echo "run_id=three_car_camera_formation_init_${run_stamp}"
-  echo "git_sha=$(git rev-parse HEAD)"
-  echo "started_at=$(date --iso-8601=seconds)"
-  echo "anchor=agv1_fixed_current_camera_fused_pose"
-  echo "movement_order=agv2_then_agv3"
-  echo "target=equilateral_support_centres_side_0.40m"
-  echo "maximum_linear_speed=0.025m/s"
-  echo "maximum_target_distance_per_robot=0.65m"
-} > "$manifest_path"
-rosparam dump "$params_path"
-
-bag_pid=""
 launch_pid=""
 cleanup() {
-  for pid in "$launch_pid" "$bag_pid"; do
-    if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then
-      kill -INT "$pid" 2>/dev/null || true
-    fi
-  done
-  for pid in "$launch_pid" "$bag_pid"; do
-    if [[ -n "$pid" ]]; then wait "$pid" 2>/dev/null || true; fi
-  done
+  if [[ -n "$launch_pid" ]] && kill -0 "$launch_pid" 2>/dev/null; then
+    kill -INT "$launch_pid" 2>/dev/null || true
+    wait "$launch_pid" 2>/dev/null || true
+  fi
 }
 trap cleanup EXIT INT TERM HUP
-
-rosbag record -O "$bag_path" \
-  /multi_agv/formation_init/result \
-  /multi_agv/formation_init/target_poses \
-  /vision/aruco/alive /vision/aruco/calibration_epoch \
-  /vision/aruco/diagnostics \
-  /camera/world/agv1_tag_pose /camera/world/agv2_tag_pose \
-  /camera/world/agv3_tag_pose \
-  /camera/world/agv1_confidence /camera/world/agv2_confidence \
-  /camera/world/agv3_confidence \
-  /pose_provider/agv1/base_pose_raw /pose_provider/agv2/base_pose_raw \
-  /pose_provider/agv3/base_pose_raw \
-  /pose_provider/agv1/base_pose_filtered \
-  /pose_provider/agv2/base_pose_filtered \
-  /pose_provider/agv3/base_pose_filtered \
-  /pose_provider/agv1/base_pose_fused \
-  /pose_provider/agv2/base_pose_fused \
-  /pose_provider/agv3/base_pose_fused \
-  /agv1/chassis_command /agv2/chassis_command /agv3/chassis_command \
-  /agv1/chassis_feedback /agv2/chassis_feedback /agv3/chassis_feedback \
-  /agv1/imu /agv2/imu /agv3/imu \
-  /agv1/odom /agv2/odom /agv3/odom &
-bag_pid="$!"
-sleep 2
-if ! kill -0 "$bag_pid" 2>/dev/null; then wait "$bag_pid"; fi
 
 rosparam set /multi_agv/formation_init/result_code -1
 set +e
@@ -152,16 +104,7 @@ launch_status="$?"
 launch_pid=""
 set -e
 
-sleep 1
-kill -INT "$bag_pid" 2>/dev/null || true
-wait "$bag_pid" || true
-bag_pid=""
 result_code="$(rosparam get /multi_agv/formation_init/result_code 2>/dev/null || true)"
-{
-  echo "finished_at=$(date --iso-8601=seconds)"
-  echo "launch_status=${launch_status}"
-  echo "result_code=${result_code:-missing}"
-} >> "$manifest_path"
 
 if [[ "$result_code" == "0" ]]; then
   echo "PASS: camera-fused three-car formation initialization confirmed."
@@ -170,8 +113,4 @@ else
   echo "ERROR: formation initialization aborted (result=${result_code:-missing}, launch=${launch_status})." >&2
   status=1
 fi
-echo "bag=${bag_path}"
-echo "manifest=${manifest_path}"
-echo "params=${params_path}"
-echo "Results: ${run_dir}"
 exit "$status"

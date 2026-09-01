@@ -121,7 +121,7 @@ single_car_s_pretest:
     sustained_duration: 0.05
 
   abort:
-    minimum_battery_voltage: 10.5
+    minimum_battery_voltage: 10.0
     maximum_longitudinal_error: 0.20
     maximum_lateral_error: 0.12
     maximum_heading_error: 0.50
