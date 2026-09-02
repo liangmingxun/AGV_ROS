@@ -94,6 +94,8 @@ class PathStateEstimatorNode {
     private_node_.param("publish_rate", publish_rate_, 100.0);
     private_node_.param("maximum_state_age", maximum_state_age_, 0.15);
     private_node_.param("maximum_sync_slop", maximum_sync_slop_, 0.02);
+    private_node_.param("maximum_synchronized_snapshot_hold",
+                        maximum_synchronized_snapshot_hold_, 0.05);
     int synchronization_queue_size =
         static_cast<int>(synchronization_queue_size_);
     private_node_.param("synchronization_queue_size",
@@ -103,6 +105,8 @@ class PathStateEstimatorNode {
                         maximum_rigid_fit_residual_, 0.05);
     private_node_.param("maximum_load_path_transient_hold",
                         maximum_load_path_transient_hold_, 0.05);
+    private_node_.param("maximum_robot_path_transient_hold",
+                        maximum_robot_path_transient_hold_, 0.05);
     private_node_.param("derive_virtual_load_from_robots",
                         derive_virtual_load_from_robots_, false);
     private_node_.param("auto_anchor_from_robot_poses",
@@ -111,10 +115,14 @@ class PathStateEstimatorNode {
                         std::string("world"));
     if (!(publish_rate_ > 0.0) || !(maximum_state_age_ > 0.0) ||
         !(maximum_sync_slop_ >= 0.0) ||
+        maximum_synchronized_snapshot_hold_ < 0.0 ||
+        maximum_synchronized_snapshot_hold_ > maximum_state_age_ ||
         synchronization_queue_size < 3 ||
         !(maximum_rigid_fit_residual_ > 0.0) ||
         maximum_load_path_transient_hold_ < 0.0 ||
-        maximum_load_path_transient_hold_ > 0.10) {
+        maximum_load_path_transient_hold_ > 0.10 ||
+        maximum_robot_path_transient_hold_ < 0.0 ||
+        maximum_robot_path_transient_hold_ > 0.10) {
       throw std::runtime_error("invalid localization timing or residual configuration");
     }
     synchronization_queue_size_ =
@@ -188,6 +196,8 @@ class PathStateEstimatorNode {
     PlanarPose world_to_odom;
     PlanarPose base_to_support;
     std::unique_ptr<StateEstimator> estimator;
+    StateEstimate last_valid_path_state;
+    ros::Time last_valid_path_stamp;
     ros::Subscriber subscriber;
     std::deque<OdometrySample> samples;
   };
@@ -435,6 +445,8 @@ class PathStateEstimatorNode {
       const double progress_seed = robot.estimator->lastEstimate().progress;
       robot.samples.clear();
       robot.estimator->reset(progress_seed);
+      robot.last_valid_path_state = StateEstimate{};
+      robot.last_valid_path_stamp = ros::Time();
     }
     const double load_progress_seed = load_estimator_->lastEstimate().progress;
     load_camera_samples_.clear();
@@ -442,6 +454,7 @@ class PathStateEstimatorNode {
     last_load_path_state_ = StateEstimate{};
     last_load_measurement_stamp_ = ros::Time();
     last_valid_load_path_stamp_ = ros::Time();
+    has_last_synchronized_samples_ = false;
     return true;
   }
 
@@ -475,8 +488,8 @@ class PathStateEstimatorNode {
     sample.support_pose =
         composePose(sample.robot_pose, robot.base_to_support);
     if (!auto_anchor_from_robot_poses_ || path_anchor_initialized_) {
-      sample.path_state = robot.estimator->update(
-          sample.support_pose.position, sample.stamp.toSec());
+      sample.path_state = updateRobotPathState(
+          &robot, sample.support_pose.position, sample.stamp);
     }
     robot.samples.push_back(std::move(sample));
     while (robot.samples.size() > synchronization_queue_size_) {
@@ -592,12 +605,38 @@ class PathStateEstimatorNode {
 
   bool selectSynchronizedSamples(
       const ros::Time& now,
-      std::array<const OdometrySample*, kRobotCount>* selected) const {
+      std::array<const OdometrySample*, kRobotCount>* selected) {
+    const auto use_last_snapshot = [&]() {
+      if (!has_last_synchronized_samples_) {
+        return false;
+      }
+      ros::Time oldest = last_synchronized_samples_[0].stamp;
+      for (std::size_t index = 0U; index < kRobotCount; ++index) {
+        oldest = std::min(oldest, last_synchronized_samples_[index].stamp);
+        if (!fresh(last_synchronized_samples_[index], now)) {
+          return false;
+        }
+      }
+      const double hold_age = (now - oldest).toSec();
+      if (!std::isfinite(hold_age) || hold_age < 0.0 ||
+          hold_age > maximum_synchronized_snapshot_hold_) {
+        return false;
+      }
+      for (std::size_t index = 0U; index < kRobotCount; ++index) {
+        (*selected)[index] = &last_synchronized_samples_[index];
+      }
+      ROS_WARN_THROTTLE(
+          1.0,
+          "Holding the last synchronized three-robot snapshot for %.6f s while fused streams re-align",
+          hold_age);
+      return true;
+    };
+
     std::array<const OdometrySample*, kRobotCount> latest{};
     for (std::size_t index = 0U; index < kRobotCount; ++index) {
       latest[index] = latestFreshSample(robots_[index], now);
       if (latest[index] == nullptr) {
-        return false;
+        return use_last_snapshot();
       }
     }
     const ros::Time target = (*std::min_element(
@@ -609,7 +648,7 @@ class PathStateEstimatorNode {
       (*selected)[index] =
           nearestFreshSample(robots_[index], target, now);
       if ((*selected)[index] == nullptr) {
-        return false;
+        return use_last_snapshot();
       }
     }
     const auto minmax = std::minmax_element(
@@ -617,8 +656,42 @@ class PathStateEstimatorNode {
         [](const OdometrySample* lhs, const OdometrySample* rhs) {
           return lhs->stamp < rhs->stamp;
         });
-    return (((*minmax.second)->stamp - (*minmax.first)->stamp).toSec() <=
-            maximum_sync_slop_);
+    if (((*minmax.second)->stamp - (*minmax.first)->stamp).toSec() >
+        maximum_sync_slop_) {
+      return use_last_snapshot();
+    }
+    for (std::size_t index = 0U; index < kRobotCount; ++index) {
+      last_synchronized_samples_[index] = *(*selected)[index];
+    }
+    has_last_synchronized_samples_ = true;
+    return true;
+  }
+
+  StateEstimate updateRobotPathState(
+      RobotState* robot, const Eigen::Vector2d& position,
+      const ros::Time& measurement_stamp) {
+    const StateEstimate candidate = robot->estimator->update(
+        position, measurement_stamp.toSec());
+    if (candidate.valid) {
+      robot->last_valid_path_state = candidate;
+      robot->last_valid_path_stamp = measurement_stamp;
+      return candidate;
+    }
+
+    const double hold_age = robot->last_valid_path_stamp.isZero()
+        ? std::numeric_limits<double>::infinity()
+        : (measurement_stamp - robot->last_valid_path_stamp).toSec();
+    if (candidate.projection.valid &&
+        robot->last_valid_path_state.valid &&
+        hold_age >= 0.0 &&
+        hold_age <= maximum_robot_path_transient_hold_) {
+      ROS_WARN_THROTTLE(
+          1.0,
+          "Holding the last valid %s path state for %.6f s after a temporal estimator resynchronization",
+          robot->robot_id.c_str(), hold_age);
+      return robot->last_valid_path_state;
+    }
+    return candidate;
   }
 
   bool initializeCameraPathAnchor(
@@ -654,19 +727,24 @@ class PathStateEstimatorNode {
 
     for (auto& robot : robots_) {
       robot.estimator->reset(0.0);
+      robot.last_valid_path_state = StateEstimate{};
+      robot.last_valid_path_stamp = ros::Time();
       for (auto& sample : robot.samples) {
         sample.robot_pose = composePose(
             path_frame_to_camera_world_, sample.robot_pose);
         sample.support_pose =
             composePose(sample.robot_pose, robot.base_to_support);
-        sample.path_state = robot.estimator->update(
-            sample.support_pose.position, sample.stamp.toSec());
+        sample.path_state = updateRobotPathState(
+            &robot, sample.support_pose.position, sample.stamp);
       }
     }
     load_estimator_->reset(0.0);
     last_load_path_state_ = StateEstimate{};
     last_load_measurement_stamp_ = ros::Time();
     last_valid_load_path_stamp_ = ros::Time();
+    // The cached snapshot above is still expressed in camera-world. Do not
+    // allow it to cross the newly established run-local path-frame boundary.
+    has_last_synchronized_samples_ = false;
     ROS_INFO(
         "Anchored camera-fused three-robot state to path start: initial rigid-fit RMS=%.6f m",
         fit.rms_residual);
@@ -930,9 +1008,11 @@ class PathStateEstimatorNode {
   double publish_rate_{100.0};
   double maximum_state_age_{0.15};
   double maximum_sync_slop_{0.02};
+  double maximum_synchronized_snapshot_hold_{0.05};
   std::size_t synchronization_queue_size_{64U};
   double maximum_rigid_fit_residual_{0.05};
   double maximum_load_path_transient_hold_{0.05};
+  double maximum_robot_path_transient_hold_{0.05};
   std::string localization_mode_{"odometry_pretest"};
   std::string load_pose_topic_;
   std::string output_frame_{"world"};
@@ -940,6 +1020,8 @@ class PathStateEstimatorNode {
   bool derive_virtual_load_from_robots_{false};
   bool auto_anchor_from_robot_poses_{false};
   bool path_anchor_initialized_{false};
+  std::array<OdometrySample, kRobotCount> last_synchronized_samples_{};
+  bool has_last_synchronized_samples_{false};
   PlanarPose path_frame_to_camera_world_;
   std::uint8_t robot_pose_source_{
       agv_msgs::CooperativeState::SOURCE_CAMERA};

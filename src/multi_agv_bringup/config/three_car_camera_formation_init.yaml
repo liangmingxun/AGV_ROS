@@ -1,10 +1,13 @@
 three_car_camera_formation_init:
   schema_version: 1
-  configuration_status: camera_fused_sequential_formation_init_v1
+  configuration_status: camera_fused_sequential_formation_init_v2
   hardware_execution_authorized: true
   publish_rate: 50.0
   subscriber_wait_seconds: 10.0
-  maximum_pose_age: 0.15
+  # Match the bounded 0.22 s freshness window used by the three-car fused
+  # closed loop. Recorded Wi-Fi/fusion delivery bursts reached 0.176--0.194 s;
+  # a sustained outage beyond 0.22 s still stops all three chassis.
+  maximum_pose_age: 0.22
   maximum_feedback_age: 0.25
   minimum_battery_voltage: 10.0
   minimum_battery_voltage_duration: 0.5

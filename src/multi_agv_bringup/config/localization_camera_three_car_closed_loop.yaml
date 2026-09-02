@@ -4,7 +4,7 @@
 # world_to_odom values or load marker are required.
 localization_mode: fused
 require_calibration_epoch: true
-configuration_status: three_agv_camera_fused_udp_resilient_closed_loop_v2
+configuration_status: three_agv_camera_fused_udp_resilient_closed_loop_v3
 hardware_execution_authorized: true
 
 output_frame: three_car_path
@@ -17,6 +17,11 @@ publish_rate: 100.0
 # 0.02 s cross-robot timestamp match below.
 maximum_state_age: 0.22
 maximum_sync_slop: 0.02
+# If the newest asynchronous streams cannot form a 20 ms set, retain only the
+# last already-synchronized snapshot. The 0.20 s cap covers the measured
+# 0.118--0.194 s fusion stalls and remains below maximum_state_age.
+maximum_synchronized_snapshot_hold: 0.20
 synchronization_queue_size: 64
 maximum_rigid_fit_residual: 0.025
 maximum_load_path_transient_hold: 0.05
+maximum_robot_path_transient_hold: 0.05

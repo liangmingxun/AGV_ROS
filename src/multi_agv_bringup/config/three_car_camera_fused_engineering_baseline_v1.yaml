@@ -1,0 +1,73 @@
+# Frozen engineering baseline for the unloaded three-car S validation.
+#
+# Scope:
+#   - method: CAMERA_IMU_WHEEL_FUSED_CLOSED_LOOP
+#   - three unloaded AGVs, 0.40 m equilateral support-centre formation
+#   - 1.00 m S path at 0.05 m/s
+#   - camera/IMU/wheel fused CooperativeState feedback
+#
+# This file is the comparison baseline for later M1+R1 and M2b trials.  It is
+# not a paper-algorithm configuration and does not authorize a loaded test.
+three_car_unloaded_bounded_pretest:
+  schema_version: 1
+  configuration_status: frozen_camera_imu_wheel_fused_engineering_baseline_v1
+  baseline_id: CAMERA_IMU_WHEEL_FUSED_CLOSED_LOOP_V1
+  method_role: engineering_baseline
+  frozen_date: '2026-09-02'
+  hardware_execution_authorized: true
+
+  experiment_id: three_car_cooperative_camera_fused_s_1m
+  method_id: CAMERA_IMU_WHEEL_FUSED_CLOSED_LOOP
+  path_id: s_curve_1m_bounded
+  validation_profile: camera_fused_s_1p00
+  publish_rate: 100.0
+  maximum_state_age: 0.15
+  subscriber_wait_seconds: 15.0
+  start_delay_seconds: 3.0
+  stop_confirmation_timeout_seconds: 4.0
+  stopped_wheel_tolerance: 0.01
+  maximum_integration_step: 0.05
+  maximum_motion_time: 30.0
+  required_command_subscribers: 2
+  readiness_stable_samples: 20
+  initial_command_sequence: 41000
+
+  motion:
+    load_path_speed: 0.05
+    target_progress: 1.00
+    startup_ramp_seconds: 1.0
+
+  tracker:
+    longitudinal_gain: 1.0
+    lateral_gain: 2.0
+    heading_gain: 2.0
+    longitudinal_gain_per_robot: [1.0, 1.0, 1.0]
+    lateral_gain_per_robot: [4.0, 3.0, 4.0]
+    heading_gain_per_robot: [3.0, 2.5, 3.0]
+    angular_feedforward_scale_positive: [0.78, 0.780810219, 0.850009371]
+    angular_feedforward_scale_negative: [0.89, 0.918767785, 0.883228287]
+    formation_longitudinal_gain: 0.25
+    formation_lateral_gain: 0.50
+    formation_heading_gain: 0.50
+    curvature_preview_seconds_positive: [0.05, 0.0, 0.05]
+    curvature_preview_seconds_negative: [0.05, 0.0, 0.05]
+    chassis_reference_samples: 10001
+    wheel_separation: [0.135484339, 0.139284482, 0.136802843]
+    base_to_support:
+      - {x: -0.01783, y: 0.0}
+      - {x: -0.01783, y: 0.0}
+      - {x: -0.01783, y: 0.0}
+
+  abort:
+    minimum_battery_voltage: 10.0
+    maximum_feedback_receive_age: 0.25
+    maximum_serial_feedback_age: 0.25
+    maximum_stamp_spread: 0.02
+    maximum_initial_load_progress: 0.03
+    maximum_robot_progress_spread: 0.06
+    maximum_load_progress_error: 0.08
+    maximum_longitudinal_error: 0.08
+    maximum_lateral_error: 0.06
+    maximum_heading_error: 0.15
+    maximum_wheel_linear_velocity: 0.08
+    minimum_wheel_command_scale: 0.75

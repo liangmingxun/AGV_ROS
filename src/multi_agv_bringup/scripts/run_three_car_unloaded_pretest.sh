@@ -45,6 +45,10 @@ case "$path_mode" in
   s)
     estimator_path_file="path_s_curve.yaml"
     motion_launch="three_car_unloaded_bounded_pretest.launch"
+    controller_config_file="three_car_camera_fused_engineering_baseline_v1.yaml"
+    baseline_id="CAMERA_IMU_WHEEL_FUSED_CLOSED_LOOP_V1"
+    method_id="CAMERA_IMU_WHEEL_FUSED_CLOSED_LOOP"
+    expected_controller_config_sha256="02c72f5c422f92891f431ecb81699abd826f30b0df4ecf5a64ecc4f21ad7b0d3"
     run_prefix="three_car_cooperative_s_1m"
     manifest_path_description="continuous_S_1.00m"
     run_speed="0.05"
@@ -53,6 +57,10 @@ case "$path_mode" in
   straight)
     estimator_path_file="path_straight_1m.yaml"
     motion_launch="three_car_unloaded_straight_pretest.launch"
+    controller_config_file="three_car_unloaded_bounded_pretest.yaml"
+    baseline_id="NOT_FROZEN_STRAIGHT_GATE"
+    method_id="CAMERA_IMU_WHEEL_FUSED_CLOSED_LOOP_STRAIGHT"
+    expected_controller_config_sha256=""
     run_prefix="three_car_cooperative_straight_0p30m"
     manifest_path_description="continuous_straight_0.30m"
     run_speed="0.03"
@@ -66,6 +74,10 @@ case "$path_mode" in
     fi
     estimator_path_file="path_circle_r0p5_cw_smooth.yaml"
     motion_launch="three_car_unloaded_circle_pretest.launch"
+    controller_config_file="three_car_unloaded_bounded_pretest.yaml"
+    baseline_id="NOT_FROZEN_CIRCLE_PRETEST"
+    method_id="CAMERA_IMU_WHEEL_FUSED_CLOSED_LOOP_CIRCLE"
+    expected_controller_config_sha256=""
     run_prefix="three_car_cooperative_circle_r0p5_cw_smooth"
     manifest_path_description="straight_0.20m_ramp_0.40m_clockwise_circle_R0.50m_full"
     run_speed="0.05"
@@ -99,6 +111,7 @@ source devel/setup.bash
 source src/multi_agv_bringup/scripts/setup_ros_network.sh \
   192.168.6.101 192.168.6.101
 estimator_path_config="${workspace}/src/multi_agv_bringup/config/${estimator_path_file}"
+controller_config="${workspace}/src/multi_agv_bringup/config/${controller_config_file}"
 
 local_sha="$(git rev-parse HEAD)"
 for index in 1 2 3; do
@@ -196,6 +209,18 @@ if [[ ! -f "$estimator_path_config" ]]; then
   echo "ERROR: path configuration is missing: ${estimator_path_config}" >&2
   exit 10
 fi
+if [[ ! -f "$controller_config" ]]; then
+  echo "ERROR: controller configuration is missing: ${controller_config}" >&2
+  exit 10
+fi
+controller_config_sha256="$(sha256sum "$controller_config" | awk '{print $1}')"
+if [[ -n "$expected_controller_config_sha256" &&
+      "$controller_config_sha256" != "$expected_controller_config_sha256" ]]; then
+  echo "ERROR: frozen baseline configuration hash mismatch" >&2
+  echo "actual=${controller_config_sha256}" >&2
+  echo "expected=${expected_controller_config_sha256}" >&2
+  exit 10
+fi
 roslaunch multi_agv_bringup camera_fused_virtual_load_state_estimator.launch \
   path_config:="$estimator_path_config" &
 estimator_pid="$!"
@@ -215,7 +240,7 @@ done
 rosrun multi_agv_bringup check_three_car_readonly_gate.py \
   --observe-seconds 5 \
   --require-fused-cooperative-state
-"${script_dir}/require_three_car_motion_gate.sh" 2 10 fused
+"${script_dir}/require_three_car_motion_gate.sh" 2 5 fused
 
 run_stamp="$(date +%Y%m%d_%H%M%S)"
 run_id="${run_prefix}_${run_stamp}"
@@ -238,6 +263,12 @@ analysis_path="${run_dir}/${run_id}_analysis.json"
   echo "path=${manifest_path_description}"
   echo "speed=${run_speed}m/s"
   echo "validation_profile=${validation_profile}"
+  echo "method_id=${method_id}"
+  echo "baseline_id=${baseline_id}"
+  echo "controller_config=${controller_config_file}"
+  echo "controller_config_sha256=${controller_config_sha256}"
+  echo "path_config_sha256=$(sha256sum "$estimator_path_config" | awk '{print $1}')"
+  echo "support_geometry_sha256=$(sha256sum src/multi_agv_bringup/config/support_geometry.yaml | awk '{print $1}')"
   echo "control_state=three_camera_fused_base_poses"
   echo "fusion_propagation=wheel_translation_plus_corrected_imu_yaw"
   echo "camera_role=absolute_position_and_heading_closed_loop_authority"
@@ -285,6 +316,7 @@ rosparam set "$result_parameter" -1
 # post-launch snapshot authoritative rather than mixing old and new fields.
 rosparam delete /three_car_unloaded_bounded_pretest 2>/dev/null || true
 roslaunch multi_agv_bringup "$motion_launch" \
+  controller_config:="$controller_config" \
   platform_transport_type:=serial \
   enable_commands:=true \
   confirm_readonly_gate_passed:=true \

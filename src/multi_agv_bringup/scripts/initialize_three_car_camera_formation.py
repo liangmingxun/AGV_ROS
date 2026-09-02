@@ -43,7 +43,7 @@ class FormationInitializer:
         self.rate_hz = rospy.get_param(root + "publish_rate", 50.0)
         self.subscriber_wait = rospy.get_param(
             root + "subscriber_wait_seconds", 10.0)
-        self.maximum_pose_age = rospy.get_param(root + "maximum_pose_age", 0.15)
+        self.maximum_pose_age = rospy.get_param(root + "maximum_pose_age", 0.22)
         self.maximum_feedback_age = rospy.get_param(
             root + "maximum_feedback_age", 0.25)
         self.minimum_voltage = rospy.get_param(
@@ -239,12 +239,26 @@ class FormationInitializer:
         now = time.monotonic()
         if any(value is None for value in self.poses + self.feedback):
             raise RuntimeError("waiting for all three fused poses and chassis feedback")
-        if any(now - stamp > self.maximum_pose_age
-               for stamp in self.pose_received):
-            raise RuntimeError("one or more camera-fused poses are stale")
-        if any(now - stamp > self.maximum_feedback_age
-               for stamp in self.feedback_received):
-            raise RuntimeError("one or more chassis feedback streams are stale")
+        pose_ages = [now - stamp for stamp in self.pose_received]
+        stale_poses = [
+            f"agv{index + 1}={age:.3f}s"
+            for index, age in enumerate(pose_ages)
+            if age > self.maximum_pose_age
+        ]
+        if stale_poses:
+            raise RuntimeError(
+                "camera-fused pose stale: " + ", ".join(stale_poses) +
+                f" (limit={self.maximum_pose_age:.3f}s)")
+        feedback_ages = [now - stamp for stamp in self.feedback_received]
+        stale_feedback = [
+            f"agv{index + 1}={age:.3f}s"
+            for index, age in enumerate(feedback_ages)
+            if age > self.maximum_feedback_age
+        ]
+        if stale_feedback:
+            raise RuntimeError(
+                "chassis feedback stale: " + ", ".join(stale_feedback) +
+                f" (limit={self.maximum_feedback_age:.3f}s)")
         frames = {pose[3] for pose in self.poses}
         if len(frames) != 1:
             raise RuntimeError("three fused poses do not share one calibration epoch")

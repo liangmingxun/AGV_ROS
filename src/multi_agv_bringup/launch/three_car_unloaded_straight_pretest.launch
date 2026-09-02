@@ -6,6 +6,8 @@
   <arg name="confirm_test_area_clear" default="false"/>
   <arg name="confirm_wheels_on_floor" default="false"/>
   <arg name="confirm_unloaded_40cm_fixture" default="false"/>
+  <arg name="controller_config"
+       default="$(find multi_agv_bringup)/config/three_car_unloaded_bounded_pretest.yaml"/>
 
   <node pkg="multi_agv_control"
         type="three_car_unloaded_bounded_pretest_node"
@@ -17,7 +19,7 @@
     <rosparam command="load"
               file="$(find multi_agv_bringup)/config/support_geometry.yaml"/>
     <rosparam command="load"
-              file="$(find multi_agv_bringup)/config/three_car_unloaded_bounded_pretest.yaml"/>
+              file="$(arg controller_config)"/>
     <rosparam command="load"
               file="$(find multi_agv_bringup)/config/three_car_unloaded_straight_pretest.yaml"/>
     <param name="platform_transport_type" value="$(arg platform_transport_type)"/>
