@@ -87,6 +87,8 @@ class ExperimentRecorder:
         self.required_topics = list(
             self.recording.get("required_topics", []))
         self.camera_mode = rospy.get_param("~camera_mode", False)
+        self.require_windows_sender_manifest = rospy.get_param(
+            "~require_windows_sender_manifest", True)
         self.virtual_load_from_robots = rospy.get_param(
             "~virtual_load_from_robots", False)
         if self.camera_mode:
@@ -106,10 +108,18 @@ class ExperimentRecorder:
             str(value).strip()
             for value in rospy.get_param("~camera_config_files", [])
             if str(value).strip()]
-        if self.camera_mode and len(camera_config_values) != 2:
+        if (self.camera_mode and self.require_windows_sender_manifest and
+                len(camera_config_values) != 2):
             raise RuntimeError(
                 "camera_mode requires Robot1 vision configuration and the "
                 "Windows sender manifest in camera_config_files")
+        if (self.camera_mode and not self.require_windows_sender_manifest and
+                len(camera_config_values) not in (1, 2)):
+            raise RuntimeError(
+                "camera_mode requires at least the Robot1 vision "
+                "configuration in camera_config_files")
+        self.windows_sender_manifest_present = (
+            self.camera_mode and len(camera_config_values) == 2)
         if self.camera_mode:
             self.config_files.extend(
                 Path(value).resolve() for value in camera_config_values)
@@ -226,6 +236,10 @@ class ExperimentRecorder:
             "interface_version": self.interface_version,
             "camera_mode": self.camera_mode,
             "virtual_load_from_robots": self.virtual_load_from_robots,
+            "windows_sender_manifest_required":
+                self.require_windows_sender_manifest,
+            "windows_sender_manifest_present":
+                self.windows_sender_manifest_present,
             "started_at": datetime.datetime.now(
                 datetime.timezone.utc).isoformat(),
             "recording_armed_at": None,

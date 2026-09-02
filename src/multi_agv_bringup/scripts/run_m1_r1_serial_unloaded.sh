@@ -4,7 +4,7 @@ set -euo pipefail
 usage() {
   cat >&2 <<'EOF'
 usage: run_m1_r1_serial_unloaded.sh \
-  --windows-manifest FILE --operator NAME --pair-block ID \
+  --operator NAME --pair-block ID \
   --confirm-area-clear --confirm-wheels-on-floor \
   --confirm-unloaded-40cm-fixture
 
@@ -16,7 +16,6 @@ publish zero commands.
 EOF
 }
 
-windows_manifest=""
 operator=""
 pair_block=""
 confirm_area=false
@@ -24,7 +23,6 @@ confirm_floor=false
 confirm_fixture=false
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --windows-manifest) windows_manifest="$2"; shift 2 ;;
     --operator) operator="$2"; shift 2 ;;
     --pair-block) pair_block="$2"; shift 2 ;;
     --confirm-area-clear) confirm_area=true; shift ;;
@@ -34,10 +32,10 @@ while [[ $# -gt 0 ]]; do
     *) echo "ERROR: unknown argument: $1" >&2; usage; exit 2 ;;
   esac
 done
-if [[ ! -f "$windows_manifest" || -z "$operator" || -z "$pair_block" ||
+if [[ -z "$operator" || -z "$pair_block" ||
       "$confirm_area" != true || "$confirm_floor" != true ||
       "$confirm_fixture" != true ]]; then
-  echo "ERROR: manifest, operator, pair block and all confirmations are required" >&2
+  echo "ERROR: operator, pair block and all confirmations are required" >&2
   usage
   exit 2
 fi
@@ -136,7 +134,7 @@ roslaunch multi_agv_bringup experiment.launch \
   pair_block_id:="$pair_block" payload_state:=unloaded \
   localization_source:=camera_imu_wheel_fused operator:="$operator" \
   camera_mode:=true virtual_load_from_robots:=true \
-  windows_sender_manifest:="$windows_manifest" \
+  require_windows_sender_manifest:=false \
   localization_config:="${workspace}/src/multi_agv_bringup/config/localization_camera_three_car_closed_loop.yaml" \
   runtime_config:="${workspace}/src/multi_agv_bringup/config/formal_serial_m1_r1_runtime.yaml" \
   execution_authorization_config:="${workspace}/src/multi_agv_bringup/config/formal_serial_m1_r1_authorization.yaml" \

@@ -14,9 +14,10 @@
   <arg name="virtual_load_from_robots" default="false"/>
   <arg name="vision_bridge_config"
        default="$(find multi_agv_vision_bridge)/config/vision_udp_bridge.yaml"/>
-  <!-- Generate this JSON on Windows with create_manifest.py and copy it to
-       Robot1 before a formal camera run. Empty is deliberately rejected. -->
+  <!-- Optional for engineering camera runs. Formal reproducibility workflows
+       retain the default requirement and archive the Windows-side snapshot. -->
   <arg name="windows_sender_manifest" default=""/>
+  <arg name="require_windows_sender_manifest" default="true"/>
   <arg name="path_config"
        default="$(find multi_agv_bringup)/config/path_s_curve.yaml"/>
   <arg name="support_config"
@@ -55,6 +56,8 @@
     <param name="operator" value="$(arg operator)"/>
     <param name="interface_version" value="$(arg interface_version)"/>
     <param name="camera_mode" value="$(arg camera_mode)"/>
+    <param name="require_windows_sender_manifest"
+           value="$(arg require_windows_sender_manifest)"/>
     <param name="virtual_load_from_robots"
            value="$(arg virtual_load_from_robots)"/>
     <param name="require_approved_config"

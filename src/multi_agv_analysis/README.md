@@ -52,10 +52,12 @@ algorithm to fail zero after abrupt recorder loss or a method mismatch. Any
 mid-run change in the three `/agvX/chassis_command` publishers terminates
 recording and leaves an invalid manifest for audit.
 
-For camera runs, pass `camera_mode:=true` and a Windows sender JSON manifest
-to `experiment.launch`. The recorder then requires all four raw/confidence/
-filtered streams plus `/vision/aruco/calibration_epoch`, and archives both
-the Robot1 bridge configuration and the Windows configuration/source hashes.
+For formal camera runs, pass `camera_mode:=true` and a Windows sender JSON
+manifest to `experiment.launch`. The M1+R1 engineering serial entry explicitly
+sets `require_windows_sender_manifest:=false`; this does not affect recorded
+poses, metrics or plots, but its manifest records the missing Windows-side
+provenance. Camera evidence still requires all configured raw/confidence/
+filtered streams plus `/vision/aruco/calibration_epoch`.
 Validation rejects missing/zero calibration identity and any world-frame
 generation change within one run.
 

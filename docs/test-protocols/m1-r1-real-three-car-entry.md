@@ -26,11 +26,8 @@ fake/observer 通过只证明消息链、录包门和离线处理可以工作，
 - 三车已人工放成约 0.40 m 的空载支撑三角形并完全位于相机视野；
 - `/vision/aruco/alive` 为 `True`，三车 fused pose 和
   `/multi_agv/cooperative_state` 连续有效；
-- Windows 端在本次运行前生成新的发送器清单并复制到 Robot1：
-
-```bat
-python create_manifest.py --config config.yaml --test-stage m1_r1_serial
-```
+- 本工程验证入口不强制归档 Windows 发送器清单；这不会影响闭环、录包数据、
+  指标或绘图，但 `manifest.yaml` 会明确记录该清单未提供。
 
 ## 3. 唯一实车执行命令
 
@@ -42,7 +39,6 @@ source /opt/ros/noetic/setup.bash
 source devel/setup.bash
 
 ./src/multi_agv_bringup/scripts/run_m1_r1_serial_unloaded.sh \
-  --windows-manifest /home/etlab/manifest/task15_manifest.json \
   --operator ETLAB \
   --pair-block B01 \
   --confirm-area-clear \
