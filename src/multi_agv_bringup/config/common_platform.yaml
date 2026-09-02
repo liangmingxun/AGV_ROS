@@ -8,6 +8,11 @@ odometry_stationary_wheel_velocity_tolerance: 0.005
 serial_startup_timeout_seconds: 10.0
 capability_publish_rate: 100.0
 enable_vofa: false
+# Experiment-level usable wheel capability. The chassis limiter enforces this
+# value, CapabilityReport publishes it, and CapabilityMapper maps it into the
+# common path-velocity boundary. The 0.9 m/s values below remain hardware/
+# protocol nominal maxima rather than the capability offered to this run.
+formal_available_wheel_limit: 0.08
 nominal:
   max_wheel_linear_velocity_left: 0.9
   max_wheel_linear_velocity_right: 0.9

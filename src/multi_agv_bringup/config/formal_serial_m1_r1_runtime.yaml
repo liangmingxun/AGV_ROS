@@ -11,7 +11,11 @@ formal_fake_runtime:
   maximum_capability_age: 0.25
   maximum_feedback_age: 0.25
   minimum_battery_voltage: 10.0
-  maximum_wheel_linear_velocity_raw: 0.08
+  # Independent emergency protection. All three frozen single-car watchdogs
+  # use 0.12 m/s as the immediate emergency threshold. The chassis-side
+  # formal_available_wheel_limit remains 0.08 m/s and performs normal applied
+  # limiting; exceeding 0.08 alone must not latch this abort.
+  emergency_abort_limit: 0.12
   require_valid_load_state: true
   require_recorder_armed: true
   maximum_recorder_armed_age: 0.50

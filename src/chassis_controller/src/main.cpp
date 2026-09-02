@@ -146,6 +146,15 @@ class ChassisControllerNode {
         private_.param("nominal/max_wheel_linear_deceleration_right", 2.0)};
     const double serial_velocity_limit =
         ChassisDevice::kMaxWheelLinearVelocityMetersPerSecond;
+    const double formal_available_wheel_limit =
+        private_.param("formal_available_wheel_limit", serial_velocity_limit);
+    if (!std::isfinite(formal_available_wheel_limit) ||
+        formal_available_wheel_limit <= 0.0 ||
+        formal_available_wheel_limit > serial_velocity_limit) {
+      throw std::runtime_error(
+          "formal_available_wheel_limit must be finite, positive and no "
+          "greater than the serial hardware limit");
+    }
     if (config_.nominal_limits.max_velocity_left > serial_velocity_limit ||
         config_.nominal_limits.max_velocity_right > serial_velocity_limit) {
       ROS_WARN("Configured wheel velocity exceeds the serial safety limit; "
@@ -155,6 +164,15 @@ class ChassisControllerNode {
       config_.nominal_limits.max_velocity_right =
           std::min(config_.nominal_limits.max_velocity_right, serial_velocity_limit);
     }
+    config_.nominal_limits.max_velocity_left = std::min(
+        config_.nominal_limits.max_velocity_left,
+        formal_available_wheel_limit);
+    config_.nominal_limits.max_velocity_right = std::min(
+        config_.nominal_limits.max_velocity_right,
+        formal_available_wheel_limit);
+    ROS_INFO(
+        "%s formal available wheel limit: %.6f m/s (reported and enforced)",
+        robot_id_.c_str(), formal_available_wheel_limit);
 
     serial_device_ = private_.param<std::string>("serial_device", "/dev/ttyACM0");
     serial_startup_timeout_seconds_ =

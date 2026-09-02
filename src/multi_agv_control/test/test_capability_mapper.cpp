@@ -45,6 +45,14 @@ TEST(CapabilityMapper, StraightPathEqualsReportedWheelLimit) {
   EXPECT_EQ(result.source_stamp, ros::Time(12, 34));
 }
 
+TEST(CapabilityMapper, FormalAvailableWheelLimitEntersPathBoundary) {
+  const auto result = CapabilityMapper(CapabilityReserve{}).map(
+      wheels(0.08), straight());
+  ASSERT_TRUE(result.valid);
+  EXPECT_DOUBLE_EQ(result.actuator_upper_velocity, 0.08);
+  EXPECT_DOUBLE_EQ(result.upper_velocity, 0.08);
+}
+
 TEST(CapabilityMapper, CurvatureAndAsymmetricWheelsUseCorrectSide) {
   WheelCapability wheel = wheels();
   wheel.maximum_velocity_left = 0.8;

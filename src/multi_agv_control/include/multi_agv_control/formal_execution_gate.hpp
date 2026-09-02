@@ -58,4 +58,15 @@ FakeChassisBindingResult evaluateChassisBinding(
     const FakeChassisBindingInput& input,
     const std::string& required_transport);
 
+struct SerialWheelDemandAssessment {
+  bool available_limit_exceeded{false};
+  bool emergency_abort{false};
+  std::string reason;
+};
+
+SerialWheelDemandAssessment assessSerialWheelDemand(
+    double raw_left, double raw_right,
+    double available_left, double available_right,
+    double emergency_abort_limit);
+
 }  // namespace multi_agv_control

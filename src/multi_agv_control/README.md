@@ -254,9 +254,11 @@ structurally fake-only. The separate first serial entry is
 disabled. Serial startup additionally requires hardware authorization, three
 actual serial chassis bindings, a fresh method-matching recorder heartbeat
 and explicit area/floor/unloaded-fixture confirmations. Serial-only feedback
-age, 10.0 V battery and 0.08 m/s raw-wheel gates fail zero without changing
-the paper equations. This entry is infrastructure, not evidence that a
-physical run has passed.
+age and 10.0 V battery gates fail zero without changing the paper equations.
+The chassis enforces and reports the 0.08 m/s formal available wheel limit;
+raw demand is preserved for analysis and only NaN/Inf or demand above the
+independent, pre-existing 0.12 m/s emergency threshold latches a serial abort.
+This entry is infrastructure, not evidence that a physical run has passed.
 
 ## Task 15 camera localization software boundary
 

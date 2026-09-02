@@ -313,8 +313,8 @@ class FormalFakeAlgorithmNode {
     private_node_.param(
         root + "minimum_battery_voltage", minimum_battery_voltage_, 10.0);
     private_node_.param(
-        root + "maximum_wheel_linear_velocity_raw",
-        maximum_wheel_linear_velocity_raw_, 0.08);
+        root + "emergency_abort_limit",
+        emergency_abort_limit_, 0.12);
     private_node_.param(
         root + "require_valid_load_state", require_valid_load_state_, true);
     private_node_.param(
@@ -389,7 +389,7 @@ class FormalFakeAlgorithmNode {
         !(maximum_capability_age_ > 0.0) ||
         !(maximum_feedback_age_ > 0.0) ||
         !(minimum_battery_voltage_ > 0.0) ||
-        !(maximum_wheel_linear_velocity_raw_ > 0.0) ||
+        !(emergency_abort_limit_ > 0.0) ||
         !(maximum_recorder_armed_age_ > 0.0) ||
         !(maximum_watchdog_age_ > 0.0) ||
         !(target_progress_ > reference_progress_) ||
@@ -678,52 +678,101 @@ class FormalFakeAlgorithmNode {
     return false;
   }
 
-  bool inputsUsable(const ros::Time& now) const {
-    if (safety_abort_latched_) return false;
-    if (!has_state_ ||
-        (now - state_receive_time_).toSec() > maximum_state_age_) {
-      return false;
+  std::string inputFailureReason(const ros::Time& now) const {
+    if (safety_abort_latched_) {
+      return "serial safety abort remains latched";
+    }
+    if (!has_state_) return "CooperativeState is missing";
+    if ((now - state_receive_time_).toSec() > maximum_state_age_) {
+      return "CooperativeState is stale";
     }
     for (std::size_t index = 0; index < kRobotCount; ++index) {
       if (!state_.robot_pose_valid[index] ||
           !state_.support_pose_valid[index] ||
-          !state_.path_state_valid[index] ||
-          !has_capability_[index] ||
-          (now - capability_receive_time_[index]).toSec() >
-              maximum_capability_age_) {
-        return false;
+          !state_.path_state_valid[index]) {
+        return "agv" + std::to_string(index + 1U) +
+            " CooperativeState fields are invalid";
       }
-      if (transport_type_ == "serial" &&
-          (!has_feedback_[index] ||
-           (now - feedback_receive_time_[index]).toSec() >
-               maximum_feedback_age_ ||
-           !std::isfinite(feedback_[index].battery_voltage) ||
-           feedback_[index].battery_voltage < minimum_battery_voltage_)) {
-        return false;
+      if (!has_capability_[index]) {
+        return "agv" + std::to_string(index + 1U) +
+            " CapabilityReport is missing";
+      }
+      if ((now - capability_receive_time_[index]).toSec() >
+          maximum_capability_age_) {
+        return "agv" + std::to_string(index + 1U) +
+            " CapabilityReport is stale";
+      }
+      if (transport_type_ == "serial") {
+        if (!has_feedback_[index]) {
+          return "agv" + std::to_string(index + 1U) +
+              " ChassisFeedback is missing";
+        }
+        if ((now - feedback_receive_time_[index]).toSec() >
+            maximum_feedback_age_) {
+          return "agv" + std::to_string(index + 1U) +
+              " ChassisFeedback is stale";
+        }
+        if (!std::isfinite(feedback_[index].battery_voltage)) {
+          return "agv" + std::to_string(index + 1U) +
+              " battery voltage is invalid";
+        }
+        if (feedback_[index].battery_voltage < minimum_battery_voltage_) {
+          return "agv" + std::to_string(index + 1U) +
+              " battery voltage is below the bound";
+        }
       }
     }
-    return !require_valid_load_state_ ||
-        (state_.load_pose_valid && state_.load_path_state_valid);
+    if (require_valid_load_state_ &&
+        (!state_.load_pose_valid || !state_.load_path_state_valid)) {
+      return "virtual load pose or path state is invalid";
+    }
+    return "";
   }
 
-  bool trackingWithinSerialSafety(
+  bool trackingPassesSerialEmergencyGate(
       const std::array<PlanarTrackingResult, 3>& tracking) {
     if (transport_type_ != "serial") return true;
     for (std::size_t index = 0U; index < kRobotCount; ++index) {
       const double left = tracking[index].wheel_linear_velocity_left_raw;
       const double right = tracking[index].wheel_linear_velocity_right_raw;
-      if (!std::isfinite(left) || !std::isfinite(right) ||
-          std::abs(left) > maximum_wheel_linear_velocity_raw_ ||
-          std::abs(right) > maximum_wheel_linear_velocity_raw_) {
+      const auto assessment = assessSerialWheelDemand(
+          left, right,
+          capability_[index].max_wheel_linear_velocity_left,
+          capability_[index].max_wheel_linear_velocity_right,
+          emergency_abort_limit_);
+      if (assessment.emergency_abort) {
         safety_abort_latched_ = true;
         ROS_ERROR(
             "Formal serial safety abort latched: agv%zu raw wheel command "
-            "[%.6f, %.6f] exceeds %.6f m/s",
-            index + 1U, left, right, maximum_wheel_linear_velocity_raw_);
+            "[%.6f, %.6f], emergency_limit=%.6f m/s, reason=%s",
+            index + 1U, left, right, emergency_abort_limit_,
+            assessment.reason.c_str());
         return false;
+      }
+      if (assessment.available_limit_exceeded) {
+        ROS_WARN_THROTTLE(
+            1.0, "agv%zu raw wheel demand [%.6f, %.6f] exceeds current "
+            "available limits [%.6f, %.6f] m/s; preserving raw demand and "
+            "delegating applied limiting to the chassis",
+            index + 1U, left, right,
+            capability_[index].max_wheel_linear_velocity_left,
+            capability_[index].max_wheel_linear_velocity_right);
       }
     }
     return true;
+  }
+
+  void latchNonfiniteSerialWheelDemand(
+      std::size_t index, const PlanarTrackingResult& tracking) {
+    if (transport_type_ != "serial" ||
+        (std::isfinite(tracking.wheel_linear_velocity_left_raw) &&
+         std::isfinite(tracking.wheel_linear_velocity_right_raw))) {
+      return;
+    }
+    safety_abort_latched_ = true;
+    ROS_ERROR(
+        "Formal serial safety abort latched: agv%zu raw wheel demand is "
+        "NaN/Inf", index + 1U);
   }
 
   WheelCapability wheelCapability(std::size_t index) const {
@@ -988,10 +1037,11 @@ class FormalFakeAlgorithmNode {
       publishDebug(false, current_upper_, distributed, lower);
       return;
     }
-    if (!inputsUsable(now)) {
+    const std::string input_failure = inputFailureReason(now);
+    if (!input_failure.empty()) {
       ROS_WARN_THROTTLE(
-          1.0, "Formal algorithm fail-zero: input state is missing, "
-          "invalid or stale");
+          1.0, "Formal algorithm held fail-zero: %s",
+          input_failure.c_str());
       publishZero(now);
       publishPublicState(now, false, lower, tracking);
       publishDebug(false, current_upper_, distributed, lower);
@@ -1090,13 +1140,14 @@ class FormalFakeAlgorithmNode {
             poseValue(state_.support_pose[i]);
         tracking[i] = tracker_.track(tracking_input);
         if (!tracking[i].valid) {
+          latchNonfiniteSerialWheelDemand(i, tracking[i]);
           publishZero(now);
           publishPublicState(now, false, lower, tracking);
           publishM2bDebug(m2b);
           return;
         }
       }
-      if (!trackingWithinSerialSafety(tracking)) {
+      if (!trackingPassesSerialEmergencyGate(tracking)) {
         publishZero(now);
         publishPublicState(now, false, lower, tracking);
         publishM2bDebug(m2b);
@@ -1271,6 +1322,7 @@ class FormalFakeAlgorithmNode {
       tracking_input.support_pose_actual = support_pose[index];
       tracking[index] = tracker_.track(tracking_input);
       if (!tracking[index].valid) {
+        latchNonfiniteSerialWheelDemand(index, tracking[index]);
         ROS_WARN_THROTTLE(
             1.0, "Formal algorithm fail-zero: planar tracker for "
             "agv%zu is invalid", index + 1U);
@@ -1281,7 +1333,7 @@ class FormalFakeAlgorithmNode {
       }
     }
 
-    if (!trackingWithinSerialSafety(tracking)) {
+    if (!trackingPassesSerialEmergencyGate(tracking)) {
       publishZero(now);
       publishPublicState(now, false, lower, tracking);
       publishDebug(false, current_upper_, distributed, lower);
@@ -1388,7 +1440,7 @@ class FormalFakeAlgorithmNode {
   double maximum_capability_age_{0.20};
   double maximum_feedback_age_{0.25};
   double minimum_battery_voltage_{10.0};
-  double maximum_wheel_linear_velocity_raw_{0.08};
+  double emergency_abort_limit_{0.12};
   double reference_progress_{0.0};
   double target_progress_{1.0};
   double leader_position_{0.0};

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import math
 import unittest
 
 import rospy
@@ -22,8 +23,8 @@ class ChassisNodeTest(unittest.TestCase):
             rospy.sleep(0.02)
 
         command = ChassisCommand(robot_id=1, command_seq=1,
-                                 wheel_linear_velocity_left_raw=0.2,
-                                 wheel_linear_velocity_right_raw=0.2)
+                                 wheel_linear_velocity_left_raw=0.080072,
+                                 wheel_linear_velocity_right_raw=0.080072)
         for _ in range(20):
             command.header.stamp = rospy.Time.now()
             command_pub.publish(command)
@@ -35,8 +36,20 @@ class ChassisNodeTest(unittest.TestCase):
         self.assertTrue(capability)
         self.assertEqual(1, feedback[-1].robot_id)
         self.assertEqual(1, feedback[-1].command_seq_applied)
+        self.assertAlmostEqual(
+            0.08, capability[-1].max_wheel_linear_velocity_left,
+            delta=1e-12)
+        self.assertGreater(
+            feedback[-1].wheel_linear_velocity_left_raw,
+            capability[-1].max_wheel_linear_velocity_left)
         self.assertLessEqual(abs(feedback[-1].wheel_linear_velocity_left_applied),
                              capability[-1].max_wheel_linear_velocity_left)
+        self.assertTrue(math.isfinite(
+            feedback[-1].wheel_linear_velocity_left_actual))
+        self.assertLessEqual(
+            abs(feedback[-1].wheel_linear_velocity_left_actual),
+            abs(feedback[-1].wheel_linear_velocity_left_applied) + 1e-12)
+        self.assertTrue(feedback[-1].speed_limit_active_left)
 
         sample_deadline = rospy.Time.now() + rospy.Duration(1.0)
         while rospy.Time.now() < sample_deadline and (

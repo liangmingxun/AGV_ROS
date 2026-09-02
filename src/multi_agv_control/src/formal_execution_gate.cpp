@@ -1,5 +1,7 @@
 #include "multi_agv_control/formal_execution_gate.hpp"
 
+#include <cmath>
+
 #include <cstddef>
 
 namespace multi_agv_control {
@@ -92,6 +94,36 @@ FakeChassisBindingResult evaluateChassisBinding(
     }
   }
   return {FakeChassisBindingStatus::kAllowed, ""};
+}
+
+SerialWheelDemandAssessment assessSerialWheelDemand(
+    double raw_left, double raw_right,
+    double available_left, double available_right,
+    double emergency_abort_limit) {
+  SerialWheelDemandAssessment result;
+  if (!std::isfinite(raw_left) || !std::isfinite(raw_right)) {
+    result.emergency_abort = true;
+    result.reason = "raw wheel demand is NaN/Inf";
+    return result;
+  }
+  if (!std::isfinite(available_left) || available_left <= 0.0 ||
+      !std::isfinite(available_right) || available_right <= 0.0 ||
+      !std::isfinite(emergency_abort_limit) ||
+      emergency_abort_limit <= available_left ||
+      emergency_abort_limit <= available_right) {
+    result.emergency_abort = true;
+    result.reason = "wheel safety limits are invalid or not separated";
+    return result;
+  }
+  result.available_limit_exceeded =
+      std::abs(raw_left) > available_left ||
+      std::abs(raw_right) > available_right;
+  if (std::abs(raw_left) > emergency_abort_limit ||
+      std::abs(raw_right) > emergency_abort_limit) {
+    result.emergency_abort = true;
+    result.reason = "raw wheel demand exceeds emergency abort limit";
+  }
+  return result;
 }
 
 }  // namespace multi_agv_control

@@ -28,6 +28,22 @@ TEST(ChassisCore, LinksRawAppliedAndCapability) {
             core.capability().limits.max_velocity_left);
 }
 
+TEST(ChassisCore, PreservesRawAndAppliesFormalAvailableWheelLimit) {
+  auto config = testConfig();
+  config.nominal_limits.max_velocity_left = 0.08;
+  config.nominal_limits.max_velocity_right = 0.08;
+  ChassisCore core(config);
+  ASSERT_TRUE(core.acceptCommand({2, 8, {0.066403, 0.080072}}));
+  core.step(0.10);
+  EXPECT_DOUBLE_EQ(core.feedback().raw.left, 0.066403);
+  EXPECT_DOUBLE_EQ(core.feedback().raw.right, 0.080072);
+  EXPECT_DOUBLE_EQ(core.feedback().applied.left, 0.066403);
+  EXPECT_DOUBLE_EQ(core.feedback().applied.right, 0.08);
+  EXPECT_TRUE(core.feedback().speed_limited_right);
+  EXPECT_DOUBLE_EQ(core.capability().limits.max_velocity_left, 0.08);
+  EXPECT_DOUBLE_EQ(core.capability().limits.max_velocity_right, 0.08);
+}
+
 TEST(ChassisCore, RejectsWrongRobotAndOldCommand) {
   ChassisCore core(testConfig());
   EXPECT_FALSE(core.acceptCommand({1, 1, {0.1, 0.1}}));

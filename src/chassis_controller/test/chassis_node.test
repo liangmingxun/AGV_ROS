@@ -10,6 +10,7 @@
       <param name="imu_frame" value="agv1/imu_link"/>
       <param name="nominal/max_wheel_linear_velocity_left" value="0.9"/>
       <param name="nominal/max_wheel_linear_velocity_right" value="0.9"/>
+      <param name="formal_available_wheel_limit" value="0.08"/>
       <param name="nominal/max_wheel_linear_acceleration_left" value="1.0"/>
       <param name="nominal/max_wheel_linear_acceleration_right" value="1.0"/>
       <param name="nominal/max_wheel_linear_deceleration_left" value="2.0"/>

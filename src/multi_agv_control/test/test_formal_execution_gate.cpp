@@ -1,5 +1,7 @@
 #include <gtest/gtest.h>
 
+#include <limits>
+
 #include "multi_agv_control/formal_execution_gate.hpp"
 
 namespace mac = multi_agv_control;
@@ -124,4 +126,28 @@ TEST(FormalExecutionGate, SerialBindingRequiresAllThreeSerialChassis) {
   EXPECT_EQ(
       mac::FakeChassisBindingStatus::kRejected,
       mac::evaluateChassisBinding(input, "serial").status);
+}
+
+TEST(FormalExecutionGate, AvailableWheelExcessIsLimitedNotAborted) {
+  const auto result = mac::assessSerialWheelDemand(
+      0.066403, 0.080072, 0.08, 0.08, 0.12);
+  EXPECT_TRUE(result.available_limit_exceeded);
+  EXPECT_FALSE(result.emergency_abort);
+}
+
+TEST(FormalExecutionGate, EmergencyWheelExcessAndNonfiniteDemandAbort) {
+  auto result = mac::assessSerialWheelDemand(
+      0.07, 0.120001, 0.08, 0.08, 0.12);
+  EXPECT_TRUE(result.available_limit_exceeded);
+  EXPECT_TRUE(result.emergency_abort);
+  result = mac::assessSerialWheelDemand(
+      std::numeric_limits<double>::quiet_NaN(), 0.0,
+      0.08, 0.08, 0.12);
+  EXPECT_TRUE(result.emergency_abort);
+}
+
+TEST(FormalExecutionGate, EmergencyLimitMustBeIndependentOfAvailableLimit) {
+  const auto result = mac::assessSerialWheelDemand(
+      0.01, 0.01, 0.08, 0.08, 0.08);
+  EXPECT_TRUE(result.emergency_abort);
 }
