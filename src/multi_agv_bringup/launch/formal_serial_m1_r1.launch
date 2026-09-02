@@ -1,0 +1,37 @@
+<launch>
+  <!-- Connects to already-running serial chassis and camera-fused state. -->
+  <arg name="upper_config"
+       default="$(find multi_agv_bringup)/config/exp2a_M1.yaml"/>
+  <arg name="lower_config"
+       default="$(find multi_agv_bringup)/config/exp3_R1.yaml"/>
+  <arg name="runtime_config"
+       default="$(find multi_agv_bringup)/config/formal_serial_m1_r1_runtime.yaml"/>
+  <arg name="authorization_config"
+       default="$(find multi_agv_bringup)/config/formal_serial_m1_r1_authorization.yaml"/>
+  <arg name="enable_commands" default="false"/>
+  <arg name="confirm_test_area_clear" default="false"/>
+  <arg name="confirm_wheels_on_floor" default="false"/>
+  <arg name="confirm_unloaded_40cm_fixture" default="false"/>
+
+  <node pkg="multi_agv_control" type="formal_algorithm_node"
+        name="formal_algorithm" output="screen" required="true">
+    <rosparam command="load"
+              file="$(find multi_agv_bringup)/config/path_s_curve.yaml"/>
+    <rosparam command="load"
+              file="$(find multi_agv_bringup)/config/support_geometry.yaml"/>
+    <rosparam command="load" file="$(arg runtime_config)"/>
+    <rosparam command="load" file="$(arg upper_config)"/>
+    <rosparam command="load" file="$(arg lower_config)"/>
+    <rosparam command="load" file="$(arg authorization_config)"/>
+    <param name="platform_transport_type" value="serial"/>
+    <param name="formal_fake_runtime/command_publication_authorized"
+           value="$(arg enable_commands)"/>
+    <param name="formal_fake_runtime/require_recorder_armed" value="true"/>
+    <param name="formal_fake_runtime/confirm_test_area_clear"
+           value="$(arg confirm_test_area_clear)"/>
+    <param name="formal_fake_runtime/confirm_wheels_on_floor"
+           value="$(arg confirm_wheels_on_floor)"/>
+    <param name="formal_fake_runtime/confirm_unloaded_40cm_fixture"
+           value="$(arg confirm_unloaded_40cm_fixture)"/>
+  </node>
+</launch>

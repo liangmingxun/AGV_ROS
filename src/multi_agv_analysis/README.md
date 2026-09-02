@@ -23,6 +23,18 @@ rosrun multi_agv_analysis compute_metrics.py \
   RUN/validation.json RUN/metrics.json
 ```
 
+The paper-logical one-command wrapper is:
+
+```bash
+rosrun multi_agv_analysis process_experiment_run.py RUN_DIR \
+  $(rospack find multi_agv_analysis)/config/validation_defaults.yaml
+```
+
+It keeps the raw bag and creates/updates `run_meta.json`, the six logical CSV
+views, `summary_metrics.json`, validation evidence, and draft figures 2--7 in
+PNG and PDF. Invalid runs remain archived and are marked invalid rather than
+silently excluded.
+
 Parquet export is optional (`bag_to_csv.py --parquet`) and requires a pandas
 Parquet engine such as `pyarrow`. CSV is always the canonical portable output.
 Communication-age summaries are diagnostics only; they are not an independent

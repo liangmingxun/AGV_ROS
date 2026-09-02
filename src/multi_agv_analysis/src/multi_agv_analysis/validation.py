@@ -292,7 +292,8 @@ def _check_topic_rates(inventory, rules, issues):
     return report
 
 
-def _check_camera_evidence(converted_dir, inventory, rules, issues):
+def _check_camera_evidence(
+        converted_dir, inventory, rules, issues, virtual_load_from_robots=False):
     camera_used = False
     fused_used = False
     for row in _load_rows(converted_dir, "cooperative_state.csv"):
@@ -308,10 +309,13 @@ def _check_camera_evidence(converted_dir, inventory, rules, issues):
     missing = []
     epoch_values = []
     epoch_tokens = []
+    camera_topic_key = (
+        "camera_virtual_load_required_topics"
+        if virtual_load_from_robots else "camera_required_topics")
     if camera_used:
         observed = set(inventory.get("topics", {}))
         missing = [
-            topic for topic in rules.get("camera_required_topics", [])
+            topic for topic in rules.get(camera_topic_key, [])
             if topic not in observed]
         if fused_used:
             missing.extend(
@@ -367,7 +371,7 @@ def _check_camera_evidence(converted_dir, inventory, rules, issues):
         "fused_used": fused_used,
         "required_topics": (
             list(dict.fromkeys(
-                list(rules.get("camera_required_topics", [])) +
+                list(rules.get(camera_topic_key, [])) +
                 (list(rules.get("fused_required_topics", []))
                  if fused_used else [])))
             if camera_used else []),
@@ -404,7 +408,8 @@ def validate_converted_run(converted_dir, manifest_path, rules):
                 "are not formal-statistics ready".format(topic)))
     topic_rates = _check_topic_rates(inventory, rules, issues)
     camera_evidence = _check_camera_evidence(
-        converted_dir, inventory, rules, issues)
+        converted_dir, inventory, rules, issues,
+        bool(manifest.get("virtual_load_from_robots", False)))
 
     raw_files = rules.get("stamp_files", [
         "chassis_command.csv",

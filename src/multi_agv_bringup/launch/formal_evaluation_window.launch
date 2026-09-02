@@ -3,6 +3,8 @@
   <arg name="derating_publication_authorized" default="false"/>
   <arg name="run_id" default="software_dress_rehearsal"/>
   <arg name="method_id" default="M1_R1"/>
+  <arg name="experiment_id" default="formal_algorithm_fake_integration"/>
+  <arg name="block_id" default="software_dress_rehearsal"/>
 
   <node pkg="multi_agv_control" type="experiment_supervisor_node"
         name="formal_evaluation_supervisor" output="screen" required="true">
@@ -10,6 +12,9 @@
               file="$(find multi_agv_bringup)/config/formal_evaluation_window.yaml"/>
     <param name="exp2a_derating_pretest/run_id" value="$(arg run_id)"/>
     <param name="exp2a_derating_pretest/method_id" value="$(arg method_id)"/>
+    <param name="exp2a_derating_pretest/experiment_id"
+           value="$(arg experiment_id)"/>
+    <param name="exp2a_derating_pretest/block_id" value="$(arg block_id)"/>
     <param name="platform_transport_type"
            value="$(arg platform_transport_type)"/>
     <param name="derating_publication_authorized"

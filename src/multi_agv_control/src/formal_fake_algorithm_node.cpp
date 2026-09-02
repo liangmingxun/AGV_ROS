@@ -11,6 +11,7 @@
 #include <XmlRpcValue.h>
 #include <agv_msgs/CapabilityReport.h>
 #include <agv_msgs/ChassisCommand.h>
+#include <agv_msgs/ChassisFeedback.h>
 #include <agv_msgs/ControllerState.h>
 #include <agv_msgs/CooperativeState.h>
 #include <agv_msgs/PathReference.h>
@@ -130,7 +131,7 @@ class FormalFakeAlgorithmNode {
     loadRuntime();
     const auto upper_config = loadUpperConfig();
     const auto lower_config = loadLowerConfig();
-    enforceFakeOnlyGates(upper_config, lower_config);
+    enforceExecutionGates(upper_config, lower_config);
     upper_mode_ = upper_config.mode;
     lower_mode_ = lower_config.mode;
     m2b_selected_ =
@@ -178,6 +179,11 @@ class FormalFakeAlgorithmNode {
           [this, index](const agv_msgs::CapabilityReport::ConstPtr& message) {
             receiveCapability(index, message);
           });
+      feedback_subscribers_[index] = node_.subscribe<agv_msgs::ChassisFeedback>(
+          "/agv" + std::to_string(index + 1U) + "/chassis_feedback", 5,
+          [this, index](const agv_msgs::ChassisFeedback::ConstPtr& message) {
+            receiveFeedback(index, message);
+          });
     }
     reference_publisher_ = node_.advertise<agv_msgs::PathReference>(
         "/multi_agv/path_reference", 5, false);
@@ -191,9 +197,10 @@ class FormalFakeAlgorithmNode {
         ros::Duration(1.0 / publish_rate_),
         &FormalFakeAlgorithmNode::step, this);
     ROS_WARN(
-        "Formal algorithm ROS integration is enabled for fake transport only "
-        "(upper=%s lower=%s); serial transport is structurally refused",
-        upperModeName(upper_mode_), lowerModeName(lower_mode_));
+        "Formal algorithm integration ready: transport=%s upper=%s lower=%s "
+        "recorder_required=%s",
+        transport_type_.c_str(), upperModeName(upper_mode_),
+        lowerModeName(lower_mode_), require_recorder_armed_ ? "true" : "false");
   }
 
  private:
@@ -302,9 +309,27 @@ class FormalFakeAlgorithmNode {
     private_node_.param(
         root + "maximum_capability_age", maximum_capability_age_, 0.20);
     private_node_.param(
+        root + "maximum_feedback_age", maximum_feedback_age_, 0.25);
+    private_node_.param(
+        root + "minimum_battery_voltage", minimum_battery_voltage_, 10.0);
+    private_node_.param(
+        root + "maximum_wheel_linear_velocity_raw",
+        maximum_wheel_linear_velocity_raw_, 0.08);
+    private_node_.param(
         root + "require_valid_load_state", require_valid_load_state_, true);
     private_node_.param(
         root + "require_recorder_armed", require_recorder_armed_, false);
+    private_node_.param(
+        root + "serial_execution_authorized",
+        serial_execution_authorized_, false);
+    private_node_.param(
+        root + "confirm_test_area_clear", confirm_test_area_clear_, false);
+    private_node_.param(
+        root + "confirm_wheels_on_floor",
+        confirm_wheels_on_floor_, false);
+    private_node_.param(
+        root + "confirm_unloaded_40cm_fixture",
+        confirm_unloaded_fixture_, false);
     private_node_.param(
         root + "maximum_recorder_armed_age",
         maximum_recorder_armed_age_, 0.50);
@@ -362,6 +387,9 @@ class FormalFakeAlgorithmNode {
         lower_initial_disturbance_, 0.08);
     if (!(publish_rate_ > 0.0) || !(maximum_state_age_ > 0.0) ||
         !(maximum_capability_age_ > 0.0) ||
+        !(maximum_feedback_age_ > 0.0) ||
+        !(minimum_battery_voltage_ > 0.0) ||
+        !(maximum_wheel_linear_velocity_raw_ > 0.0) ||
         !(maximum_recorder_armed_age_ > 0.0) ||
         !(maximum_watchdog_age_ > 0.0) ||
         !(target_progress_ > reference_progress_) ||
@@ -531,12 +559,11 @@ class FormalFakeAlgorithmNode {
     return config;
   }
 
-  void enforceFakeOnlyGates(
+  void enforceExecutionGates(
       const UpperReferenceConfig& upper,
       const LowerChannelConfig& lower) {
-    std::string transport;
     private_node_.param<std::string>(
-        "platform_transport_type", transport, "");
+        "platform_transport_type", transport_type_, "");
     bool upper_algorithm = false;
     bool upper_hardware = false;
     bool lower_algorithm = false;
@@ -558,7 +585,7 @@ class FormalFakeAlgorithmNode {
         "formal_upper/fixed_speed_preregistered",
         preregistered, false);
     FormalExecutionGateInput gate;
-    gate.transport_type = transport;
+    gate.transport_type = transport_type_;
     gate.command_publication_authorized =
         command_publication_authorized_;
     gate.upper_algorithm_authorized = upper_algorithm;
@@ -569,7 +596,16 @@ class FormalFakeAlgorithmNode {
     gate.lower_hardware_authorized = lower_hardware;
     gate.m4_selected = upper.mode == UpperMode::kM4;
     gate.m4_speed_preregistered = preregistered;
-    const auto result = evaluateFormalFakeGate(gate);
+    gate.serial_execution_authorized = serial_execution_authorized_;
+    gate.m1_r1_selected =
+        upper.mode == UpperMode::kM1 && lower.mode == LowerMode::kR1;
+    gate.recorder_required = require_recorder_armed_;
+    gate.test_area_confirmed = confirm_test_area_clear_;
+    gate.wheels_on_floor_confirmed = confirm_wheels_on_floor_;
+    gate.unloaded_fixture_confirmed = confirm_unloaded_fixture_;
+    const auto result = transport_type_ == "fake"
+        ? evaluateFormalFakeGate(gate)
+        : evaluateFormalSerialM1R1Gate(gate);
     if (!result.allowed) throw std::runtime_error(result.reason);
   }
 
@@ -588,7 +624,16 @@ class FormalFakeAlgorithmNode {
     has_capability_[index] = true;
   }
 
-  bool refreshFakeChassisBinding() {
+  void receiveFeedback(
+      std::size_t index,
+      const agv_msgs::ChassisFeedback::ConstPtr& message) {
+    if (message->robot_id != index + 1U) return;
+    feedback_[index] = *message;
+    feedback_receive_time_[index] = ros::Time::now();
+    has_feedback_[index] = true;
+  }
+
+  bool refreshChassisBinding() {
     FakeChassisBindingInput input;
     for (std::size_t index = 0; index < kRobotCount; ++index) {
       const std::string parameter =
@@ -597,7 +642,7 @@ class FormalFakeAlgorithmNode {
       input.transport_parameter_present[index] =
           node_.getParam(parameter, input.transport_type[index]);
     }
-    const auto result = evaluateFakeChassisBinding(input);
+    const auto result = evaluateChassisBinding(input, transport_type_);
     if (result.status == FakeChassisBindingStatus::kAllowed) {
       if (!command_outputs_ready_) {
         for (std::size_t index = 0; index < kRobotCount; ++index) {
@@ -609,8 +654,9 @@ class FormalFakeAlgorithmNode {
         }
         command_outputs_ready_ = true;
         ROS_INFO(
-            "Formal fake command publishers enabled after all three "
-            "chassis transport parameters were verified as fake");
+            "Formal command publishers enabled after all three chassis "
+            "transport parameters were verified as %s",
+            transport_type_.c_str());
       }
       return true;
     }
@@ -621,18 +667,19 @@ class FormalFakeAlgorithmNode {
     }
     if (result.status == FakeChassisBindingStatus::kRejected) {
       ROS_FATAL(
-          "Formal fake algorithm rejected chassis binding: %s",
+          "Formal algorithm rejected chassis binding: %s",
           result.reason.c_str());
       ros::shutdown();
     } else {
       ROS_WARN_THROTTLE(
-          1.0, "Formal fake algorithm has no command authority: %s",
+          1.0, "Formal algorithm has no command authority: %s",
           result.reason.c_str());
     }
     return false;
   }
 
   bool inputsUsable(const ros::Time& now) const {
+    if (safety_abort_latched_) return false;
     if (!has_state_ ||
         (now - state_receive_time_).toSec() > maximum_state_age_) {
       return false;
@@ -646,9 +693,37 @@ class FormalFakeAlgorithmNode {
               maximum_capability_age_) {
         return false;
       }
+      if (transport_type_ == "serial" &&
+          (!has_feedback_[index] ||
+           (now - feedback_receive_time_[index]).toSec() >
+               maximum_feedback_age_ ||
+           !std::isfinite(feedback_[index].battery_voltage) ||
+           feedback_[index].battery_voltage < minimum_battery_voltage_)) {
+        return false;
+      }
     }
     return !require_valid_load_state_ ||
         (state_.load_pose_valid && state_.load_path_state_valid);
+  }
+
+  bool trackingWithinSerialSafety(
+      const std::array<PlanarTrackingResult, 3>& tracking) {
+    if (transport_type_ != "serial") return true;
+    for (std::size_t index = 0U; index < kRobotCount; ++index) {
+      const double left = tracking[index].wheel_linear_velocity_left_raw;
+      const double right = tracking[index].wheel_linear_velocity_right_raw;
+      if (!std::isfinite(left) || !std::isfinite(right) ||
+          std::abs(left) > maximum_wheel_linear_velocity_raw_ ||
+          std::abs(right) > maximum_wheel_linear_velocity_raw_) {
+        safety_abort_latched_ = true;
+        ROS_ERROR(
+            "Formal serial safety abort latched: agv%zu raw wheel command "
+            "[%.6f, %.6f] exceeds %.6f m/s",
+            index + 1U, left, right, maximum_wheel_linear_velocity_raw_);
+        return false;
+      }
+    }
+    return true;
   }
 
   WheelCapability wheelCapability(std::size_t index) const {
@@ -890,7 +965,7 @@ class FormalFakeAlgorithmNode {
     std::array<LowerChannelOutput, 3> lower;
     std::array<PlanarTrackingResult, 3> tracking;
     DistributedReferenceOutput distributed = current_distributed_;
-    if (!refreshFakeChassisBinding()) {
+    if (!refreshChassisBinding()) {
       publishPublicState(now, false, lower, tracking);
       publishDebug(false, current_upper_, distributed, lower);
       return;
@@ -915,7 +990,7 @@ class FormalFakeAlgorithmNode {
     }
     if (!inputsUsable(now)) {
       ROS_WARN_THROTTLE(
-          1.0, "Formal fake algorithm fail-zero: input state is missing, "
+          1.0, "Formal algorithm fail-zero: input state is missing, "
           "invalid or stale");
       publishZero(now);
       publishPublicState(now, false, lower, tracking);
@@ -933,7 +1008,7 @@ class FormalFakeAlgorithmNode {
     if (!fleet.valid) {
       ROS_WARN_THROTTLE(
           1.0,
-          "Formal fake algorithm fail-zero: capability mapping failed "
+          "Formal algorithm fail-zero: capability mapping failed "
           "(geometry=[%.6f,%.6f; %.6f,%.6f; %.6f,%.6f], "
           "wheel_velocity=[%.6f,%.6f; %.6f,%.6f; %.6f,%.6f])",
           geometries[0].speed_scale, geometries[0].heading_rate,
@@ -1021,6 +1096,12 @@ class FormalFakeAlgorithmNode {
           return;
         }
       }
+      if (!trackingWithinSerialSafety(tracking)) {
+        publishZero(now);
+        publishPublicState(now, false, lower, tracking);
+        publishM2bDebug(m2b);
+        return;
+      }
       for (std::size_t i = 0; i < kRobotCount; ++i) {
         agv_msgs::ChassisCommand command;
         command.header.stamp = now;
@@ -1083,7 +1164,7 @@ class FormalFakeAlgorithmNode {
     current_upper_ = upper_generator_->step(upper_input, dt);
     if (!current_upper_.valid) {
       ROS_WARN_THROTTLE(
-          1.0, "Formal fake algorithm fail-zero: upper reference is invalid");
+          1.0, "Formal algorithm fail-zero: upper reference is invalid");
       publishZero(now);
       publishPublicState(now, false, lower, tracking);
       publishDebug(false, current_upper_, distributed, lower);
@@ -1113,7 +1194,7 @@ class FormalFakeAlgorithmNode {
           distributed_config_, distributed_state_, reference_input);
       if (!distributed.valid) {
         ROS_WARN_THROTTLE(
-            1.0, "Formal fake algorithm fail-zero: distributed reference "
+            1.0, "Formal algorithm fail-zero: distributed reference "
             "is invalid");
         publishZero(now);
         publishPublicState(now, false, lower, tracking);
@@ -1172,7 +1253,7 @@ class FormalFakeAlgorithmNode {
       lower[index] = lower_controllers_[index]->step(input);
       if (!lower[index].valid) {
         ROS_WARN_THROTTLE(
-            1.0, "Formal fake algorithm fail-zero: lower controller for "
+            1.0, "Formal algorithm fail-zero: lower controller for "
             "agv%zu is invalid", index + 1U);
         publishZero(now);
         publishPublicState(now, false, lower, tracking);
@@ -1191,13 +1272,20 @@ class FormalFakeAlgorithmNode {
       tracking[index] = tracker_.track(tracking_input);
       if (!tracking[index].valid) {
         ROS_WARN_THROTTLE(
-            1.0, "Formal fake algorithm fail-zero: planar tracker for "
+            1.0, "Formal algorithm fail-zero: planar tracker for "
             "agv%zu is invalid", index + 1U);
         publishZero(now);
         publishPublicState(now, false, lower, tracking);
         publishDebug(false, current_upper_, distributed, lower);
         return;
       }
+    }
+
+    if (!trackingWithinSerialSafety(tracking)) {
+      publishZero(now);
+      publishPublicState(now, false, lower, tracking);
+      publishDebug(false, current_upper_, distributed, lower);
+      return;
     }
 
     for (std::size_t index = 0; index < kRobotCount; ++index) {
@@ -1253,6 +1341,7 @@ class FormalFakeAlgorithmNode {
   ros::Subscriber recorder_method_subscriber_;
   ros::Subscriber watchdog_subscriber_;
   std::array<ros::Subscriber, 3> capability_subscribers_;
+  std::array<ros::Subscriber, 3> feedback_subscribers_;
   std::array<ros::Publisher, 3> command_publishers_;
   ros::Publisher reference_publisher_;
   ros::Publisher controller_publisher_;
@@ -1261,10 +1350,13 @@ class FormalFakeAlgorithmNode {
   ros::Timer timer_;
   agv_msgs::CooperativeState state_;
   std::array<agv_msgs::CapabilityReport, 3> capability_;
+  std::array<agv_msgs::ChassisFeedback, 3> feedback_;
   ros::Time state_receive_time_;
   std::array<ros::Time, 3> capability_receive_time_;
+  std::array<ros::Time, 3> feedback_receive_time_;
   bool has_state_{false};
   std::array<bool, 3> has_capability_{{false, false, false}};
+  std::array<bool, 3> has_feedback_{{false, false, false}};
   bool require_valid_load_state_{true};
   bool require_recorder_armed_{false};
   bool has_recorder_armed_{false};
@@ -1273,8 +1365,13 @@ class FormalFakeAlgorithmNode {
   bool has_watchdog_{false};
   bool watchdog_ok_{false};
   bool command_publication_authorized_{false};
+  bool serial_execution_authorized_{false};
+  bool confirm_test_area_clear_{false};
+  bool confirm_wheels_on_floor_{false};
+  bool confirm_unloaded_fixture_{false};
   bool command_outputs_ready_{false};
   bool m2b_selected_{false};
+  bool safety_abort_latched_{false};
   std::size_t upper_ticks_per_update_{4U};
 
   std::array<std::uint32_t, 3> command_sequence_{{0U, 0U, 0U}};
@@ -1289,6 +1386,9 @@ class FormalFakeAlgorithmNode {
   double publish_rate_{100.0};
   double maximum_state_age_{0.15};
   double maximum_capability_age_{0.20};
+  double maximum_feedback_age_{0.25};
+  double minimum_battery_voltage_{10.0};
+  double maximum_wheel_linear_velocity_raw_{0.08};
   double reference_progress_{0.0};
   double target_progress_{1.0};
   double leader_position_{0.0};
@@ -1310,17 +1410,18 @@ class FormalFakeAlgorithmNode {
   std::string recorder_method_id_;
   ros::Time watchdog_receive_time_;
   std::string experiment_id_;
+  std::string transport_type_;
 };
 
 }  // namespace multi_agv_control
 
 int main(int argc, char** argv) {
-  ros::init(argc, argv, "formal_fake_algorithm");
+  ros::init(argc, argv, "formal_algorithm");
   try {
     multi_agv_control::FormalFakeAlgorithmNode node;
     ros::spin();
   } catch (const std::exception& error) {
-    ROS_FATAL("Failed to start formal fake algorithm: %s", error.what());
+    ROS_FATAL("Failed to start formal algorithm: %s", error.what());
     return 1;
   }
   return 0;

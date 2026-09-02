@@ -1,4 +1,5 @@
 experiment_recording:
+  registered_method_ids: [M1_R1, M2a_R1, M2a_R4, M2b_M2b]
   # Keep source topics in the bag. bag_to_csv.py performs only latest-at-or-
   # before causal alignment and never modifies these raw samples.
   topics:
@@ -74,6 +75,24 @@ experiment_recording:
     - /pose_provider/agv2/base_pose_filtered
     - /pose_provider/agv3/base_pose_filtered
     - /pose_provider/load/pose_filtered
+
+  # Current unloaded algorithm validation derives the equivalent load pose
+  # from three fused robot/support poses. ID0 remains disabled and therefore
+  # must not be fabricated as required evidence.
+  camera_virtual_load_required_topics:
+    - /vision/aruco/calibration_epoch
+    - /camera/world/agv1_tag_pose
+    - /camera/world/agv2_tag_pose
+    - /camera/world/agv3_tag_pose
+    - /camera/world/agv1_confidence
+    - /camera/world/agv2_confidence
+    - /camera/world/agv3_confidence
+    - /pose_provider/agv1/base_pose_raw
+    - /pose_provider/agv2/base_pose_raw
+    - /pose_provider/agv3/base_pose_raw
+    - /pose_provider/agv1/base_pose_filtered
+    - /pose_provider/agv2/base_pose_filtered
+    - /pose_provider/agv3/base_pose_filtered
 
   # Required in addition to camera evidence whenever CooperativeState reports
   # SOURCE_FUSED for at least one robot.

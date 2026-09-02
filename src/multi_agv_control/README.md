@@ -248,8 +248,15 @@ The M1/R1 and M2a/R4 rostests cover non-default configuration loading, the
 complete valid command chain, actual fake-chassis binding, fixed
 internal-state record shape, unique command authority, absence of `/cmd_vel`,
 and cooperative-state loss followed by three-car fail-zero. This is software
-authorization only. There is intentionally no serial launch path for the
-formal controller, and none of these changes authorise a physical experiment.
+authorization only. The original `formal_fake_algorithm.launch` remains
+structurally fake-only. The separate first serial entry is
+`formal_serial_m1_r1.launch`; it permits M1+R1 only and defaults to commands
+disabled. Serial startup additionally requires hardware authorization, three
+actual serial chassis bindings, a fresh method-matching recorder heartbeat
+and explicit area/floor/unloaded-fixture confirmations. Serial-only feedback
+age, 10.0 V battery and 0.08 m/s raw-wheel gates fail zero without changing
+the paper equations. This entry is infrastructure, not evidence that a
+physical run has passed.
 
 ## Task 15 camera localization software boundary
 

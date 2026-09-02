@@ -21,8 +21,11 @@ catkin_install_python(PROGRAMS
   scripts/compute_metrics.py
   scripts/aggregate_experiment.py
   scripts/experiment_batch.py
+  scripts/export_paper_run.py
   scripts/fleet_health_check.py
   scripts/manage_stage_evidence.py
+  scripts/plot_experiment_run.py
+  scripts/process_experiment_run.py
   scripts/record_experiment.py
   scripts/software_watchdog.py
   scripts/validate_run.py
@@ -36,5 +39,6 @@ install(DIRECTORY config
 
 if(CATKIN_ENABLE_TESTING)
   catkin_add_nosetests(test/test_metrics.py)
+  catkin_add_nosetests(test/test_paper_pipeline.py)
   catkin_add_nosetests(test/test_tooling.py)
 endif()

@@ -97,6 +97,18 @@ target_link_libraries(formal_fake_algorithm_node
   multi_agv_geometry ${catkin_LIBRARIES})
 add_dependencies(formal_fake_algorithm_node ${catkin_EXPORTED_TARGETS})
 
+add_executable(formal_algorithm_node src/formal_fake_algorithm_node.cpp)
+target_include_directories(formal_algorithm_node PRIVATE
+  ${CMAKE_CURRENT_SOURCE_DIR}/include
+  ${EIGEN3_INCLUDE_DIRS}
+  ${catkin_INCLUDE_DIRS}
+)
+target_compile_options(formal_algorithm_node
+  PRIVATE -Wall -Wextra -Wpedantic)
+target_link_libraries(formal_algorithm_node
+  multi_agv_geometry ${catkin_LIBRARIES})
+add_dependencies(formal_algorithm_node ${catkin_EXPORTED_TARGETS})
+
 add_executable(single_car_s_pretest_node src/single_car_s_pretest_node.cpp)
 target_include_directories(single_car_s_pretest_node PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/include
@@ -142,7 +154,7 @@ target_link_libraries(robot2_raised_derating_pretest_node
   multi_agv_geometry ${catkin_LIBRARIES})
 add_dependencies(robot2_raised_derating_pretest_node ${catkin_EXPORTED_TARGETS})
 
-install(TARGETS multi_agv_geometry path_state_estimator_node camera_pose_adapter_node camera_odom_fusion_node multi_agv_controller_node formal_fake_algorithm_node single_car_s_pretest_node three_car_unloaded_bounded_pretest_node experiment_supervisor_node robot2_raised_derating_pretest_node
+install(TARGETS multi_agv_geometry path_state_estimator_node camera_pose_adapter_node camera_odom_fusion_node multi_agv_controller_node formal_fake_algorithm_node formal_algorithm_node single_car_s_pretest_node three_car_unloaded_bounded_pretest_node experiment_supervisor_node robot2_raised_derating_pretest_node
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}

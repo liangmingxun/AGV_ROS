@@ -16,6 +16,12 @@ struct FormalExecutionGateInput {
   bool lower_hardware_authorized{false};
   bool m4_selected{false};
   bool m4_speed_preregistered{false};
+  bool serial_execution_authorized{false};
+  bool m1_r1_selected{false};
+  bool recorder_required{false};
+  bool test_area_confirmed{false};
+  bool wheels_on_floor_confirmed{false};
+  bool unloaded_fixture_confirmed{false};
 };
 
 struct FormalExecutionGateResult {
@@ -24,6 +30,9 @@ struct FormalExecutionGateResult {
 };
 
 FormalExecutionGateResult evaluateFormalFakeGate(
+    const FormalExecutionGateInput& input);
+
+FormalExecutionGateResult evaluateFormalSerialM1R1Gate(
     const FormalExecutionGateInput& input);
 
 enum class FakeChassisBindingStatus {
@@ -44,5 +53,9 @@ struct FakeChassisBindingResult {
 
 FakeChassisBindingResult evaluateFakeChassisBinding(
     const FakeChassisBindingInput& input);
+
+FakeChassisBindingResult evaluateChassisBinding(
+    const FakeChassisBindingInput& input,
+    const std::string& required_transport);
 
 }  // namespace multi_agv_control

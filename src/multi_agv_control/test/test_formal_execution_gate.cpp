@@ -81,3 +81,47 @@ TEST(FormalExecutionGate, AllowsThreeActualFakeChassisBindings) {
       mac::FakeChassisBindingStatus::kAllowed,
       mac::evaluateFakeChassisBinding(input).status);
 }
+
+TEST(FormalExecutionGate, AcceptsCompleteSerialM1R1Gate) {
+  auto input = validInput();
+  input.transport_type = "serial";
+  input.upper_hardware_authorized = true;
+  input.lower_hardware_authorized = true;
+  input.serial_execution_authorized = true;
+  input.m1_r1_selected = true;
+  input.recorder_required = true;
+  input.test_area_confirmed = true;
+  input.wheels_on_floor_confirmed = true;
+  input.unloaded_fixture_confirmed = true;
+  EXPECT_TRUE(mac::evaluateFormalSerialM1R1Gate(input).allowed);
+}
+
+TEST(FormalExecutionGate, SerialGateRejectsMissingRecorderOrConfirmation) {
+  auto input = validInput();
+  input.transport_type = "serial";
+  input.upper_hardware_authorized = true;
+  input.lower_hardware_authorized = true;
+  input.serial_execution_authorized = true;
+  input.m1_r1_selected = true;
+  input.recorder_required = false;
+  input.test_area_confirmed = true;
+  input.wheels_on_floor_confirmed = true;
+  input.unloaded_fixture_confirmed = true;
+  EXPECT_FALSE(mac::evaluateFormalSerialM1R1Gate(input).allowed);
+  input.recorder_required = true;
+  input.wheels_on_floor_confirmed = false;
+  EXPECT_FALSE(mac::evaluateFormalSerialM1R1Gate(input).allowed);
+}
+
+TEST(FormalExecutionGate, SerialBindingRequiresAllThreeSerialChassis) {
+  mac::FakeChassisBindingInput input;
+  input.transport_parameter_present = {{true, true, true}};
+  input.transport_type = {{"serial", "serial", "serial"}};
+  EXPECT_EQ(
+      mac::FakeChassisBindingStatus::kAllowed,
+      mac::evaluateChassisBinding(input, "serial").status);
+  input.transport_type[1] = "fake";
+  EXPECT_EQ(
+      mac::FakeChassisBindingStatus::kRejected,
+      mac::evaluateChassisBinding(input, "serial").status);
+}

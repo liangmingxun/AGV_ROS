@@ -17,7 +17,8 @@ import rospy
 from std_msgs.msg import Bool, String
 from std_srvs.srv import Trigger, TriggerResponse
 
-from multi_agv_analysis.io_utils import atomic_dump_yaml, sha256_file
+from multi_agv_analysis.io_utils import (
+    atomic_dump_json, atomic_dump_yaml, sha256_file)
 from multi_agv_analysis.approval import verify_approved_configuration
 
 
@@ -68,16 +69,32 @@ class ExperimentRecorder:
         self.run_id = _safe_run_id(requested_run_id)
         self.experiment_id = rospy.get_param("~experiment_id")
         self.method_id = rospy.get_param("~method_id")
+        self.recording = rospy.get_param("~experiment_recording")
+        registered = self.recording.get(
+            "registered_method_ids",
+            ["M1_R1", "M2a_R1", "M2a_R4", "M2b_M2b"])
+        if self.method_id not in registered:
+            raise RuntimeError(
+                "method_id is not preregistered: {}".format(self.method_id))
+        self.pair_block_id = rospy.get_param("~pair_block_id", "")
+        self.payload_state = rospy.get_param("~payload_state", "unloaded")
+        self.localization_source = rospy.get_param(
+            "~localization_source", "unknown")
+        self.operator = rospy.get_param("~operator", "")
         self.interface_version = rospy.get_param(
             "~interface_version", "agv_ros_interfaces_v1")
-        self.recording = rospy.get_param("~experiment_recording")
         self.topics = list(self.recording.get("topics", []))
         self.required_topics = list(
             self.recording.get("required_topics", []))
         self.camera_mode = rospy.get_param("~camera_mode", False)
+        self.virtual_load_from_robots = rospy.get_param(
+            "~virtual_load_from_robots", False)
         if self.camera_mode:
             self.required_topics.extend(
-                self.recording.get("camera_required_topics", []))
+                self.recording.get(
+                    "camera_virtual_load_required_topics"
+                    if self.virtual_load_from_robots
+                    else "camera_required_topics", []))
         self.required_topics.extend(
             self.recording.get("method_required_topics", {}).get(
                 self.method_id, []))
@@ -208,6 +225,7 @@ class ExperimentRecorder:
             "method_id": self.method_id,
             "interface_version": self.interface_version,
             "camera_mode": self.camera_mode,
+            "virtual_load_from_robots": self.virtual_load_from_robots,
             "started_at": datetime.datetime.now(
                 datetime.timezone.utc).isoformat(),
             "recording_armed_at": None,
@@ -235,7 +253,46 @@ class ExperimentRecorder:
                 "independent communication watchdog."),
             "metrics": rospy.get_param("~metrics", {}),
         }
+        self._write_metadata()
+
+    def _run_meta(self):
+        return {
+            "schema_version": 1,
+            "run_id": self.run_id,
+            "experiment_id": self.experiment_id,
+            "method_id": self.method_id,
+            "pair_block_id": self.pair_block_id,
+            "git_sha": self.manifest.get("git_sha", ""),
+            "config_hashes": self.manifest.get("config_hashes", []),
+            "hostname": self.manifest.get("hostname", ""),
+            "software_versions": {
+                "interface": self.interface_version,
+                "ros_distro": self.manifest.get("ros_distro", ""),
+                "python": self.manifest.get("python_version", ""),
+            },
+            "stm32_firmware": [
+                rospy.get_param(
+                    "/agv{}/deployment/stm32_firmware".format(index),
+                    "unreported")
+                for index in range(1, 4)],
+            "path_version": rospy.get_param(
+                "~path_version", "s_curve_v1"),
+            "payload_state": self.payload_state,
+            "localization_source": self.localization_source,
+            "battery_voltage_start": None,
+            "battery_voltage_end": None,
+            "valid_run": False,
+            "abort_reason": self.manifest.get("abort_reason", ""),
+            "operator": self.operator,
+            "start_timestamp": self.manifest.get("started_at"),
+            "recording_armed_timestamp": self.manifest.get(
+                "recording_armed_at"),
+            "end_timestamp": self.manifest.get("finished_at"),
+        }
+
+    def _write_metadata(self):
         atomic_dump_yaml(self.run_dir / "manifest.yaml", self.manifest)
+        atomic_dump_json(self.run_dir / "run_meta.json", self._run_meta())
 
     def start(self):
         bag_path = self.run_dir / "{}.bag".format(self.run_id)
@@ -265,8 +322,7 @@ class ExperimentRecorder:
                 "{}".format(missing))
         self.manifest["recording_armed_at"] = datetime.datetime.now(
             datetime.timezone.utc).isoformat()
-        atomic_dump_yaml(
-            self.run_dir / "manifest.yaml", self.manifest)
+        self._write_metadata()
         rospy.loginfo(
             "Experiment recording armed after all required subscriptions "
             "connected: run_id=%s bag=%s", self.run_id, bag_path)
@@ -294,8 +350,7 @@ class ExperimentRecorder:
                 self.manifest["bag_exit_code"] = (
                     self.bag_process.returncode
                     if self.bag_process is not None else None)
-                atomic_dump_yaml(
-                    self.run_dir / "manifest.yaml", self.manifest)
+                self._write_metadata()
             self.closed = True
 
     def stop_recording(self, _request):
@@ -339,8 +394,7 @@ class ExperimentRecorder:
                             "observed"] != current):
                     self.manifest[
                         "command_authority_violations"].append(violation)
-                    atomic_dump_yaml(
-                        self.run_dir / "manifest.yaml", self.manifest)
+                    self._write_metadata()
                     rospy.logerr(
                         "Command authority changed while recording: %s",
                         current)

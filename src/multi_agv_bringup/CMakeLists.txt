@@ -21,6 +21,8 @@ install(PROGRAMS
         scripts/configure_chassis_udev.sh
         scripts/check_local_clock_sync.sh
         scripts/require_three_car_motion_gate.sh
+        scripts/run_m1_r1_fake_observer.sh
+        scripts/run_m1_r1_serial_unloaded.sh
         scripts/run_robot1_camera_dynamic_capture.sh
         scripts/run_three_car_unloaded_pretest.sh
         scripts/run_three_car_unloaded_straight_pretest.sh
