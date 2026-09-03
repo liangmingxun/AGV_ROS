@@ -48,6 +48,16 @@ runtime_status="$(awk '/^[[:space:]]*configuration_status:/ {print $2; exit}' \
   "$runtime_config")"
 serial_authorized="$(awk '/^[[:space:]]*serial_execution_authorized:/ {print $2; exit}' \
   "$runtime_config")"
+nominal_common_velocity="$(awk '
+  /^[[:space:]]*leader:/ {in_leader=1; next}
+  in_leader && /^[[:space:]]*velocity:/ {print $2; exit}
+' "$runtime_config")"
+if ! awk -v value="$nominal_common_velocity" \
+    'BEGIN {exit !(value ~ /^[0-9]+([.][0-9]+)?$/ && value > 0.0)}'; then
+  echo "ERROR: runtime leader.velocity is missing or invalid: " \
+       "${nominal_common_velocity:-<missing>}" >&2
+  exit 3
+fi
 if [[ "$runtime_status" == NEEDS_MANUAL_CONFIRMATION* ||
       "$serial_authorized" != true ]]; then
   echo "ERROR: NEEDS_MANUAL_CONFIRMATION: qualify the 0.15 m/s nominal and " \
@@ -198,7 +208,7 @@ roslaunch multi_agv_bringup experiment.launch \
   localization_config:="${workspace}/src/multi_agv_bringup/config/localization_camera_three_car_closed_loop.yaml" \
   runtime_config:="${workspace}/src/multi_agv_bringup/config/formal_serial_m1_r1_runtime.yaml" \
   execution_authorization_config:="${workspace}/src/multi_agv_bringup/config/formal_serial_m1_r1_authorization.yaml" \
-  nominal_common_velocity:=0.08 evaluation_target:=1.0 &
+  nominal_common_velocity:="$nominal_common_velocity" evaluation_target:=1.0 &
 recorder_pid="$!"
 
 deadline=$((SECONDS + 50))

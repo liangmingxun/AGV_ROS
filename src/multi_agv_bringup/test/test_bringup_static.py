@@ -150,7 +150,12 @@ class BringupStaticTest(unittest.TestCase):
         self.assertIn("--confirm-formal-0p15-wheel-envelope", chassis_entry)
         self.assertIn('formal_wheel_limit="0.15"', chassis_entry)
         self.assertIn("NEEDS_MANUAL_CONFIRMATION", experiment_entry)
-        self.assertIn("nominal_common_velocity:=0.08", experiment_entry)
+        self.assertIn('nominal_common_velocity="$(awk', experiment_entry)
+        self.assertIn('/^[[:space:]]*leader:/', experiment_entry)
+        self.assertIn(
+            'nominal_common_velocity:="$nominal_common_velocity"',
+            experiment_entry)
+        self.assertNotIn("nominal_common_velocity:=0.08", experiment_entry)
 
     def test_optional_software_watchdog_is_observer_only(self):
         launch = (
