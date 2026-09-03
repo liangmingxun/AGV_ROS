@@ -1,0 +1,33 @@
+<launch>
+  <include file="$(find multi_agv_bringup)/launch/three_fake_chassis.launch">
+    <arg name="formal_available_wheel_limit" value="0.15"/>
+  </include>
+
+  <node pkg="multi_agv_control" type="formal_fake_algorithm_node"
+        name="formal_fake_algorithm" output="screen" required="true">
+    <rosparam command="load"
+              file="$(find multi_agv_bringup)/config/path_s_curve.yaml"/>
+    <rosparam command="load"
+              file="$(find multi_agv_bringup)/config/support_geometry.yaml"/>
+    <rosparam command="load"
+              file="$(find multi_agv_bringup)/config/formal_serial_m1_r1_runtime.yaml"/>
+    <rosparam command="load"
+              file="$(find multi_agv_bringup)/config/exp2a_M2a_serial_008.yaml"/>
+    <rosparam command="load"
+              file="$(find multi_agv_bringup)/config/exp3_R1.yaml"/>
+    <param name="platform_transport_type" value="fake"/>
+    <param name="formal_fake_runtime/command_publication_authorized"
+           value="true"/>
+    <param name="formal_fake_runtime/require_recorder_armed" value="false"/>
+  </node>
+
+  <test test-name="formal_physical_speed_008_m2a_e2e"
+        pkg="multi_agv_control"
+        type="test_formal_fake_algorithm_e2e.py"
+        time-limit="30">
+    <param name="expected_method" value="M2a_R1"/>
+    <param name="expected_reference_velocity" value="0.08"/>
+    <param name="expected_common_upper" value="0.09"/>
+    <param name="minimum_mapped_capability" value="0.096"/>
+  </test>
+</launch>

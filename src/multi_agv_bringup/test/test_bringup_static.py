@@ -111,6 +111,47 @@ class BringupStaticTest(unittest.TestCase):
         self.assertIn("software_rehearsal_only", registry)
         self.assertIn("状态：**关闭", formal_gate)
 
+    def test_serial_008_speed_scale_is_consistent_and_fail_closed(self):
+        runtime = (
+            PACKAGE / "config" / "formal_serial_m1_r1_runtime.yaml"
+        ).read_text(encoding="utf-8")
+        m1 = (
+            PACKAGE / "config" / "exp2a_M1_serial_008.yaml"
+        ).read_text(encoding="utf-8")
+        m2a = (
+            PACKAGE / "config" / "exp2a_M2a_serial_008.yaml"
+        ).read_text(encoding="utf-8")
+        serial_launch = (
+            PACKAGE / "launch" / "formal_serial_m1_r1.launch"
+        ).read_text(encoding="utf-8")
+        chassis_launch = (
+            PACKAGE / "launch" / "chassis_single.launch"
+        ).read_text(encoding="utf-8")
+        chassis_entry = (
+            PACKAGE / "scripts" / "start_three_car_chassis.sh"
+        ).read_text(encoding="utf-8")
+        experiment_entry = (
+            PACKAGE / "scripts" / "run_m1_r1_serial_unloaded.sh"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("NEEDS_MANUAL_CONFIRMATION_0p15_0p18", runtime)
+        self.assertIn("serial_execution_authorized: false", runtime)
+        self.assertIn("emergency_abort_limit: 0.18", runtime)
+        self.assertIn("velocity: 0.08", runtime)
+        self.assertIn("velocity: [0.08, 0.08, 0.08]", runtime)
+        for config in (m1, m2a):
+            self.assertIn("physical_upper: [0.105, 0.105, 0.105]", config)
+            self.assertIn("inner_margin: [0.005, 0.005, 0.005]", config)
+            self.assertIn("initial_upper: [0.095, 0.095, 0.095]", config)
+            self.assertIn("nominal_upper: [0.095, 0.095, 0.095]", config)
+        self.assertIn("exp2a_M1_serial_008.yaml", serial_launch)
+        self.assertIn('formal_available_wheel_limit" default="0.08"',
+                      chassis_launch)
+        self.assertIn("--confirm-formal-0p15-wheel-envelope", chassis_entry)
+        self.assertIn('formal_wheel_limit="0.15"', chassis_entry)
+        self.assertIn("NEEDS_MANUAL_CONFIRMATION", experiment_entry)
+        self.assertIn("nominal_common_velocity:=0.08", experiment_entry)
+
     def test_optional_software_watchdog_is_observer_only(self):
         launch = (
             PACKAGE / "launch" / "software_watchdog.launch"

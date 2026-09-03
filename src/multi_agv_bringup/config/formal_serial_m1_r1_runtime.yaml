@@ -3,20 +3,21 @@
 # execution authority is separated by the serial gate and launch file.
 formal_fake_runtime:
   schema_version: 1
-  configuration_status: m1_r1_unloaded_serial_entry_v1
+  # The 0.15/0.18 m/s wheel envelope has not yet been physically qualified.
+  # Keep serial motion fail-closed until the operator records that evidence.
+  configuration_status: NEEDS_MANUAL_CONFIRMATION_0p15_0p18_wheel_envelope
   command_publication_authorized: false
-  serial_execution_authorized: true
+  serial_execution_authorized: false
   publish_rate: 100.0
   maximum_state_age: 0.22
   maximum_capability_age: 0.25
   maximum_feedback_age: 0.25
   minimum_battery_voltage: 10.0
-  # Independent emergency protection. All three frozen single-car watchdogs
-  # use 0.12 m/s as the emergency threshold. The chassis-side
-  # formal_available_wheel_limit remains 0.08 m/s. Each chassis independently
-  # limits finite demands to its current available capability; exceeding 0.08
-  # alone must not latch this abort.
-  emergency_abort_limit: 0.12
+  # Candidate emergency threshold for the 0.15 m/s nominal wheel envelope.
+  # Existing physical evidence only qualifies the old 0.12 m/s threshold, so
+  # this value MUST NOT be authorized until a manual raised-wheel and low-speed
+  # floor check confirms the extended envelope.
+  emergency_abort_limit: 0.18
   execution:
     # Hold all chassis at zero while averaging the initial path coordinates.
     # The formal controller then operates on displacement relative to this run.
@@ -24,9 +25,9 @@ formal_fake_runtime:
     initialization_max_wheel_speed: 0.015
     # Engineering adapter only: quintic ramp the executable reference from
     # rest, with zero acceleration discontinuity at both ends. This does not
-    # change the frozen M1/R1 equations or the 0.05 m/s target.
+    # change the frozen M1/R1 equations or the 0.08 m/s target.
     startup_ramp_seconds: 1.0
-    # A finite demand above 0.12 m/s must persist for ten 100 Hz cycles before
+    # A finite demand above 0.18 m/s must persist for ten 100 Hz cycles before
     # latching. Demands below that emergency threshold remain observable and
     # each chassis applies its own current physical capability independently.
     emergency_abort_persistence_seconds: 0.10
@@ -46,19 +47,19 @@ formal_fake_runtime:
 
   leader:
     initial_position: 0.0
-    velocity: 0.05
+    velocity: 0.08
     acceleration: 0.0
 
   distributed_initial:
     position: [0.0, 0.0, 0.0]
-    velocity: [0.05, 0.05, 0.05]
+    velocity: [0.08, 0.08, 0.08]
     auxiliary: [0.0, 0.0, 0.0]
 
   risk:
-    capability_reserve: 0.015
-    capability_safe_margin: 0.12
+    capability_reserve: 0.005
+    capability_safe_margin: 0.010
     input_safe_margin: 0.40
-    wheel_safe_margin: 0.08
+    wheel_safe_margin: 0.010
     position_limit: 0.12
     position_safe_margin: 0.06
     require_software_watchdog: false
@@ -72,8 +73,8 @@ formal_fake_runtime:
     path_deceleration: 0.0
 
   lower:
-    velocity_lower_bound: -0.15
-    velocity_upper_bound: 0.58
+    velocity_lower_bound: -0.030
+    velocity_upper_bound: 0.095
     initial_parameter: [0.0, 0.0]
     initial_disturbance_estimate: 0.08
 

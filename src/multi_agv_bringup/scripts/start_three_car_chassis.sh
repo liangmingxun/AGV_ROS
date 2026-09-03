@@ -2,15 +2,27 @@
 set -euo pipefail
 
 usage() {
-  echo "usage: $0 <robot-index: 1|2|3>" >&2
+  echo "usage: $0 <robot-index: 1|2|3> [--confirm-formal-0p15-wheel-envelope]" >&2
 }
 
-if [[ $# -ne 1 || ! "$1" =~ ^[123]$ ]]; then
+if [[ $# -lt 1 || ! "$1" =~ ^[123]$ ]]; then
   usage
   exit 2
 fi
 
 robot_index="$1"
+shift
+formal_wheel_limit="0.08"
+if [[ $# -gt 0 ]]; then
+  if [[ $# -ne 1 || "$1" != "--confirm-formal-0p15-wheel-envelope" ]]; then
+    usage
+    exit 2
+  fi
+  # This explicit operator action is required on all three robots. It does not
+  # replace the raised-wheel/floor evidence needed before the formal runtime's
+  # NEEDS_MANUAL_CONFIRMATION status may be cleared.
+  formal_wheel_limit="0.15"
+fi
 robot_name="robot${robot_index}"
 agv_name="agv${robot_index}"
 master_ip="192.168.6.101"
@@ -88,7 +100,8 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM HUP
 
-roslaunch multi_agv_bringup "$launch_file" transport_type:=serial &
+roslaunch multi_agv_bringup "$launch_file" transport_type:=serial \
+  formal_available_wheel_limit:="$formal_wheel_limit" &
 launch_pid="$!"
 
 deadline=$((SECONDS + 20))
@@ -120,5 +133,6 @@ echo
 echo "${agv_name} READY"
 echo "git=${git_sha}"
 echo "serial=${serial_device}"
+echo "formal_available_wheel_limit=${formal_wheel_limit} m/s"
 echo "Keep this terminal open. Stop with Ctrl+C only after the experiment."
 wait "$launch_pid"

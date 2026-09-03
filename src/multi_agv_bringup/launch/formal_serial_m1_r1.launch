@@ -1,7 +1,7 @@
 <launch>
   <!-- Connects to already-running serial chassis and camera-fused state. -->
   <arg name="upper_config"
-       default="$(find multi_agv_bringup)/config/exp2a_M1.yaml"/>
+       default="$(find multi_agv_bringup)/config/exp2a_M1_serial_008.yaml"/>
   <arg name="lower_config"
        default="$(find multi_agv_bringup)/config/exp3_R1.yaml"/>
   <arg name="runtime_config"

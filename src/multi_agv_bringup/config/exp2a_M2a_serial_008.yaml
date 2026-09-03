@@ -1,0 +1,26 @@
+# Fixed-boundary ablation paired with exp2a_M1_serial_008.yaml.
+# It shares the same nominal physical scale and R1/execution stack; runtime
+# capability remains log-only so the sole upper-layer difference is M1's
+# online dynamic-boundary response.
+formal_upper:
+  schema_version: 1
+  mode: M2a
+  configuration_status: serial_vL_0p08_wheel_0p15_candidate
+  algorithm_execution_authorized: true
+  hardware_execution_authorized: false
+  golden_vectors_verified: true
+  update_rate: 25.0
+  controller_ticks_per_update: 4
+  capability_policy: log_only_never_used_by_control
+  agents:
+    physical_lower: [-0.030, -0.030, -0.030]
+    physical_upper: [0.105, 0.105, 0.105]
+    physical_margin_lower: [0.005, 0.005, 0.005]
+    physical_margin_upper: [0.005, 0.005, 0.005]
+    zero_margin: [0.005, 0.005, 0.005]
+    minimum_width: [0.065, 0.065, 0.065]
+    inner_margin: [0.005, 0.005, 0.005]
+    initial_lower: [-0.015, -0.015, -0.015]
+    initial_upper: [0.095, 0.095, 0.095]
+    nominal_lower: [-0.015, -0.015, -0.015]
+    nominal_upper: [0.095, 0.095, 0.095]

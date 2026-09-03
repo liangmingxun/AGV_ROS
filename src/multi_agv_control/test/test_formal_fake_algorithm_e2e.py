@@ -184,6 +184,26 @@ class FormalFakeAlgorithmE2ETest(unittest.TestCase):
         self.assertGreater(debug.data[8], 0.0)
         self.assertEqual(debug.data[9], 1.0)
         self.assertTrue(all(math.isfinite(value) for value in debug.data))
+        expected_reference = rospy.get_param(
+            "~expected_reference_velocity", None)
+        if expected_reference is not None:
+            # This generic harness deliberately holds the reported plant state
+            # at s=0, so the distributed reference slows later in the run.
+            # Validate the initialized physical scale on the highest valid
+            # reference sample rather than pretending this is a plant model.
+            scale_debug = max(valid_debug, key=lambda value: value.data[5])
+            self.assertAlmostEqual(
+                float(expected_reference), scale_debug.data[5], delta=0.002)
+            self.assertAlmostEqual(
+                float(rospy.get_param("~expected_common_upper")),
+                scale_debug.data[4], delta=0.002)
+            minimum_mapped = float(rospy.get_param(
+                "~minimum_mapped_capability"))
+            for robot in range(3):
+                mapped_upper = scale_debug.data[10 + robot * 29 + 28]
+                self.assertGreater(mapped_upper, minimum_mapped)
+            self.assertGreater(
+                scale_debug.data[4] - scale_debug.data[5], 0.008)
         if rospy.get_param("~expect_m2b_debug", False):
             valid_m2b = [
                 value for value in m2b_debug_history

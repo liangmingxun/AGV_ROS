@@ -1,5 +1,6 @@
 <launch>
   <arg name="transport_type" default="serial"/>
+  <arg name="formal_available_wheel_limit" default="0.08"/>
   <arg name="support_x" default="-0.01783"/>
   <arg name="support_y" default="0.0"/>
   <arg name="support_z" default="0.0"/>
@@ -7,6 +8,8 @@
     <arg name="robot_id" value="agv1"/>
     <arg name="config_file" value="$(find multi_agv_bringup)/config/agv1_chassis.yaml"/>
     <arg name="transport_type" value="$(arg transport_type)"/>
+    <arg name="formal_available_wheel_limit"
+         value="$(arg formal_available_wheel_limit)"/>
     <arg name="support_x" value="$(arg support_x)"/>
     <arg name="support_y" value="$(arg support_y)"/>
     <arg name="support_z" value="$(arg support_z)"/>

@@ -43,6 +43,17 @@ fi
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 workspace="$(cd "${script_dir}/../../.." && pwd)"
 cd "$workspace"
+runtime_config="src/multi_agv_bringup/config/formal_serial_m1_r1_runtime.yaml"
+runtime_status="$(awk '/^[[:space:]]*configuration_status:/ {print $2; exit}' \
+  "$runtime_config")"
+serial_authorized="$(awk '/^[[:space:]]*serial_execution_authorized:/ {print $2; exit}' \
+  "$runtime_config")"
+if [[ "$runtime_status" == NEEDS_MANUAL_CONFIRMATION* ||
+      "$serial_authorized" != true ]]; then
+  echo "ERROR: NEEDS_MANUAL_CONFIRMATION: qualify the 0.15 m/s nominal and " \
+       "0.18 m/s emergency wheel envelope before enabling serial motion" >&2
+  exit 3
+fi
 source /opt/ros/noetic/setup.bash
 source devel/setup.bash
 source src/multi_agv_bringup/scripts/setup_ros_network.sh \
@@ -69,6 +80,14 @@ for index in 1 2 3; do
   deployed_sha="$(rosparam get "/agv${index}/deployment/git_sha" 2>/dev/null || true)"
   if [[ "$transport" != serial ]]; then
     echo "ERROR: agv${index} is not a serial deployment" >&2
+    exit 4
+  fi
+  available_limit="$(rosparam get \
+    "${node}/formal_available_wheel_limit" 2>/dev/null || true)"
+  if ! awk -v value="$available_limit" \
+      'BEGIN {exit !(value >= 0.149999 && value <= 0.150001)}'; then
+    echo "ERROR: agv${index} wheel capability is ${available_limit:-missing}; " \
+         "restart all chassis with the confirmed 0.15 m/s envelope" >&2
     exit 4
   fi
   if [[ -z "$deployed_sha" ]] ||
@@ -179,7 +198,7 @@ roslaunch multi_agv_bringup experiment.launch \
   localization_config:="${workspace}/src/multi_agv_bringup/config/localization_camera_three_car_closed_loop.yaml" \
   runtime_config:="${workspace}/src/multi_agv_bringup/config/formal_serial_m1_r1_runtime.yaml" \
   execution_authorization_config:="${workspace}/src/multi_agv_bringup/config/formal_serial_m1_r1_authorization.yaml" \
-  nominal_common_velocity:=0.05 evaluation_target:=1.0 &
+  nominal_common_velocity:=0.08 evaluation_target:=1.0 &
 recorder_pid="$!"
 
 deadline=$((SECONDS + 50))

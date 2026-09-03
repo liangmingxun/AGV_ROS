@@ -1,11 +1,18 @@
 <launch>
+  <arg name="formal_available_wheel_limit" default="0.08"/>
   <include file="$(find multi_agv_bringup)/launch/car1_master.launch">
     <arg name="transport_type" value="fake"/>
+    <arg name="formal_available_wheel_limit"
+         value="$(arg formal_available_wheel_limit)"/>
   </include>
   <include file="$(find multi_agv_bringup)/launch/car2_client.launch">
     <arg name="transport_type" value="fake"/>
+    <arg name="formal_available_wheel_limit"
+         value="$(arg formal_available_wheel_limit)"/>
   </include>
   <include file="$(find multi_agv_bringup)/launch/car3_client.launch">
     <arg name="transport_type" value="fake"/>
+    <arg name="formal_available_wheel_limit"
+         value="$(arg formal_available_wheel_limit)"/>
   </include>
 </launch>

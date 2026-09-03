@@ -2,6 +2,10 @@
   <arg name="robot_id"/>
   <arg name="config_file"/>
   <arg name="transport_type" default="serial"/>
+  <!-- Default preserves the qualified 0.05 m/s experiment envelope. The
+       0.15 m/s candidate must be requested explicitly after manual safety
+       confirmation on each robot. -->
+  <arg name="formal_available_wheel_limit" default="0.08"/>
   <arg name="imu_x" default="0.0"/>
   <arg name="imu_y" default="0.0"/>
   <arg name="imu_z" default="0.0"/>
@@ -17,6 +21,8 @@
       <rosparam command="load" file="$(find multi_agv_bringup)/config/common_platform.yaml"/>
       <rosparam command="load" file="$(arg config_file)"/>
       <param name="transport_type" value="$(arg transport_type)"/>
+      <param name="formal_available_wheel_limit"
+             value="$(arg formal_available_wheel_limit)"/>
     </node>
 
     <node pkg="tf2_ros" type="static_transform_publisher"
