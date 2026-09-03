@@ -1,0 +1,31 @@
+formal_upper:
+  schema_version: 1
+  mode: M1
+  configuration_status: core_golden_and_fake_ros_verified
+  algorithm_execution_authorized: true
+  hardware_execution_authorized: false
+  golden_vectors_verified: true
+  update_rate: 25.0
+  controller_ticks_per_update: 4
+  agents:
+    physical_lower: [-0.15, -0.15, -0.15]
+    physical_upper: [0.58, 0.58, 0.58]
+    physical_margin_lower: [0.02, 0.02, 0.02]
+    physical_margin_upper: [0.02, 0.02, 0.02]
+    zero_margin: [0.03, 0.03, 0.03]
+    minimum_width: [0.15, 0.15, 0.15]
+    inner_margin: [0.01, 0.01, 0.01]
+    initial_lower: [-0.06, -0.06, -0.06]
+    initial_upper: [0.52, 0.52, 0.52]
+    nominal_lower: [-0.06, -0.06, -0.06]
+    nominal_upper: [0.52, 0.52, 0.52]
+    restore_gain_lower: [0.55, 0.55, 0.55]
+    restore_gain_upper: [0.65, 0.65, 0.65]
+    risk_gain_lower: [0.14, 0.14, 0.14]
+    risk_gain_upper: [0.385, 0.385, 0.385]
+    risk_scale: [0.95, 0.95, 0.95]
+    risk_decay: [0.42, 0.42, 0.42]
+  causality:
+    current_inputs: [reported_capability]
+    one_step_delayed_inputs:
+      [channel_input_margin, wheel_margin, position_margin, failure_margin]

@@ -1,0 +1,101 @@
+# First real-chassis entry for the frozen paper M1+R1 controller.
+# The namespace remains formal_fake_runtime for message/config compatibility;
+# execution authority is separated by the serial gate and launch file.
+formal_fake_runtime:
+  schema_version: 1
+  configuration_status: m1_r1_unloaded_serial_entry_v1
+  command_publication_authorized: false
+  serial_execution_authorized: true
+  publish_rate: 100.0
+  maximum_state_age: 0.22
+  maximum_capability_age: 0.25
+  maximum_feedback_age: 0.25
+  minimum_battery_voltage: 10.0
+  # Independent emergency protection. All three frozen single-car watchdogs
+  # use 0.12 m/s as the emergency threshold. The chassis-side
+  # formal_available_wheel_limit remains 0.08 m/s. The formal execution
+  # adapter uniformly scales all six demands before the chassis; exceeding
+  # 0.08 alone must not latch this abort.
+  emergency_abort_limit: 0.12
+  execution:
+    # Hold all chassis at zero while averaging the initial path coordinates.
+    # The formal controller then operates on displacement relative to this run.
+    initialization_hold_seconds: 0.30
+    initialization_max_wheel_speed: 0.015
+    # Engineering adapter only: quintic ramp the executable reference from
+    # rest, with zero acceleration discontinuity at both ends. This does not
+    # change the frozen M1/R1 equations or the 0.05 m/s target.
+    startup_ramp_seconds: 1.0
+    # A finite demand above 0.12 m/s must persist for ten 100 Hz cycles before
+    # latching. During this debounce window the common six-wheel limiter still
+    # keeps every transmitted demand below the 0.08 m/s available capability.
+    emergency_abort_persistence_seconds: 0.10
+    # Capability tightening is immediate; recovery is limited to avoid a
+    # camera/R1 peak making all three chassis pulse at 100 Hz.
+    fleet_scale_recovery_rate_per_second: 0.50
+  require_valid_load_state: true
+  require_recorder_armed: true
+  maximum_recorder_armed_age: 0.50
+  confirm_test_area_clear: false
+  confirm_wheels_on_floor: false
+  confirm_unloaded_40cm_fixture: false
+  initial_progress: 0.0
+  target_progress: 1.0
+  experiment_id: exp2a_m1_r1_unloaded_serial
+
+  leader:
+    initial_position: 0.0
+    velocity: 0.05
+    acceleration: 0.0
+
+  distributed_initial:
+    position: [0.0, 0.0, 0.0]
+    velocity: [0.05, 0.05, 0.05]
+    auxiliary: [0.0, 0.0, 0.0]
+
+  risk:
+    capability_reserve: 0.015
+    capability_safe_margin: 0.12
+    input_safe_margin: 0.40
+    wheel_safe_margin: 0.08
+    position_limit: 0.12
+    position_safe_margin: 0.06
+    require_software_watchdog: false
+    maximum_watchdog_age: 0.25
+
+  capability_reserve:
+    body_linear_velocity: 0.0
+    body_angular_velocity: 0.0
+    wheel_linear_velocity: 0.0
+    path_acceleration: 0.0
+    path_deceleration: 0.0
+
+  lower:
+    velocity_lower_bound: -0.15
+    velocity_upper_bound: 0.58
+    initial_parameter: [0.0, 0.0]
+    initial_disturbance_estimate: 0.08
+
+  tracker:
+    longitudinal_gain: 1.0
+    lateral_gain: 2.0
+    heading_gain: 2.0
+    # Shared frozen planar execution adapter. These values are identical to
+    # CAMERA_IMU_WHEEL_FUSED_CLOSED_LOOP_V1 and remain unchanged when the
+    # formal upper/lower method is switched between M1, M2a and M2b.
+    longitudinal_gain_per_robot: [1.0, 1.0, 1.0]
+    lateral_gain_per_robot: [4.0, 3.0, 4.0]
+    heading_gain_per_robot: [3.0, 2.5, 3.0]
+    angular_feedforward_scale_positive: [0.78, 0.780810219, 0.850009371]
+    angular_feedforward_scale_negative: [0.89, 0.918767785, 0.883228287]
+    formation_longitudinal_gain: 0.25
+    formation_lateral_gain: 0.50
+    formation_heading_gain: 0.50
+    curvature_preview_seconds_positive: [0.05, 0.0, 0.05]
+    curvature_preview_seconds_negative: [0.05, 0.0, 0.05]
+    chassis_reference_samples: 10001
+    wheel_separation: [0.135484339, 0.139284482, 0.136802843]
+    base_to_support:
+      - {x: -0.01783, y: 0.0}
+      - {x: -0.01783, y: 0.0}
+      - {x: -0.01783, y: 0.0}

@@ -1,0 +1,36 @@
+robot_id: agv1
+robot_index: 1
+host_ip: 192.168.6.101
+serial_device: /dev/chassis_driver
+transport_type: serial
+wheel_radius: 0.0325
+# Review-only joint candidate from camera calibration 20260811_140136,
+# explicitly enabled for S-path validation. Do not freeze or copy it to
+# another robot until three independent STOP_CONFIRMED validations pass.
+wheel_separation: 0.135484339
+wheel_feedback_scale_left: 1.129384768
+wheel_feedback_scale_right: 1.115373526
+base_link_z: 0.05969
+control_loop_overrun_seconds: 0.008
+command_timeout_seconds: 0.20
+sensor_feedback_timeout_seconds: 0.15
+odometry_stationary_wheel_velocity_tolerance: 0.005
+serial_startup_timeout_seconds: 10.0
+capability_publish_rate: 100.0
+enable_vofa: false
+nominal:
+  max_wheel_linear_velocity_left: 0.9
+  max_wheel_linear_velocity_right: 0.9
+  max_wheel_linear_acceleration_left: 1.0
+  max_wheel_linear_acceleration_right: 1.0
+  max_wheel_linear_deceleration_left: 2.0
+  max_wheel_linear_deceleration_right: 2.0
+odom_frame: agv1/odom
+base_frame: agv1/base_link
+imu_frame: agv1/imu_link
+support_frame: agv1/support_link
+imu:
+  acc_bias: [-0.06465477, -0.05096657, 0.073795]
+  acc_scale: [0.99247297, 0.99162212, 0.99402563]
+  gyro_bias: [-0.00379211, 0.00133116, -0.00313132]
+  gyro_lpf_tau: 0.02

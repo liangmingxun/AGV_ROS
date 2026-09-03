@@ -1,0 +1,86 @@
+{
+  "camera_counts": {
+    "/pose_provider/agv1/base_pose_raw": 832,
+    "/pose_provider/agv2/base_pose_raw": 832,
+    "/pose_provider/agv3/base_pose_raw": 832
+  },
+  "camera_role": "same_sensor_raw_observation_for_fused_closed_loop",
+  "evaluation_samples": 598,
+  "evaluation_window": {
+    "basis": "load_path_progress_reference",
+    "purpose": "quality_gate_excluding_startup_transient",
+    "start_progress_m": 0.02
+  },
+  "full_run_gate_status": "REVIEW",
+  "full_run_pairs": {
+    "agv1_agv2": {
+      "distance_baseline_m": 0.40711230042609287,
+      "distance_drift_max_abs_m": 0.02748227634670819,
+      "distance_drift_rms_m": 0.013328504217500498,
+      "relative_heading_max_abs_deg": 5.992992977452201,
+      "relative_heading_rms_deg": 1.6459743883164075
+    },
+    "agv1_agv3": {
+      "distance_baseline_m": 0.4004991789534034,
+      "distance_drift_max_abs_m": 0.02164399381940213,
+      "distance_drift_rms_m": 0.010706145668849495,
+      "relative_heading_max_abs_deg": 5.202173130303161,
+      "relative_heading_rms_deg": 1.6805821101342782
+    },
+    "agv2_agv3": {
+      "distance_baseline_m": 0.3897028602578593,
+      "distance_drift_max_abs_m": 0.020727252038965138,
+      "distance_drift_rms_m": 0.014862914242665757,
+      "relative_heading_max_abs_deg": 3.6329447757239066,
+      "relative_heading_rms_deg": 1.0142321969811863
+    }
+  },
+  "full_run_summary": {
+    "pairwise_distance_drift_max_abs_m": 0.02748227634670819,
+    "pairwise_distance_drift_rms_m": 0.01307895000300597,
+    "relative_heading_max_abs_deg": 5.992992977452201,
+    "relative_heading_rms_deg": 1.4789923219645467
+  },
+  "interpretation": {
+    "evaluation_window_metrics": "formal_formation_quality_gate",
+    "full_run_metrics": "safety_and_startup_review"
+  },
+  "mode": "s",
+  "pairs": {
+    "agv1_agv2": {
+      "distance_baseline_m": 0.40711230042609287,
+      "distance_drift_max_abs_m": 0.02748227634670819,
+      "distance_drift_rms_m": 0.013646405783608343,
+      "relative_heading_max_abs_deg": 4.412378264073224,
+      "relative_heading_rms_deg": 1.5656120061017669
+    },
+    "agv1_agv3": {
+      "distance_baseline_m": 0.4004991789534034,
+      "distance_drift_max_abs_m": 0.02164399381940213,
+      "distance_drift_rms_m": 0.010968496510660999,
+      "relative_heading_max_abs_deg": 4.624694782838773,
+      "relative_heading_rms_deg": 1.6307508830263124
+    },
+    "agv2_agv3": {
+      "distance_baseline_m": 0.3897028602578593,
+      "distance_drift_max_abs_m": 0.020727252038965138,
+      "distance_drift_rms_m": 0.015239499536819356,
+      "relative_heading_max_abs_deg": 3.6329447757239066,
+      "relative_heading_rms_deg": 1.0148011870123521
+    }
+  },
+  "quality_gate_scope": "evaluation_window",
+  "reference_heading_model": "tracker_chassis_reference_with_base_to_support",
+  "status": "PASS",
+  "summary": {
+    "pairwise_distance_drift_max_abs_m": 0.02748227634670819,
+    "pairwise_distance_drift_rms_m": 0.013401177220030569,
+    "relative_heading_max_abs_deg": 4.624694782838773,
+    "relative_heading_rms_deg": 1.4306537952165768
+  },
+  "synchronized_samples": 629,
+  "thresholds": {
+    "pairwise_distance_drift_max_abs_m": 0.03,
+    "relative_heading_max_abs_deg": 5.0
+  }
+}

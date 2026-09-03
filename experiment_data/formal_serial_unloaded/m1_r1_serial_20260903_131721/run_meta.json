@@ -1,0 +1,131 @@
+{
+  "abort_reason": "",
+  "battery_voltage_end": {
+    "agv1": 11.399706840515137,
+    "agv2": 11.727692604064941,
+    "agv3": 11.878388404846191
+  },
+  "battery_voltage_start": {
+    "agv1": 11.151501655578613,
+    "agv2": 11.736557006835938,
+    "agv3": 11.834066390991211
+  },
+  "config_hashes": [
+    {
+      "archived_path": "config/01_common_platform.yaml",
+      "path": "/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/common_platform.yaml",
+      "sha256": "65483e8a7a24965d46f69d6d86b7e36f1655e7a3a761209b2ddf70ccc0f69f2a"
+    },
+    {
+      "archived_path": "config/02_agv1_chassis.yaml",
+      "path": "/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/agv1_chassis.yaml",
+      "sha256": "fd0c4ebf8ba31c6b27df3869951e91d864422435da3fab09e0e0bcd1e8558105"
+    },
+    {
+      "archived_path": "config/03_agv2_chassis.yaml",
+      "path": "/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/agv2_chassis.yaml",
+      "sha256": "cd7c1a8456a68b2dabe74f375bbaccab35990c9e107a6839a3a11ca4e307520a"
+    },
+    {
+      "archived_path": "config/04_agv3_chassis.yaml",
+      "path": "/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/agv3_chassis.yaml",
+      "sha256": "a30a1e640f3d7b618cf8eb82612da39d96744e216d70c8dc86af565022b3e5f4"
+    },
+    {
+      "archived_path": "config/05_capability_mapping.yaml",
+      "path": "/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/capability_mapping.yaml",
+      "sha256": "eb9eb7bd18b49c87f3a362128b2c9e166a1892f1c3ea8fa25e68d1f165385193"
+    },
+    {
+      "archived_path": "config/06_path_s_curve.yaml",
+      "path": "/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/path_s_curve.yaml",
+      "sha256": "461d3daef842a04323d7e57e45956cdc71b30cb8bdf0891d282ce553a8fa7d8a"
+    },
+    {
+      "archived_path": "config/07_support_geometry.yaml",
+      "path": "/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/support_geometry.yaml",
+      "sha256": "b87ad9b7fb5fd74f99da93aaa7955472e4ddbcbc76483837a21a8a00ee3979d2"
+    },
+    {
+      "archived_path": "config/08_localization_camera_three_car_closed_loop.yaml",
+      "path": "/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/localization_camera_three_car_closed_loop.yaml",
+      "sha256": "32e8edaeae2ae52415977065fb13c5bd89c77e1b2a00274500defb5cba8fd882"
+    },
+    {
+      "archived_path": "config/09_formal_serial_m1_r1_runtime.yaml",
+      "path": "/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/formal_serial_m1_r1_runtime.yaml",
+      "sha256": "c9364f54d2c0bcf1ec73f2012ec843258fa3a16733a4320fb0e20f50063f5ffb"
+    },
+    {
+      "archived_path": "config/10_exp2a_M1.yaml",
+      "path": "/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/exp2a_M1.yaml",
+      "sha256": "282862b90752a73dd1199d60ea9b72aa05dbae72145db4b79cd975ca80d10c3f"
+    },
+    {
+      "archived_path": "config/11_exp3_R1.yaml",
+      "path": "/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/exp3_R1.yaml",
+      "sha256": "f01b322086a9130903afe7c920778ae9f45a9bc73095bf9174e5ec26d57e61bc"
+    },
+    {
+      "archived_path": "config/12_formal_serial_m1_r1_authorization.yaml",
+      "path": "/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/formal_serial_m1_r1_authorization.yaml",
+      "sha256": "7c258bd6c0d45c431ed4fe771239b3cbeb308dacfde555165f7bbbf643dd5504"
+    },
+    {
+      "archived_path": "config/13_formal_evaluation_window.yaml",
+      "path": "/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/formal_evaluation_window.yaml",
+      "sha256": "d9c854c557c2995461c90ee39a41668694c94c5043e723bb601786382cb31a68"
+    },
+    {
+      "archived_path": "config/14_fleet_inventory.yaml",
+      "path": "/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/fleet_inventory.yaml",
+      "sha256": "be71214076144a9a99bd0e1db275baa28b1ab1ae6fc05c7b154ec4cf7d8b1774"
+    },
+    {
+      "archived_path": "config/15_software_watchdog.yaml",
+      "path": "/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/software_watchdog.yaml",
+      "sha256": "f575259e7f9a2827bab66df15f21e2556d764da606cd0ac5a849f6e0344532b0"
+    },
+    {
+      "archived_path": "config/16_record_topics.yaml",
+      "path": "/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/record_topics.yaml",
+      "sha256": "35d30ad3dae8c0d0f1e1116918b199f5d15abce67df604ddd089a18773c96d34"
+    },
+    {
+      "archived_path": "config/17_vision_udp_bridge.yaml",
+      "path": "/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_vision_bridge/config/vision_udp_bridge.yaml",
+      "sha256": "9ac815e02578e8ad6ce4e0776da9a123a425eea1249fd5b83358f99615d9e0ef"
+    },
+    {
+      "archived_path": "rosparams.yaml",
+      "path": "ROS parameter server snapshot",
+      "sha256": "877ff6467a290f25c83a045d0e28da658beee4cf86503ca0b6fcaa211f0782cb"
+    }
+  ],
+  "end_timestamp": "2026-09-03T05:17:47.141351+00:00",
+  "experiment_id": "exp2a_m1_r1_unloaded_serial",
+  "git_sha": "acb1841791ddef296933aaa5cd697369dc3810ad",
+  "hostname": "robot1",
+  "localization_source": "camera_imu_wheel_fused",
+  "method_id": "M1_R1",
+  "operator": "ETLAB",
+  "pair_block_id": "B02",
+  "path_version": "s_curve_v1",
+  "payload_state": "unloaded",
+  "processing_version": "paper_run_pipeline_v2",
+  "recording_armed_timestamp": "2026-09-03T05:17:23.066788+00:00",
+  "run_id": "m1_r1_serial_20260903_131721",
+  "schema_version": 1,
+  "software_versions": {
+    "interface": "agv_ros_interfaces_v1",
+    "python": "3.8.10",
+    "ros_distro": "noetic"
+  },
+  "start_timestamp": "2026-09-03T05:17:22.731440+00:00",
+  "stm32_firmware": [
+    "unreported",
+    "unreported",
+    "unreported"
+  ],
+  "valid_run": true
+}

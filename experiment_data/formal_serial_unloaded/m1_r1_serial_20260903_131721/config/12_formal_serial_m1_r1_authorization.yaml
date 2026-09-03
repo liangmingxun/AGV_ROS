@@ -1,0 +1,9 @@
+# Physical authorization overlay. It contains no controller coefficients.
+# Loading it is necessary but not sufficient: the serial gate also requires
+# explicit launch confirmations, three actual serial chassis bindings and a
+# fresh method-matching recorder heartbeat.
+formal_upper:
+  hardware_execution_authorized: true
+
+formal_lower:
+  hardware_execution_authorized: true

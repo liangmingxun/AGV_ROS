@@ -1,0 +1,21 @@
+software_watchdog:
+  schema_version: 1
+  status: optional_linux_ros_observer_only
+  startup_grace_seconds: 2.0
+  publish_rate: 10.0
+  latch_failures: true
+  topics:
+    - {topic: /multi_agv/cooperative_state, maximum_age: 0.15,
+       minimum_publishers: 1, maximum_publishers: 1, critical: true}
+    - {topic: /agv1/capability_report, maximum_age: 0.20,
+       minimum_publishers: 1, maximum_publishers: 1, critical: true}
+    - {topic: /agv2/capability_report, maximum_age: 0.20,
+       minimum_publishers: 1, maximum_publishers: 1, critical: true}
+    - {topic: /agv3/capability_report, maximum_age: 0.20,
+       minimum_publishers: 1, maximum_publishers: 1, critical: true}
+    - {topic: /agv1/chassis_command, maximum_age: 0.15,
+       minimum_publishers: 1, maximum_publishers: 1, critical: true}
+    - {topic: /agv2/chassis_command, maximum_age: 0.15,
+       minimum_publishers: 1, maximum_publishers: 1, critical: true}
+    - {topic: /agv3/chassis_command, maximum_age: 0.15,
+       minimum_publishers: 1, maximum_publishers: 1, critical: true}
