@@ -175,9 +175,13 @@ def compute_metrics(rows, sample_period, command_epsilon=1e-6,
                     maximum_exceedance, max(0.0, abs(pre_limit) - limit))
                 ratios_seen += 1
                 demanded = demanded or abs(pre_limit) > limit
-            if math.isfinite(pre_limit) and math.isfinite(applied):
+            # Measure chassis limiting from raw/applied fields carried by the
+            # same ChassisFeedback sample. Pre-limit is independently aligned
+            # and remains the source only for demand/exceedance metrics.
+            chassis_raw = finite_float(row.get(prefix + "_raw"))
+            if math.isfinite(chassis_raw) and math.isfinite(applied):
                 limited = limited or abs(
-                    applied - pre_limit) > command_epsilon
+                    applied - chassis_raw) > command_epsilon
             if math.isfinite(actual) and math.isfinite(applied):
                 wheel_errors.append(actual - applied)
             limiter_active["speed"] |= bool_value(
@@ -191,9 +195,12 @@ def compute_metrics(rows, sample_period, command_epsilon=1e-6,
         for name, active in limiter_active.items():
             limiter_samples[name] += int(active)
 
+        localization_valid = bool_value(
+            row.get("localization_valid", True))
         actual_progress = finite_float(row.get("load_s_actual"))
         reference_progress = finite_float(row.get("load_s_reference"))
-        if math.isfinite(actual_progress) and math.isfinite(reference_progress):
+        if (localization_valid and math.isfinite(actual_progress) and
+                math.isfinite(reference_progress)):
             path_errors.append(actual_progress - reference_progress)
         actual_supports = []
         reference_supports = []
@@ -203,9 +210,11 @@ def compute_metrics(rows, sample_period, command_epsilon=1e-6,
                 row.get("agv{}_s_dot_actual".format(robot)))
             reference_s = reference_progress
             reference_v = finite_float(row.get("load_velocity_reference"))
-            if math.isfinite(actual_s) and math.isfinite(reference_s):
+            if (localization_valid and math.isfinite(actual_s) and
+                    math.isfinite(reference_s)):
                 path_progress_errors[robot].append(actual_s - reference_s)
-            if math.isfinite(actual_v) and math.isfinite(reference_v):
+            if (localization_valid and math.isfinite(actual_v) and
+                    math.isfinite(reference_v)):
                 path_velocity_errors[robot].append(actual_v - reference_v)
             actual = (
                 finite_float(row.get(
@@ -219,7 +228,9 @@ def compute_metrics(rows, sample_period, command_epsilon=1e-6,
                     "agv{}_support_reference_y".format(robot))))
             actual_supports.append(actual)
             reference_supports.append(reference)
-            if all(math.isfinite(value) for value in actual + reference):
+            if (localization_valid and
+                    all(math.isfinite(value)
+                        for value in actual + reference)):
                 support_errors[robot].append(math.hypot(
                     actual[0] - reference[0], actual[1] - reference[1]))
             for name in ("psi", "composite_error", "disturbance_estimate"):
@@ -232,7 +243,8 @@ def compute_metrics(rows, sample_period, command_epsilon=1e-6,
                     "agv{}_theta_hat_{}".format(robot, index)))
                 if math.isfinite(value):
                     internal["theta_hat"].append(value)
-        rigid = _rigid_fit_residual(actual_supports, reference_supports)
+        rigid = (_rigid_fit_residual(actual_supports, reference_supports)
+                 if localization_valid else math.nan)
         if math.isfinite(rigid):
             rigid_residuals.append(rigid)
         load_actual = (
@@ -241,14 +253,16 @@ def compute_metrics(rows, sample_period, command_epsilon=1e-6,
         load_reference = (
             finite_float(row.get("load_x_reference")),
             finite_float(row.get("load_y_reference")))
-        if all(math.isfinite(value)
-               for value in load_actual + load_reference):
+        if (localization_valid and all(
+                math.isfinite(value)
+                for value in load_actual + load_reference)):
             load_position_errors.append(math.hypot(
                 load_actual[0] - load_reference[0],
                 load_actual[1] - load_reference[1]))
         load_yaw = finite_float(row.get("load_pose_yaw"))
         load_yaw_reference = finite_float(row.get("load_yaw_reference"))
-        if math.isfinite(load_yaw) and math.isfinite(load_yaw_reference):
+        if (localization_valid and math.isfinite(load_yaw) and
+                math.isfinite(load_yaw_reference)):
             load_yaw_errors.append(
                 _wrap_angle(load_yaw - load_yaw_reference))
         mapped = [

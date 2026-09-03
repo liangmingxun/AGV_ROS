@@ -196,6 +196,36 @@ class FormalFakeAlgorithmE2ETest(unittest.TestCase):
             self.assertTrue(
                 all(math.isfinite(value) for value in valid_m2b[-1].data))
 
+        # A single temporal-resynchronization validity dropout must reuse the
+        # last fully valid state instead of injecting one global zero command.
+        # A sustained loss is tested separately below and must still fail zero.
+        with self._lock:
+            for values in self.commands:
+                values[:] = []
+        invalid_state = self._state()
+        invalid_state.path_state_valid[0] = False
+        if exercise_recorder_gate:
+            self.recorder_method_publisher.publish(
+                String(data=expected_method))
+            self.armed_publisher.publish(Bool(data=True))
+        self.state_publisher.publish(invalid_state)
+        rospy.sleep(0.015)
+        for _ in range(5):
+            if exercise_recorder_gate:
+                self.recorder_method_publisher.publish(
+                    String(data=expected_method))
+                self.armed_publisher.publish(Bool(data=True))
+            self.state_publisher.publish(self._state())
+            rate.sleep()
+        with self._lock:
+            transient_commands = [
+                command for values in self.commands for command in values]
+        self.assertTrue(transient_commands)
+        self.assertTrue(all(
+            abs(command.wheel_linear_velocity_left_raw) > 1e-4 or
+            abs(command.wheel_linear_velocity_right_raw) > 1e-4
+            for command in transient_commands))
+
         if exercise_recorder_gate:
             # Keep primary state fresh while deliberately stopping only the
             # recorder heartbeat. The command path must fail zero after the

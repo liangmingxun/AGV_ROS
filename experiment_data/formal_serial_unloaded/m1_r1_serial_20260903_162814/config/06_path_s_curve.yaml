@@ -1,0 +1,14 @@
+# Unloaded three-car pretest path. Robot1 has already completed the same
+# A=0.05 m, longitudinal=1.0 m short-S geometry. Physical three-car command
+# publication remains disabled until the equilateral fixture passes both
+# read-only gates.
+path_s_curve:
+  schema_version: 1
+  model: sine_single_period
+  configuration_status: unloaded_short_s_frozen_pending_readonly_gate
+  hardware_execution_authorized: false
+
+  # Raw curve: x=xi, y=A*sin(2*pi*xi/L_xi), all distances in metres.
+  amplitude: 0.05
+  longitudinal_length: 1.0
+  lookup_samples: 20001

@@ -372,6 +372,9 @@ class FormalFakeAlgorithmNode {
         root + "execution/emergency_abort_persistence_seconds",
         emergency_abort_persistence_seconds_, 0.10);
     private_node_.param(
+        root + "execution/transient_state_hold_seconds",
+        transient_state_hold_seconds_, 0.03);
+    private_node_.param(
         root + "execution/initialization_hold_seconds",
         initialization_hold_seconds_, 0.30);
     private_node_.param(
@@ -456,6 +459,8 @@ class FormalFakeAlgorithmNode {
         !(emergency_abort_limit_ > 0.0) ||
         startup_ramp_seconds_ < 0.0 ||
         !(emergency_abort_persistence_seconds_ > 0.0) ||
+        transient_state_hold_seconds_ < 0.0 ||
+        transient_state_hold_seconds_ > maximum_state_age_ ||
         !(initialization_hold_seconds_ > 0.0) ||
         !(initialization_max_wheel_speed_ > 0.0) ||
         !(maximum_recorder_armed_age_ > 0.0) ||
@@ -678,9 +683,15 @@ class FormalFakeAlgorithmNode {
   }
 
   void receiveState(const agv_msgs::CooperativeState::ConstPtr& message) {
-    state_ = *message;
+    latest_received_state_ = *message;
+    state_ = latest_received_state_;
     state_receive_time_ = ros::Time::now();
     has_state_ = true;
+    if (cooperativeStateFieldsValid(state_)) {
+      last_valid_state_ = state_;
+      last_valid_state_receive_time_ = state_receive_time_;
+      has_last_valid_state_ = true;
+    }
   }
 
   void receiveCapability(
@@ -771,6 +782,41 @@ class FormalFakeAlgorithmNode {
           result.reason.c_str());
     }
     return false;
+  }
+
+  bool cooperativeStateFieldsValid(
+      const agv_msgs::CooperativeState& state) const {
+    for (std::size_t index = 0; index < kRobotCount; ++index) {
+      if (!state.robot_pose_valid[index] ||
+          !state.support_pose_valid[index] ||
+          !state.path_state_valid[index]) {
+        return false;
+      }
+    }
+    return !require_valid_load_state_ ||
+        (state.load_pose_valid && state.load_path_state_valid);
+  }
+
+  bool holdLastValidStateForTemporalResynchronization(
+      const ros::Time& now) {
+    if (!has_state_ || cooperativeStateFieldsValid(state_) ||
+        !has_last_valid_state_) {
+      return false;
+    }
+    const double incoming_age = (now - state_receive_time_).toSec();
+    const double valid_age = (now - last_valid_state_receive_time_).toSec();
+    if (!std::isfinite(incoming_age) || incoming_age < 0.0 ||
+        incoming_age > maximum_state_age_ ||
+        !std::isfinite(valid_age) || valid_age < 0.0 ||
+        valid_age > transient_state_hold_seconds_) {
+      return false;
+    }
+    state_ = last_valid_state_;
+    ROS_WARN_THROTTLE(
+        1.0,
+        "Formal execution holding the last fully valid CooperativeState for %.6f s during temporal estimator resynchronization",
+        valid_age);
+    return true;
   }
 
   std::string inputFailureReason(const ros::Time& now) const {
@@ -1364,6 +1410,11 @@ class FormalFakeAlgorithmNode {
       publishDebug(false, current_upper_, distributed, lower);
       return;
     }
+    // A previous timer tick may have substituted the cached valid state.
+    // Always reconsider the latest received message so the grace period
+    // cannot silently extend beyond its configured bound.
+    state_ = latest_received_state_;
+    holdLastValidStateForTemporalResynchronization(now);
     const std::string input_failure = inputFailureReason(now);
     if (!input_failure.empty()) {
       ROS_WARN_THROTTLE(
@@ -1800,12 +1851,16 @@ class FormalFakeAlgorithmNode {
   ros::Publisher m2b_debug_publisher_;
   ros::Timer timer_;
   agv_msgs::CooperativeState state_;
+  agv_msgs::CooperativeState latest_received_state_;
+  agv_msgs::CooperativeState last_valid_state_;
   std::array<agv_msgs::CapabilityReport, 3> capability_;
   std::array<agv_msgs::ChassisFeedback, 3> feedback_;
   ros::Time state_receive_time_;
+  ros::Time last_valid_state_receive_time_;
   std::array<ros::Time, 3> capability_receive_time_;
   std::array<ros::Time, 3> feedback_receive_time_;
   bool has_state_{false};
+  bool has_last_valid_state_{false};
   std::array<bool, 3> has_capability_{{false, false, false}};
   std::array<bool, 3> has_feedback_{{false, false, false}};
   std::array<bool, 3> command_sequence_synchronised_{{false, false, false}};
@@ -1851,6 +1906,7 @@ class FormalFakeAlgorithmNode {
   double emergency_abort_limit_{0.12};
   double startup_ramp_seconds_{1.0};
   double emergency_abort_persistence_seconds_{0.10};
+  double transient_state_hold_seconds_{0.03};
   double initialization_hold_seconds_{0.30};
   double initialization_max_wheel_speed_{0.015};
   double initialization_elapsed_seconds_{0.0};

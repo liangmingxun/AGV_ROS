@@ -285,6 +285,37 @@ class MetricsTest(unittest.TestCase):
         self.assertFalse(
             result["evaluation_window"]["formal_statistics_ready"])
 
+    def test_chassis_limiting_uses_same_feedback_raw_and_applied(self):
+        rows = self.fixture()
+        for row in rows:
+            row["agv1_wheel_left_pre_limit"] = 1.2
+            row["agv1_wheel_left_raw"] = 0.8
+            row["agv1_wheel_left_applied"] = 0.8
+        result = compute_metrics(rows, sample_period=0.1)
+        self.assertEqual(result["wheel"]["limited_samples"], 0)
+        self.assertAlmostEqual(result["wheel"]["limited_time"], 0.0)
+
+    def test_invalid_localization_is_excluded_from_path_and_geometry(self):
+        rows = self.fixture()
+        rows[0].update({
+            "localization_valid": False,
+            "load_s_actual": 100.0,
+            "load_pose_x": 100.0,
+            "load_pose_y": 100.0,
+            "load_x_reference": 0.0,
+            "load_y_reference": 0.0,
+        })
+        rows[1].update({
+            "load_pose_x": 0.0,
+            "load_pose_y": 0.0,
+            "load_x_reference": 0.0,
+            "load_y_reference": 0.0,
+        })
+        result = compute_metrics(rows, sample_period=0.1)
+        self.assertEqual(result["sample_counts"]["invalid_localization"], 1)
+        self.assertLess(result["path"]["progress_max_absolute"], 1.0)
+        self.assertLess(result["geometry"]["load_position_max"], 1.0)
+
     def test_experiment_state_window_is_reported(self):
         rows = self.fixture()
         for index, row in enumerate(rows):

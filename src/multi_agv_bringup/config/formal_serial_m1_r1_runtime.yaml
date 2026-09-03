@@ -13,9 +13,9 @@ formal_fake_runtime:
   minimum_battery_voltage: 10.0
   # Independent emergency protection. All three frozen single-car watchdogs
   # use 0.12 m/s as the emergency threshold. The chassis-side
-  # formal_available_wheel_limit remains 0.08 m/s. The formal execution
-  # adapter uniformly scales all six demands before the chassis; exceeding
-  # 0.08 alone must not latch this abort.
+  # formal_available_wheel_limit remains 0.08 m/s. Each chassis independently
+  # limits finite demands to its current available capability; exceeding 0.08
+  # alone must not latch this abort.
   emergency_abort_limit: 0.12
   execution:
     # Hold all chassis at zero while averaging the initial path coordinates.
@@ -30,6 +30,10 @@ formal_fake_runtime:
     # latching. Demands below that emergency threshold remain observable and
     # each chassis applies its own current physical capability independently.
     emergency_abort_persistence_seconds: 0.10
+    # Cover only one- or two-cycle validity-bit dropouts caused by temporal
+    # estimator re-synchronization. Missing/stale state and all independent
+    # safety inputs still take the immediate fail-zero path.
+    transient_state_hold_seconds: 0.03
   require_valid_load_state: true
   require_recorder_armed: true
   maximum_recorder_armed_age: 0.50

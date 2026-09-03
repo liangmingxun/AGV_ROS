@@ -5,6 +5,10 @@ formal_fake_runtime:
   publish_rate: 100.0
   maximum_state_age: 0.15
   maximum_capability_age: 0.20
+  execution:
+    # Shared bounded input grace for M1, M2a and M2b; this is not filtering
+    # and cannot override a genuinely stale CooperativeState.
+    transient_state_hold_seconds: 0.03
   require_valid_load_state: true
   # Keep false for standalone fake regression. Formal experiment launch must
   # override this to true so progress cannot begin before rosbag is armed.
