@@ -3,20 +3,19 @@
 # execution authority is separated by the serial gate and launch file.
 formal_fake_runtime:
   schema_version: 1
-  # The 0.15/0.18 m/s wheel envelope has not yet been physically qualified.
-  # Keep serial motion fail-closed until the operator records that evidence.
-  configuration_status: NEEDS_MANUAL_CONFIRMATION_0p15_0p18_wheel_envelope
+  # Operator authorization covers a 0.15 m/s chassis-applied wheel limit.
+  # The 0.18 m/s value below is only a pre-limit demand abort threshold; it
+  # never expands the speed that the chassis physical limiter may apply.
+  configuration_status: PILOT_AUTHORIZED_0p15_APPLIED_0p18_PRELIMIT_ABORT
   command_publication_authorized: false
-  serial_execution_authorized: false
+  serial_execution_authorized: true
   publish_rate: 100.0
   maximum_state_age: 0.22
   maximum_capability_age: 0.25
   maximum_feedback_age: 0.25
   minimum_battery_voltage: 10.0
-  # Candidate emergency threshold for the 0.15 m/s nominal wheel envelope.
-  # Existing physical evidence only qualifies the old 0.12 m/s threshold, so
-  # this value MUST NOT be authorized until a manual raised-wheel and low-speed
-  # floor check confirms the extended envelope.
+  # Emergency threshold for unmodified tracker wheel demand. The chassis still
+  # clamps wheel_applied to the independently configured 0.15 m/s capability.
   emergency_abort_limit: 0.18
   execution:
     # Hold all chassis at zero while averaging the initial path coordinates.

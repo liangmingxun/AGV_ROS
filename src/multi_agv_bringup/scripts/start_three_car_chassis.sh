@@ -18,9 +18,9 @@ if [[ $# -gt 0 ]]; then
     usage
     exit 2
   fi
-  # This explicit operator action is required on all three robots. It does not
-  # replace the raised-wheel/floor evidence needed before the formal runtime's
-  # NEEDS_MANUAL_CONFIRMATION status may be cleared.
+  # This explicit operator action is required on all three robots. It selects
+  # the 0.15 m/s chassis-applied limit; it does not select the independent
+  # 0.18 m/s pre-limit emergency demand threshold.
   formal_wheel_limit="0.15"
 fi
 robot_name="robot${robot_index}"

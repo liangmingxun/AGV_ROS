@@ -60,8 +60,8 @@ if ! awk -v value="$nominal_common_velocity" \
 fi
 if [[ "$runtime_status" == NEEDS_MANUAL_CONFIRMATION* ||
       "$serial_authorized" != true ]]; then
-  echo "ERROR: NEEDS_MANUAL_CONFIRMATION: qualify the 0.15 m/s nominal and " \
-       "0.18 m/s emergency wheel envelope before enabling serial motion" >&2
+  echo "ERROR: NEEDS_MANUAL_CONFIRMATION: confirm the 0.15 m/s chassis-applied " \
+       "limit and approve 0.18 m/s as the pre-limit demand abort threshold" >&2
   exit 3
 fi
 source /opt/ros/noetic/setup.bash
