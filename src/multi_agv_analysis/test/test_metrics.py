@@ -146,6 +146,16 @@ class CameraConversionTest(unittest.TestCase):
             "header_stamp": 1.0,
             "layout_label": "formal_algorithm_state_v1:header9+3x27",
             "data_json": json.dumps(formal)}]
+        limiter = [1.0, 1.0, 0.75, 0.12]
+        for robot in range(3):
+            limiter.extend([
+                0.10 + robot * 0.01, 0.12 + robot * 0.01,
+                0.075 + robot * 0.01, 0.09 + robot * 0.01,
+                0.08, 0.08, 0.0])
+        raw["formal_execution_limiter_state.csv"] = [{
+            "header_stamp": 1.0,
+            "layout_label": "formal_execution_limiter_v1:header4+3x7",
+            "data_json": json.dumps(limiter)}]
         m2b = [0.0] * 66
         m2b[6], m2b[26], m2b[46] = 0.0, 0.2, 0.5
         m2b[7], m2b[27], m2b[47] = 0.1, 0.15, 0.4
@@ -157,8 +167,43 @@ class CameraConversionTest(unittest.TestCase):
         self.assertEqual(len(aligned), 1)
         self.assertEqual(aligned[0]["agv1_support_reference_x"], 1.0)
         self.assertEqual(aligned[0]["agv1_psi"], 0.25)
+        self.assertTrue(math.isnan(
+            aligned[0]["agv1_mapped_path_velocity_upper"]))
+        self.assertEqual(aligned[0]["agv1_boundary_lower"], 0.0)
+        self.assertAlmostEqual(
+            aligned[0]["agv1_wheel_right_pre_limit"], 0.12)
+        self.assertAlmostEqual(aligned[0]["fleet_scale"], 0.75)
         self.assertAlmostEqual(aligned[0]["m2b_delta_z"], 0.5)
         self.assertAlmostEqual(aligned[0]["m2b_delta_w"], 0.3)
+
+    def test_v2_keeps_mapped_capability_distinct_from_dynamic_boundary(self):
+        raw = {name: [] for name in RAW_SCHEMAS}
+        state = {
+            "header_stamp": 1.0, "load_pose_valid": True,
+            "load_path_state_valid": True}
+        for robot in range(1, 4):
+            state["robot_pose_valid_{}".format(robot)] = True
+            state["support_pose_valid_{}".format(robot)] = True
+            state["path_state_valid_{}".format(robot)] = True
+        raw["cooperative_state.csv"] = [state]
+        debug = [0.0] * 97
+        debug[0] = 1.0
+        debug[9] = 1.0
+        for robot in range(3):
+            offset = 10 + robot * 29
+            debug[offset] = -0.04
+            debug[offset + 1] = 0.06
+            debug[offset + 27] = -0.09
+            debug[offset + 28] = 0.09
+        raw["formal_algorithm_state.csv"] = [{
+            "header_stamp": 1.0,
+            "layout_label": "formal_algorithm_state_v2:header10+3x29",
+            "data_json": json.dumps(debug)}]
+        aligned = _aligned_rows(raw, 0.2)[0]
+        self.assertEqual(aligned["agv1_boundary_upper"], 0.06)
+        self.assertEqual(
+            aligned["agv1_mapped_path_velocity_upper"], 0.09)
+        self.assertTrue(aligned["mapped_path_capability_available"])
 
 
 class MetricsTest(unittest.TestCase):
@@ -175,8 +220,9 @@ class MetricsTest(unittest.TestCase):
                 "load_s_actual": round(index * 0.1 + 0.2, 10),
                 "agv2_reported_velocity_limit": (
                     0.5 if index < 6 else 0.95),
-                "agv2_mapped_velocity_upper": (
+                "agv2_mapped_path_velocity_upper": (
                     0.5 if index < 6 else 0.95),
+                "fleet_scale": 0.8 if index in (1, 2) else 1.0,
                 "common_velocity_reference": (
                     0.5 if index < 8 else 0.95),
             }
@@ -193,6 +239,8 @@ class MetricsTest(unittest.TestCase):
                     if robot == 1 and side == "left":
                         actual += 0.1
                     row[prefix + "_raw"] = raw
+                    row[prefix + "_pre_limit"] = raw
+                    row[prefix + "_fleet_scaled"] = raw
                     row[prefix + "_applied"] = applied
                     row[prefix + "_actual"] = actual
                     row[prefix + "_reported_limit"] = 1.0
@@ -212,6 +260,13 @@ class MetricsTest(unittest.TestCase):
         self.assertAlmostEqual(result["wheel"]["limited_time"], 0.2)
         self.assertAlmostEqual(
             result["wheel"]["maximum_demand_ratio"], 1.3)
+        self.assertAlmostEqual(
+            result["wheel"]["maximum_demand_exceedance"], 0.3)
+        self.assertAlmostEqual(result["wheel"]["minimum_fleet_scale"], 0.8)
+        self.assertAlmostEqual(
+            result["wheel"]["fleet_scaling_duration"], 0.2)
+        self.assertAlmostEqual(
+            result["wheel"]["fleet_scaling_ratio"], 0.2)
         self.assertAlmostEqual(
             result["wheel"]["tracking_rmse"],
             math.sqrt(10.0 * 0.1 ** 2 / 60.0))
@@ -250,7 +305,7 @@ class MetricsTest(unittest.TestCase):
             "load_pose_yaw": 0.1,
             "load_x_reference": 0.0, "load_y_reference": 0.0,
             "load_yaw_reference": 0.0,
-            "mapped_common_velocity_upper": 0.4,
+            "common_boundary_upper": 0.4,
             "m2b_delta_z": 0.02, "m2b_delta_w": 0.03,
         })
         points = ((1.0, 0.0), (0.0, 1.0), (-1.0, 0.0))
@@ -261,8 +316,8 @@ class MetricsTest(unittest.TestCase):
             row["agv{}_support_reference_y".format(robot)] = point[1]
             row["agv{}_support_pose_x".format(robot)] = point[0] + 0.1
             row["agv{}_support_pose_y".format(robot)] = point[1]
-            row["agv{}_mapped_velocity_upper".format(robot)] = 0.5
-            row["m2b_agv{}_reported_capability".format(robot)] = 0.6
+            row["agv{}_mapped_path_velocity_upper".format(robot)] = 0.5
+            row["m2b_agv{}_reported_capability".format(robot)] = 0.5
             row["agv{}_psi".format(robot)] = 0.01 * robot
             row["agv{}_composite_error".format(robot)] = 0.02 * robot
             row["agv{}_theta_hat_1".format(robot)] = 0.03 * robot
@@ -274,7 +329,7 @@ class MetricsTest(unittest.TestCase):
         self.assertAlmostEqual(
             result["geometry"]["rigid_fit_residual_rmse"], 0.0)
         self.assertAlmostEqual(
-            result["capability"]["link_margin_minimum"], 0.2)
+            result["capability"]["link_margin_minimum"], 0.1)
         self.assertAlmostEqual(
             result["internal"]["m2b_delta_z_max"], 0.02)
 

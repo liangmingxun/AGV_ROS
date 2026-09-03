@@ -14,7 +14,10 @@ GROUPS = {
         "agv1_support_reference_", "agv2_support_reference_",
         "agv3_support_reference_", "agv1_s_", "agv2_s_", "agv3_s_"),
     "upper_layer.csv": (
-        "stamp", "evaluation_active", "common_velocity_", "mapped_common_",
+        "stamp", "evaluation_active", "common_velocity_",
+        "public_reference_velocity", "common_boundary_",
+        "mapped_path_capability_available", "agv1_mapped_path_",
+        "agv2_mapped_path_", "agv3_mapped_path_",
         "agv1_boundary_", "agv2_boundary_", "agv3_boundary_",
         "agv1_robust_margin", "agv2_robust_margin", "agv3_robust_margin",
         "agv1_risk_", "agv2_risk_", "agv3_risk_", "agv1_z",
@@ -140,16 +143,36 @@ def plot_run(aligned_csv, output_dir):
     _save(fig, output, "figure2_trajectory")
     plt.close(fig)
 
-    fig, ax = plt.subplots(figsize=(8.0, 4.5))
+    fig, axes = plt.subplots(2, 1, figsize=(8.0, 6.5), sharex=True)
     for robot, color in zip(range(1, 4), colors):
-        ax.plot(time, _series(
-            rows, "agv{}_mapped_velocity_upper".format(robot)),
-            color=color, alpha=0.75, label="AGV{} bound".format(robot))
-    ax.plot(time, _series(rows, "common_velocity_reference"), "k", lw=1.5,
-            label="common reference")
-    ax.set_xlabel("time [s]")
-    ax.set_ylabel("path speed [m/s]")
-    ax.legend()
+        physical = []
+        for row in rows:
+            left = finite_float(row.get(
+                "agv{}_wheel_left_reported_limit".format(robot)))
+            right = finite_float(row.get(
+                "agv{}_wheel_right_reported_limit".format(robot)))
+            physical.append(min(left, right) if math.isfinite(left + right)
+                            else math.nan)
+        axes[0].plot(time, physical, color=color,
+                     label="AGV{} physical wheel".format(robot))
+    axes[0].set_ylabel("wheel limit [m/s]")
+    axes[0].legend(loc="upper right")
+    for robot, color in zip(range(1, 4), colors):
+        axes[1].plot(time, _series(
+            rows, "agv{}_mapped_path_velocity_upper".format(robot)),
+            color=color, alpha=0.8,
+            label="AGV{} mapped path".format(robot))
+        axes[1].plot(time, _series(
+            rows, "agv{}_boundary_upper".format(robot)),
+            color=color, ls=":", alpha=0.65,
+            label="AGV{} dynamic boundary".format(robot))
+    axes[1].plot(time, _series(rows, "common_boundary_upper"), "k--",
+                 lw=1.0, label="common boundary")
+    axes[1].plot(time, _series(rows, "public_reference_velocity"), "k",
+                 lw=1.5, label="public reference")
+    axes[1].set_xlabel("time [s]")
+    axes[1].set_ylabel("path speed [m/s]")
+    axes[1].legend(loc="upper right", ncol=2, fontsize=7)
     _save(fig, output, "figure3_capability_boundary_reference")
     plt.close(fig)
 
@@ -170,7 +193,10 @@ def plot_run(aligned_csv, output_dir):
     fig, axes = plt.subplots(2, 1, figsize=(8.0, 6.0), sharex=True)
     for ax, side in zip(axes, ("left", "right")):
         prefix = "agv2_wheel_{}".format(side)
-        ax.plot(time, _series(rows, prefix + "_raw"), label="raw")
+        ax.plot(time, _series(rows, prefix + "_pre_limit"),
+                label="pre-limit")
+        ax.plot(time, _series(rows, prefix + "_fleet_scaled"),
+                label="fleet-scaled")
         ax.plot(time, _series(rows, prefix + "_applied"), label="applied")
         ax.plot(time, _series(rows, prefix + "_actual"), label="actual")
         ax.plot(time, _series(rows, prefix + "_reported_limit"), "k--",

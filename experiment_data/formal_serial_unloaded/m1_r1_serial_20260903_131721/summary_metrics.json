@@ -1,7 +1,8 @@
 {
   "capability": {
-    "demand_margin_minimum": 0.07003986316150976,
-    "link_margin_minimum": 0.009999999999999995
+    "demand_margin_minimum": null,
+    "link_margin_minimum": null,
+    "mapped_path_capability_available": false
   },
   "causal_unfiltered": true,
   "evaluation_window": {
@@ -65,11 +66,11 @@
     "progress_max_absolute": 0.008051220769293765,
     "progress_rmse": 0.0025175395382058146
   },
-  "processing_version": "paper_run_pipeline_v2",
+  "processing_version": "paper_run_pipeline_v3_capability_and_prelimit",
   "recovery": {
     "capability_95_stamp": null,
     "capability_95_time": null,
-    "capability_source": "m2b_reported_capability_else_mapped_velocity_upper",
+    "capability_source": "explicit_mapper_output_or_historical_m2b_mapper_input",
     "common_velocity_95_stamp": null,
     "common_velocity_95_time": null,
     "common_velocity_after_capability_delay": null,
@@ -85,7 +86,7 @@
     "wheel_errors": 9720
   },
   "sample_period": 0.01,
-  "schema_version": 1,
+  "schema_version": 2,
   "task": {
     "completion_scope": "all_recorded_samples",
     "completion_stamp": 1788412663.8554678,
@@ -96,11 +97,16 @@
   "wheel": {
     "acceleration_limited_time": 1.56,
     "deceleration_limited_time": 0.13,
-    "demand_exceedance_samples": 0,
-    "demand_exceedance_time": 0.0,
-    "limited_samples": 39,
-    "limited_time": 0.39,
-    "maximum_demand_ratio": 0.999,
+    "demand_exceedance_samples": 2,
+    "demand_exceedance_time": 0.02,
+    "demand_source": "wheel_pre_limit",
+    "fleet_scaling_duration": 0.04,
+    "fleet_scaling_ratio": 0.0024691358024691358,
+    "limited_samples": 861,
+    "limited_time": 8.61,
+    "maximum_demand_exceedance": 0.0007497337080082239,
+    "maximum_demand_ratio": 1.0093716713501029,
+    "minimum_fleet_scale": 0.9897246260773002,
     "speed_limited_time": 0.0,
     "tracking_max_absolute": 0.056475535814986336,
     "tracking_rmse": 0.019294107389253454

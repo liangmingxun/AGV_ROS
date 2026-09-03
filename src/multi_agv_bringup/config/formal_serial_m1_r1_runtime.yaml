@@ -27,12 +27,9 @@ formal_fake_runtime:
     # change the frozen M1/R1 equations or the 0.05 m/s target.
     startup_ramp_seconds: 1.0
     # A finite demand above 0.12 m/s must persist for ten 100 Hz cycles before
-    # latching. During this debounce window the common six-wheel limiter still
-    # keeps every transmitted demand below the 0.08 m/s available capability.
+    # latching. Demands below that emergency threshold remain observable and
+    # each chassis applies its own current physical capability independently.
     emergency_abort_persistence_seconds: 0.10
-    # Capability tightening is immediate; recovery is limited to avoid a
-    # camera/R1 peak making all three chassis pulse at 100 Hz.
-    fleet_scale_recovery_rate_per_second: 0.50
   require_valid_load_state: true
   require_recorder_armed: true
   maximum_recorder_armed_age: 0.50

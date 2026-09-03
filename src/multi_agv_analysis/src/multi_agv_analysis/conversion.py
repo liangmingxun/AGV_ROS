@@ -446,6 +446,8 @@ def _aligned_rows(raw, maximum_age):
     paths = _series(raw["path_reference.csv"])
     controllers = _series(raw["controller_state.csv"])
     formal_debug = _series(raw["formal_algorithm_state.csv"])
+    execution_limiter = _series(
+        raw["formal_execution_limiter_state.csv"])
     m2b_debug = _series(raw["m2b_algorithm_state.csv"])
     experiment_states = _series(raw["experiment_state.csv"])
     has_experiment_state_stream = bool(experiment_states[0])
@@ -456,6 +458,7 @@ def _aligned_rows(raw, maximum_age):
         path = _latest(paths, stamp, maximum_age)
         controller = _latest(controllers, stamp, maximum_age)
         debug = _latest(formal_debug, stamp, maximum_age)
+        limiter = _latest(execution_limiter, stamp, maximum_age)
         m2b = _latest(m2b_debug, stamp, maximum_age)
         experiment_state = _latest(
             experiment_states, stamp, maximum_age)
@@ -485,10 +488,13 @@ def _aligned_rows(raw, maximum_age):
             "common_velocity_reference": (
                 controller.get("common_velocity_reference", math.nan)
                 if controller else math.nan),
-            "mapped_common_velocity_lower": (
+            "public_reference_velocity": (
+                controller.get("common_velocity_reference", math.nan)
+                if controller else math.nan),
+            "common_boundary_lower": (
                 controller.get("common_velocity_lower_bound", math.nan)
                 if controller else math.nan),
-            "mapped_common_velocity_upper": (
+            "common_boundary_upper": (
                 controller.get("common_velocity_upper_bound", math.nan)
                 if controller else math.nan),
             "evaluation_active": (
@@ -500,12 +506,32 @@ def _aligned_rows(raw, maximum_age):
                 if experiment_state else False),
         }
         debug_values = []
-        if (debug and debug.get("layout_label") == (
-                "formal_algorithm_state_v1:header9+3x27")):
+        debug_version = 0
+        if (debug and debug.get("layout_label") in (
+                "formal_algorithm_state_v1:header9+3x27",
+                "formal_algorithm_state_v2:header10+3x29")):
             try:
                 debug_values = json.loads(debug["data_json"])
+                debug_version = (2 if debug.get("layout_label") ==
+                                 "formal_algorithm_state_v2:header10+3x29"
+                                 else 1)
             except (TypeError, ValueError):
                 debug_values = []
+                debug_version = 0
+        limiter_values = []
+        if (limiter and limiter.get("layout_label") ==
+                "formal_execution_limiter_v1:header4+3x7"):
+            try:
+                limiter_values = json.loads(limiter["data_json"])
+            except (TypeError, ValueError):
+                limiter_values = []
+        row["fleet_scale"] = (
+            limiter_values[2] if len(limiter_values) == 25 else math.nan)
+        row["wheel_pre_limit_peak"] = (
+            limiter_values[3] if len(limiter_values) == 25 else math.nan)
+        row["mapped_path_capability_available"] = (
+            bool(debug_values[9])
+            if debug_version == 2 and len(debug_values) == 97 else False)
         m2b_values = []
         if (m2b and m2b.get("layout_label") ==
                 "m2b_algorithm_state_v1:header6+3x20"):
@@ -556,18 +582,29 @@ def _aligned_rows(raw, maximum_age):
                     current_feedback.get(
                         "decel_limit_active_{}".format(side), False)
                     if current_feedback else False)
+            limiter_offset = 4 + (robot - 1) * 7
+            if len(limiter_values) == 25:
+                row["agv{}_wheel_left_pre_limit".format(robot)] = (
+                    limiter_values[limiter_offset])
+                row["agv{}_wheel_right_pre_limit".format(robot)] = (
+                    limiter_values[limiter_offset + 1])
+                row["agv{}_wheel_left_fleet_scaled".format(robot)] = (
+                    limiter_values[limiter_offset + 2])
+                row["agv{}_wheel_right_fleet_scaled".format(robot)] = (
+                    limiter_values[limiter_offset + 3])
+            else:
+                row["agv{}_wheel_left_pre_limit".format(robot)] = math.nan
+                row["agv{}_wheel_right_pre_limit".format(robot)] = math.nan
+                row["agv{}_wheel_left_fleet_scaled".format(robot)] = math.nan
+                row["agv{}_wheel_right_fleet_scaled".format(robot)] = math.nan
             row["agv{}_reported_velocity_limit".format(robot)] = (
                 min(float(current_capability["max_wheel_velocity_left"]),
                     float(current_capability["max_wheel_velocity_right"]))
                 if current_capability else math.nan)
-            debug_offset = 9 + (robot - 1) * 27
-            row["agv{}_mapped_velocity_lower".format(robot)] = (
-                debug_values[debug_offset]
-                if len(debug_values) > debug_offset + 1 else math.nan)
-            row["agv{}_mapped_velocity_upper".format(robot)] = (
-                debug_values[debug_offset + 1]
-                if len(debug_values) > debug_offset + 1 else math.nan)
-            if len(debug_values) >= debug_offset + 27:
+            debug_header = 10 if debug_version == 2 else 9
+            debug_fields = 29 if debug_version == 2 else 27
+            debug_offset = debug_header + (robot - 1) * debug_fields
+            if len(debug_values) >= debug_offset + debug_fields:
                 names = (
                     "boundary_lower", "boundary_upper", "robust_margin",
                     "risk_factor", "risk_signal", "z", "upsilon", "phi",
@@ -582,6 +619,21 @@ def _aligned_rows(raw, maximum_age):
                 for offset, name in enumerate(names):
                     row["agv{}_{}".format(robot, name)] = (
                         debug_values[debug_offset + offset])
+                if debug_version == 2 and bool(debug_values[9]):
+                    row["agv{}_mapped_path_velocity_lower".format(robot)] = (
+                        debug_values[debug_offset + 27])
+                    row["agv{}_mapped_path_velocity_upper".format(robot)] = (
+                        debug_values[debug_offset + 28])
+                else:
+                    row["agv{}_mapped_path_velocity_lower".format(robot)] = (
+                        math.nan)
+                    row["agv{}_mapped_path_velocity_upper".format(robot)] = (
+                        math.nan)
+            else:
+                row["agv{}_mapped_path_velocity_lower".format(robot)] = (
+                    math.nan)
+                row["agv{}_mapped_path_velocity_upper".format(robot)] = (
+                    math.nan)
             m2b_offset = 6 + (robot - 1) * 20
             if len(m2b_values) >= m2b_offset + 20:
                 names = (

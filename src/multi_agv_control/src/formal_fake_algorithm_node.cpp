@@ -35,8 +35,8 @@ namespace multi_agv_control {
 namespace {
 
 constexpr std::size_t kRobotCount = 3U;
-constexpr std::size_t kDebugHeaderFields = 9U;
-constexpr std::size_t kDebugFieldsPerRobot = 27U;
+constexpr std::size_t kDebugHeaderFields = 10U;
+constexpr std::size_t kDebugFieldsPerRobot = 29U;
 
 double xmlNumber(const XmlRpc::XmlRpcValue& value, const char* key) {
   if (!value.hasMember(key)) {
@@ -378,9 +378,6 @@ class FormalFakeAlgorithmNode {
         root + "execution/initialization_max_wheel_speed",
         initialization_max_wheel_speed_, 0.015);
     private_node_.param(
-        root + "execution/fleet_scale_recovery_rate_per_second",
-        fleet_scale_recovery_rate_per_second_, 0.50);
-    private_node_.param(
         root + "require_valid_load_state", require_valid_load_state_, true);
     private_node_.param(
         root + "require_recorder_armed", require_recorder_armed_, false);
@@ -461,7 +458,6 @@ class FormalFakeAlgorithmNode {
         !(emergency_abort_persistence_seconds_ > 0.0) ||
         !(initialization_hold_seconds_ > 0.0) ||
         !(initialization_max_wheel_speed_ > 0.0) ||
-        !(fleet_scale_recovery_rate_per_second_ > 0.0) ||
         !(maximum_recorder_armed_age_ > 0.0) ||
         !(maximum_watchdog_age_ > 0.0) ||
         !(target_progress_ > reference_progress_) ||
@@ -849,7 +845,7 @@ class FormalFakeAlgorithmNode {
                 0.25,
                 "agv%zu raw wheel emergency threshold transient: "
                 "demand=[%.6f, %.6f] limit=%.6f m/s duration=%.3f/%.3f s; "
-                "continuing with common fleet limiting",
+                "continuing; each chassis retains its own physical limiter",
                 index + 1U, left, right, emergency_abort_limit_,
                 emergency_violation_duration_[index],
                 emergency_abort_persistence_seconds_);
@@ -870,8 +866,8 @@ class FormalFakeAlgorithmNode {
       if (assessment.available_limit_exceeded) {
         ROS_WARN_THROTTLE(
             1.0, "agv%zu raw wheel demand [%.6f, %.6f] exceeds current "
-            "available limits [%.6f, %.6f] m/s; the formal execution "
-            "adapter will apply common fleet scaling",
+            "available limits [%.6f, %.6f] m/s; preserving the demand for "
+            "that chassis to limit independently",
             index + 1U, left, right,
             capability_[index].max_wheel_linear_velocity_left,
             capability_[index].max_wheel_linear_velocity_right);
@@ -880,59 +876,14 @@ class FormalFakeAlgorithmNode {
     return true;
   }
 
-  double applySerialFleetWheelLimit(
-      std::array<PlanarTrackingResult, 3>* tracking, double dt) {
-    if (transport_type_ != "serial") return 1.0;
-
-    double required_scale = 1.0;
-    double raw_peak = 0.0;
-    for (std::size_t index = 0U; index < kRobotCount; ++index) {
-      const auto& value = (*tracking)[index];
-      const double left =
-          std::abs(value.wheel_linear_velocity_left_raw);
-      const double right =
-          std::abs(value.wheel_linear_velocity_right_raw);
-      const double available_left =
-          capability_[index].max_wheel_linear_velocity_left;
-      const double available_right =
-          capability_[index].max_wheel_linear_velocity_right;
-      raw_peak = std::max(raw_peak, std::max(left, right));
-      if (left > available_left) {
-        required_scale = std::min(
-            required_scale, 0.999 * available_left / left);
-      }
-      if (right > available_right) {
-        required_scale = std::min(
-            required_scale, 0.999 * available_right / right);
-      }
-    }
-
-    // Tighten immediately so no transmitted wheel demand can exceed the
-    // reported capability. Recover slowly so a one-frame camera/R1 peak does
-    // not make the whole fleet jump back to full speed on the next tick.
-    if (required_scale < fleet_wheel_scale_) {
-      fleet_wheel_scale_ = required_scale;
-    } else {
-      fleet_wheel_scale_ = std::min(
-          required_scale,
-          fleet_wheel_scale_ + fleet_scale_recovery_rate_per_second_ * dt);
-    }
-    fleet_wheel_scale_ = std::clamp(fleet_wheel_scale_, 0.0, 1.0);
-    if (fleet_wheel_scale_ >= 1.0) return 1.0;
-
-    for (auto& value : *tracking) {
-      value.linear_velocity_feedforward *= fleet_wheel_scale_;
-      value.angular_velocity_feedforward *= fleet_wheel_scale_;
-      value.linear_velocity_raw *= fleet_wheel_scale_;
-      value.angular_velocity_raw *= fleet_wheel_scale_;
-      value.wheel_linear_velocity_left_raw *= fleet_wheel_scale_;
-      value.wheel_linear_velocity_right_raw *= fleet_wheel_scale_;
-    }
-    ROS_WARN_THROTTLE(
-        1.0,
-        "Formal common fleet wheel limiting active: raw_peak=%.6f m/s "
-        "required_scale=%.6f applied_scale=%.6f; recovery is rate-limited",
-        raw_peak, required_scale, fleet_wheel_scale_);
+  double applySerialExecutionLimitPolicy(
+      std::array<PlanarTrackingResult, 3>* tracking) {
+    // Formal paper runs must not turn one robot's capability shortage into a
+    // fleet-wide slowdown outside the selected upper-layer method. Preserve
+    // all three pre-limit demands here; each chassis applies its own physical
+    // limit and the independent emergency gate remains authoritative.
+    (void)tracking;
+    fleet_wheel_scale_ = 1.0;
     return fleet_wheel_scale_;
   }
 
@@ -1193,7 +1144,7 @@ class FormalFakeAlgorithmNode {
     std_msgs::Float64MultiArray message;
     message.layout.dim.resize(1);
     message.layout.dim[0].label =
-        "formal_algorithm_state_v1:header9+3x27";
+        "formal_algorithm_state_v2:header10+3x29";
     message.layout.dim[0].size =
         kDebugHeaderFields + kRobotCount * kDebugFieldsPerRobot;
     message.layout.dim[0].stride = message.layout.dim[0].size;
@@ -1207,6 +1158,7 @@ class FormalFakeAlgorithmNode {
     message.data.push_back(reference_progress_);
     message.data.push_back(current_acceleration_reference_);
     message.data.push_back(ros::Time::now().toSec());
+    message.data.push_back(mapped_capability_valid_ ? 1.0 : 0.0);
     for (std::size_t i = 0; i < kRobotCount; ++i) {
       const auto& u = upper.agents[i];
       const auto& d = distributed;
@@ -1226,7 +1178,9 @@ class FormalFakeAlgorithmNode {
           l.parameter_estimate[0], l.parameter_estimate[1],
           l.disturbance_estimate,
           l.input_limit_active ? 1.0 : 0.0,
-          l.sustained_physical_saturation ? 1.0 : 0.0}};
+          l.sustained_physical_saturation ? 1.0 : 0.0,
+          mapped_capability_[i].lower_velocity,
+          mapped_capability_[i].upper_velocity}};
       message.data.insert(
           message.data.end(), fields.begin(), fields.end());
     }
@@ -1365,6 +1319,7 @@ class FormalFakeAlgorithmNode {
 
   void step(const ros::TimerEvent& event) {
     const ros::Time now = ros::Time::now();
+    mapped_capability_valid_ = false;
     double dt = (event.current_real - event.last_real).toSec();
     if (!std::isfinite(dt) || dt <= 0.0 || dt > 0.1) {
       dt = 1.0 / publish_rate_;
@@ -1459,6 +1414,8 @@ class FormalFakeAlgorithmNode {
       publishDebug(false, current_upper_, distributed, lower);
       return;
     }
+    mapped_capability_ = fleet.robots;
+    mapped_capability_valid_ = true;
 
     if (m2b_selected_) {
       M2bInput input;
@@ -1554,7 +1511,7 @@ class FormalFakeAlgorithmNode {
         publishM2bDebug(m2b);
         return;
       }
-      const double wheel_scale = applySerialFleetWheelLimit(&tracking, dt);
+      const double wheel_scale = applySerialExecutionLimitPolicy(&tracking);
       publishExecutionLimiter(
           now, wheel_scale, wheel_demand_before_limit, tracking);
       for (std::size_t i = 0; i < kRobotCount; ++i) {
@@ -1774,7 +1731,7 @@ class FormalFakeAlgorithmNode {
       publishDebug(false, current_upper_, distributed, lower);
       return;
     }
-    const double wheel_scale = applySerialFleetWheelLimit(&tracking, dt);
+    const double wheel_scale = applySerialExecutionLimitPolicy(&tracking);
     publishExecutionLimiter(
         now, wheel_scale, wheel_demand_before_limit, tracking);
 
@@ -1824,6 +1781,8 @@ class FormalFakeAlgorithmNode {
   DistributedReferenceState distributed_state_;
   DistributedReferenceOutput current_distributed_;
   UpperReferenceOutput current_upper_;
+  std::array<PathCapability, 3> mapped_capability_{};
+  bool mapped_capability_valid_{false};
   UpperMode upper_mode_{UpperMode::kM1};
   LowerMode lower_mode_{LowerMode::kR1};
 
@@ -1894,7 +1853,6 @@ class FormalFakeAlgorithmNode {
   double emergency_abort_persistence_seconds_{0.10};
   double initialization_hold_seconds_{0.30};
   double initialization_max_wheel_speed_{0.015};
-  double fleet_scale_recovery_rate_per_second_{0.50};
   double initialization_elapsed_seconds_{0.0};
   double startup_scale_{0.0};
   double fleet_wheel_scale_{1.0};

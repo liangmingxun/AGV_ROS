@@ -178,10 +178,11 @@ class FormalFakeAlgorithmE2ETest(unittest.TestCase):
         self.assertGreater(reference.load_path_progress_reference, 0.0)
         self.assertGreater(controller.common_load_velocity_reference, 0.0)
         self.assertEqual(debug.layout.dim[0].label,
-                         "formal_algorithm_state_v1:header9+3x27")
-        self.assertEqual(len(debug.data), 90)
+                         "formal_algorithm_state_v2:header10+3x29")
+        self.assertEqual(len(debug.data), 97)
         self.assertEqual(debug.data[0], 1.0)
         self.assertGreater(debug.data[8], 0.0)
+        self.assertEqual(debug.data[9], 1.0)
         self.assertTrue(all(math.isfinite(value) for value in debug.data))
         if rospy.get_param("~expect_m2b_debug", False):
             valid_m2b = [

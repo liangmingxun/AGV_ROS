@@ -3,6 +3,10 @@ metrics:
   - wheel.demand_exceedance_time
   - wheel.limited_time
   - wheel.maximum_demand_ratio
+  - wheel.maximum_demand_exceedance
+  - wheel.minimum_fleet_scale
+  - wheel.fleet_scaling_duration
+  - wheel.fleet_scaling_ratio
   - wheel.tracking_rmse
   - wheel.speed_limited_time
   - wheel.acceleration_limited_time

@@ -236,15 +236,16 @@ parameter was forged as fake. The experiment YAML files therefore set
 At 100 Hz the node publishes `/multi_agv/path_reference`,
 `/multi_agv/controller_state` and
 `/multi_agv/formal_algorithm_state`. The last topic has fixed schema label
-`formal_algorithm_state_v1:header9+3x27` and records generation time, selected
-modes, common boundary/reference values, per-robot dynamic-boundary/risk
+`formal_algorithm_state_v2:header10+3x29` and records generation time, selected
+modes, common boundary/reference values, the genuine per-robot mapped path
+capability, and per-robot dynamic-boundary/risk
 state, distributed `z/upsilon/phi` state, constrained-error terms, raw/limited
 input, parameter/disturbance estimates and limit flags. If cooperative state
 or any capability report is missing, stale or invalid—or any algorithm stage
 rejects its input—the node continuously sends explicit zero commands to all
 three fake chassis and marks the public/debug state invalid.
 
-The M1/R1 and M2a/R4 rostests cover non-default configuration loading, the
+The M1/R1 and M2a/R1 rostests cover non-default configuration loading, the
 complete valid command chain, actual fake-chassis binding, fixed
 internal-state record shape, unique command authority, absence of `/cmd_vel`,
 and cooperative-state loss followed by three-car fail-zero. This is software

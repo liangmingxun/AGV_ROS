@@ -72,7 +72,7 @@ class ExperimentRecorder:
         self.recording = rospy.get_param("~experiment_recording")
         registered = self.recording.get(
             "registered_method_ids",
-            ["M1_R1", "M2a_R1", "M2a_R4", "M2b_M2b"])
+            ["M1_R1", "M2a_R1", "M2b_M2b"])
         if self.method_id not in registered:
             raise RuntimeError(
                 "method_id is not preregistered: {}".format(self.method_id))

@@ -112,7 +112,7 @@
   "pair_block_id": "B02",
   "path_version": "s_curve_v1",
   "payload_state": "unloaded",
-  "processing_version": "paper_run_pipeline_v2",
+  "processing_version": "paper_run_pipeline_v3_capability_and_prelimit",
   "recording_armed_timestamp": "2026-09-03T05:19:35.029971+00:00",
   "run_id": "m1_r1_serial_20260903_131933",
   "schema_version": 1,

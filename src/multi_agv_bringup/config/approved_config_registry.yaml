@@ -21,7 +21,7 @@ approvals:
       formal_evaluation_window.yaml: d9c854c557c2995461c90ee39a41668694c94c5043e723bb601786382cb31a68
       fleet_inventory.yaml: b80883b2f06a9006c9ee8426aa80b9ec302ae4cebb15c6413594a8aabbadd192
       software_watchdog.yaml: f575259e7f9a2827bab66df15f21e2556d764da606cd0ac5a849f6e0344532b0
-      record_topics.yaml: 35d30ad3dae8c0d0f1e1116918b199f5d15abce67df604ddd089a18773c96d34
+      record_topics.yaml: 371ec0af96a4a6e0d77fcb84b1460ddb74b905f8bf9b84b16f761140528586e9
   task18_m2b_fake_rehearsal_v1:
     status: software_rehearsal_only
     formal_statistics_authorized: false
@@ -40,4 +40,4 @@ approvals:
       formal_evaluation_window.yaml: d9c854c557c2995461c90ee39a41668694c94c5043e723bb601786382cb31a68
       fleet_inventory.yaml: b80883b2f06a9006c9ee8426aa80b9ec302ae4cebb15c6413594a8aabbadd192
       software_watchdog.yaml: f575259e7f9a2827bab66df15f21e2556d764da606cd0ac5a849f6e0344532b0
-      record_topics.yaml: 35d30ad3dae8c0d0f1e1116918b199f5d15abce67df604ddd089a18773c96d34
+      record_topics.yaml: 371ec0af96a4a6e0d77fcb84b1460ddb74b905f8bf9b84b16f761140528586e9

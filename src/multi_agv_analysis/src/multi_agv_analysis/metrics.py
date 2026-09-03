@@ -74,19 +74,22 @@ def _first_time(rows, predicate, not_before=-math.inf):
     return None
 
 
-def _reported_capability(row, robot):
-    """Return the causal upper capability exposed by the active method.
+def _mapped_path_capability(row, robot):
+    """Return only a genuinely recorded CapabilityMapper path bound.
 
-    M2b deliberately owns a separate debug schema, so its reported capability
-    takes precedence when present.  M1 and legacy converted runs fall back to
-    the mapped upper bound in the formal debug stream.
+    New runs expose it explicitly. Historical M2b debug also stored the
+    mapper input under ``reported_capability``. Historical M1/M2a debug did
+    not store it, so no dynamic-boundary fallback is permitted.
     """
+    value = finite_float(row.get(
+        "agv{}_mapped_path_velocity_upper".format(robot)))
+    if math.isfinite(value):
+        return value
     value = finite_float(row.get(
         "m2b_agv{}_reported_capability".format(robot)))
     if math.isfinite(value):
         return value
-    return finite_float(row.get(
-        "agv{}_mapped_velocity_upper".format(robot)))
+    return math.nan
 
 
 def compute_metrics(rows, sample_period, command_epsilon=1e-6,
@@ -129,7 +132,10 @@ def compute_metrics(rows, sample_period, command_epsilon=1e-6,
     demand_samples = 0
     limited_samples = 0
     maximum_ratio = 0.0
+    maximum_exceedance = 0.0
     ratios_seen = 0
+    fleet_scales = []
+    fleet_scaling_samples = 0
     wheel_errors = []
     path_errors = []
     path_velocity_errors = {robot: [] for robot in range(1, 4)}
@@ -147,22 +153,31 @@ def compute_metrics(rows, sample_period, command_epsilon=1e-6,
         "m2b_delta_w": []}
 
     for row in rows:
+        fleet_scale = finite_float(row.get("fleet_scale"))
+        if math.isfinite(fleet_scale):
+            fleet_scales.append(fleet_scale)
+            fleet_scaling_samples += int(fleet_scale < 1.0 - command_epsilon)
         demanded = False
         limited = False
         limiter_active = {name: False for name in limiter_samples}
         for robot, side in WHEELS:
             prefix = "agv{}_wheel_{}".format(robot, side)
-            raw = finite_float(row.get(prefix + "_raw"))
+            pre_limit = finite_float(row.get(prefix + "_pre_limit"))
+            fleet_scaled = finite_float(row.get(prefix + "_fleet_scaled"))
             applied = finite_float(row.get(prefix + "_applied"))
             actual = finite_float(row.get(prefix + "_actual"))
             limit = finite_float(row.get(prefix + "_reported_limit"))
-            if math.isfinite(raw) and math.isfinite(limit) and limit > 0.0:
-                ratio = abs(raw) / limit
+            if (math.isfinite(pre_limit) and math.isfinite(limit) and
+                    limit > 0.0):
+                ratio = abs(pre_limit) / limit
                 maximum_ratio = max(maximum_ratio, ratio)
+                maximum_exceedance = max(
+                    maximum_exceedance, max(0.0, abs(pre_limit) - limit))
                 ratios_seen += 1
-                demanded = demanded or abs(raw) > limit
-            if math.isfinite(raw) and math.isfinite(applied):
-                limited = limited or abs(applied - raw) > command_epsilon
+                demanded = demanded or abs(pre_limit) > limit
+            if math.isfinite(pre_limit) and math.isfinite(applied):
+                limited = limited or abs(
+                    applied - pre_limit) > command_epsilon
             if math.isfinite(actual) and math.isfinite(applied):
                 wheel_errors.append(actual - applied)
             limiter_active["speed"] |= bool_value(
@@ -237,9 +252,9 @@ def compute_metrics(rows, sample_period, command_epsilon=1e-6,
             load_yaw_errors.append(
                 _wrap_angle(load_yaw - load_yaw_reference))
         mapped = [
-            _reported_capability(row, robot)
+            _mapped_path_capability(row, robot)
             for robot in range(1, 4)]
-        common_upper = finite_float(row.get("mapped_common_velocity_upper"))
+        common_upper = finite_float(row.get("common_boundary_upper"))
         if all(math.isfinite(value) for value in mapped) and math.isfinite(
                 common_upper):
             link_margins.append(min(mapped) - common_upper)
@@ -273,11 +288,11 @@ def compute_metrics(rows, sample_period, command_epsilon=1e-6,
         threshold = 0.95 * nominal_agv2_capability
         derating_observed_stamp = _first_time(
             rows,
-            lambda row: _reported_capability(row, 2) < threshold)
+            lambda row: _mapped_path_capability(row, 2) < threshold)
         if derating_observed_stamp is not None:
             capability_recovery_stamp = _first_time(
                 rows,
-                lambda row: _reported_capability(row, 2) >= threshold,
+                lambda row: _mapped_path_capability(row, 2) >= threshold,
                 not_before=derating_observed_stamp)
             if capability_recovery_stamp is not None:
                 capability_recovery_time = (
@@ -331,7 +346,7 @@ def compute_metrics(rows, sample_period, command_epsilon=1e-6,
             active_indices == list(range(
                 active_indices[0], active_indices[-1] + 1)))
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         "causal_unfiltered": True,
         "sample_period": sample_period,
         "sample_counts": {
@@ -355,6 +370,16 @@ def compute_metrics(rows, sample_period, command_epsilon=1e-6,
             "limited_time": limited_samples * sample_period,
             "maximum_demand_ratio": (
                 maximum_ratio if ratios_seen else None),
+            "maximum_demand_exceedance": (
+                maximum_exceedance if ratios_seen else None),
+            "demand_source": "wheel_pre_limit",
+            "minimum_fleet_scale": (
+                min(fleet_scales) if fleet_scales else None),
+            "fleet_scaling_duration": (
+                fleet_scaling_samples * sample_period),
+            "fleet_scaling_ratio": (
+                float(fleet_scaling_samples) / len(fleet_scales)
+                if fleet_scales else None),
             "tracking_rmse": _rmse(wheel_errors),
             "tracking_max_absolute": _maximum_absolute(wheel_errors),
             "speed_limited_time":
@@ -396,6 +421,7 @@ def compute_metrics(rows, sample_period, command_epsilon=1e-6,
                 min(link_margins) if link_margins else None),
             "demand_margin_minimum": (
                 min(demand_margins) if demand_margins else None),
+            "mapped_path_capability_available": bool(link_margins),
         },
         "internal": {
             "psi_max_absolute": _maximum_absolute(internal["psi"]),
@@ -412,7 +438,7 @@ def compute_metrics(rows, sample_period, command_epsilon=1e-6,
         },
         "recovery": {
             "capability_source":
-                "m2b_reported_capability_else_mapped_velocity_upper",
+                "explicit_mapper_output_or_historical_m2b_mapper_input",
             "derating_observed_stamp": derating_observed_stamp,
             "capability_95_stamp": capability_recovery_stamp,
             "capability_95_time": capability_recovery_time,
