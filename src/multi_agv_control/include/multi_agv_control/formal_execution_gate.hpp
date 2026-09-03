@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <cstdint>
 #include <string>
 
 namespace multi_agv_control {
@@ -68,5 +69,9 @@ SerialWheelDemandAssessment assessSerialWheelDemand(
     double raw_left, double raw_right,
     double available_left, double available_right,
     double emergency_abort_limit);
+
+bool seedCommandSequenceFromFeedback(
+    std::uint32_t command_seq_applied,
+    std::uint32_t* command_sequence);
 
 }  // namespace multi_agv_control

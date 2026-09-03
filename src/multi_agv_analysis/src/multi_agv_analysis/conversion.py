@@ -110,6 +110,9 @@ RAW_SCHEMAS = {
     "formal_algorithm_state.csv": [
         "topic", "bag_stamp", "header_stamp", "layout_label", "data_json",
     ],
+    "formal_execution_limiter_state.csv": [
+        "topic", "bag_stamp", "header_stamp", "layout_label", "data_json",
+    ],
     "m2b_algorithm_state.csv": [
         "topic", "bag_stamp", "header_stamp", "layout_label", "data_json",
     ],
@@ -392,6 +395,8 @@ def _extract(topic, bag_stamp, message):
         })
         if topic == "/multi_agv/m2b_algorithm_state":
             return "m2b_algorithm_state.csv", row
+        if topic == "/multi_agv/formal_execution_limiter_state":
+            return "formal_execution_limiter_state.csv", row
         return "formal_algorithm_state.csv", row
     return None, None
 

@@ -298,14 +298,16 @@ def compute_metrics(rows, sample_period, command_epsilon=1e-6,
                 velocity_recovery_stamp - capability_recovery_stamp)
 
     task_time = None
+    task_start_stamp = None
     task_completion_stamp = None
     if evaluation_target is not None:
         target = float(evaluation_target)
+        task_start_stamp = finite_float(all_rows[0].get("stamp"))
         task_completion_stamp = _first_time(
-            rows,
+            all_rows,
             lambda row: finite_float(row.get("load_s_actual")) >= target)
         if task_completion_stamp is not None:
-            task_time = task_completion_stamp - first_stamp
+            task_time = task_completion_stamp - task_start_stamp
 
     invalid_samples = sum(
         not bool_value(row.get("localization_valid", True)) for row in rows)
@@ -419,8 +421,10 @@ def compute_metrics(rows, sample_period, command_epsilon=1e-6,
             "common_velocity_after_capability_delay": recovery_delay,
         },
         "task": {
+            "start_stamp": task_start_stamp,
             "completion_stamp": task_completion_stamp,
             "completion_time": task_time,
             "evaluation_target": evaluation_target,
+            "completion_scope": "all_recorded_samples",
         },
     }

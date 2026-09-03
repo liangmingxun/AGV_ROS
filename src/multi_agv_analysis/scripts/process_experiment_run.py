@@ -14,7 +14,7 @@ from multi_agv_analysis.paper_pipeline import export_views, plot_run
 from multi_agv_analysis.validation import validate_converted_run
 
 
-PROCESSING_VERSION = "paper_run_pipeline_v1"
+PROCESSING_VERSION = "paper_run_pipeline_v2"
 
 
 def battery_edges(converted):

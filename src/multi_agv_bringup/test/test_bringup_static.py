@@ -458,6 +458,10 @@ class BringupStaticTest(unittest.TestCase):
             SOURCE_ROOT / "multi_agv_control" / "src" /
             "three_car_unloaded_bounded_pretest_node.cpp"
         ).read_text(encoding="utf-8")
+        shared_adapter = (
+            SOURCE_ROOT / "multi_agv_control" / "src" /
+            "planar_support_tracker.cpp"
+        ).read_text(encoding="utf-8")
 
         self.assertIn(
             'type="three_car_unloaded_bounded_pretest_node"', launch)
@@ -518,10 +522,15 @@ class BringupStaticTest(unittest.TestCase):
                 "limitTrackingCommands",
                 "Uniform three-car wheel-command scaling active",
                 "startup_ramp_seconds_",
-                "mean_world_error",
-                "relative_heading_error",
                 "all six wheels must be stopped before motion"):
             self.assertIn(marker, node)
+        self.assertIn("FleetPlanarExecutionAdapter", node)
+        for marker in (
+                "mean_world_error",
+                "relative_heading_error",
+                "angular_feedforward_scale_positive",
+                "formation_lateral_gain"):
+            self.assertIn(marker, shared_adapter)
         self.assertIn(
             "feedback_transport_hints.reliable().tcpNoDelay()", node)
 

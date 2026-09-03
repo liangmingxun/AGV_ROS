@@ -45,6 +45,29 @@ class PaperPipelineTest(unittest.TestCase):
             with self.assertRaises(RuntimeError):
                 export_views(root, root / "output")
 
+    def test_m1_run_does_not_require_m2b_internal_view(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            converted = root / "converted"
+            converted.mkdir()
+            write_csv(converted / "aligned_samples.csv", [{
+                "stamp": 1.0,
+                "load_s_reference": 0.0,
+                "agv1_robot_pose_x": 0.1,
+                "common_velocity_reference": 0.05,
+                "agv1_boundary_upper": 0.08,
+                "agv1_wheel_left_raw": 0.04,
+                "agv1_position_error": 0.001,
+            }])
+            write_csv(converted / "controller_state.csv", [{
+                "method_id": "M1_R1",
+            }])
+            write_csv(converted / "capability_report.csv", [])
+
+            written = export_views(converted, root)
+            self.assertNotIn("m2b_internal.csv", written)
+            self.assertFalse((root / "m2b_internal.csv").exists())
+
 
 if __name__ == "__main__":
     unittest.main()

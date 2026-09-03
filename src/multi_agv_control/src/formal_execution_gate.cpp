@@ -1,8 +1,8 @@
 #include "multi_agv_control/formal_execution_gate.hpp"
 
 #include <cmath>
-
 #include <cstddef>
+#include <limits>
 
 namespace multi_agv_control {
 
@@ -124,6 +124,17 @@ SerialWheelDemandAssessment assessSerialWheelDemand(
     result.reason = "raw wheel demand exceeds emergency abort limit";
   }
   return result;
+}
+
+bool seedCommandSequenceFromFeedback(
+    std::uint32_t command_seq_applied,
+    std::uint32_t* command_sequence) {
+  if (command_sequence == nullptr ||
+      command_seq_applied == std::numeric_limits<std::uint32_t>::max()) {
+    return false;
+  }
+  *command_sequence = command_seq_applied;
+  return true;
 }
 
 }  // namespace multi_agv_control

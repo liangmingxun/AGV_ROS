@@ -55,9 +55,9 @@ fi
 dirty="$(git status --porcelain --untracked-files=normal |
   awk '$2 !~ /^experiment_data\// {print}' || true)"
 if [[ -n "$dirty" ]]; then
-  echo "ERROR: formal serial evidence requires a committed, clean worktree" >&2
+  echo "WARNING: Robot1 has uncommitted central software changes; " \
+       "the recorder will preserve git_dirty and git_status metadata" >&2
   echo "$dirty" >&2
-  exit 3
 fi
 local_sha="$(git rev-parse HEAD)"
 for index in 1 2 3; do
@@ -67,9 +67,50 @@ for index in 1 2 3; do
   fi
   transport="$(rosparam get "${node}/transport_type" 2>/dev/null || true)"
   deployed_sha="$(rosparam get "/agv${index}/deployment/git_sha" 2>/dev/null || true)"
-  if [[ "$transport" != serial || "$deployed_sha" != "$local_sha" ]]; then
-    echo "ERROR: agv${index} is not the current serial deployment" >&2
+  if [[ "$transport" != serial ]]; then
+    echo "ERROR: agv${index} is not a serial deployment" >&2
     exit 4
+  fi
+  if [[ -z "$deployed_sha" ]] ||
+     ! git cat-file -e "${deployed_sha}^{commit}" 2>/dev/null; then
+    echo "ERROR: agv${index} deployment Git SHA is missing or unavailable" >&2
+    exit 4
+  fi
+  if [[ "$index" == 1 ]]; then
+    chassis_launch_file="src/multi_agv_bringup/launch/car1_master.launch"
+  else
+    chassis_launch_file="src/multi_agv_bringup/launch/car${index}_client.launch"
+  fi
+  chassis_paths=(
+    src/agv_msgs
+    src/common
+    src/chassis_controller
+    src/multi_agv_bringup/config/common_platform.yaml
+    "src/multi_agv_bringup/config/agv${index}_chassis.yaml"
+    src/multi_agv_bringup/launch/chassis_single.launch
+    "$chassis_launch_file"
+    src/multi_agv_bringup/scripts/start_three_car_chassis.sh
+    src/multi_agv_bringup/scripts/check_local_clock_sync.sh
+    src/multi_agv_bringup/scripts/setup_ros_network.sh
+  )
+  if ! git diff --quiet "$deployed_sha" "$local_sha" -- "${chassis_paths[@]}"; then
+    echo "ERROR: agv${index} chassis deployment is incompatible with ${local_sha}" >&2
+    echo "Synchronize and restart agv${index}; relevant changes:" >&2
+    git diff --name-only "$deployed_sha" "$local_sha" -- \
+      "${chassis_paths[@]}" >&2
+    exit 4
+  fi
+  chassis_worktree_changes="$(
+    git status --porcelain --untracked-files=all -- "${chassis_paths[@]}"
+  )"
+  if [[ -n "$chassis_worktree_changes" ]]; then
+    echo "ERROR: agv${index} has uncommitted chassis-relevant changes" >&2
+    echo "Commit, synchronize and restart the affected chassis before running:" >&2
+    echo "$chassis_worktree_changes" >&2
+    exit 4
+  fi
+  if [[ "$deployed_sha" != "$local_sha" ]]; then
+    echo "agv${index}: accepting chassis-compatible deployment ${deployed_sha}"
   fi
 done
 for node in /pose_provider /camera_odom_fusion; do
@@ -160,22 +201,11 @@ if [[ "$reached" != true ]]; then
   exit 7
 fi
 
-stable=0
-deadline=$((SECONDS + 6))
-while (( SECONDS < deadline && stable < 10 )); do
-  stopped=true
-  for index in 1 2 3; do
-    values="$(timeout 2 rostopic echo -n 1 "/agv${index}/chassis_feedback" 2>/dev/null |
-      awk '/wheel_linear_velocity_left_actual:/ {l=$2} /wheel_linear_velocity_right_actual:/ {r=$2} END {print l, r}' || true)"
-    if ! awk -v values="$values" 'BEGIN {split(values,a," "); l=a[1]+0; r=a[2]+0;
-        if (l<0) l=-l; if (r<0) r=-r; exit !(l<=0.01 && r<=0.01)}'; then
-      stopped=false
-    fi
-  done
-  if [[ "$stopped" == true ]]; then stable=$((stable + 1)); else stable=0; fi
-  sleep 0.05
-done
-(( stable >= 10 )) || { echo "ERROR: wheel stop was not confirmed" >&2; exit 8; }
+python3 src/multi_agv_bringup/scripts/wait_three_car_wheel_stop.py \
+  --timeout 6.0 --speed-threshold 0.01 --stable-seconds 0.10 || {
+    echo "ERROR: wheel stop was not confirmed" >&2
+    exit 8
+  }
 
 rosservice call /experiment_recorder/stop >/dev/null
 wait "$recorder_pid" || true

@@ -241,4 +241,130 @@ std::array<PlanarTrackingResult, 3> PlanarSupportTracker::trackFleet(
   return results;
 }
 
+FleetPlanarExecutionAdapter::FleetPlanarExecutionAdapter(
+    const PlanarSupportTracker& tracker,
+    const FleetPlanarExecutionConfig& config)
+    : tracker_(tracker), config_(config) {
+  if (!std::isfinite(config_.formation_longitudinal_gain) ||
+      !std::isfinite(config_.formation_lateral_gain) ||
+      !std::isfinite(config_.formation_heading_gain) ||
+      config_.formation_longitudinal_gain < 0.0 ||
+      config_.formation_lateral_gain < 0.0 ||
+      config_.formation_heading_gain < 0.0) {
+    throw std::invalid_argument("invalid fleet formation execution gains");
+  }
+  for (std::size_t index = 0U; index < 3U; ++index) {
+    if (!std::isfinite(config_.wheel_separation[index]) ||
+        config_.wheel_separation[index] <= 0.0 ||
+        !std::isfinite(config_.longitudinal_gain[index]) ||
+        config_.longitudinal_gain[index] < 0.0 ||
+        !std::isfinite(config_.lateral_gain[index]) ||
+        config_.lateral_gain[index] < 0.0 ||
+        !std::isfinite(config_.heading_gain[index]) ||
+        config_.heading_gain[index] < 0.0 ||
+        !std::isfinite(config_.angular_feedforward_scale_positive[index]) ||
+        config_.angular_feedforward_scale_positive[index] <= 0.0 ||
+        !std::isfinite(config_.angular_feedforward_scale_negative[index]) ||
+        config_.angular_feedforward_scale_negative[index] <= 0.0 ||
+        !std::isfinite(config_.curvature_preview_seconds_positive[index]) ||
+        config_.curvature_preview_seconds_positive[index] < 0.0 ||
+        !std::isfinite(config_.curvature_preview_seconds_negative[index]) ||
+        config_.curvature_preview_seconds_negative[index] < 0.0) {
+      throw std::invalid_argument("invalid per-robot fleet execution config");
+    }
+  }
+}
+
+void FleetPlanarExecutionAdapter::adapt(
+    double load_progress,
+    const std::array<double, 3>& channel_velocity_commands,
+    const std::array<PlanarPose, 3>& robot_poses,
+    const std::array<PlanarPose, 3>& support_poses,
+    std::array<PlanarTrackingResult, 3>* tracking) const {
+  if (tracking == nullptr || !std::isfinite(load_progress)) {
+    throw std::invalid_argument("invalid fleet execution adapter input");
+  }
+
+  Eigen::Vector2d mean_world_error = Eigen::Vector2d::Zero();
+  double heading_error_sine_sum = 0.0;
+  double heading_error_cosine_sum = 0.0;
+  std::size_t valid_count = 0U;
+  for (std::size_t index = 0U; index < 3U; ++index) {
+    const auto& value = (*tracking)[index];
+    if (!value.valid) continue;
+    mean_world_error +=
+        value.chassis_pose_reference.position - robot_poses[index].position;
+    heading_error_sine_sum += std::sin(value.heading_error);
+    heading_error_cosine_sum += std::cos(value.heading_error);
+    ++valid_count;
+  }
+  if (valid_count == 0U) return;
+  mean_world_error /= static_cast<double>(valid_count);
+  const double mean_heading_error =
+      std::atan2(heading_error_sine_sum, heading_error_cosine_sum);
+
+  for (std::size_t index = 0U; index < 3U; ++index) {
+    auto& value = (*tracking)[index];
+    if (!value.valid) continue;
+    double feedforward = value.angular_velocity_feedforward;
+    const double preview_seconds =
+        feedforward > 0.0
+            ? config_.curvature_preview_seconds_positive[index]
+            : (feedforward < 0.0
+                   ? config_.curvature_preview_seconds_negative[index]
+                   : 0.0);
+    if (channel_velocity_commands[index] != 0.0 &&
+        preview_seconds > 0.0) {
+      const double preview_progress = std::min(
+          tracker_.geometry().path().length(),
+          load_progress +
+              std::abs(channel_velocity_commands[index]) * preview_seconds);
+      const auto preview = tracker_.track({
+          index, preview_progress, channel_velocity_commands[index],
+          robot_poses[index], support_poses[index]});
+      if (preview.valid) {
+        feedforward = preview.angular_velocity_feedforward;
+      }
+    }
+    const double directional_scale =
+        feedforward > 0.0
+            ? config_.angular_feedforward_scale_positive[index]
+            : (feedforward < 0.0
+                   ? config_.angular_feedforward_scale_negative[index]
+                   : 1.0);
+    value.angular_velocity_feedforward = directional_scale * feedforward;
+
+    const Eigen::Vector2d relative_world_error =
+        value.chassis_pose_reference.position - robot_poses[index].position -
+        mean_world_error;
+    const double c = std::cos(robot_poses[index].yaw);
+    const double s = std::sin(robot_poses[index].yaw);
+    const double relative_longitudinal_error =
+        c * relative_world_error.x() + s * relative_world_error.y();
+    const double relative_lateral_error =
+        -s * relative_world_error.x() + c * relative_world_error.y();
+    const double relative_heading_error = std::atan2(
+        std::sin(value.heading_error - mean_heading_error),
+        std::cos(value.heading_error - mean_heading_error));
+
+    value.linear_velocity_raw =
+        value.linear_velocity_feedforward * std::cos(value.heading_error) +
+        config_.longitudinal_gain[index] * value.longitudinal_error +
+        config_.formation_longitudinal_gain * relative_longitudinal_error;
+    value.angular_velocity_raw =
+        value.angular_velocity_feedforward +
+        config_.lateral_gain[index] * value.lateral_error +
+        config_.heading_gain[index] * std::sin(value.heading_error) +
+        config_.formation_lateral_gain * relative_lateral_error +
+        config_.formation_heading_gain * std::sin(relative_heading_error);
+    const double half_track = 0.5 * config_.wheel_separation[index];
+    value.wheel_linear_velocity_left_raw =
+        value.linear_velocity_raw - half_track * value.angular_velocity_raw;
+    value.wheel_linear_velocity_right_raw =
+        value.linear_velocity_raw + half_track * value.angular_velocity_raw;
+    value.valid = std::isfinite(value.wheel_linear_velocity_left_raw) &&
+                  std::isfinite(value.wheel_linear_velocity_right_raw);
+  }
+}
+
 }  // namespace multi_agv_control

@@ -221,6 +221,8 @@ class MetricsTest(unittest.TestCase):
         self.assertAlmostEqual(
             result["recovery"]["common_velocity_after_capability_delay"], 0.2)
         self.assertAlmostEqual(result["task"]["completion_time"], 0.9)
+        self.assertEqual(
+            result["task"]["completion_scope"], "all_recorded_samples")
         self.assertTrue(result["causal_unfiltered"])
         self.assertEqual(
             result["evaluation_window"]["source"],
@@ -288,6 +290,16 @@ class MetricsTest(unittest.TestCase):
         invalid_stamp[0]["stamp"] = float("nan")
         with self.assertRaises(ValueError):
             compute_metrics(invalid_stamp, sample_period=0.1)
+
+    def test_task_completion_uses_samples_after_evaluation_window(self):
+        rows = self.fixture()
+        for index, row in enumerate(rows):
+            row["evaluation_active"] = 1 <= index <= 7
+            row["experiment_state_available"] = True
+        result = compute_metrics(
+            rows, sample_period=0.1, evaluation_target=1.1)
+        self.assertAlmostEqual(result["task"]["completion_time"], 0.9)
+        self.assertIsNotNone(result["task"]["completion_stamp"])
 
 
 class ValidationTest(unittest.TestCase):
@@ -559,6 +571,39 @@ class ValidationTest(unittest.TestCase):
         codes = [issue["code"] for issue in self._validate()["issues"]]
         self.assertIn("LOCALIZATION_INVALID_FRACTION", codes)
         self.assertIn("LOCALIZATION_INVALID_DURATION", codes)
+
+    def test_localization_exclusion_uses_evaluation_window(self):
+        invalid = {
+            "stamp": 1.0,
+            "localization_valid": False,
+            "evaluation_active": False,
+            "experiment_state_available": True,
+        }
+        valid = {
+            "stamp": 1.01,
+            "localization_valid": True,
+            "evaluation_active": True,
+            "experiment_state_available": True,
+        }
+        write_csv(
+            self.converted / "aligned_samples.csv",
+            [invalid, valid, dict(invalid, stamp=1.02)])
+        write_csv(self.converted / "experiment_state.csv", [
+            {"header_stamp": 0.99, "experiment_id": "E2a",
+             "method_id": "M1_R1", "evaluation_active": False},
+            {"header_stamp": 1.01, "experiment_id": "E2a",
+             "method_id": "M1_R1", "evaluation_active": True},
+            {"header_stamp": 1.02, "experiment_id": "E2a",
+             "method_id": "M1_R1", "evaluation_active": False},
+        ])
+
+        report = self._validate()
+        self.assertTrue(report["valid"], report["issues"])
+        self.assertEqual(
+            report["localization"]["scope"], "evaluation_active")
+        self.assertEqual(report["localization"]["samples"], 1)
+        self.assertEqual(report["localization"]["invalid_samples"], 0)
+        self.assertEqual(report["localization"]["excluded_samples"], 2)
 
     def test_method_hash_and_authority_mismatch_fail(self):
         write_csv(self.converted / "controller_state.csv", [{

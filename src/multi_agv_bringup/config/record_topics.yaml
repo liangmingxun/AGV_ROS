@@ -21,10 +21,12 @@ experiment_recording:
     - /agv1/odom
     - /agv2/odom
     - /agv3/odom
+    - /multi_agv/experiment_state
     - /multi_agv/cooperative_state
     - /multi_agv/path_reference
     - /multi_agv/controller_state
     - /multi_agv/formal_algorithm_state
+    - /multi_agv/formal_execution_limiter_state
     - /multi_agv/m2b_algorithm_state
     - /multi_agv/software_watchdog_ok
     - /multi_agv/software_watchdog_diagnostics
@@ -127,6 +129,8 @@ experiment_recording:
     - /multi_agv/formal_algorithm_state
 
   method_required_topics:
+    M1_R1:
+      - /multi_agv/experiment_state
     M2b_M2b:
       - /multi_agv/m2b_algorithm_state
 

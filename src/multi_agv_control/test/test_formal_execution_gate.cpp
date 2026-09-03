@@ -151,3 +151,18 @@ TEST(FormalExecutionGate, EmergencyLimitMustBeIndependentOfAvailableLimit) {
       0.01, 0.01, 0.08, 0.08, 0.08);
   EXPECT_TRUE(result.emergency_abort);
 }
+
+TEST(FormalExecutionGate, SeedsSerialCommandSequenceFromChassisFeedback) {
+  std::uint32_t sequence = 0U;
+  ASSERT_TRUE(mac::seedCommandSequenceFromFeedback(57456U, &sequence));
+  EXPECT_EQ(sequence, 57456U);
+  EXPECT_EQ(++sequence, 57457U);
+}
+
+TEST(FormalExecutionGate, RejectsExhaustedSerialCommandSequence) {
+  std::uint32_t sequence = 0U;
+  EXPECT_FALSE(mac::seedCommandSequenceFromFeedback(
+      std::numeric_limits<std::uint32_t>::max(), &sequence));
+  EXPECT_EQ(sequence, 0U);
+  EXPECT_FALSE(mac::seedCommandSequenceFromFeedback(1U, nullptr));
+}

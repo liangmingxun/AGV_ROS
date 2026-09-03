@@ -574,6 +574,25 @@ class ThreeCarUnloadedBoundedPretestNode {
         *path_, loadGeometryConfig()));
     tracker_.reset(new PlanarSupportTracker(
         *geometry_, loadTrackerConfig()));
+    FleetPlanarExecutionConfig execution_config;
+    execution_config.wheel_separation = wheel_separation_;
+    execution_config.longitudinal_gain = longitudinal_gain_per_robot_;
+    execution_config.lateral_gain = lateral_gain_per_robot_;
+    execution_config.heading_gain = heading_gain_per_robot_;
+    execution_config.angular_feedforward_scale_positive =
+        angular_feedforward_scale_positive_;
+    execution_config.angular_feedforward_scale_negative =
+        angular_feedforward_scale_negative_;
+    execution_config.curvature_preview_seconds_positive =
+        curvature_preview_seconds_positive_;
+    execution_config.curvature_preview_seconds_negative =
+        curvature_preview_seconds_negative_;
+    execution_config.formation_longitudinal_gain =
+        formation_longitudinal_gain_;
+    execution_config.formation_lateral_gain = formation_lateral_gain_;
+    execution_config.formation_heading_gain = formation_heading_gain_;
+    execution_adapter_.reset(new FleetPlanarExecutionAdapter(
+        *tracker_, execution_config));
     if (target_progress_ > path_->length() ||
         maximum_motion_time_ < target_progress_ / speed_ + 1.0) {
       throw std::runtime_error(
@@ -877,95 +896,8 @@ class ThreeCarUnloadedBoundedPretestNode {
       support[index] = poseValue(state_.support_pose[index]);
     }
     auto result = tracker_->trackFleet(progress, velocity, robot, support);
-
-    // Separate rigid fleet motion from deformation of the triangle.  The
-    // ordinary per-robot tracker remains responsible for following the
-    // virtual-load path.  These centred errors therefore cannot translate or
-    // rotate the fleet as a whole; they only tighten relative formation.
-    Eigen::Vector2d mean_world_error = Eigen::Vector2d::Zero();
-    double heading_error_sine_sum = 0.0;
-    double heading_error_cosine_sum = 0.0;
-    std::size_t valid_count = 0U;
-    for (std::size_t index = 0; index < kRobotCount; ++index) {
-      if (!result[index].valid) continue;
-      mean_world_error +=
-          result[index].chassis_pose_reference.position -
-          robot[index].position;
-      heading_error_sine_sum += std::sin(result[index].heading_error);
-      heading_error_cosine_sum += std::cos(result[index].heading_error);
-      ++valid_count;
-    }
-    if (valid_count > 0U) {
-      mean_world_error /= static_cast<double>(valid_count);
-    }
-    const double mean_heading_error =
-        std::atan2(heading_error_sine_sum, heading_error_cosine_sum);
-
-    for (std::size_t index = 0; index < kRobotCount; ++index) {
-      if (!result[index].valid) continue;
-      double feedforward = result[index].angular_velocity_feedforward;
-      const double preview_seconds =
-          feedforward > 0.0
-              ? curvature_preview_seconds_positive_[index]
-              : (feedforward < 0.0
-                     ? curvature_preview_seconds_negative_[index]
-                     : 0.0);
-      if (velocity != 0.0 && preview_seconds > 0.0) {
-        const double preview_progress = std::min(
-            path_->length(), progress +
-                std::abs(velocity) * preview_seconds);
-        const auto preview = tracker_->trackFleet(
-            preview_progress, velocity, robot, support);
-        if (preview[index].valid) {
-          feedforward = preview[index].angular_velocity_feedforward;
-        }
-      }
-      const double directional_scale =
-          feedforward > 0.0
-              ? angular_feedforward_scale_positive_[index]
-              : (feedforward < 0.0
-                     ? angular_feedforward_scale_negative_[index]
-                     : 1.0);
-      result[index].angular_velocity_feedforward =
-          directional_scale * feedforward;
-
-      const Eigen::Vector2d relative_world_error =
-          result[index].chassis_pose_reference.position -
-          robot[index].position - mean_world_error;
-      const double c = std::cos(robot[index].yaw);
-      const double s = std::sin(robot[index].yaw);
-      const double relative_longitudinal_error =
-          c * relative_world_error.x() + s * relative_world_error.y();
-      const double relative_lateral_error =
-          -s * relative_world_error.x() + c * relative_world_error.y();
-      const double relative_heading_error = std::atan2(
-          std::sin(result[index].heading_error - mean_heading_error),
-          std::cos(result[index].heading_error - mean_heading_error));
-
-      result[index].linear_velocity_raw =
-          result[index].linear_velocity_feedforward *
-              std::cos(result[index].heading_error) +
-          longitudinal_gain_per_robot_[index] *
-              result[index].longitudinal_error +
-          formation_longitudinal_gain_ * relative_longitudinal_error;
-      result[index].angular_velocity_raw =
-          result[index].angular_velocity_feedforward +
-          lateral_gain_per_robot_[index] * result[index].lateral_error +
-          heading_gain_per_robot_[index] *
-              std::sin(result[index].heading_error) +
-          formation_lateral_gain_ * relative_lateral_error +
-          formation_heading_gain_ * std::sin(relative_heading_error);
-      const double half_track = 0.5 * wheel_separation_[index];
-      result[index].wheel_linear_velocity_left_raw =
-          result[index].linear_velocity_raw -
-          half_track * result[index].angular_velocity_raw;
-      result[index].wheel_linear_velocity_right_raw =
-          result[index].linear_velocity_raw +
-          half_track * result[index].angular_velocity_raw;
-      result[index].valid =
-          std::isfinite(result[index].wheel_linear_velocity_left_raw) &&
-          std::isfinite(result[index].wheel_linear_velocity_right_raw);
-    }
+    execution_adapter_->adapt(
+        progress, {{velocity, velocity, velocity}}, robot, support, &result);
     return result;
   }
 
@@ -1175,6 +1107,7 @@ class ThreeCarUnloadedBoundedPretestNode {
   std::unique_ptr<SCurvePath> path_;
   std::unique_ptr<SupportGeometry> geometry_;
   std::unique_ptr<PlanarSupportTracker> tracker_;
+  std::unique_ptr<FleetPlanarExecutionAdapter> execution_adapter_;
   agv_msgs::CooperativeState state_;
   std::array<agv_msgs::ChassisFeedback, kRobotCount> feedback_;
   ros::WallTime state_receive_time_;

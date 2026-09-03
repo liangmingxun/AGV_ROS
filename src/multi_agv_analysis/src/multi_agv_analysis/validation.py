@@ -90,15 +90,18 @@ def _check_sequence_rule(converted_dir, rule, issues):
 def _invalid_localization_statistics(rows, sample_period):
     invalid = []
     for row in rows:
-        valid = bool_value(row.get("load_pose_valid"))
-        valid = valid and bool_value(row.get("load_path_state_valid"))
-        for index in range(1, 4):
-            valid = valid and bool_value(
-                row.get("robot_pose_valid_{}".format(index)))
-            valid = valid and bool_value(
-                row.get("support_pose_valid_{}".format(index)))
-            valid = valid and bool_value(
-                row.get("path_state_valid_{}".format(index)))
+        if "localization_valid" in row:
+            valid = bool_value(row.get("localization_valid"))
+        else:
+            valid = bool_value(row.get("load_pose_valid"))
+            valid = valid and bool_value(row.get("load_path_state_valid"))
+            for index in range(1, 4):
+                valid = valid and bool_value(
+                    row.get("robot_pose_valid_{}".format(index)))
+                valid = valid and bool_value(
+                    row.get("support_pose_valid_{}".format(index)))
+                valid = valid and bool_value(
+                    row.get("path_state_valid_{}".format(index)))
         invalid.append(not valid)
 
     longest = current = 0
@@ -428,8 +431,29 @@ def validate_converted_run(converted_dir, manifest_path, rules):
         _check_sequence_rule(converted_dir, rule, issues)
 
     sample_period = float(rules.get("sample_period", 0.01))
+    cooperative_rows = _load_rows(converted_dir, "cooperative_state.csv")
+    aligned_rows = _load_rows(converted_dir, "aligned_samples.csv")
+    experiment_state_rows = _load_rows(
+        converted_dir, "experiment_state.csv")
+    if experiment_state_rows:
+        localization_rows = [
+            row for row in aligned_rows
+            if bool_value(row.get("experiment_state_available", False)) and
+            bool_value(row.get("evaluation_active", False))]
+        localization_scope = "evaluation_active"
+        excluded_localization_samples = (
+            len(aligned_rows) - len(localization_rows))
+    else:
+        # Legacy or engineering bags without ExperimentState retain the old
+        # conservative whole-recording audit.  Missing window metadata must
+        # never silently hide an invalid interval.
+        localization_rows = cooperative_rows
+        localization_scope = "full_recording_fallback"
+        excluded_localization_samples = 0
     localization = _invalid_localization_statistics(
-        _load_rows(converted_dir, "cooperative_state.csv"), sample_period)
+        localization_rows, sample_period)
+    localization["scope"] = localization_scope
+    localization["excluded_samples"] = excluded_localization_samples
     exclusion = rules.get("localization_exclusion", {})
     if (localization["invalid_fraction"] >
             float(exclusion.get("maximum_invalid_fraction", 0.0))):

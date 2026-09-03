@@ -80,4 +80,41 @@ class PlanarSupportTracker {
   double chassis_reference_step_{0.0};
 };
 
+// Frozen, method-independent conversion from the three ideal planar support
+// tracking results to calibrated chassis demands.  Keeping this layer outside
+// M1/M2a/M2b makes comparisons change only the paper algorithm, not the
+// per-robot execution compensation underneath it.
+struct FleetPlanarExecutionConfig {
+  std::array<double, 3> wheel_separation{{0.114, 0.114, 0.114}};
+  std::array<double, 3> longitudinal_gain{{1.0, 1.0, 1.0}};
+  std::array<double, 3> lateral_gain{{2.0, 2.0, 2.0}};
+  std::array<double, 3> heading_gain{{2.0, 2.0, 2.0}};
+  std::array<double, 3> angular_feedforward_scale_positive{{1.0, 1.0, 1.0}};
+  std::array<double, 3> angular_feedforward_scale_negative{{1.0, 1.0, 1.0}};
+  std::array<double, 3> curvature_preview_seconds_positive{{0.0, 0.0, 0.0}};
+  std::array<double, 3> curvature_preview_seconds_negative{{0.0, 0.0, 0.0}};
+  double formation_longitudinal_gain{0.0};
+  double formation_lateral_gain{0.0};
+  double formation_heading_gain{0.0};
+};
+
+class FleetPlanarExecutionAdapter {
+ public:
+  FleetPlanarExecutionAdapter(const PlanarSupportTracker& tracker,
+                              const FleetPlanarExecutionConfig& config);
+
+  void adapt(
+      double load_progress,
+      const std::array<double, 3>& channel_velocity_commands,
+      const std::array<PlanarPose, 3>& robot_poses,
+      const std::array<PlanarPose, 3>& support_poses,
+      std::array<PlanarTrackingResult, 3>* tracking) const;
+
+  const FleetPlanarExecutionConfig& config() const noexcept { return config_; }
+
+ private:
+  const PlanarSupportTracker& tracker_;
+  FleetPlanarExecutionConfig config_;
+};
+
 }  // namespace multi_agv_control

@@ -8,6 +8,8 @@
 #include "multi_agv_control/planar_support_tracker.hpp"
 
 using multi_agv_control::PlanarPose;
+using multi_agv_control::FleetPlanarExecutionAdapter;
+using multi_agv_control::FleetPlanarExecutionConfig;
 using multi_agv_control::PlanarSupportTracker;
 using multi_agv_control::PlanarTrackerConfig;
 using multi_agv_control::PlanarTrackingInput;
@@ -98,6 +100,48 @@ TEST(PlanarSupportTracker, FleetUsesOneCommonLoadProgress) {
   for (std::size_t index = 0; index < 3; ++index) {
     EXPECT_NEAR((results[index].support_pose_reference.position -
                  geometry().sample(index, 0.6).position).norm(), 0.0, 1e-12);
+  }
+}
+
+TEST(FleetPlanarExecutionAdapter,
+     ExactFleetUsesFrozenDirectionalFeedforwardAndWheelGeometry) {
+  const auto fleet_tracker = tracker();
+  FleetPlanarExecutionConfig config;
+  config.wheel_separation = {{0.13, 0.14, 0.15}};
+  config.angular_feedforward_scale_positive = {{0.78, 0.80, 0.82}};
+  config.angular_feedforward_scale_negative = {{0.88, 0.90, 0.92}};
+  const FleetPlanarExecutionAdapter adapter(fleet_tracker, config);
+  std::array<PlanarPose, 3> robots;
+  std::array<PlanarPose, 3> supports;
+  constexpr double progress = 0.35;
+  constexpr double speed = 0.05;
+  for (std::size_t index = 0U; index < 3U; ++index) {
+    const auto preview = fleet_tracker.track(
+        exactInput(index, progress, speed));
+    ASSERT_TRUE(preview.valid);
+    robots[index] = preview.chassis_pose_reference;
+    supports[index] = preview.support_pose_reference;
+  }
+  auto result = fleet_tracker.trackFleet(
+      progress, speed, robots, supports);
+  const auto unadapted = result;
+  adapter.adapt(
+      progress, {{speed, speed, speed}}, robots, supports, &result);
+  for (std::size_t index = 0U; index < 3U; ++index) {
+    ASSERT_TRUE(result[index].valid);
+    const double expected_scale =
+        unadapted[index].angular_velocity_feedforward > 0.0
+            ? config.angular_feedforward_scale_positive[index]
+            : config.angular_feedforward_scale_negative[index];
+    EXPECT_NEAR(
+        result[index].angular_velocity_feedforward,
+        expected_scale * unadapted[index].angular_velocity_feedforward,
+        1e-12);
+    EXPECT_NEAR(
+        result[index].wheel_linear_velocity_right_raw -
+            result[index].wheel_linear_velocity_left_raw,
+        config.wheel_separation[index] * result[index].angular_velocity_raw,
+        1e-12);
   }
 }
 

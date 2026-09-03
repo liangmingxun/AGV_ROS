@@ -10,6 +10,7 @@ catkin_install_python(PROGRAMS
   scripts/check_three_car_readonly_gate.py
   scripts/initialize_three_car_camera_formation.py
   scripts/run_timed_straight_test.py
+  scripts/wait_three_car_wheel_stop.py
   test/test_namespace_isolation.py
   test/test_command_authority.py
   test/test_tf_authority.py

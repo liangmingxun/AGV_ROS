@@ -61,12 +61,23 @@ def export_views(converted_dir, output_dir):
         raise RuntimeError("aligned_samples.csv contains no samples")
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
+    controller_path = Path(converted_dir) / "controller_state.csv"
+    controller_rows = read_csv(controller_path) if controller_path.exists() else []
+    method_id = (
+        str(controller_rows[0].get("method_id", ""))
+        if controller_rows else "")
     written = []
     for filename, prefixes in GROUPS.items():
         fields = _selected_fields(rows, prefixes)
         payload_fields = [field for field in fields
                           if field not in ("stamp", "evaluation_active")]
         if not payload_fields:
+            if (filename == "m2b_internal.csv" and
+                    method_id != "M2b_M2b"):
+                # M2b internals do not exist for M1/M2a methods.  Their
+                # absence is method-correct and must not invalidate an
+                # otherwise complete paper run.
+                continue
             raise RuntimeError("no fields available for {}".format(filename))
         view = [{field: row.get(field, "") for field in fields}
                 for row in rows]
