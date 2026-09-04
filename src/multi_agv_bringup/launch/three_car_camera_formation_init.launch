@@ -1,6 +1,6 @@
 <launch>
   <!-- Robot1 is the fixed anchor. Robot2 and Robot3 move sequentially into
-       the camera-fused 0.40 m equilateral support-centre formation. -->
+       the camera-fused 0.30 m equilateral support-centre formation. -->
   <arg name="confirm_test_area_clear" default="false"/>
   <arg name="confirm_wheels_on_floor" default="false"/>
   <arg name="confirm_automatic_formation" default="false"/>

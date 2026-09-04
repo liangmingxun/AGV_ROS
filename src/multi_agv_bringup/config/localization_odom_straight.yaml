@@ -1,5 +1,5 @@
 # Canonical straight-test world frame. After all three local odometers are
-# reset, the support centres form the frozen 0.40 m equilateral triangle and
+# reset, the support centres form the frozen 0.30 m equilateral triangle and
 # all base_link headings are zero in this virtual world frame.
 localization_mode: odometry_straight_pretest
 configuration_status: unloaded_equilateral_straight_1m

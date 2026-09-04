@@ -4,7 +4,7 @@
 
 入口 `run_three_car_camera_formation_init.sh` 使用三车的
 `/pose_provider/agvN/base_pose_fused` 作为绝对位姿反馈。Robot1 保持不动，
-其当前车头方向定义队形正前方；Robot2、Robot3 依次移动到边长 0.40 m 的
+其当前车头方向定义队形正前方；Robot2、Robot3 依次移动到边长 0.30 m 的
 等边三角形支撑点队形：
 
 - Robot1：前方顶点；
@@ -40,7 +40,7 @@ Robot2/3 的动态旋转中心外参校正后，控制采用分阶段差速车�
 只有漂移超过 `25 mm` 才退出航向阶段并重新修正位置。航向完成后仍需同时满足
 `15 mm/2°` 才能确认该车完成。
 单车停靠的位置通过线为 `15 mm`、航向通过线为 `2°`；三车完成后还会独立检查
-三条支撑点边长，每条相对 `0.40 m` 的误差均不得超过 `15 mm`。
+三条支撑点边长，每条相对 `0.30 m` 的误差均不得超过 `15 mm`。
 
 ## 运行前提
 
@@ -57,7 +57,7 @@ Robot2/3 的动态旋转中心外参校正后，控制采用分阶段差速车�
 ```bash
 cd /home/etlab/AGV_ROS/.worktrees/platform-foundation-linux
 
-./run_three_car_camera_formation_init.sh \
+./run_three_car_camera_formation_init_30cm.sh \
   --confirm-area-clear \
   --confirm-wheels-on-floor \
   --confirm-automatic-formation

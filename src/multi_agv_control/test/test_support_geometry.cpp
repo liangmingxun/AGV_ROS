@@ -22,12 +22,33 @@ SCurvePath testPath() {
 }
 
 SupportGeometryConfig testConfig() {
-  return {{{0.230940107675850, 0.0},
-           {-0.115470053837925, 0.20},
-           {-0.115470053837925, -0.20}},
+  return {{{0.1732050807568877, 0.0},
+           {-0.0866025403784439, 0.1500000000000000},
+           {-0.0866025403784439, -0.1500000000000000}},
           0.2,
           0.2,
           10001};
+}
+
+TEST(SupportGeometry, FormalFixtureIsOrientedThirtyCentimetreEquilateral) {
+  const auto offsets = testConfig().offsets;
+  const auto distance = [](const SupportOffset& lhs,
+                           const SupportOffset& rhs) {
+    return std::hypot(lhs.tangent - rhs.tangent, lhs.normal - rhs.normal);
+  };
+  EXPECT_NEAR(distance(offsets[0], offsets[1]), 0.30, 1e-14);
+  EXPECT_NEAR(distance(offsets[0], offsets[2]), 0.30, 1e-14);
+  EXPECT_NEAR(distance(offsets[1], offsets[2]), 0.30, 1e-14);
+  EXPECT_NEAR(offsets[0].tangent + offsets[1].tangent +
+                  offsets[2].tangent,
+              0.0, 1e-15);
+  EXPECT_NEAR(offsets[0].normal + offsets[1].normal + offsets[2].normal,
+              0.0, 1e-15);
+  EXPECT_GT(offsets[0].tangent, 0.0);
+  EXPECT_LT(offsets[1].tangent, 0.0);
+  EXPECT_GT(offsets[1].normal, 0.0);
+  EXPECT_LT(offsets[2].tangent, 0.0);
+  EXPECT_LT(offsets[2].normal, 0.0);
 }
 
 }  // namespace

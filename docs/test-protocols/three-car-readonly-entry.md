@@ -15,7 +15,7 @@
 - 三个 `/agvX/derating_command` 均无 Publisher。
 
 中央控制器在只读模式下不会注册命令 Publisher。只读拓扑通过之后，按
-`three-car-unloaded-fixture.md` 建立边长 `0.40 m` 的等边三角形地面工装、
+`three-car-unloaded-fixture.md` 建立边长 `0.30 m` 的等边三角形地面工装、
 复位三车里程计并验证虚拟载荷拟合；在这些步骤完成之前，不得把任何
 `hardware_execution_authorized` 改为 `true`。
 

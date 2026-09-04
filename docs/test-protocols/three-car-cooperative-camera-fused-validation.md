@@ -4,7 +4,7 @@
 
 `CAMERA_IMU_WHEEL_FUSED_CLOSED_LOOP_V1` 已于 2026-09-02 冻结为三车空载
 工程基线。冻结配置为
-`three_car_camera_fused_engineering_baseline_v1.yaml`，适用范围仅为 0.40 m
+`three_car_camera_fused_engineering_baseline_v1.yaml`，适用范围仅为 0.30 m
 支撑中心等边队形、1.00 m S 路径、0.05 m/s。后续 M1+R1 与 M2b 必须使用
 相同定位、路径、底盘标定和物理限幅，并与该基线区分 method_id。
 启动脚本校验冻结配置 SHA-256：
@@ -23,7 +23,7 @@
 0.15 s 未更新时，三车 CooperativeState 失效，控制节点向三车统一停车。
 
 无载荷阶段不要求 ID0。状态估计器从三台车的融合 base_link 位姿计算支撑中心，
-用冻结的 0.40 m 等边三角形做 SE(2) 刚体拟合，得到虚拟载荷/编队中心。首次有效
+用冻结的 0.30 m 等边三角形做 SE(2) 刚体拟合，得到虚拟载荷/编队中心。首次有效
 同步样本把虚拟载荷自动锚定到路径 `s=0`，因此不再使用固定 `world_to_odom`，也
 不要求把车辆摆在相机世界坐标的某个绝对数值上。Task 15 的真实载荷接口继续保留。
 
@@ -43,7 +43,7 @@
 
 ## 初始构型
 
-三车车头方向一致，支撑/转盘中心构成约 0.40 m 等边三角形：Robot1 前方、
+三车车头方向一致，支撑/转盘中心构成约 0.30 m 等边三角形：Robot1 前方、
 Robot2 左后、Robot3 右后。软件允许刚体整体平移和旋转，但初始构型拟合 RMS 必须
 不超过 25 mm；三车朝向误差还必须满足控制节点的起步航向门。
 
@@ -95,7 +95,7 @@ cd /home/etlab/AGV_ROS/.worktrees/platform-foundation-linux
 ./run_three_car_cooperative_straight_validation.sh \
   --confirm-area-clear \
   --confirm-wheels-on-floor \
-  --confirm-unloaded-40cm-fixture
+  --confirm-unloaded-30cm-fixture
 ```
 
 短直线安全完成并分析后，重新摆好三车执行 S 门：
@@ -104,7 +104,7 @@ cd /home/etlab/AGV_ROS/.worktrees/platform-foundation-linux
 ./run_three_car_cooperative_s_validation.sh \
   --confirm-area-clear \
   --confirm-wheels-on-floor \
-  --confirm-unloaded-40cm-fixture
+  --confirm-unloaded-30cm-fixture
 ```
 
 结果位于：

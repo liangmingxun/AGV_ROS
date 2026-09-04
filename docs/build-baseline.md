@@ -22,9 +22,13 @@ replaced by the committed catkin toplevel symlink. If an archive tool flattens t
 symlink again, move the regular file aside before running `catkin_init_workspace
 src`; ROS Noetic's command does not provide a `--force` option.
 
-## Required Ubuntu validation
+## Ubuntu baseline/release validation
 
-Run from the workspace root before deploying any package:
+本节用于首次建立 Ubuntu 基线、跨包接口/CMake/依赖变更，以及合并或发布前验证，
+不是每次代码修改或每轮实车 pilot 的固定步骤。日常开发按
+[`开发验证与实车检查分级规范`](开发验证与实车检查分级规范.md) 只验证受影响范围。
+
+Run from the workspace root when establishing or releasing a baseline:
 
 ```bash
 if [ ! -L src/CMakeLists.txt ]; then

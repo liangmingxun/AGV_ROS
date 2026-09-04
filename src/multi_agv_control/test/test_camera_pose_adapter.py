@@ -13,9 +13,9 @@ from std_msgs.msg import Float64
 
 class CameraPoseAdapterTest(unittest.TestCase):
     OFFSETS = (
-        (0.230940107675850, 0.0),
-        (-0.115470053837925, 0.20),
-        (-0.115470053837925, -0.20),
+        (0.1732050807568877, 0.0),
+        (-0.0866025403784439, 0.1500000000000000),
+        (-0.0866025403784439, -0.1500000000000000),
     )
     BASE_TO_SUPPORT_X = -0.01783
 
@@ -132,7 +132,7 @@ class CameraPoseAdapterTest(unittest.TestCase):
                     epoch_token))
         return stamp, expected_bases
 
-    def test_camera_transform_stamps_and_independent_dropout(self):
+    def test_camera_transform_stamps_and_synchronized_dropout(self):
         self._wait_for_connections()
         rate = rospy.Rate(50)
         last_stamp = None
@@ -165,20 +165,20 @@ class CameraPoseAdapterTest(unittest.TestCase):
         self.assertEqual(
             self._raw_agv1[-1].header.frame_id, "world@00000001")
 
-        # Drop only AGV2 for longer than maximum_state_age. AGV1, AGV3 and
-        # the directly observed load must remain independently usable.
+        # Drop only AGV2 for longer than maximum_state_age. The estimator's
+        # three-robot synchronized-snapshot contract invalidates all robot
+        # states (so formal control fails zero); the separately observed load
+        # remains usable.
         for step in range(18):
             self._publish(0.11 + 0.001 * step, indices=(0, 2, 3))
             rate.sleep()
         state = self._latest()
-        self.assertEqual(list(state.robot_pose_valid), [True, False, True])
-        self.assertEqual(list(state.support_pose_valid), [True, False, True])
-        self.assertEqual(list(state.path_state_valid), [True, False, True])
+        self.assertEqual(list(state.robot_pose_valid), [False] * 3)
+        self.assertEqual(list(state.support_pose_valid), [False] * 3)
+        self.assertEqual(list(state.path_state_valid), [False] * 3)
         self.assertEqual(
             list(state.robot_localization_source),
-            [CooperativeState.SOURCE_CAMERA,
-             CooperativeState.SOURCE_UNKNOWN,
-             CooperativeState.SOURCE_CAMERA])
+            [CooperativeState.SOURCE_UNKNOWN] * 3)
         self.assertTrue(state.load_pose_valid)
         self.assertTrue(state.load_path_state_valid)
 

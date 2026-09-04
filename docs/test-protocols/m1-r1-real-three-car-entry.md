@@ -1,9 +1,13 @@
 # M1+R1 真实三车首轮入口
 
-本入口只用于当前空载 0.40 m 三支撑队形，方法固定为 M1+R1，定位固定为
+本入口只用于当前空载 0.30 m 三支撑队形，方法固定为 M1+R1，定位固定为
 `CAMERA_IMU_WHEEL_FUSED_CLOSED_LOOP`。它不会授权 M2a、M2b 或真实载荷。
 
-## 1. 编译与软件观察者验证
+## 1. 每个新提交一次的编译与软件观察者验证
+
+以下步骤只在相关代码提交发生变化后执行一次。同一提交已经验证并同步到三车后，
+后续 pilot 不重复执行。仅修改文档时不执行编译或 observer。更详细的最小测试规则见
+[`开发验证与实车检查分级规范`](../开发验证与实车检查分级规范.md)。
 
 在 Robot1 当前 worktree 执行：
 
@@ -20,10 +24,18 @@ fake/observer 通过只证明消息链、录包门和离线处理可以工作，
 
 ## 2. 实车运行前置条件
 
+本节由启动脚本和现场确认在每轮运行时执行。Stage A-D、单车预检、完整相机标定、
+举升轮标定和降额预检不是每轮前置条件；只在相关硬件、配置或环境发生变化，或者出现
+对应异常后重做。
+
+操作者于 2026-09-04 报告 Robot1/2/3 均完成 `0.15 m/s` 实测，急停有效，且无
+异常振动、失控或通信故障；因此当前 M1+R1 pilot 软件授权已开启。该授权依据是
+人工实测报告，不是 CapabilityMapper 扫描或软件测试结果。
+
 - Windows 相机发送端、Robot1 视觉桥和三车相机融合节点已经运行；
 - 三台底盘均用 `start_three_car_chassis.sh 1|2|3` 启动，Git SHA 一致；
 - Robot1 当前代码已提交且工作树干净（`experiment_data/` 可保留）；
-- 三车已人工放成约 0.40 m 的空载支撑三角形并完全位于相机视野；
+- 三车已人工放成约 0.30 m 的空载支撑三角形并完全位于相机视野；
 - `/vision/aruco/alive` 为 `True`，三车 fused pose 和
   `/multi_agv/cooperative_state` 连续有效；
 - 本工程验证入口不强制归档 Windows 发送器清单；这不会影响闭环、录包数据、
@@ -43,7 +55,7 @@ source devel/setup.bash
   --pair-block B01 \
   --confirm-area-clear \
   --confirm-wheels-on-floor \
-  --confirm-unloaded-40cm-fixture
+  --confirm-unloaded-30cm-fixture
 ```
 
 脚本依次检查三台 serial 底盘和 SHA、相机链、5 秒只读门；随后启动等效载荷
@@ -61,5 +73,12 @@ experiment_data/formal_serial_unloaded/m1_r1_serial_YYYYmmdd_HHMMSS/
 
 目录中保留唯一原始证据 bag，并自动生成 `manifest.yaml`、`run_meta.json`、
 `validation.json`、`summary_metrics.json`、六类论文逻辑 CSV 以及图 2--7 的
-PNG/PDF 草图。只有脚本打印 `M1+R1 SERIAL RUN COMPLETE` 且
+PNG/PDF 草图；校验通过后还会自动生成新版中文论文图到：
+
+```text
+paper_figures/01_M1_R1_complete_method/
+```
+
+无需再手动执行出图命令。只有脚本打印 `PAPER FIGURES COMPLETE`、
+`M1+R1 SERIAL RUN COMPLETE` 且
 `run_meta.json` 中 `valid_run=true` 才算数据链完整；它仍不等于正式统计批准。

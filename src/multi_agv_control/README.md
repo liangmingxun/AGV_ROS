@@ -46,7 +46,7 @@ speed/yaw rate to wheel-edge velocities. Capability mapping must use those
 chassis-reference derivatives rather than uncorrected support-path
 derivatives.
 
-The YAML files now freeze the unloaded `0.40 m` equilateral pretest fixture:
+The YAML files now freeze the unloaded `0.30 m` equilateral pretest fixture:
 Robot1 front, Robot2 left-rear and Robot3 right-rear, on the Robot1-validated
 `A=0.05 m`, longitudinal `1.0 m` short S. This is not the final loaded-object
 geometry. The generic path, support and central-controller

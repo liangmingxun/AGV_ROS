@@ -10,7 +10,7 @@ usage:
     --confirm-automatic-formation
 
 Robot1 remains fixed and defines formation forward. Robot2 then Robot3 move
-sequentially at no more than 0.025 m/s into a 0.40 m equilateral triangle of
+sequentially at no more than 0.025 m/s into a 0.30 m equilateral triangle of
 support centres. This setup step does not record a rosbag; it aborts all cars
 on any safety or convergence gate.
 EOF
@@ -107,7 +107,7 @@ set -e
 result_code="$(rosparam get /multi_agv/formation_init/result_code 2>/dev/null || true)"
 
 if [[ "$result_code" == "0" ]]; then
-  echo "PASS: camera-fused three-car formation initialization confirmed."
+  echo "PASS: camera-fused 0.30 m three-car formation initialization confirmed."
   status=0
 else
   echo "ERROR: formation initialization aborted (result=${result_code:-missing}, launch=${launch_status})." >&2

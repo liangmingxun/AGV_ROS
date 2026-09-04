@@ -5,7 +5,7 @@
   <arg name="confirm_readonly_gate_passed" default="false"/>
   <arg name="confirm_test_area_clear" default="false"/>
   <arg name="confirm_wheels_on_floor" default="false"/>
-  <arg name="confirm_unloaded_40cm_fixture" default="false"/>
+  <arg name="confirm_unloaded_30cm_fixture" default="false"/>
   <arg name="controller_config"
        default="$(find multi_agv_bringup)/config/three_car_unloaded_bounded_pretest.yaml"/>
 
@@ -28,7 +28,7 @@
            value="$(arg confirm_readonly_gate_passed)"/>
     <param name="confirm_test_area_clear" value="$(arg confirm_test_area_clear)"/>
     <param name="confirm_wheels_on_floor" value="$(arg confirm_wheels_on_floor)"/>
-    <param name="confirm_unloaded_40cm_fixture"
-           value="$(arg confirm_unloaded_40cm_fixture)"/>
+    <param name="confirm_unloaded_30cm_fixture"
+           value="$(arg confirm_unloaded_30cm_fixture)"/>
   </node>
 </launch>

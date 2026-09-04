@@ -9,7 +9,7 @@
 ## 实物布置
 
 - 空载，不放置共同载荷；
-- 三个支撑中心构成边长 `0.40 m` 的等边三角形；
+- 三个支撑中心构成边长 `0.30 m` 的等边三角形；
 - Robot1 在前，Robot2 左后，Robot3 右后；
 - 三车车头严格平行并朝向同一条地面直线；
 - 轮子落地，前方及停车余量范围内无人员和障碍；
@@ -26,7 +26,7 @@ cd /home/etlab/AGV_ROS/.worktrees/platform-foundation-linux
 src/multi_agv_bringup/scripts/run_three_car_unloaded_straight_pretest.sh \
   --confirm-area-clear \
   --confirm-wheels-on-floor \
-  --confirm-unloaded-40cm-fixture
+  --confirm-unloaded-30cm-fixture
 ```
 
 脚本会自动启动直线专用状态估计器、复位三车里程计、执行两轮运动门禁、

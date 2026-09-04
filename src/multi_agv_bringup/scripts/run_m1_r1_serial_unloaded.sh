@@ -6,7 +6,7 @@ usage() {
 usage: run_m1_r1_serial_unloaded.sh \
   --operator NAME --pair-block ID \
   --confirm-area-clear --confirm-wheels-on-floor \
-  --confirm-unloaded-40cm-fixture
+  --confirm-unloaded-30cm-fixture
 
 Runs the first paper M1+R1 serial entry on Robot1. The three chassis,
 vision bridge and camera fusion must already be running. This command starts
@@ -27,7 +27,7 @@ while [[ $# -gt 0 ]]; do
     --pair-block) pair_block="$2"; shift 2 ;;
     --confirm-area-clear) confirm_area=true; shift ;;
     --confirm-wheels-on-floor) confirm_floor=true; shift ;;
-    --confirm-unloaded-40cm-fixture) confirm_fixture=true; shift ;;
+    --confirm-unloaded-30cm-fixture) confirm_fixture=true; shift ;;
     -h|--help) usage; exit 0 ;;
     *) echo "ERROR: unknown argument: $1" >&2; usage; exit 2 ;;
   esac
@@ -192,7 +192,7 @@ roslaunch multi_agv_bringup formal_serial_m1_r1.launch \
   enable_commands:=true \
   confirm_test_area_clear:=true \
   confirm_wheels_on_floor:=true \
-  confirm_unloaded_40cm_fixture:=true &
+  confirm_unloaded_30cm_fixture:=true &
 algorithm_pid="$!"
 roslaunch multi_agv_bringup formal_evaluation_window.launch \
   platform_transport_type:=serial \
@@ -249,4 +249,10 @@ recorder_pid=""
 run_dir="${output_root}/${run_id}"
 rosrun multi_agv_analysis process_experiment_run.py "$run_dir" \
   "$(rospack find multi_agv_analysis)/config/validation_defaults.yaml"
+paper_output_dir="${run_dir}/paper_figures"
+rosrun multi_agv_analysis plot_paper_experiments.py \
+  --output-dir "$paper_output_dir" \
+  --numbered-folders \
+  --experiment1 "$run_dir"
+echo "PAPER FIGURES COMPLETE: ${paper_output_dir}/01_M1_R1_complete_method"
 echo "M1+R1 SERIAL RUN COMPLETE: ${run_dir}"

@@ -196,7 +196,7 @@ class ThreeCarUnloadedBoundedPretestNode {
     }
 
     ROS_WARN("Three-car unloaded bounded pretest starts in %.1f seconds: "
-             "fixture=0.40 m, speed=%.3f m/s, progress=%.3f m",
+             "fixture=0.30 m, speed=%.3f m/s, progress=%.3f m",
              start_delay_, speed_, target_progress_);
     const ros::WallTime delay_start = ros::WallTime::now();
     while (ros::ok() && !stop_requested.load() &&
@@ -298,7 +298,7 @@ class ThreeCarUnloadedBoundedPretestNode {
     confirm_wheels_on_floor_ =
         private_.param("confirm_wheels_on_floor", false);
     confirm_unloaded_fixture_ =
-        private_.param("confirm_unloaded_40cm_fixture", false);
+        private_.param("confirm_unloaded_30cm_fixture", false);
     transport_type_ =
         private_.param<std::string>("platform_transport_type", "serial");
 

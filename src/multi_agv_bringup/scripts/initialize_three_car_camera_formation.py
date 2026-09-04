@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Sequentially align three AGVs into a camera-fused 0.40 m triangle."""
+"""Sequentially align three AGVs into a camera-fused 0.30 m triangle."""
 
 import math
 import signal
@@ -50,7 +50,7 @@ class FormationInitializer:
             root + "minimum_battery_voltage", 10.0)
         self.minimum_voltage_duration = rospy.get_param(
             root + "minimum_battery_voltage_duration", 0.5)
-        self.side = rospy.get_param(root + "geometry/side_length", 0.40)
+        self.side = rospy.get_param(root + "geometry/side_length", 0.30)
         self.support_x = rospy.get_param(
             root + "geometry/base_to_support_x", -0.01783)
         self.final_side_tolerance = rospy.get_param(

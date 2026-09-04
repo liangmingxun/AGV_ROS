@@ -5,7 +5,7 @@
 本入口只适用于已经连续通过第二次只读门槛的冻结工装：
 
 - Robot1 前、Robot2 左后、Robot3 右后；
-- 三个转盘中心构成边长 `0.40 m` 的等边三角形；
+- 三个转盘中心构成边长 `0.30 m` 的等边三角形；
 - 三车初始车头平行；
 - 无箱体、无共同托盘、无其他载荷；
 - 路径参数 `A=0.05 m`、纵向长度 `1.0 m`；
@@ -58,7 +58,7 @@
 rosbag，并在录制连接建立后启动有界运动。
 
 三车先按地面标记摆好，保持 Robot1 前、Robot2 左后、Robot3 右后，三个转盘
-中心构成边长 `0.40 m` 的等边三角形，三车车头平行。随后依次执行：
+中心构成边长 `0.30 m` 的等边三角形，三车车头平行。随后依次执行：
 
 Robot1 终端1：
 
@@ -88,11 +88,11 @@ cd /home/etlab/AGV_ROS/.worktrees/platform-foundation-linux
 src/multi_agv_bringup/scripts/run_three_car_unloaded_pretest.sh \
   --confirm-area-clear \
   --confirm-wheels-on-floor \
-  --confirm-unloaded-40cm-fixture
+  --confirm-unloaded-30cm-fixture
 ```
 
 最后一个命令会实际驱动三辆车。三个确认参数只能在人员已经核对场地、车轮
-落地和无载 40 cm 工装后填写。正常结束会打印 bag、参数快照和 manifest 的
+落地和无载 30 cm 工装后填写。正常结束会打印 bag、参数快照和 manifest 的
 绝对路径。任意门槛失败时脚本退出，不得删减检查参数或调用底层运动节点绕过。
 
 ### 手动诊断流程
@@ -126,7 +126,7 @@ rosbag record -O /home/etlab/AGV_ROS/three_car_unloaded_bounded_run1.bag \
 
 ### Robot1 终端4：有界入口
 
-确认场地净空、急停人员就位、三车仍在 40 cm 标记上且电量合格后执行：
+确认场地净空、急停人员就位、三车仍在 30 cm 标记上且电量合格后执行：
 
 ```bash
 cd /home/etlab/AGV_ROS/.worktrees/platform-foundation-linux
@@ -141,7 +141,7 @@ roslaunch multi_agv_bringup three_car_unloaded_bounded_pretest.launch \
   confirm_readonly_gate_passed:=true \
   confirm_test_area_clear:=true \
   confirm_wheels_on_floor:=true \
-  confirm_unloaded_40cm_fixture:=true
+  confirm_unloaded_30cm_fixture:=true
 ```
 
 节点会先等待输入和 rosbag 连接，再倒计时 `5 s`。正常完成日志必须包含：

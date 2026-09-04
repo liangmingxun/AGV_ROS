@@ -23,9 +23,9 @@ namespace {
 SupportGeometry geometry() {
   SupportGeometryConfig config;
   config.offsets = {
-      {0.230940107675850, 0.0},
-      {-0.115470053837925, 0.20},
-      {-0.115470053837925, -0.20}};
+      {0.1732050807568877, 0.0},
+      {-0.0866025403784439, 0.1500000000000000},
+      {-0.0866025403784439, -0.1500000000000000}};
   return SupportGeometry(SCurvePath({0.05, 1.0, 20001}), config);
 }
 
@@ -242,9 +242,9 @@ TEST(PlanarSupportTracker, SmoothClockwiseHalfMetreCircleStaysInsideWheelBound) 
   const SCurvePath path(path_config);
   SupportGeometryConfig geometry_config;
   geometry_config.offsets = {
-      {0.230940107675850, 0.0},
-      {-0.115470053837925, 0.20},
-      {-0.115470053837925, -0.20}};
+      {0.1732050807568877, 0.0},
+      {-0.0866025403784439, 0.1500000000000000},
+      {-0.0866025403784439, -0.1500000000000000}};
   const SupportGeometry circle_geometry(path, geometry_config);
   PlanarTrackerConfig tracker_config;
   tracker_config.wheel_separation = {
@@ -291,9 +291,9 @@ TEST(PlanarSupportTracker,
                            const SupportOffset& rhs) {
     return std::hypot(lhs.tangent - rhs.tangent, lhs.normal - rhs.normal);
   };
-  EXPECT_NEAR(distance(offsets[0], offsets[1]), 0.40, 1e-14);
-  EXPECT_NEAR(distance(offsets[0], offsets[2]), 0.40, 1e-14);
-  EXPECT_NEAR(distance(offsets[1], offsets[2]), 0.40, 1e-14);
+  EXPECT_NEAR(distance(offsets[0], offsets[1]), 0.30, 1e-14);
+  EXPECT_NEAR(distance(offsets[0], offsets[2]), 0.30, 1e-14);
+  EXPECT_NEAR(distance(offsets[1], offsets[2]), 0.30, 1e-14);
   EXPECT_GT(offsets[0].tangent, 0.0);
   EXPECT_GT(offsets[1].normal, 0.0);
   EXPECT_LT(offsets[2].normal, 0.0);
@@ -301,13 +301,13 @@ TEST(PlanarSupportTracker,
   const auto measured_tracker = measuredOffsetTracker();
   const PlanarPose dummy{{0.0, 0.0}, 0.0};
   const std::array<PlanarPose, 3> expected_support{{
-      {{0.220323379016242, 0.069216630893151}, 0.304395797364615},
-      {{-0.170105050225960, 0.156197327829118}, 0.304395797364615},
-      {{-0.050218328790282, -0.225413958722268}, 0.304395797364615}}};
+      {{0.165242534262182, 0.051912473169863}, 0.304395797364615},
+      {{-0.127578787669470, 0.117147995871838}, 0.304395797364615},
+      {{-0.037663746592711, -0.169060469041701}, 0.304395797364615}}};
   const std::array<PlanarPose, 3> expected_chassis{{
-      {{0.237558108478319, 0.073785328778655}, 0.259126757480348},
-      {{-0.153183411455991, 0.161815783251978}, 0.320575164049588},
-      {{-0.033319456800366, -0.219727393373269}, 0.324602887613338}}};
+      {{0.182428656870112, 0.056660745456199}, 0.269560710208377},
+      {{-0.110631929722283, 0.122689918436964}, 0.316055759004345},
+      {{-0.020728527955413, -0.163483079893820}, 0.318149288880721}}};
   for (std::size_t index = 0U; index < 3U; ++index) {
     const auto preview =
         measured_tracker.track({index, 0.0, 0.05, dummy, dummy});

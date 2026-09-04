@@ -709,7 +709,7 @@ class PathStateEstimatorNode {
       const double distance_23 = (supports[1] - supports[2]).norm();
       ROS_WARN_THROTTLE(
           1.0,
-          "Cannot anchor camera-fused fleet: initial rigid-fit residual %.6f m exceeds %.6f m; support distances d12=%.4f d13=%.4f d23=%.4f m (required approximately 0.4000 m each)",
+          "Cannot anchor camera-fused fleet: initial rigid-fit residual %.6f m exceeds %.6f m; support distances d12=%.4f d13=%.4f d23=%.4f m (required approximately 0.3000 m each)",
           fit.rms_residual, maximum_rigid_fit_residual_,
           distance_12, distance_13, distance_23);
       return false;

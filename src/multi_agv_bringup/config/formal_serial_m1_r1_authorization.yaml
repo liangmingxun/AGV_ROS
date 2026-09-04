@@ -1,7 +1,6 @@
-# Physical authorization overlay. It contains no controller coefficients.
-# Loading it is necessary but not sufficient: the serial gate also requires
-# explicit launch confirmations, three actual serial chassis bindings and a
-# fresh method-matching recorder heartbeat.
+# Physical authorization overlay. The operator reported on 2026-09-04 that
+# Robot1/2/3 completed the 0.15 m/s physical test, emergency stop was effective,
+# and no abnormal vibration, loss of control or communication occurred.
 formal_upper:
   hardware_execution_authorized: true
 

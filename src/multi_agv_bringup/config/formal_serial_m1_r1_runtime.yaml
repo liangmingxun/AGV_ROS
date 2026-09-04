@@ -3,9 +3,10 @@
 # execution authority is separated by the serial gate and launch file.
 formal_fake_runtime:
   schema_version: 1
-  # Operator authorization covers a 0.15 m/s chassis-applied wheel limit.
-  # The 0.18 m/s value below is only a pre-limit demand abort threshold; it
-  # never expands the speed that the chassis physical limiter may apply.
+  # Operator-reported physical validation on 2026-09-04 confirmed all three
+  # robots at the 0.15 m/s chassis-applied wheel envelope, with emergency stop
+  # effective and no abnormal vibration, loss of control or communication.
+  # The 0.18 m/s value below remains only a pre-limit demand abort threshold.
   configuration_status: PILOT_AUTHORIZED_0p15_APPLIED_0p18_PRELIMIT_ABORT
   command_publication_authorized: false
   serial_execution_authorized: true
@@ -39,7 +40,7 @@ formal_fake_runtime:
   maximum_recorder_armed_age: 0.50
   confirm_test_area_clear: false
   confirm_wheels_on_floor: false
-  confirm_unloaded_40cm_fixture: false
+  confirm_unloaded_30cm_fixture: false
   initial_progress: 0.0
   target_progress: 1.0
   experiment_id: exp2a_m1_r1_unloaded_serial

@@ -5,11 +5,133 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from multi_agv_analysis.io_utils import write_csv
+from multi_agv_analysis.io_utils import atomic_dump_json, write_csv
 from multi_agv_analysis.paper_pipeline import export_views
+from multi_agv_analysis.publication_plots import (
+    plot_experiment1, plot_experiment2a, plot_experiment2b,
+    plot_experiment3, write_statistics)
+
+
+SCRIPT = Path(__file__).parents[1] / "scripts" / "plot_paper_experiments.py"
 
 
 class PaperPipelineTest(unittest.TestCase):
+    def test_cli_exposes_stable_numbered_test_folders(self):
+        script = SCRIPT.read_text(encoding="utf-8")
+        for folder in (
+                "01_M1_R1_complete_method",
+                "02a_M1_vs_M2a_capability_derating",
+                "02b_M1_vs_M2b_complete_method",
+                "03_R1_R2_R3_disturbance_rejection"):
+            self.assertIn(folder, script)
+        self.assertIn("--numbered-folders", script)
+
+    @staticmethod
+    def _publication_fixture(path):
+        rows = []
+        for index in range(16):
+            row = {
+                "stamp": 10.0 + index * 0.1,
+                "evaluation_active": True,
+                "load_pose_x": index * 0.01,
+                "load_pose_y": 0.01,
+                "load_x_reference": index * 0.01,
+                "load_y_reference": 0.0,
+                "common_boundary_upper": 0.09,
+                "public_reference_velocity": 0.08,
+            }
+            for robot in range(1, 4):
+                row.update({
+                    "agv{}_mapped_path_velocity_upper".format(robot):
+                        0.12 - 0.005 * robot,
+                    "agv{}_boundary_upper".format(robot): 0.095,
+                    "agv{}_support_pose_x".format(robot):
+                        index * 0.01 + 0.001 * robot,
+                    "agv{}_support_pose_y".format(robot): 0.01 * robot,
+                    "agv{}_support_reference_x".format(robot):
+                        index * 0.01,
+                    "agv{}_support_reference_y".format(robot):
+                        0.01 * robot,
+                    "agv{}_composite_error".format(robot):
+                        0.001 * robot,
+                    "agv{}_disturbance_estimate".format(robot):
+                        0.002 * robot,
+                    "agv{}_channel_input_raw".format(robot):
+                        0.01 * robot,
+                })
+                for side in ("left", "right"):
+                    prefix = "agv{}_wheel_{}".format(robot, side)
+                    row[prefix + "_pre_limit"] = 0.07 + 0.002 * robot
+                    row[prefix + "_applied"] = 0.07
+                    row[prefix + "_actual"] = 0.069
+                    row[prefix + "_reported_limit"] = (
+                        0.10 if robot == 2 and 5 <= index <= 9 else 0.15)
+            rows.append(row)
+        write_csv(path, rows)
+
+    def test_compact_publication_set_writes_chinese_png_pdf_and_tables(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source = root / "aligned_samples.csv"
+            self._publication_fixture(source)
+            output = root / "paper_figures"
+            self.assertEqual(plot_experiment1(source, output / "experiment1"), 4)
+            self.assertEqual(plot_experiment2a(
+                source, source, output / "experiment2a", local_window=(0.4, 1.0)), 4)
+            self.assertEqual(plot_experiment2b(
+                source, source, output / "experiment2b", event=(0.5, 0.9)), 3)
+            self.assertEqual(plot_experiment3(
+                source, source, source, output / "experiment3",
+                disturbance=(0.5, 0.9)), 2)
+            expected = {
+                "experiment1": (
+                    "experiment1_trajectory", "experiment1_boundary_velocity",
+                    "experiment1_tracking_error", "experiment1_wheel_execution"),
+                "experiment2a": (
+                    "experiment2a_boundary_comparison", "experiment2a_robot2_wheel",
+                    "experiment2a_formation_error", "experiment2a_local_trajectory"),
+                "experiment2b": (
+                    "experiment2b_boundary_comparison", "experiment2b_execution_error",
+                    "experiment2b_local_trajectory"),
+                "experiment3": (
+                    "experiment3_tracking_error", "experiment3_disturbance_response"),
+            }
+            for directory, names in expected.items():
+                for name in names:
+                    self.assertTrue((output / directory / (name + ".png")).is_file())
+                    self.assertTrue((output / directory / (name + ".pdf")).is_file())
+            metrics = root / "summary_metrics.json"
+            atomic_dump_json(metrics, {
+                "task": {"completion_time": 12.0},
+                "path": {"progress_rmse": 0.01,
+                         "progress_max_absolute": 0.02},
+                "geometry": {"load_position_rmse": 0.01,
+                             "rigid_fit_residual_max": 0.003,
+                             "support": {"agv1": {"position_max": 0.02}}},
+                "wheel": {"maximum_pre_limit_demand": 0.12,
+                          "limited_time": 0.0},
+                "internal": {"channel_input_max_absolute": 0.2},
+            })
+            table = output / "experiment2a" / "experiment2a_statistics.csv"
+            self.assertEqual(write_statistics(
+                [("M1", metrics), ("M2a", metrics), ("M4", metrics)],
+                table, "experiment2a"), 3)
+            with open(table, encoding="utf-8") as stream:
+                table_rows = list(csv.DictReader(stream))
+                methods = [row["method"] for row in table_rows]
+            self.assertEqual(methods, ["M1", "M2a", "M4"])
+            self.assertTrue(all(row["experiment"] == "experiment2a"
+                                for row in table_rows))
+            r4_table = output / "experiment3" / "experiment3_statistics.csv"
+            self.assertEqual(write_statistics(
+                [("R4", metrics)], r4_table, "experiment3"), 1)
+            with open(r4_table, encoding="utf-8") as stream:
+                self.assertEqual(next(csv.DictReader(stream))["method"], "R4")
+            source_text = Path(
+                plot_experiment1.__code__.co_filename).read_text(encoding="utf-8")
+            self.assertNotIn("0.230940107", source_text)
+            self.assertNotIn("0.115470053", source_text)
+
     def test_logical_views_are_rebuilt_from_aligned_source(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

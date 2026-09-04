@@ -1,5 +1,6 @@
-# Task 10 software-validation reserves. Replace with values derived from the
-# measured delay/model/synchronisation budget before physical S-curve tests.
+# Legacy Task 10 software-validation input. Formal serial M1+R1 does not load
+# this file; its mapper uses the measured per-robot wheel separations and
+# base-to-support offsets in formal_serial_m1_r1_runtime.yaml.
 capability_mapping:
   configuration_status: software_validation_only
   hardware_execution_authorized: false

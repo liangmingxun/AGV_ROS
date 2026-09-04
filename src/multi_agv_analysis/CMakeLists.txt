@@ -25,6 +25,7 @@ catkin_install_python(PROGRAMS
   scripts/fleet_health_check.py
   scripts/manage_stage_evidence.py
   scripts/plot_experiment_run.py
+  scripts/plot_paper_experiments.py
   scripts/process_experiment_run.py
   scripts/record_experiment.py
   scripts/software_watchdog.py

@@ -13,7 +13,7 @@ three_car_camera_formation_init:
   minimum_battery_voltage_duration: 0.5
 
   geometry:
-    side_length: 0.40
+    side_length: 0.30
     base_to_support_x: -0.01783
     final_side_tolerance: 0.015
     final_heading_tolerance: 0.05236

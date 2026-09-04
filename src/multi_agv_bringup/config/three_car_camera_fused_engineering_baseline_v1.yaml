@@ -2,7 +2,7 @@
 #
 # Scope:
 #   - method: CAMERA_IMU_WHEEL_FUSED_CLOSED_LOOP
-#   - three unloaded AGVs, 0.40 m equilateral support-centre formation
+#   - three unloaded AGVs, 0.30 m equilateral support-centre formation
 #   - 1.00 m S path at 0.05 m/s
 #   - camera/IMU/wheel fused CooperativeState feedback
 #

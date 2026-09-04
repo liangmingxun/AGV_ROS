@@ -11,7 +11,7 @@
   <arg name="enable_commands" default="false"/>
   <arg name="confirm_test_area_clear" default="false"/>
   <arg name="confirm_wheels_on_floor" default="false"/>
-  <arg name="confirm_unloaded_40cm_fixture" default="false"/>
+  <arg name="confirm_unloaded_30cm_fixture" default="false"/>
 
   <node pkg="multi_agv_control" type="formal_algorithm_node"
         name="formal_algorithm" output="screen" required="true">
@@ -31,7 +31,7 @@
            value="$(arg confirm_test_area_clear)"/>
     <param name="formal_fake_runtime/confirm_wheels_on_floor"
            value="$(arg confirm_wheels_on_floor)"/>
-    <param name="formal_fake_runtime/confirm_unloaded_40cm_fixture"
-           value="$(arg confirm_unloaded_40cm_fixture)"/>
+    <param name="formal_fake_runtime/confirm_unloaded_30cm_fixture"
+           value="$(arg confirm_unloaded_30cm_fixture)"/>
   </node>
 </launch>

@@ -133,11 +133,22 @@ class BringupStaticTest(unittest.TestCase):
         experiment_entry = (
             PACKAGE / "scripts" / "run_m1_r1_serial_unloaded.sh"
         ).read_text(encoding="utf-8")
+        authorization = (
+            PACKAGE / "config" / "formal_serial_m1_r1_authorization.yaml"
+        ).read_text(encoding="utf-8")
+        formal_source = (
+            SOURCE_ROOT / "multi_agv_control" / "src" /
+            "formal_fake_algorithm_node.cpp"
+        ).read_text(encoding="utf-8")
 
         self.assertIn(
-            "PILOT_AUTHORIZED_0p15_APPLIED_0p18_PRELIMIT_ABORT", runtime)
+            "PILOT_AUTHORIZED_0p15_APPLIED_0p18_PRELIMIT_ABORT",
+            runtime)
         self.assertIn("command_publication_authorized: false", runtime)
         self.assertIn("serial_execution_authorized: true", runtime)
+        self.assertEqual(
+            authorization.count("hardware_execution_authorized: true"), 2)
+        self.assertNotIn("hardware_execution_authorized: false", authorization)
         self.assertIn("emergency_abort_limit: 0.18", runtime)
         self.assertIn("velocity: 0.08", runtime)
         self.assertIn("velocity: [0.08, 0.08, 0.08]", runtime)
@@ -149,11 +160,18 @@ class BringupStaticTest(unittest.TestCase):
             self.assertIn("initial_upper: [0.095, 0.095, 0.095]", config)
             self.assertIn("nominal_upper: [0.095, 0.095, 0.095]", config)
         self.assertIn("exp2a_M1_serial_008.yaml", serial_launch)
+        self.assertNotIn("capability_mapping.yaml", serial_launch)
+        self.assertIn(
+            "wheel_separation: [0.135484339, 0.139284482, 0.136802843]",
+            runtime)
+        self.assertEqual(runtime.count("{x: -0.01783, y: 0.0}"), 3)
+        self.assertIn("confirm_unloaded_30cm_fixture: false", runtime)
         self.assertIn('formal_available_wheel_limit" default="0.08"',
                       chassis_launch)
         self.assertIn("--confirm-formal-0p15-wheel-envelope", chassis_entry)
         self.assertIn('formal_wheel_limit="0.15"', chassis_entry)
         self.assertIn("pre-limit demand abort threshold", experiment_entry)
+        self.assertIn("--confirm-unloaded-30cm-fixture", experiment_entry)
         self.assertIn('nominal_common_velocity="$(awk', experiment_entry)
         self.assertIn('/^[[:space:]]*leader:/', experiment_entry)
         self.assertIn(
@@ -166,6 +184,17 @@ class BringupStaticTest(unittest.TestCase):
             experiment_entry.count('lower_config:="${workspace}/${lower_config}"'),
             2)
         self.assertNotIn("nominal_common_velocity:=0.08", experiment_entry)
+        self.assertIn("plot_paper_experiments.py", experiment_entry)
+        self.assertIn("--numbered-folders", experiment_entry)
+        self.assertIn("01_M1_R1_complete_method", experiment_entry)
+        self.assertGreater(
+            experiment_entry.index("process_experiment_run.py"),
+            experiment_entry.index("rosservice call /experiment_recorder/stop"))
+        self.assertGreater(
+            experiment_entry.index("plot_paper_experiments.py"),
+            experiment_entry.index("process_experiment_run.py"))
+        self.assertIn("fleet_wheel_scale_ = 1.0", formal_source)
+        self.assertIn("all three pre-limit demands", formal_source)
 
     def test_optional_software_watchdog_is_observer_only(self):
         launch = (
@@ -309,12 +338,12 @@ class BringupStaticTest(unittest.TestCase):
         self.assertIn("hardware_execution_authorized: false", path)
         for marker in (
                 "role: front",
-                "q_tangent: 0.230940107675850",
+                "q_tangent: 0.1732050807568877",
                 "role: left_rear",
-                "q_tangent: -0.115470053837925",
-                "q_normal: 0.20",
+                "q_tangent: -0.0866025403784439",
+                "q_normal: 0.1500000000000000",
                 "role: right_rear",
-                "q_normal: -0.20"):
+                "q_normal: -0.1500000000000000"):
             self.assertIn(marker, geometry)
         self.assertIn("hardware_execution_authorized: false", geometry)
         self.assertIn("hardware_execution_authorized: false", pretest)
@@ -526,7 +555,7 @@ class BringupStaticTest(unittest.TestCase):
                 'name="confirm_readonly_gate_passed" default="false"',
                 'name="confirm_test_area_clear" default="false"',
                 'name="confirm_wheels_on_floor" default="false"',
-                'name="confirm_unloaded_40cm_fixture" default="false"'):
+                'name="confirm_unloaded_30cm_fixture" default="false"'):
             self.assertIn(marker, launch)
         self.assertNotIn(
             'file="$(find multi_agv_bringup)/launch/'
@@ -623,7 +652,7 @@ class BringupStaticTest(unittest.TestCase):
         self.assertIn("serial device", start)
         self.assertIn("--confirm-area-clear", run)
         self.assertIn("--confirm-wheels-on-floor", run)
-        self.assertIn("--confirm-unloaded-40cm-fixture", run)
+        self.assertIn("--confirm-unloaded-30cm-fixture", run)
         self.assertIn("check_three_car_readonly_gate.py", run)
         self.assertIn("require_three_car_motion_gate.sh", run)
         self.assertIn("--require-valid-state", motion_gate)
@@ -785,6 +814,10 @@ class BringupStaticTest(unittest.TestCase):
         runner = (
             SOURCE_ROOT.parent / "run_three_car_camera_formation_init.sh"
         ).read_text(encoding="utf-8")
+        runner_30cm = (
+            SOURCE_ROOT.parent /
+            "run_three_car_camera_formation_init_30cm.sh"
+        ).read_text(encoding="utf-8")
 
         for marker in (
                 'name="confirm_test_area_clear" default="false"',
@@ -792,7 +825,7 @@ class BringupStaticTest(unittest.TestCase):
                 'name="confirm_automatic_formation" default="false"'):
             self.assertIn(marker, launch)
         for marker in (
-                "side_length: 0.40",
+                "side_length: 0.30",
                 "base_to_support_x: -0.01783",
                 "maximum_linear_speed: 0.025",
                 "near_target_speed: 0.010",
@@ -826,10 +859,14 @@ class BringupStaticTest(unittest.TestCase):
                 "FORMATION_CONFIRMED"):
             self.assertIn(marker, node)
         self.assertIn("--confirm-automatic-formation", runner)
+        self.assertIn("0.30 m equilateral triangle", runner)
         self.assertNotIn("rosbag record", runner)
         self.assertNotIn("experiment_data", runner)
         self.assertIn('/pose_provider/agv${index}/base_pose_fused', runner)
         self.assertIn("/multi_agv/formation_init/result_code", runner)
+        self.assertIn("side_length:", runner_30cm)
+        self.assertIn("0\\.30", runner_30cm)
+        self.assertIn("run_three_car_camera_formation_init.sh", runner_30cm)
 
 
 if __name__ == "__main__":

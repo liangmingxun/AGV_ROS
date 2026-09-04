@@ -393,7 +393,7 @@ class FormalFakeAlgorithmNode {
         root + "confirm_wheels_on_floor",
         confirm_wheels_on_floor_, false);
     private_node_.param(
-        root + "confirm_unloaded_40cm_fixture",
+        root + "confirm_unloaded_30cm_fixture",
         confirm_unloaded_fixture_, false);
     private_node_.param(
         root + "maximum_recorder_armed_age",

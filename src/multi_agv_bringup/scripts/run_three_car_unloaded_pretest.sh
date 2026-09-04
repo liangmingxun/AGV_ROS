@@ -8,7 +8,7 @@ usage:
     --confirm-area-clear \
     [--confirm-circle-area-clear] \
     --confirm-wheels-on-floor \
-    --confirm-unloaded-40cm-fixture
+    --confirm-unloaded-30cm-fixture
 
 This command performs topology and camera-observation checks, resets all three
 odometers, records a bag and runs the selected bounded unloaded cooperative
@@ -27,7 +27,7 @@ while [[ $# -gt 0 ]]; do
     --confirm-area-clear) confirm_area=true ;;
     --confirm-circle-area-clear) confirm_circle_area=true ;;
     --confirm-wheels-on-floor) confirm_floor=true ;;
-    --confirm-unloaded-40cm-fixture) confirm_fixture=true ;;
+    --confirm-unloaded-30cm-fixture) confirm_fixture=true ;;
     -h|--help) usage; exit 0 ;;
     *) echo "ERROR: unknown argument: $1" >&2; usage; exit 2 ;;
   esac
@@ -259,7 +259,7 @@ analysis_path="${run_dir}/${run_id}_analysis.json"
   echo "robot2_ip=192.168.6.102"
   echo "robot3_ip=192.168.6.103"
   echo "started_at=$(date --iso-8601=seconds)"
-  echo "fixture=unloaded_equilateral_0.40m"
+  echo "fixture=unloaded_equilateral_0.30m"
   echo "path=${manifest_path_description}"
   echo "speed=${run_speed}m/s"
   echo "validation_profile=${validation_profile}"
@@ -322,7 +322,7 @@ roslaunch multi_agv_bringup "$motion_launch" \
   confirm_readonly_gate_passed:=true \
   confirm_test_area_clear:=true \
   confirm_wheels_on_floor:=true \
-  confirm_unloaded_40cm_fixture:=true &
+  confirm_unloaded_30cm_fixture:=true &
 motion_pid="$!"
 parameter_namespace="/three_car_unloaded_bounded_pretest/three_car_unloaded_bounded_pretest/tracker"
 parameter_deadline=$((SECONDS + 4))

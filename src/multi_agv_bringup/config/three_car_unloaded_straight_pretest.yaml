@@ -1,7 +1,7 @@
 # First cooperative gate: deliberately short and slow. Camera output is
 # recorded as independent truth but is not fed back into this controller.
 three_car_unloaded_bounded_pretest:
-  configuration_status: camera_fused_closed_loop_unloaded_0p40m_fixture_0p30m_straight_v1
+  configuration_status: camera_fused_closed_loop_unloaded_0p30m_fixture_0p30m_straight_v1
   experiment_id: three_car_cooperative_camera_fused_straight_0p30m
   method_id: CAMERA_IMU_WHEEL_FUSED_CLOSED_LOOP_STRAIGHT
   path_id: straight_1m_bounded

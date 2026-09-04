@@ -101,3 +101,30 @@ support/load errors, rigid-fit residuals, capability/demand margins,
 speed/acceleration/deceleration limiter durations, R1 internal-state extrema
 and M2b `delta_z/delta_w`. M2b runs conditionally require the dedicated
 `/multi_agv/m2b_algorithm_state` stream.
+
+## Physical-experiment paper figures
+
+After processing selected runs on Robot1, generate the compact Chinese paper
+figure set directly from each run's `converted/aligned_samples.csv`:
+
+```bash
+rosrun multi_agv_analysis plot_paper_experiments.py \
+  --output-dir paper_figures \
+  --numbered-folders \
+  --experiment1 RUN_M1_R1 \
+  --experiment2a-m1 RUN_M1 --experiment2a-m2a RUN_M2A \
+  --experiment2b-m1 RUN_M1 --experiment2b-m2b RUN_M2B \
+  --experiment3-r1 RUN_R1 --experiment3-r2 RUN_R2 --experiment3-r3 RUN_R3
+```
+
+Each figure is written as a 320 dpi PNG and a vector PDF. Add repeatable
+`--experiment2a-stat METHOD=summary_metrics.json` or
+`--experiment3-stat METHOD=summary_metrics.json` arguments to include all
+manually accepted repetitions, including M4/R4 statistics without plotting
+their dynamic curves. Event and local-zoom intervals are optional CLI
+arguments; use `--help` for their names.
+
+The formal M1+R1 serial runner invokes this automatically after the run has
+passed conversion and validation. Its four publication figures are stored
+inside that run under `paper_figures/01_M1_R1_complete_method/`; an invalid or
+aborted run never reaches this publication step.

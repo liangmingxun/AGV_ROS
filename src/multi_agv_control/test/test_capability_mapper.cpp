@@ -36,7 +36,7 @@ CapabilityGeometry straight() {
   return {1.0, 0.0, 0.114};
 }
 
-std::array<double, 2> frozenScaleMinima(double robot2_wheel_limit) {
+std::array<double, 4> frozenScaleMinima(double robot2_wheel_limit) {
   multi_agv_control::SCurveConfig path_config;
   path_config.amplitude = 0.05;
   path_config.longitudinal_length = 1.0;
@@ -45,9 +45,9 @@ std::array<double, 2> frozenScaleMinima(double robot2_wheel_limit) {
   const multi_agv_control::SCurvePath path(path_config);
   multi_agv_control::SupportGeometryConfig support_config;
   support_config.offsets = {
-      {0.230940107675850, 0.0},
-      {-0.115470053837925, 0.20},
-      {-0.115470053837925, -0.20}};
+      {0.1732050807568877, 0.0},
+      {-0.0866025403784439, 0.1500000000000000},
+      {-0.0866025403784439, -0.1500000000000000}};
   support_config.minimum_nondegeneracy = 0.20;
   support_config.minimum_speed_scale = 0.20;
   support_config.validation_samples = 10001U;
@@ -59,7 +59,10 @@ std::array<double, 2> frozenScaleMinima(double robot2_wheel_limit) {
       wheels(0.15), wheels(robot2_wheel_limit), wheels(0.15)}};
   const CapabilityMapper mapper(CapabilityReserve{});
   double minimum_public = std::numeric_limits<double>::infinity();
-  double minimum_robot2 = std::numeric_limits<double>::infinity();
+  std::array<double, 3> minimum_robot{{
+      std::numeric_limits<double>::infinity(),
+      std::numeric_limits<double>::infinity(),
+      std::numeric_limits<double>::infinity()}};
   for (std::size_t sample = 0; sample <= 10000U; ++sample) {
     const double s0 = path.length() * static_cast<double>(sample) / 10000.0;
     const double step = std::max(path.length() / 10000.0, 1.0e-5);
@@ -100,10 +103,14 @@ std::array<double, 2> frozenScaleMinima(double robot2_wheel_limit) {
     const auto mapped = mapper.mapFleet(capability, geometry);
     EXPECT_TRUE(mapped.valid);
     minimum_public = std::min(minimum_public, mapped.public_upper_velocity);
-    minimum_robot2 = std::min(
-        minimum_robot2, mapped.robots[1].actuator_upper_velocity);
+    for (std::size_t robot = 0; robot < 3U; ++robot) {
+      minimum_robot[robot] = std::min(
+          minimum_robot[robot],
+          mapped.robots[robot].actuator_upper_velocity);
+    }
   }
-  return {{minimum_public, minimum_robot2}};
+  return {{minimum_public, minimum_robot[0], minimum_robot[1],
+           minimum_robot[2]}};
 }
 
 }  // namespace
@@ -130,7 +137,10 @@ TEST(CapabilityMapper, FormalAvailableWheelLimitEntersPathBoundary) {
 
 TEST(CapabilityMapper, PhysicalSpeedScale008MatchesFrozenSPath) {
   const auto nominal = frozenScaleMinima(0.15);
-  EXPECT_GT(nominal[0], 0.096);
+  EXPECT_NEAR(nominal[1], 0.121933, 2e-6);
+  EXPECT_NEAR(nominal[2], 0.103626, 2e-6);
+  EXPECT_NEAR(nominal[3], 0.103808, 2e-6);
+  EXPECT_GT(*std::min_element(nominal.begin() + 1, nominal.end()), 0.090);
   EXPECT_GT(nominal[0] - 0.090, 0.006);
 
   // Robot2 degrades to gamma=0.68 of the 0.15 m/s nominal wheel limit.

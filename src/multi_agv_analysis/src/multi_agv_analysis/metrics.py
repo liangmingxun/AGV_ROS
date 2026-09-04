@@ -132,6 +132,8 @@ def compute_metrics(rows, sample_period, command_epsilon=1e-6,
     demand_samples = 0
     limited_samples = 0
     maximum_ratio = 0.0
+    maximum_pre_limit_demand = 0.0
+    pre_limit_samples_seen = 0
     maximum_exceedance = 0.0
     ratios_seen = 0
     fleet_scales = []
@@ -152,7 +154,7 @@ def compute_metrics(rows, sample_period, command_epsilon=1e-6,
     limiter_samples = {"speed": 0, "acceleration": 0, "deceleration": 0}
     internal = {
         "psi": [], "composite_error": [], "theta_hat": [],
-        "disturbance_estimate": [], "m2b_delta_z": [],
+        "disturbance_estimate": [], "channel_input": [], "m2b_delta_z": [],
         "m2b_delta_w": []}
 
     for row in rows:
@@ -171,6 +173,10 @@ def compute_metrics(rows, sample_period, command_epsilon=1e-6,
             applied = finite_float(row.get(prefix + "_applied"))
             actual = finite_float(row.get(prefix + "_actual"))
             limit = finite_float(row.get(prefix + "_reported_limit"))
+            if math.isfinite(pre_limit):
+                maximum_pre_limit_demand = max(
+                    maximum_pre_limit_demand, abs(pre_limit))
+                pre_limit_samples_seen += 1
             if (math.isfinite(pre_limit) and math.isfinite(limit) and
                     limit > 0.0):
                 ratio = abs(pre_limit) / limit
@@ -254,6 +260,10 @@ def compute_metrics(rows, sample_period, command_epsilon=1e-6,
                     "agv{}_{}".format(robot, name)))
                 if math.isfinite(value):
                     internal[name].append(value)
+            channel_input = finite_float(row.get(
+                "agv{}_channel_input_raw".format(robot)))
+            if math.isfinite(channel_input):
+                internal["channel_input"].append(channel_input)
             for index in (1, 2):
                 value = finite_float(row.get(
                     "agv{}_theta_hat_{}".format(robot, index)))
@@ -403,6 +413,8 @@ def compute_metrics(rows, sample_period, command_epsilon=1e-6,
             "limited_time": limited_samples * sample_period,
             "maximum_demand_ratio": (
                 maximum_ratio if ratios_seen else None),
+            "maximum_pre_limit_demand": (
+                maximum_pre_limit_demand if pre_limit_samples_seen else None),
             "maximum_demand_exceedance": (
                 maximum_exceedance if ratios_seen else None),
             "demand_source": "wheel_pre_limit",
@@ -471,6 +483,8 @@ def compute_metrics(rows, sample_period, command_epsilon=1e-6,
                 _maximum_absolute(internal["theta_hat"]),
             "disturbance_estimate_max":
                 max(internal["disturbance_estimate"], default=None),
+            "channel_input_max_absolute":
+                _maximum_absolute(internal["channel_input"]),
             "m2b_delta_z_max":
                 max(internal["m2b_delta_z"], default=None),
             "m2b_delta_w_max":

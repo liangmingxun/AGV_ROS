@@ -13,9 +13,9 @@ from std_msgs.msg import Bool, Float64MultiArray, String
 
 class FormalFakeAlgorithmE2ETest(unittest.TestCase):
     OFFSETS = (
-        (0.230940107675850, 0.0),
-        (-0.115470053837925, 0.20),
-        (-0.115470053837925, -0.20),
+        (0.1732050807568877, 0.0),
+        (-0.0866025403784439, 0.1500000000000000),
+        (-0.0866025403784439, -0.1500000000000000),
     )
 
     def setUp(self):

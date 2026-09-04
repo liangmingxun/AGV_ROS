@@ -263,6 +263,8 @@ class MetricsTest(unittest.TestCase):
         self.assertAlmostEqual(
             result["wheel"]["maximum_demand_ratio"], 1.3)
         self.assertAlmostEqual(
+            result["wheel"]["maximum_pre_limit_demand"], 1.3)
+        self.assertAlmostEqual(
             result["wheel"]["maximum_demand_exceedance"], 0.3)
         self.assertAlmostEqual(result["wheel"]["minimum_fleet_scale"], 0.8)
         self.assertAlmostEqual(
@@ -301,6 +303,17 @@ class MetricsTest(unittest.TestCase):
         result = compute_metrics(rows, sample_period=0.1)
         self.assertEqual(result["wheel"]["limited_samples"], 0)
         self.assertAlmostEqual(result["wheel"]["limited_time"], 0.0)
+
+    def test_peak_pre_limit_demand_does_not_require_limit_telemetry(self):
+        rows = self.fixture()[:1]
+        for robot in range(1, 4):
+            for side in ("left", "right"):
+                rows[0].pop("agv{}_wheel_{}_reported_limit".format(
+                    robot, side))
+        result = compute_metrics(rows, sample_period=0.1)
+        self.assertAlmostEqual(
+            result["wheel"]["maximum_pre_limit_demand"], 0.5)
+        self.assertIsNone(result["wheel"]["maximum_demand_ratio"])
 
     def test_invalid_localization_is_excluded_from_path_and_geometry(self):
         rows = self.fixture()
