@@ -102,3 +102,11 @@ experiment_recording:
   localization_exclusion:
     maximum_invalid_fraction: 0.01
     maximum_consecutive_invalid_seconds: 0.10
+
+  # A formal controller fail-zero cycle changes the executed method and makes
+  # its default-valued support references unsuitable for paper statistics.
+  algorithm_exclusion:
+    maximum_invalid_fraction: 0.0
+    maximum_consecutive_invalid_seconds: 0.0
+
+  require_task_completion: true

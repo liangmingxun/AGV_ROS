@@ -137,6 +137,9 @@ def compute_metrics(rows, sample_period, command_epsilon=1e-6,
     fleet_scales = []
     fleet_scaling_samples = 0
     wheel_errors = []
+    maximum_actual_wheel_speed = 0.0
+    actual_wheel_samples_seen = 0
+    actual_above_reported_limit_samples = 0
     path_errors = []
     path_velocity_errors = {robot: [] for robot in range(1, 4)}
     path_progress_errors = {robot: [] for robot in range(1, 4)}
@@ -159,6 +162,7 @@ def compute_metrics(rows, sample_period, command_epsilon=1e-6,
             fleet_scaling_samples += int(fleet_scale < 1.0 - command_epsilon)
         demanded = False
         limited = False
+        actual_above_reported_limit = False
         limiter_active = {name: False for name in limiter_samples}
         for robot, side in WHEELS:
             prefix = "agv{}_wheel_{}".format(robot, side)
@@ -184,6 +188,12 @@ def compute_metrics(rows, sample_period, command_epsilon=1e-6,
                     applied - chassis_raw) > command_epsilon
             if math.isfinite(actual) and math.isfinite(applied):
                 wheel_errors.append(actual - applied)
+            if math.isfinite(actual):
+                maximum_actual_wheel_speed = max(
+                    maximum_actual_wheel_speed, abs(actual))
+                actual_wheel_samples_seen += 1
+                if math.isfinite(limit) and limit > 0.0:
+                    actual_above_reported_limit |= abs(actual) > limit
             limiter_active["speed"] |= bool_value(
                 row.get(prefix + "_speed_limit_active", False))
             limiter_active["acceleration"] |= bool_value(
@@ -192,11 +202,14 @@ def compute_metrics(rows, sample_period, command_epsilon=1e-6,
                 row.get(prefix + "_decel_limit_active", False))
         demand_samples += int(demanded)
         limited_samples += int(limited)
+        actual_above_reported_limit_samples += int(
+            actual_above_reported_limit)
         for name, active in limiter_active.items():
             limiter_samples[name] += int(active)
 
         localization_valid = bool_value(
             row.get("localization_valid", True))
+        algorithm_valid = bool_value(row.get("algorithm_valid", True))
         actual_progress = finite_float(row.get("load_s_actual"))
         reference_progress = finite_float(row.get("load_s_reference"))
         if (localization_valid and math.isfinite(actual_progress) and
@@ -228,7 +241,10 @@ def compute_metrics(rows, sample_period, command_epsilon=1e-6,
                     "agv{}_support_reference_y".format(robot))))
             actual_supports.append(actual)
             reference_supports.append(reference)
-            if (localization_valid and
+            # A fail-zero publication leaves support references at their ROS
+            # message defaults.  They are not geometric references and must
+            # not contaminate support or rigid-fit paper metrics.
+            if (localization_valid and algorithm_valid and
                     all(math.isfinite(value)
                         for value in actual + reference)):
                 support_errors[robot].append(math.hypot(
@@ -244,7 +260,7 @@ def compute_metrics(rows, sample_period, command_epsilon=1e-6,
                 if math.isfinite(value):
                     internal["theta_hat"].append(value)
         rigid = (_rigid_fit_residual(actual_supports, reference_supports)
-                 if localization_valid else math.nan)
+                 if localization_valid and algorithm_valid else math.nan)
         if math.isfinite(rigid):
             rigid_residuals.append(rigid)
         load_actual = (
@@ -340,6 +356,8 @@ def compute_metrics(rows, sample_period, command_epsilon=1e-6,
 
     invalid_samples = sum(
         not bool_value(row.get("localization_valid", True)) for row in rows)
+    invalid_algorithm_samples = sum(
+        not bool_value(row.get("algorithm_valid", True)) for row in rows)
     experiment_state_samples = sum(
         bool_value(row.get("experiment_state_available", False))
         for row in all_rows)
@@ -360,7 +378,7 @@ def compute_metrics(rows, sample_period, command_epsilon=1e-6,
             active_indices == list(range(
                 active_indices[0], active_indices[-1] + 1)))
     return {
-        "schema_version": 2,
+        "schema_version": 3,
         "causal_unfiltered": True,
         "sample_period": sample_period,
         "sample_counts": {
@@ -369,6 +387,7 @@ def compute_metrics(rows, sample_period, command_epsilon=1e-6,
             "wheel_errors": len(wheel_errors),
             "path_errors": len(path_errors),
             "invalid_localization": invalid_samples,
+            "invalid_algorithm": invalid_algorithm_samples,
             "experiment_state": experiment_state_samples,
         },
         "evaluation_window": {
@@ -396,6 +415,13 @@ def compute_metrics(rows, sample_period, command_epsilon=1e-6,
                 if fleet_scales else None),
             "tracking_rmse": _rmse(wheel_errors),
             "tracking_max_absolute": _maximum_absolute(wheel_errors),
+            "maximum_actual_speed": (
+                maximum_actual_wheel_speed
+                if actual_wheel_samples_seen else None),
+            "actual_above_reported_limit_samples":
+                actual_above_reported_limit_samples,
+            "actual_above_reported_limit_time":
+                actual_above_reported_limit_samples * sample_period,
             "speed_limited_time":
                 limiter_samples["speed"] * sample_period,
             "acceleration_limited_time":

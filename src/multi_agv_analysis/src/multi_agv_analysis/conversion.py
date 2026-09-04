@@ -532,6 +532,12 @@ def _aligned_rows(raw, maximum_age):
         row["mapped_path_capability_available"] = (
             bool(debug_values[9])
             if debug_version == 2 and len(debug_values) == 97 else False)
+        expected_debug_size = 97 if debug_version == 2 else 90
+        row["algorithm_state_available"] = (
+            debug_version != 0 and len(debug_values) == expected_debug_size)
+        row["algorithm_valid"] = (
+            bool(debug_values[0])
+            if row["algorithm_state_available"] else False)
         m2b_values = []
         if (m2b and m2b.get("layout_label") ==
                 "m2b_algorithm_state_v1:header6+3x20"):

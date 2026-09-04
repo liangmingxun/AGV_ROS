@@ -44,6 +44,8 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 workspace="$(cd "${script_dir}/../../.." && pwd)"
 cd "$workspace"
 runtime_config="src/multi_agv_bringup/config/formal_serial_m1_r1_runtime.yaml"
+upper_config="src/multi_agv_bringup/config/exp2a_M1_serial_008.yaml"
+lower_config="src/multi_agv_bringup/config/exp3_R1.yaml"
 runtime_status="$(awk '/^[[:space:]]*configuration_status:/ {print $2; exit}' \
   "$runtime_config")"
 serial_authorized="$(awk '/^[[:space:]]*serial_execution_authorized:/ {print $2; exit}' \
@@ -184,6 +186,9 @@ rosrun multi_agv_bringup check_three_car_readonly_gate.py \
 
 run_id="m1_r1_serial_$(date +%Y%m%d_%H%M%S)"
 roslaunch multi_agv_bringup formal_serial_m1_r1.launch \
+  upper_config:="${workspace}/${upper_config}" \
+  lower_config:="${workspace}/${lower_config}" \
+  runtime_config:="${workspace}/${runtime_config}" \
   enable_commands:=true \
   confirm_test_area_clear:=true \
   confirm_wheels_on_floor:=true \
@@ -207,6 +212,8 @@ roslaunch multi_agv_bringup experiment.launch \
   require_windows_sender_manifest:=false \
   localization_config:="${workspace}/src/multi_agv_bringup/config/localization_camera_three_car_closed_loop.yaml" \
   runtime_config:="${workspace}/src/multi_agv_bringup/config/formal_serial_m1_r1_runtime.yaml" \
+  upper_config:="${workspace}/${upper_config}" \
+  lower_config:="${workspace}/${lower_config}" \
   execution_authorization_config:="${workspace}/src/multi_agv_bringup/config/formal_serial_m1_r1_authorization.yaml" \
   nominal_common_velocity:="$nominal_common_velocity" evaluation_target:=1.0 &
 recorder_pid="$!"

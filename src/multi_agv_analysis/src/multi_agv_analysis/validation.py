@@ -117,6 +117,50 @@ def _invalid_localization_statistics(rows, sample_period):
     }
 
 
+def _invalid_algorithm_statistics(rows, sample_period):
+    invalid = [
+        not bool_value(row.get("algorithm_state_available", False)) or
+        not bool_value(row.get("algorithm_valid", False))
+        for row in rows]
+    longest = current = 0
+    for value in invalid:
+        current = current + 1 if value else 0
+        longest = max(longest, current)
+    return {
+        "samples": len(rows),
+        "invalid_samples": sum(invalid),
+        "invalid_fraction": (
+            float(sum(invalid)) / len(rows) if rows else 1.0),
+        "maximum_consecutive_invalid_seconds": longest * sample_period,
+    }
+
+
+def _check_task_completion(aligned_rows, manifest, required, issues):
+    target = finite_float(manifest.get("metrics", {}).get(
+        "evaluation_target"))
+    completion_stamp = None
+    if math.isfinite(target):
+        for row in aligned_rows:
+            if finite_float(row.get("load_s_actual")) >= target:
+                completion_stamp = finite_float(row.get("stamp"))
+                break
+    if required and not math.isfinite(target):
+        issues.append(_issue(
+            "TASK_TARGET_MISSING",
+            "task completion is required but evaluation_target is absent"))
+    elif required and completion_stamp is None:
+        issues.append(_issue(
+            "TASK_INCOMPLETE",
+            "load progress never reached evaluation target {:.6f}".format(
+                target)))
+    return {
+        "required": bool(required),
+        "target": target if math.isfinite(target) else None,
+        "completion_stamp": completion_stamp,
+        "complete": completion_stamp is not None,
+    }
+
+
 def _communication_age_report(converted_dir):
     report = {}
     for filename in ("chassis_feedback.csv", "capability_report.csv",
@@ -472,6 +516,35 @@ def validate_converted_run(converted_dir, manifest_path, rules):
                 float(exclusion.get(
                     "maximum_consecutive_invalid_seconds", 0.0)))))
 
+    algorithm = None
+    algorithm_exclusion = rules.get("algorithm_exclusion")
+    if algorithm_exclusion is not None:
+        algorithm_rows = (
+            localization_rows if experiment_state_rows else aligned_rows)
+        algorithm = _invalid_algorithm_statistics(
+            algorithm_rows, sample_period)
+        maximum_fraction = float(algorithm_exclusion.get(
+            "maximum_invalid_fraction", 0.0))
+        maximum_duration = float(algorithm_exclusion.get(
+            "maximum_consecutive_invalid_seconds", 0.0))
+        if algorithm["invalid_fraction"] > maximum_fraction:
+            issues.append(_issue(
+                "ALGORITHM_INVALID_FRACTION",
+                "invalid algorithm fraction {:.6f} exceeds {:.6f}".format(
+                    algorithm["invalid_fraction"], maximum_fraction)))
+        if (algorithm["maximum_consecutive_invalid_seconds"] >
+                maximum_duration):
+            issues.append(_issue(
+                "ALGORITHM_INVALID_DURATION",
+                "consecutive invalid algorithm state {:.6f}s exceeds "
+                "{:.6f}s".format(
+                    algorithm["maximum_consecutive_invalid_seconds"],
+                    maximum_duration)))
+
+    task_completion = _check_task_completion(
+        aligned_rows, manifest,
+        bool(rules.get("require_task_completion", False)), issues)
+
     _check_methods(converted_dir, manifest, issues)
     _check_manual_abort(converted_dir, issues)
     _check_hashes(manifest_path, manifest, issues)
@@ -487,6 +560,8 @@ def validate_converted_run(converted_dir, manifest_path, rules):
         "topic_rates": topic_rates,
         "camera_evidence": camera_evidence,
         "localization": localization,
+        "algorithm": algorithm,
+        "task_completion": task_completion,
         "communication_ages": _communication_age_report(converted_dir),
         "formal_statistics_gate": formal_gate,
         "communication_age_claim": (

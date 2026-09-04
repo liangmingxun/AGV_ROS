@@ -200,6 +200,8 @@ class CameraConversionTest(unittest.TestCase):
             "layout_label": "formal_algorithm_state_v2:header10+3x29",
             "data_json": json.dumps(debug)}]
         aligned = _aligned_rows(raw, 0.2)[0]
+        self.assertTrue(aligned["algorithm_state_available"])
+        self.assertTrue(aligned["algorithm_valid"])
         self.assertEqual(aligned["agv1_boundary_upper"], 0.06)
         self.assertEqual(
             aligned["agv1_mapped_path_velocity_upper"], 0.09)
@@ -270,6 +272,11 @@ class MetricsTest(unittest.TestCase):
         self.assertAlmostEqual(
             result["wheel"]["tracking_rmse"],
             math.sqrt(10.0 * 0.1 ** 2 / 60.0))
+        self.assertAlmostEqual(result["wheel"]["maximum_actual_speed"], 1.2)
+        self.assertEqual(
+            result["wheel"]["actual_above_reported_limit_samples"], 3)
+        self.assertAlmostEqual(
+            result["wheel"]["actual_above_reported_limit_time"], 0.3)
         self.assertAlmostEqual(result["path"]["progress_rmse"], 0.2)
         self.assertAlmostEqual(
             result["recovery"]["capability_95_time"], 0.6)
@@ -315,6 +322,28 @@ class MetricsTest(unittest.TestCase):
         self.assertEqual(result["sample_counts"]["invalid_localization"], 1)
         self.assertLess(result["path"]["progress_max_absolute"], 1.0)
         self.assertLess(result["geometry"]["load_position_max"], 1.0)
+
+    def test_invalid_algorithm_excludes_default_support_references(self):
+        rows = self.fixture()[:2]
+        points = ((1.0, 0.0), (0.0, 1.0), (-1.0, 0.0))
+        for row in rows:
+            row["algorithm_valid"] = True
+            for robot, point in enumerate(points, start=1):
+                row["agv{}_support_pose_x".format(robot)] = point[0]
+                row["agv{}_support_pose_y".format(robot)] = point[1]
+                row["agv{}_support_reference_x".format(robot)] = point[0]
+                row["agv{}_support_reference_y".format(robot)] = point[1]
+        rows[0]["algorithm_valid"] = False
+        for robot in range(1, 4):
+            rows[0]["agv{}_support_reference_x".format(robot)] = 0.0
+            rows[0]["agv{}_support_reference_y".format(robot)] = 0.0
+        result = compute_metrics(rows, sample_period=0.1)
+        self.assertEqual(result["sample_counts"]["invalid_algorithm"], 1)
+        self.assertAlmostEqual(
+            result["geometry"]["rigid_fit_residual_rmse"], 0.0)
+        for robot in range(1, 4):
+            self.assertAlmostEqual(result["geometry"]["support"][
+                "agv{}".format(robot)]["position_rmse"], 0.0)
 
     def test_experiment_state_window_is_reported(self):
         rows = self.fixture()
@@ -690,6 +719,37 @@ class ValidationTest(unittest.TestCase):
         self.assertEqual(report["localization"]["samples"], 1)
         self.assertEqual(report["localization"]["invalid_samples"], 0)
         self.assertEqual(report["localization"]["excluded_samples"], 2)
+
+    def test_algorithm_fail_zero_in_evaluation_window_fails(self):
+        self.rules["algorithm_exclusion"] = {
+            "maximum_invalid_fraction": 0.0,
+            "maximum_consecutive_invalid_seconds": 0.0,
+        }
+        write_csv(self.converted / "aligned_samples.csv", [
+            {"stamp": 1.0, "algorithm_state_available": True,
+             "algorithm_valid": True},
+            {"stamp": 1.01, "algorithm_state_available": True,
+             "algorithm_valid": False},
+        ])
+        report = self._validate()
+        codes = [issue["code"] for issue in report["issues"]]
+        self.assertIn("ALGORITHM_INVALID_FRACTION", codes)
+        self.assertIn("ALGORITHM_INVALID_DURATION", codes)
+        self.assertEqual(report["algorithm"]["invalid_samples"], 1)
+
+    def test_required_task_completion_fails_when_target_is_not_reached(self):
+        self.rules["require_task_completion"] = True
+        manifest = copy.deepcopy(self.manifest)
+        manifest["metrics"] = {"evaluation_target": 1.0}
+        atomic_dump_yaml(self.manifest_path, manifest)
+        write_csv(self.converted / "aligned_samples.csv", [
+            {"stamp": 1.0, "load_s_actual": 0.0},
+            {"stamp": 2.0, "load_s_actual": 0.99},
+        ])
+        report = self._validate()
+        self.assertIn(
+            "TASK_INCOMPLETE",
+            [issue["code"] for issue in report["issues"]])
 
     def test_method_hash_and_authority_mismatch_fail(self):
         write_csv(self.converted / "controller_state.csv", [{

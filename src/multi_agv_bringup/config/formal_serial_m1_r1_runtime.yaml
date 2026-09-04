@@ -72,8 +72,12 @@ formal_fake_runtime:
     path_deceleration: 0.0
 
   lower:
-    velocity_lower_bound: -0.030
-    velocity_upper_bound: 0.095
+    # R1 fixed state-constraint domain from the frozen lower-controller
+    # experiment.  This is deliberately independent of the much narrower M1
+    # reference boundary above.  Serial execution is still projected through
+    # mapped path capability and the 0.15 m/s chassis wheel limiter.
+    velocity_lower_bound: -0.15
+    velocity_upper_bound: 0.58
     initial_parameter: [0.0, 0.0]
     initial_disturbance_estimate: 0.08
 

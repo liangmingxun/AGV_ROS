@@ -141,6 +141,8 @@ class BringupStaticTest(unittest.TestCase):
         self.assertIn("emergency_abort_limit: 0.18", runtime)
         self.assertIn("velocity: 0.08", runtime)
         self.assertIn("velocity: [0.08, 0.08, 0.08]", runtime)
+        self.assertIn("velocity_lower_bound: -0.15", runtime)
+        self.assertIn("velocity_upper_bound: 0.58", runtime)
         for config in (m1, m2a):
             self.assertIn("physical_upper: [0.105, 0.105, 0.105]", config)
             self.assertIn("inner_margin: [0.005, 0.005, 0.005]", config)
@@ -157,6 +159,12 @@ class BringupStaticTest(unittest.TestCase):
         self.assertIn(
             'nominal_common_velocity:="$nominal_common_velocity"',
             experiment_entry)
+        self.assertGreaterEqual(
+            experiment_entry.count('upper_config:="${workspace}/${upper_config}"'),
+            2)
+        self.assertGreaterEqual(
+            experiment_entry.count('lower_config:="${workspace}/${lower_config}"'),
+            2)
         self.assertNotIn("nominal_common_velocity:=0.08", experiment_entry)
 
     def test_optional_software_watchdog_is_observer_only(self):
