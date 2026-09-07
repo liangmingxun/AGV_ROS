@@ -17,6 +17,7 @@ class FormalFakeAlgorithmE2ETest(unittest.TestCase):
         (-0.0866025403784439, 0.1500000000000000),
         (-0.0866025403784439, -0.1500000000000000),
     )
+    BASE_TO_SUPPORT_X = (-0.01783, 0.09908, 0.09908)
 
     def setUp(self):
         self._lock = threading.Lock()
@@ -96,9 +97,9 @@ class FormalFakeAlgorithmE2ETest(unittest.TestCase):
             message.path_state_valid[index] = True
             message.robot_pose_stamp[index] = message.header.stamp
             message.robot_pose[index].x = (
-                position[0] + 0.01783 * math.cos(yaw))
+                position[0] - self.BASE_TO_SUPPORT_X[index] * math.cos(yaw))
             message.robot_pose[index].y = (
-                position[1] + 0.01783 * math.sin(yaw))
+                position[1] - self.BASE_TO_SUPPORT_X[index] * math.sin(yaw))
             message.robot_pose[index].theta = yaw
             message.support_pose[index].x = position[0]
             message.support_pose[index].y = position[1]

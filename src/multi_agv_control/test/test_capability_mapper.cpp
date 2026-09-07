@@ -54,7 +54,10 @@ std::array<double, 4> frozenScaleMinima(double robot2_wheel_limit) {
   const multi_agv_control::SupportGeometry support(path, support_config);
   const std::array<double, 3> wheel_separation{{
       0.135484339, 0.139284482, 0.136802843}};
-  const Eigen::Vector2d base_to_support(-0.01783, 0.0);
+  const std::array<Eigen::Vector2d, 3> base_to_support{{
+      Eigen::Vector2d{-0.01783, 0.0},
+      Eigen::Vector2d{0.09908, 0.0},
+      Eigen::Vector2d{0.09908, 0.0}}};
   const std::array<WheelCapability, 3> capability{{
       wheels(0.15), wheels(robot2_wheel_limit), wheels(0.15)}};
   const CapabilityMapper mapper(CapabilityReserve{});
@@ -75,7 +78,7 @@ std::array<double, 4> frozenScaleMinima(double robot2_wheel_limit) {
       const auto plus = support.sample(robot, sp);
       const auto chassis_position = [&](const auto& value) {
         return value.position -
-            Eigen::Rotation2Dd(value.heading) * base_to_support;
+            Eigen::Rotation2Dd(value.heading) * base_to_support[robot];
       };
       const Eigen::Vector2d p_minus = chassis_position(minus);
       const Eigen::Vector2d p_current = chassis_position(current);
@@ -137,9 +140,9 @@ TEST(CapabilityMapper, FormalAvailableWheelLimitEntersPathBoundary) {
 
 TEST(CapabilityMapper, PhysicalSpeedScale008MatchesFrozenSPath) {
   const auto nominal = frozenScaleMinima(0.15);
-  EXPECT_NEAR(nominal[1], 0.121933, 2e-6);
-  EXPECT_NEAR(nominal[2], 0.103626, 2e-6);
-  EXPECT_NEAR(nominal[3], 0.103808, 2e-6);
+  EXPECT_NEAR(nominal[1], 0.120202, 2e-6);
+  EXPECT_NEAR(nominal[2], 0.103331, 2e-6);
+  EXPECT_NEAR(nominal[3], 0.103507, 2e-6);
   EXPECT_GT(*std::min_element(nominal.begin() + 1, nominal.end()), 0.090);
   EXPECT_GT(nominal[0] - 0.090, 0.006);
 

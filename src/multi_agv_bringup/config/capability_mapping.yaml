@@ -8,8 +8,8 @@ capability_mapping:
   # Must match localization_odom.yaml and the tracker configuration.
   base_to_support:
     - {x: -0.01783, y: 0.0}
-    - {x: -0.01783, y: 0.0}
-    - {x: -0.01783, y: 0.0}
+    - {x: 0.09908, y: 0.0}
+    - {x: 0.09908, y: 0.0}
   body_linear_velocity_reserve: 0.0
   body_angular_velocity_reserve: 0.0
   wheel_linear_velocity_reserve: 0.0

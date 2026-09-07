@@ -19,10 +19,13 @@ class BringupStaticTest(unittest.TestCase):
         for filename in ("localization_odom.yaml", "localization_odom_straight.yaml"):
             robots = yaml.safe_load((config / filename).read_text())["robots"]
             points = []
-            for robot, support in zip(robots, supports):
+            expected_offsets = (-0.01783, 0.09908, 0.09908)
+            for index, (robot, support) in enumerate(zip(robots, supports)):
                 self.assertEqual(robot["robot_id"], support["robot_id"])
                 base = robot["base_to_support"]
-                self.assertEqual(base, {"x": -0.01783, "y": 0.0, "yaw": 0.0})
+                self.assertEqual(
+                    base,
+                    {"x": expected_offsets[index], "y": 0.0, "yaw": 0.0})
                 pose = robot["world_to_odom"]
                 c, s = math.cos(pose["yaw"]), math.sin(pose["yaw"])
                 x = pose["x"] + c * base["x"] - s * base["y"]
@@ -190,7 +193,8 @@ class BringupStaticTest(unittest.TestCase):
         self.assertIn(
             "wheel_separation: [0.135484339, 0.139284482, 0.136802843]",
             runtime)
-        self.assertEqual(runtime.count("{x: -0.01783, y: 0.0}"), 3)
+        self.assertEqual(runtime.count("{x: -0.01783, y: 0.0}"), 1)
+        self.assertEqual(runtime.count("{x: 0.09908, y: 0.0}"), 2)
         self.assertIn("confirm_unloaded_30cm_fixture: false", runtime)
         self.assertIn('formal_available_wheel_limit" default="0.08"',
                       chassis_launch)
@@ -291,24 +295,32 @@ class BringupStaticTest(unittest.TestCase):
         self.assertNotIn('10.134.37.', chassis_entry + network_entry)
 
     def test_support_offsets_are_launch_calibration_arguments(self):
-        for launch_name in ("car1_master.launch", "car2_client.launch",
-                            "car3_client.launch", "chassis_single.launch"):
+        expected_launch_offsets = {
+            "car1_master.launch": "-0.01783",
+            "car2_client.launch": "0.09908",
+            "car3_client.launch": "0.09908",
+            "chassis_single.launch": "-0.01783",
+        }
+        for launch_name, expected_offset in expected_launch_offsets.items():
             text = (PACKAGE / "launch" / launch_name).read_text(encoding="utf-8")
             for marker in ("support_x", "support_y", "support_z"):
                 self.assertIn(marker, text)
-            self.assertIn('-0.01783', text)
+            self.assertIn(
+                'name="support_x" default="{}"'.format(expected_offset), text)
             self.assertIn('name="support_z" default="0.0"', text)
 
         localization = (PACKAGE / "config" / "localization_odom.yaml").read_text(
             encoding="utf-8")
         self.assertEqual(localization.count(
-            "base_to_support: {x: -0.01783, y: 0.0, yaw: 0.0}"), 3)
+            "base_to_support: {x: -0.01783, y: 0.0, yaw: 0.0}"), 1)
+        self.assertEqual(localization.count(
+            "base_to_support: {x: 0.09908, y: 0.0, yaw: 0.0}"), 2)
         for transform in (
                 "x: 0.182252857360210, y: 0.057256423777858, "
                 "yaw: 0.304395797364615",
-                "x: -0.110568464571442, y: 0.122491946479834, "
+                "x: -0.222103903348248, y: 0.087452054972220, "
                 "yaw: 0.304395797364615",
-                "x: -0.020653423494683, y: -0.163716518433706, "
+                "x: -0.132188862271489, y: -0.198756409941319, "
                 "yaw: 0.304395797364615"):
             self.assertIn(transform, localization)
         self.assertIn("maximum_rigid_fit_residual: 0.01", localization)
@@ -342,12 +354,14 @@ class BringupStaticTest(unittest.TestCase):
         tracker = (
             PACKAGE / "config" / "pretest_constant_reference.yaml"
         ).read_text(encoding="utf-8")
-        self.assertEqual(tracker.count("{x: -0.01783, y: 0.0}"), 3)
+        self.assertEqual(tracker.count("{x: -0.01783, y: 0.0}"), 1)
+        self.assertEqual(tracker.count("{x: 0.09908, y: 0.0}"), 2)
         self.assertIn("chassis_reference_samples: 10001", tracker)
         capability = (
             PACKAGE / "config" / "capability_mapping.yaml"
         ).read_text(encoding="utf-8")
-        self.assertEqual(capability.count("{x: -0.01783, y: 0.0}"), 3)
+        self.assertEqual(capability.count("{x: -0.01783, y: 0.0}"), 1)
+        self.assertEqual(capability.count("{x: 0.09908, y: 0.0}"), 2)
         self.assertIn("offset_compensated_drive_axle_reference", capability)
 
     def test_three_car_fixture_is_short_s_equilateral_and_still_gated(self):
@@ -410,6 +424,7 @@ class BringupStaticTest(unittest.TestCase):
         self.assertIn("arc_length_speed: 0.05", config)
         self.assertIn("maximum_wheel_linear_velocity: 0.08", config)
         self.assertIn("base_to_support_x: -0.01783", config)
+        self.assertEqual(config.count("base_to_support_x: 0.09908"), 2)
         self.assertIn("lateral_gain: 3.0", config)
         self.assertIn("heading_gain: 2.5", config)
         self.assertIn(
@@ -852,13 +867,16 @@ class BringupStaticTest(unittest.TestCase):
             self.assertIn(marker, launch)
         for marker in (
                 "side_length: 0.30",
-                "base_to_support_x: -0.01783",
+                "base_to_support_x: [-0.01783, 0.09908, 0.09908]",
                 "maximum_linear_speed: 0.025",
                 "near_target_speed: 0.010",
                 "docking_speed: 0.005",
-                "refinement_position_tolerance: 0.006",
+                "final_side_tolerance: 0.030",
+                "position_tolerance: 0.020",
+                "refinement_position_tolerance: 0.012",
                 "maximum_refinement_passes: 2",
-                "final_heading_recovery_distance: 0.025",
+                "final_heading_recovery_distance: 0.030",
+                "final_heading_settle_position_margin: 0.005",
                 "maximum_no_progress_seconds: 12.0",
                 "maximum_wheel_speed: 0.05",
                 "maximum_initial_target_distance: 0.65",
@@ -875,6 +893,7 @@ class BringupStaticTest(unittest.TestCase):
                 "FORMATION_REFINE",
                 "for index in (1, 2)",
                 "_check_separation",
+                "base_link separation",
                 "_check_stationary",
                 'phase + "_APPROACH_REVERSE"',
                 'phase + "_FINAL_HEADING"',

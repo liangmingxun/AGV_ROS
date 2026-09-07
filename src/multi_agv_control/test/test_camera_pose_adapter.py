@@ -17,7 +17,7 @@ class CameraPoseAdapterTest(unittest.TestCase):
         (-0.0866025403784439, 0.1500000000000000),
         (-0.0866025403784439, -0.1500000000000000),
     )
-    BASE_TO_SUPPORT_X = -0.01783
+    BASE_TO_SUPPORT_X = (-0.01783, 0.09908, 0.09908)
 
     def setUp(self):
         self._lock = threading.Lock()
@@ -113,8 +113,8 @@ class CameraPoseAdapterTest(unittest.TestCase):
         expected_bases = []
         for index in range(3):
             support, yaw = self._support_sample(xi, self.OFFSETS[index])
-            base_x = support[0] - self.BASE_TO_SUPPORT_X * math.cos(yaw)
-            base_y = support[1] - self.BASE_TO_SUPPORT_X * math.sin(yaw)
+            base_x = support[0] - self.BASE_TO_SUPPORT_X[index] * math.cos(yaw)
+            base_y = support[1] - self.BASE_TO_SUPPORT_X[index] * math.sin(yaw)
             expected_bases.append((base_x, base_y, yaw))
             if index in indices:
                 self._confidence_publishers[index].publish(

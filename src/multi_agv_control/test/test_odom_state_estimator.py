@@ -17,10 +17,10 @@ class OdomStateEstimatorTest(unittest.TestCase):
     )
     WORLD_TO_ODOM = (
         (0.182252857360210, 0.057256423777858, 0.304395797364615),
-        (-0.110568464571442, 0.122491946479834, 0.304395797364615),
-        (-0.020653423494683, -0.163716518433706, 0.304395797364615),
+        (-0.222103903348248, 0.087452054972220, 0.304395797364615),
+        (-0.132188862271489, -0.198756409941319, 0.304395797364615),
     )
-    BASE_TO_SUPPORT_X = -0.01783
+    BASE_TO_SUPPORT_X = (-0.01783, 0.09908, 0.09908)
 
     def setUp(self):
         self._lock = threading.Lock()
@@ -81,8 +81,8 @@ class OdomStateEstimatorTest(unittest.TestCase):
 
     def _publish_robot(self, index, xi, stamp):
         support, yaw = self._support_sample(xi, self.OFFSETS[index])
-        base_x = support[0] - self.BASE_TO_SUPPORT_X * math.cos(yaw)
-        base_y = support[1] - self.BASE_TO_SUPPORT_X * math.sin(yaw)
+        base_x = support[0] - self.BASE_TO_SUPPORT_X[index] * math.cos(yaw)
+        base_y = support[1] - self.BASE_TO_SUPPORT_X[index] * math.sin(yaw)
         transform_x, transform_y, transform_yaw = self.WORLD_TO_ODOM[index]
         dx = base_x - transform_x
         dy = base_y - transform_y

@@ -18,8 +18,8 @@ struct PlanarTrackerConfig {
   // turntable centre (support_link), expressed in base_link.
   std::array<Eigen::Vector2d, 3> base_to_support{{
       Eigen::Vector2d{-0.01783, 0.0},
-      Eigen::Vector2d{-0.01783, 0.0},
-      Eigen::Vector2d{-0.01783, 0.0}}};
+      Eigen::Vector2d{0.09908, 0.0},
+      Eigen::Vector2d{0.09908, 0.0}}};
   std::size_t chassis_reference_samples{10001U};
 };
 

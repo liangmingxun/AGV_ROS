@@ -52,7 +52,8 @@ class FormationInitializer:
             root + "minimum_battery_voltage_duration", 0.5)
         self.side = rospy.get_param(root + "geometry/side_length", 0.30)
         self.support_x = rospy.get_param(
-            root + "geometry/base_to_support_x", -0.01783)
+            root + "geometry/base_to_support_x",
+            [-0.01783, 0.09908, 0.09908])
         self.final_side_tolerance = rospy.get_param(
             root + "geometry/final_side_tolerance", 0.015)
         self.final_heading_tolerance = rospy.get_param(
@@ -84,6 +85,8 @@ class FormationInitializer:
             root + "motion/maximum_refinement_passes", 2)
         self.final_heading_recovery_distance = rospy.get_param(
             root + "motion/final_heading_recovery_distance", 0.025)
+        self.final_heading_settle_position_margin = rospy.get_param(
+            root + "motion/final_heading_settle_position_margin", 0.003)
         self.heading_tolerance = rospy.get_param(
             root + "motion/heading_tolerance", 0.03491)
         self.stable_samples_required = rospy.get_param(
@@ -160,6 +163,7 @@ class FormationInitializer:
             self.docking_speed, self.position_tolerance,
             self.refinement_position_tolerance,
             self.final_heading_recovery_distance,
+            self.final_heading_settle_position_margin,
             self.heading_tolerance, self.maximum_seconds_per_robot,
             self.maximum_no_progress_seconds,
             self.maximum_initial_target_distance, self.minimum_separation,
@@ -176,6 +180,10 @@ class FormationInitializer:
                 not math.isfinite(value) or value <= 0.0
                 for value in self.wheel_separation):
             raise RuntimeError("wheel_separation must contain three positive values")
+        if len(self.support_x) != ROBOT_COUNT or any(
+                not math.isfinite(value) for value in self.support_x):
+            raise RuntimeError(
+                "base_to_support_x must contain three finite values")
         if self.max_wheel > 0.06 or self.max_linear > 0.03 or \
                 self.max_angular > 0.30:
             raise RuntimeError("formation initialization motion bounds exceed software caps")
@@ -187,6 +195,11 @@ class FormationInitializer:
         if not self.position_tolerance < \
                 self.final_heading_recovery_distance < self.minimum_separation:
             raise RuntimeError("final-heading recovery hysteresis is inconsistent")
+        if self.position_tolerance + \
+                self.final_heading_settle_position_margin >= \
+                self.final_heading_recovery_distance:
+            raise RuntimeError(
+                "final-heading settle margin must remain inside recovery distance")
         if self.refinement_position_tolerance >= self.position_tolerance or \
                 2.0 * self.refinement_position_tolerance >= \
                 self.final_side_tolerance:
@@ -227,13 +240,14 @@ class FormationInitializer:
         self.feedback[index] = message
         self.feedback_received[index] = time.monotonic()
 
-    def _support(self, pose):
-        return (pose[0] + self.support_x * math.cos(pose[2]),
-                pose[1] + self.support_x * math.sin(pose[2]))
+    def _support(self, index, pose):
+        return (pose[0] + self.support_x[index] * math.cos(pose[2]),
+                pose[1] + self.support_x[index] * math.sin(pose[2]))
 
-    def _base_from_support(self, support, heading):
-        return (support[0] - self.support_x * math.cos(heading),
-                support[1] - self.support_x * math.sin(heading), heading)
+    def _base_from_support(self, index, support, heading):
+        return (support[0] - self.support_x[index] * math.cos(heading),
+                support[1] - self.support_x[index] * math.sin(heading),
+                heading)
 
     def _fresh_inputs(self):
         now = time.monotonic()
@@ -320,7 +334,7 @@ class FormationInitializer:
 
     def _compute_targets(self):
         robot1 = self.poses[0]
-        support1 = self._support(robot1)
+        support1 = self._support(0, robot1)
         heading = robot1[2]
         forward = (math.cos(heading), math.sin(heading))
         left = (-math.sin(heading), math.cos(heading))
@@ -334,8 +348,8 @@ class FormationInitializer:
                     support1[1] - altitude * forward[1] -
                     0.5 * self.side * left[1])
         return [robot1,
-                self._base_from_support(support2, heading),
-                self._base_from_support(support3, heading)]
+                self._base_from_support(1, support2, heading),
+                self._base_from_support(2, support3, heading)]
 
     def _publish_targets(self):
         message = PoseArray()
@@ -383,12 +397,16 @@ class FormationInitializer:
                 self._command(index, 0.0, 0.0, "FORMATION_INIT_HOLD")
 
     def _check_separation(self):
-        supports = [self._support(pose) for pose in self.poses]
+        # This is a chassis collision gate, so compare drive-axle midpoints.
+        # Support-centre distance is reserved for the final fixture check.
+        # The two distances are no longer interchangeable because AGV1 has a
+        # rear support while AGV2/3 have supports 99.08 mm ahead of base_link.
         for first, second in ((0, 1), (0, 2), (1, 2)):
-            value = distance(supports[first], supports[second])
+            value = distance(self.poses[first], self.poses[second])
             if value < self.minimum_separation:
                 raise RuntimeError(
-                    f"agv{first + 1}/agv{second + 1} separation {value:.3f} m "
+                    f"agv{first + 1}/agv{second + 1} base_link separation "
+                    f"{value:.3f} m "
                     f"is below {self.minimum_separation:.3f} m")
 
     def _check_stationary(self, active):
@@ -408,6 +426,9 @@ class FormationInitializer:
         target = self.targets[index]
         acceptance = (self.position_tolerance if position_tolerance is None
                       else position_tolerance)
+        settle_acceptance = min(
+            self.final_heading_recovery_distance,
+            acceptance + self.final_heading_settle_position_margin)
         initial_distance = distance(self.poses[index], target)
         if initial_distance > self.maximum_initial_target_distance:
             raise RuntimeError(
@@ -464,7 +485,11 @@ class FormationInitializer:
                     rate.sleep()
                     continue
                 if abs(final_heading_error) <= self.heading_tolerance:
-                    if position_error <= acceptance:
+                    # Once final-heading mode is latched, use a small position
+                    # hysteresis band while confirming the heading. Without
+                    # it, millimetre-level camera/turning drift repeatedly
+                    # switches back to translation at the same threshold.
+                    if position_error <= settle_acceptance:
                         stable += 1
                         self._publish_all(method=phase + "_SETTLE")
                         if stable >= self.stable_samples_required:
@@ -474,15 +499,19 @@ class FormationInitializer:
                                 math.degrees(final_heading_error))
                             return
                     else:
-                        # Heading is complete but position is outside its
-                        # tighter acceptance bound. Correct position once more
-                        # from the now-correct vehicle orientation.
+                        # Heading is complete but position has left the settle
+                        # band. Correct position once more from the now-correct
+                        # vehicle orientation.
                         final_heading_phase = False
                         stable = 0
                         best_distance = position_error
                         last_progress = time.monotonic()
                         self._publish_all(
                             method=phase + "_POSITION_RECOVERY")
+                        rospy.loginfo(
+                            "agv%d left final-heading settle band: "
+                            "position_error=%.4f m limit=%.4f m",
+                            index + 1, position_error, settle_acceptance)
                 else:
                     stable = 0
                     angular = clamp(1.8 * final_heading_error,
@@ -529,7 +558,8 @@ class FormationInitializer:
         raise RuntimeError("formation initialization interrupted")
 
     def _formation_errors(self):
-        supports = [self._support(pose) for pose in self.poses]
+        supports = [self._support(index, pose)
+                    for index, pose in enumerate(self.poses)]
         sides = [distance(supports[0], supports[1]),
                  distance(supports[0], supports[2]),
                  distance(supports[1], supports[2])]

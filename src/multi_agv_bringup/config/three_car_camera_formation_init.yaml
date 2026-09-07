@@ -14,8 +14,11 @@ three_car_camera_formation_init:
 
   geometry:
     side_length: 0.30
-    base_to_support_x: -0.01783
-    final_side_tolerance: 0.015
+    # base_link (drive-axle midpoint) -> support centre, AGV1/2/3.
+    base_to_support_x: [-0.01783, 0.09908, 0.09908]
+    # Match the 30 mm pairwise-formation acceptance used by the subsequent
+    # camera-fused path validation. The target side remains exactly 0.30 m.
+    final_side_tolerance: 0.030
     final_heading_tolerance: 0.05236
 
   motion:
@@ -28,15 +31,16 @@ three_car_camera_formation_init:
     near_target_speed: 0.010
     docking_distance: 0.03
     docking_speed: 0.005
-    # Robot2's 20260811_183204 run settled at 12.73--13.01 mm while its
-    # commanded 1.6 mm/s was inside the measured zero-motion deadband.
-    # The fleet-level side-length gate below remains independently at 15 mm.
-    position_tolerance: 0.015
+    # Robot3 heading alignment produces a repeatable 4.9--5.8 mm base-position
+    # shift. A 20/25/30 mm latch/settle/recovery sequence prevents threshold
+    # hunting while remaining inside the path experiment's 30 mm envelope.
+    position_tolerance: 0.020
     # A final pairwise-triangle refinement uses a tighter target tolerance.
-    # Two robots each within 6 mm bound their mutual side error below 15 mm.
-    refinement_position_tolerance: 0.006
+    refinement_position_tolerance: 0.012
     maximum_refinement_passes: 2
-    final_heading_recovery_distance: 0.025
+    final_heading_recovery_distance: 0.030
+    # Position hysteresis used only after final-heading mode is latched.
+    final_heading_settle_position_margin: 0.005
     heading_tolerance: 0.03491
     stable_samples: 15
     maximum_seconds_per_robot: 45.0

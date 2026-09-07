@@ -73,6 +73,7 @@ single_car_s_pretest:
     agv2:
       profile: robot2_camera_s_frozen_v1
       geometry:
+        base_to_support_x: 0.09908
         # Frozen joint values: keep this paired with the two directional
         # feedforward values below. Evidence is in the Robot2 freeze manifest.
         wheel_separation: 0.139284482
@@ -87,6 +88,7 @@ single_car_s_pretest:
     agv3:
       profile: robot3_camera_s_frozen_v1
       geometry:
+        base_to_support_x: 0.09908
         # Frozen joint Robot3 values. Keep this paired with both directional
         # feedforward values; see robot3_camera_s_freeze_v1.yaml.
         wheel_separation: 0.136802843

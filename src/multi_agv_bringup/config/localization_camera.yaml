@@ -102,9 +102,9 @@ robots:
     robot_index: 2
     pose_topic: /pose_provider/agv2/base_pose_fused
     base_frame: agv2/base_link
-    base_to_support: {x: -0.01783, y: 0.0, yaw: 0.0}
+    base_to_support: {x: 0.09908, y: 0.0, yaw: 0.0}
   - robot_id: agv3
     robot_index: 3
     pose_topic: /pose_provider/agv3/base_pose_fused
     base_frame: agv3/base_link
-    base_to_support: {x: -0.01783, y: 0.0, yaw: 0.0}
+    base_to_support: {x: 0.09908, y: 0.0, yaw: 0.0}

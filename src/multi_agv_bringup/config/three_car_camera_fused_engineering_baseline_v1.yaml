@@ -55,8 +55,8 @@ three_car_unloaded_bounded_pretest:
     wheel_separation: [0.135484339, 0.139284482, 0.136802843]
     base_to_support:
       - {x: -0.01783, y: 0.0}
-      - {x: -0.01783, y: 0.0}
-      - {x: -0.01783, y: 0.0}
+      - {x: 0.09908, y: 0.0}
+      - {x: 0.09908, y: 0.0}
 
   abort:
     minimum_battery_voltage: 10.0

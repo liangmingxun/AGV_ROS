@@ -39,8 +39,9 @@ Construction densely checks `1-kappa*q_normal >= chi_min` and
 rejected before it can be consumed by later controller tasks.
 
 `base_link` is the midpoint of the left/right drive-wheel axle, not the
-chassis-outline centre. The measured turntable centre is at
-`base_to_support=[-0.01783, 0] m`. The planar tracker constructs an
+chassis-outline centre. The measured turntable centres are at
+`base_to_support=[-0.01783, 0] m` for Robot1 and
+`[+0.09908, 0] m` for Robot2/3. The planar tracker constructs an
 offset-compensated, nonholonomic chassis reference before converting chassis
 speed/yaw rate to wheel-edge velocities. Capability mapping must use those
 chassis-reference derivatives rather than uncorrected support-path

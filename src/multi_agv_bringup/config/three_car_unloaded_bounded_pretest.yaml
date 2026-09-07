@@ -59,8 +59,8 @@ three_car_unloaded_bounded_pretest:
     # drive-wheel axle midpoint (base_link) -> turntable centre (support_link)
     base_to_support:
       - {x: -0.01783, y: 0.0}
-      - {x: -0.01783, y: 0.0}
-      - {x: -0.01783, y: 0.0}
+      - {x: 0.09908, y: 0.0}
+      - {x: 0.09908, y: 0.0}
 
   abort:
     minimum_battery_voltage: 10.0

@@ -12,7 +12,7 @@ import rosbag
 
 TOPICS = [f"/pose_provider/agv{i}/base_pose_raw" for i in range(1, 4)]
 REFERENCE_TOPIC = "/multi_agv/bounded_pretest/path_reference"
-BASE_TO_SUPPORT_X = -0.01783
+BASE_TO_SUPPORT_X = (-0.01783, 0.09908, 0.09908)
 PATH_AMPLITUDE_S = 0.05
 PATH_LONGITUDINAL_LENGTH = 1.0
 PATH_CIRCLE_RADIUS = 0.5
@@ -148,15 +148,22 @@ class ChassisReferenceModel:
     def _heading_derivative(self, robot_index, progress, heading):
         first_derivative = self._support_sample(robot_index, progress)[1]
         return (-math.sin(heading) * first_derivative[0] +
-                math.cos(heading) * first_derivative[1]) / BASE_TO_SUPPORT_X
+                math.cos(heading) * first_derivative[1]) / \
+            BASE_TO_SUPPORT_X[robot_index]
 
     def _build_chassis_heading(self, robot_index):
-        # BASE_TO_SUPPORT_X is negative, matching the C++ tracker: integrate
-        # backwards from the final support heading boundary condition.
         heading = [0.0] * CHASSIS_REFERENCE_SAMPLES
-        heading[-1] = self._support_sample(robot_index, self.length)[2]
-        step = -self.heading_step
-        for index in range(CHASSIS_REFERENCE_SAMPLES - 1, 0, -1):
+        offset = BASE_TO_SUPPORT_X[robot_index]
+        integrate_forward = offset > 0.0
+        boundary = 0 if integrate_forward else CHASSIS_REFERENCE_SAMPLES - 1
+        boundary_progress = boundary * self.heading_step
+        heading[boundary] = self._support_sample(
+            robot_index, boundary_progress)[2]
+        step = self.heading_step if integrate_forward else -self.heading_step
+        indices = (range(0, CHASSIS_REFERENCE_SAMPLES - 1)
+                   if integrate_forward else
+                   range(CHASSIS_REFERENCE_SAMPLES - 1, 0, -1))
+        for index in indices:
             progress = index * self.heading_step
             value = heading[index]
             k1 = self._heading_derivative(robot_index, progress, value)
@@ -168,7 +175,8 @@ class ChassisReferenceModel:
                 value + 0.5 * step * k2)
             k4 = self._heading_derivative(
                 robot_index, progress + step, value + step * k3)
-            heading[index - 1] = value + step * (
+            next_index = index + 1 if integrate_forward else index - 1
+            heading[next_index] = value + step * (
                 k1 + 2.0 * k2 + 2.0 * k3 + k4) / 6.0
         return heading
 
@@ -297,9 +305,10 @@ def main():
         pose = []
         for robot_index, support in enumerate(supports):
             heading = reference_model.heading(robot_index, progress)
+            offset = BASE_TO_SUPPORT_X[robot_index]
             pose.append((
-                support[0] - BASE_TO_SUPPORT_X * math.cos(heading),
-                support[1] - BASE_TO_SUPPORT_X * math.sin(heading),
+                support[0] - offset * math.cos(heading),
+                support[1] - offset * math.sin(heading),
                 heading))
         references.append((stamp, pose, progress))
 

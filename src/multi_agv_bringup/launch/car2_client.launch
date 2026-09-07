@@ -1,7 +1,7 @@
 <launch>
   <arg name="transport_type" default="serial"/>
   <arg name="formal_available_wheel_limit" default="0.08"/>
-  <arg name="support_x" default="-0.01783"/>
+  <arg name="support_x" default="0.09908"/>
   <arg name="support_y" default="0.0"/>
   <arg name="support_z" default="0.0"/>
   <include file="$(find multi_agv_bringup)/launch/chassis_single.launch">

@@ -29,9 +29,10 @@ roslaunch multi_agv_bringup central_odom_pretest.launch \
 1. 实测并冻结 `path_s_curve.yaml` 的场地路径尺寸。
 2. 实测并冻结 `support_geometry.yaml` 的三个物理支撑偏置。
 3. 测量 `localization_odom.yaml` 中三个 `world_to_odom` 初始变换以及
-   `base_to_support`，确认 frame 和左右法向约定。当前 CAD/实测冻结的
-   平面值为 `x=-0.01783 m, y=0, yaw=0`：`base_link` 是左右驱动轮
-   轴线中点，`support_link` 是顶部转盘中心。
+   `base_to_support`，确认 frame 和左右法向约定。当前冻结值为 Robot1
+   `x=-0.01783 m`、Robot2/3 `x=+0.09908 m`，三车均为
+   `y=0, yaw=0`：`base_link` 是左右驱动轮轴线中点，`support_link`
+   是顶部转盘中心。
 4. 用举升数据确定 `capability_mapping.yaml` 的模型、映射、同步和链路预留，
    不能保留零预留作为实车参数。
 5. 以 Robot1 单车举升方式验证二维跟踪命令方向、左右轮符号、停止命令和

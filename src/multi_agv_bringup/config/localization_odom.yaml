@@ -39,12 +39,12 @@ robots:
     odom_topic: /agv2/odom
     odom_frame: agv2/odom
     base_frame: agv2/base_link
-    world_to_odom: {x: -0.110568464571442, y: 0.122491946479834, yaw: 0.304395797364615}
-    base_to_support: {x: -0.01783, y: 0.0, yaw: 0.0}
+    world_to_odom: {x: -0.222103903348248, y: 0.087452054972220, yaw: 0.304395797364615}
+    base_to_support: {x: 0.09908, y: 0.0, yaw: 0.0}
   - robot_id: agv3
     robot_index: 3
     odom_topic: /agv3/odom
     odom_frame: agv3/odom
     base_frame: agv3/base_link
-    world_to_odom: {x: -0.020653423494683, y: -0.163716518433706, yaw: 0.304395797364615}
-    base_to_support: {x: -0.01783, y: 0.0, yaw: 0.0}
+    world_to_odom: {x: -0.132188862271489, y: -0.198756409941319, yaw: 0.304395797364615}
+    base_to_support: {x: 0.09908, y: 0.0, yaw: 0.0}

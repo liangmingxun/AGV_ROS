@@ -13,11 +13,13 @@
     <arg name="robot_id" value="agv2"/>
     <arg name="config_file" value="$(find multi_agv_bringup)/config/agv2_chassis.yaml"/>
     <arg name="transport_type" value="fake"/>
+    <arg name="support_x" value="0.09908"/>
   </include>
   <include file="$(find multi_agv_bringup)/launch/chassis_single.launch">
     <arg name="robot_id" value="agv3"/>
     <arg name="config_file" value="$(find multi_agv_bringup)/config/agv3_chassis.yaml"/>
     <arg name="transport_type" value="fake"/>
+    <arg name="support_x" value="0.09908"/>
   </include>
 
   <include file="$(find multi_agv_bringup)/launch/central_odom_pretest.launch">
