@@ -179,6 +179,8 @@ class BringupStaticTest(unittest.TestCase):
             authorization.count("hardware_execution_authorized: true"), 2)
         self.assertNotIn("hardware_execution_authorized: false", authorization)
         self.assertIn("emergency_abort_limit: 0.18", runtime)
+        self.assertIn("minimum_battery_voltage: 9.5", runtime)
+        self.assertIn("minimum_battery_voltage_duration: 0.5", runtime)
         self.assertIn("velocity: 0.08", runtime)
         self.assertIn("velocity: [0.08, 0.08, 0.08]", runtime)
         self.assertIn("velocity_lower_bound: -0.15", runtime)
@@ -225,6 +227,10 @@ class BringupStaticTest(unittest.TestCase):
             experiment_entry.index("process_experiment_run.py"))
         self.assertIn("fleet_wheel_scale_ = 1.0", formal_source)
         self.assertIn("all three pre-limit demands", formal_source)
+        self.assertIn("low_battery_since_", formal_source)
+        self.assertIn(
+            "low_voltage_duration >= minimum_battery_voltage_duration_",
+            formal_source)
 
     def test_optional_software_watchdog_is_observer_only(self):
         launch = (

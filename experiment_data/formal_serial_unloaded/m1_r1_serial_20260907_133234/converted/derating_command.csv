@@ -1,0 +1,1 @@
+topic,bag_stamp,header_stamp,robot_id,command_seq,mode,active,target_speed_ratio_left,target_speed_ratio_right,target_accel_ratio_left,target_accel_ratio_right,target_decel_ratio_left,target_decel_ratio_right,ramp_down_time,ramp_up_time,experiment_id

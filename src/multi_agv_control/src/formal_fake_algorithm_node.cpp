@@ -361,7 +361,10 @@ class FormalFakeAlgorithmNode {
     private_node_.param(
         root + "maximum_feedback_age", maximum_feedback_age_, 0.25);
     private_node_.param(
-        root + "minimum_battery_voltage", minimum_battery_voltage_, 10.0);
+        root + "minimum_battery_voltage", minimum_battery_voltage_, 9.5);
+    private_node_.param(
+        root + "minimum_battery_voltage_duration",
+        minimum_battery_voltage_duration_, 0.5);
     private_node_.param(
         root + "emergency_abort_limit",
         emergency_abort_limit_, 0.12);
@@ -456,6 +459,7 @@ class FormalFakeAlgorithmNode {
         !(maximum_capability_age_ > 0.0) ||
         !(maximum_feedback_age_ > 0.0) ||
         !(minimum_battery_voltage_ > 0.0) ||
+        !(minimum_battery_voltage_duration_ > 0.0) ||
         !(emergency_abort_limit_ > 0.0) ||
         startup_ramp_seconds_ < 0.0 ||
         !(emergency_abort_persistence_seconds_ > 0.0) ||
@@ -708,8 +712,22 @@ class FormalFakeAlgorithmNode {
       const agv_msgs::ChassisFeedback::ConstPtr& message) {
     if (message->robot_id != index + 1U) return;
     feedback_[index] = *message;
-    feedback_receive_time_[index] = ros::Time::now();
+    const ros::Time now = ros::Time::now();
+    feedback_receive_time_[index] = now;
     has_feedback_[index] = true;
+    if (std::isfinite(message->battery_voltage) &&
+        message->battery_voltage < minimum_battery_voltage_) {
+      if (low_battery_since_[index].isZero()) {
+        low_battery_since_[index] = now;
+        ROS_WARN(
+            "agv%zu battery voltage %.3f V is below %.3f V; waiting for "
+            "%.3f s of continuous undervoltage before fail-zero",
+            index + 1U, message->battery_voltage,
+            minimum_battery_voltage_, minimum_battery_voltage_duration_);
+      }
+    } else {
+      low_battery_since_[index] = ros::Time();
+    }
     if (transport_type_ == "serial" &&
         !command_sequence_synchronised_[index]) {
       if (!seedCommandSequenceFromFeedback(
@@ -857,9 +875,20 @@ class FormalFakeAlgorithmNode {
           return "agv" + std::to_string(index + 1U) +
               " battery voltage is invalid";
         }
-        if (feedback_[index].battery_voltage < minimum_battery_voltage_) {
-          return "agv" + std::to_string(index + 1U) +
-              " battery voltage is below the bound";
+        if (feedback_[index].battery_voltage < minimum_battery_voltage_ &&
+            !low_battery_since_[index].isZero()) {
+          const double low_voltage_duration =
+              (now - low_battery_since_[index]).toSec();
+          if (!std::isfinite(low_voltage_duration) ||
+              low_voltage_duration < 0.0) {
+            return "agv" + std::to_string(index + 1U) +
+                " battery undervoltage confirmation timing is invalid";
+          }
+          if (low_voltage_duration >= minimum_battery_voltage_duration_) {
+            return "agv" + std::to_string(index + 1U) +
+                " battery voltage remained below the bound for the "
+                "continuous confirmation duration";
+          }
         }
       }
     }
@@ -1859,6 +1888,7 @@ class FormalFakeAlgorithmNode {
   ros::Time last_valid_state_receive_time_;
   std::array<ros::Time, 3> capability_receive_time_;
   std::array<ros::Time, 3> feedback_receive_time_;
+  std::array<ros::Time, 3> low_battery_since_;
   bool has_state_{false};
   bool has_last_valid_state_{false};
   std::array<bool, 3> has_capability_{{false, false, false}};
@@ -1902,7 +1932,8 @@ class FormalFakeAlgorithmNode {
   double maximum_state_age_{0.15};
   double maximum_capability_age_{0.20};
   double maximum_feedback_age_{0.25};
-  double minimum_battery_voltage_{10.0};
+  double minimum_battery_voltage_{9.5};
+  double minimum_battery_voltage_duration_{0.5};
   double emergency_abort_limit_{0.12};
   double startup_ramp_seconds_{1.0};
   double emergency_abort_persistence_seconds_{0.10};
