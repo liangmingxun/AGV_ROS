@@ -94,16 +94,14 @@ formal_fake_runtime:
     longitudinal_gain: 1.0
     lateral_gain: 2.0
     heading_gain: 2.0
-    # Method-independent planar execution adapter. The same candidate must be
-    # retained when the formal method is switched between M1, M2a and M2b.
+    # Shared frozen planar execution adapter. These values are identical to
+    # CAMERA_IMU_WHEEL_FUSED_CLOSED_LOOP_V1 and remain unchanged when the
+    # formal upper/lower method is switched between M1, M2a and M2b.
     longitudinal_gain_per_robot: [1.0, 1.0, 1.0]
     lateral_gain_per_robot: [4.0, 3.0, 4.0]
     heading_gain_per_robot: [3.0, 2.5, 3.0]
-    # Runs 20260907_133234/151501 show repeatable directional heading lag for
-    # Robot2/3 while Robot1 remains balanced. Keep this correction small and
-    # leave every feedback gain and the M1/R1 mathematics unchanged.
-    angular_feedforward_scale_positive: [0.78, 0.82, 0.89]
-    angular_feedforward_scale_negative: [0.89, 0.96, 0.93]
+    angular_feedforward_scale_positive: [0.78, 0.780810219, 0.850009371]
+    angular_feedforward_scale_negative: [0.89, 0.918767785, 0.883228287]
     formation_longitudinal_gain: 0.25
     formation_lateral_gain: 0.50
     formation_heading_gain: 0.50

@@ -195,10 +195,10 @@ class BringupStaticTest(unittest.TestCase):
         self.assertIn("velocity_upper_bound: 0.58", runtime)
         self.assertIn("filter_alpha: 0.90", runtime)
         self.assertIn(
-            "angular_feedforward_scale_positive: [0.78, 0.82, 0.89]",
+            "angular_feedforward_scale_positive: [0.78, 0.780810219, 0.850009371]",
             runtime)
         self.assertIn(
-            "angular_feedforward_scale_negative: [0.89, 0.96, 0.93]",
+            "angular_feedforward_scale_negative: [0.89, 0.918767785, 0.883228287]",
             runtime)
         for config in (m1, m2a):
             self.assertIn("physical_upper: [0.105, 0.105, 0.105]", config)
