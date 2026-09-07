@@ -216,10 +216,14 @@ class FormalFakeAlgorithmNode {
  private:
   SCurveConfig loadPathConfig() {
     SCurveConfig config;
+    private_node_.param("path_s_curve/model", config.model,
+                        std::string("sine_single_period"));
     private_node_.param("path_s_curve/amplitude", config.amplitude, 0.05);
     private_node_.param(
         "path_s_curve/longitudinal_length",
         config.longitudinal_length, 1.0);
+    private_node_.param("path_s_curve/exit_straight_length",
+                        config.exit_straight_length, 0.0);
     int samples = 20001;
     private_node_.param("path_s_curve/lookup_samples", samples, 20001);
     if (samples < 2) throw std::runtime_error("invalid path lookup_samples");

@@ -26,10 +26,19 @@ SCurvePath::SCurvePath(const SCurveConfig& config) : config_(config) {
   const bool circle = config_.model == "circle";
   const bool smooth_circle = config_.model == "circle_smooth_entry";
   const bool graph_path = config_.model == "sine_single_period" ||
-                          config_.model == "straight_zero_amplitude";
+                          config_.model == "straight_zero_amplitude" ||
+                          config_.model ==
+                              "sine_single_period_with_straight_exit";
   if (!std::isfinite(config_.amplitude) ||
       !std::isfinite(config_.longitudinal_length) ||
       config_.longitudinal_length <= 0.0 ||
+      !std::isfinite(config_.exit_straight_length) ||
+      config_.exit_straight_length < 0.0 ||
+      ((!graph_path) && config_.exit_straight_length != 0.0) ||
+      (config_.model != "sine_single_period_with_straight_exit" &&
+       config_.exit_straight_length != 0.0) ||
+      (config_.model == "sine_single_period_with_straight_exit" &&
+       config_.exit_straight_length <= 0.0) ||
       (!circle && !smooth_circle && !graph_path) ||
       (circle && (!std::isfinite(config_.circle_radius) ||
                   config_.circle_radius <= 0.0 ||
@@ -133,7 +142,7 @@ double SCurvePath::rawSpeed(double xi) const noexcept {
 double SCurvePath::xiForArcLength(double s) const {
   const double bounded = clampFinite(s, 0.0, length(), "arc length");
   if (bounded <= 0.0) return 0.0;
-  if (bounded >= length()) return config_.longitudinal_length;
+  if (bounded >= arc_length_.back()) return config_.longitudinal_length;
 
   const auto upper = std::upper_bound(arc_length_.begin(), arc_length_.end(),
                                       bounded);
@@ -149,7 +158,9 @@ double SCurvePath::arcLengthForXi(double xi) const {
   const double bounded = clampFinite(
       xi, 0.0, config_.longitudinal_length, "raw path coordinate");
   if (bounded <= 0.0) return 0.0;
-  if (bounded >= config_.longitudinal_length) return length();
+  // xi parameterizes only the graph segment; the optional terminal straight
+  // has no additional raw graph coordinate.
+  if (bounded >= config_.longitudinal_length) return arc_length_.back();
 
   const auto upper = std::upper_bound(xi_.begin(), xi_.end(), bounded);
   const std::size_t upper_index =
@@ -165,6 +176,27 @@ PathSample SCurvePath::sample(double s) const {
   PathSample value;
   value.s = clampFinite(s, 0.0, length(), "arc length");
   value.xi = xiForArcLength(value.s);
+
+  if (config_.exit_straight_length > 0.0 &&
+      value.s > arc_length_.back()) {
+    const double terminal_slope = rawSlope(config_.longitudinal_length);
+    const double terminal_speed = std::hypot(1.0, terminal_slope);
+    value.tangent = {1.0 / terminal_speed,
+                     terminal_slope / terminal_speed};
+    value.normal = {-value.tangent.y(), value.tangent.x()};
+    value.heading = std::atan2(value.tangent.y(), value.tangent.x());
+    value.curvature = 0.0;
+    value.curvature_derivative = 0.0;
+    value.first_derivative = value.tangent;
+    value.second_derivative = Eigen::Vector2d::Zero();
+    const Eigen::Vector2d terminal_position(
+        config_.longitudinal_length,
+        config_.amplitude * std::sin(
+            wave_number_ * config_.longitudinal_length));
+    value.position = terminal_position +
+        (value.s - arc_length_.back()) * value.tangent;
+    return value;
+  }
 
   if (config_.model == "circle") {
     const double angle = value.s / config_.circle_radius;

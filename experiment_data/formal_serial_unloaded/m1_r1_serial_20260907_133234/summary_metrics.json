@@ -12,6 +12,31 @@
   },
   "experiment_id": "exp2a_m1_r1_unloaded_serial",
   "geometry": {
+    "endpoint": {
+      "definition": "last_commanded_sample_before_terminal_stop",
+      "reference_progress": 0.999545755700136,
+      "side": {
+        "agv1_agv2": {
+          "absolute_error": 0.007437858779086148,
+          "distance": 0.3074378587790863,
+          "signed_error": 0.007437858779086148,
+          "target": 0.30000000000000016
+        },
+        "agv1_agv3": {
+          "absolute_error": 0.0007965171314952002,
+          "distance": 0.30079651713149524,
+          "signed_error": 0.0007965171314952002,
+          "target": 0.30000000000000004
+        },
+        "agv2_agv3": {
+          "absolute_error": 0.02180528506163143,
+          "distance": 0.3218052850616314,
+          "signed_error": 0.02180528506163143,
+          "target": 0.3
+        }
+      },
+      "stamp": 1788759169.014197
+    },
     "load_position_max": 0.016443783835730245,
     "load_position_rmse": 0.01028354482216996,
     "load_yaw_max_absolute": 0.0515272905457354,
@@ -30,6 +55,26 @@
       "agv3": {
         "position_max": 0.020639739853748937,
         "position_rmse": 0.01123880402872626
+      }
+    },
+    "vehicle_heading": {
+      "agv1": {
+        "endpoint_absolute_error": 0.039064728979999686,
+        "endpoint_error": -0.039064728979999686,
+        "max_absolute": 0.07156315393160292,
+        "rmse": 0.03274613050234565
+      },
+      "agv2": {
+        "endpoint_absolute_error": 0.25749030965839964,
+        "endpoint_error": -0.25749030965839964,
+        "max_absolute": 0.2939830600527128,
+        "rmse": 0.11648867698200244
+      },
+      "agv3": {
+        "endpoint_absolute_error": 0.1395311765712678,
+        "endpoint_error": -0.1395311765712678,
+        "max_absolute": 0.2834754974104678,
+        "rmse": 0.15240775652742564
       }
     }
   },
@@ -67,7 +112,7 @@
     "progress_max_absolute": 0.005703924472367228,
     "progress_rmse": 0.0022631467452942553
   },
-  "processing_version": "paper_run_pipeline_v4_algorithm_validity",
+  "processing_version": "paper_run_pipeline_v5_endpoint_geometry",
   "recovery": {
     "capability_95_stamp": null,
     "capability_95_time": null,

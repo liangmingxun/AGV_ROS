@@ -429,6 +429,48 @@ class MetricsTest(unittest.TestCase):
         self.assertAlmostEqual(result["task"]["completion_time"], 0.9)
         self.assertIsNotNone(result["task"]["completion_stamp"])
 
+    def test_vehicle_heading_and_endpoint_triangle_are_reported(self):
+        rows = self.fixture()[:3]
+        reference_points = ((0.2, 0.0), (-0.1, 0.15), (-0.1, -0.15))
+        endpoint_points = ((0.2, 0.0), (-0.1, 0.15), (-0.1, -0.17))
+        for index, row in enumerate(rows):
+            row.update({
+                "algorithm_valid": True,
+                "evaluation_active": index < 2,
+                "experiment_state_available": True,
+                "load_s_reference": 0.5 * index,
+                "load_yaw_reference": 0.1,
+            })
+            for robot in range(1, 4):
+                row["agv{}_robot_pose_yaw".format(robot)] = (
+                    0.1 + 0.01 * robot)
+                row["agv{}_support_reference_x".format(robot)] = (
+                    reference_points[robot - 1][0])
+                row["agv{}_support_reference_y".format(robot)] = (
+                    reference_points[robot - 1][1])
+                point = (endpoint_points[robot - 1]
+                         if index >= 1 else reference_points[robot - 1])
+                row["agv{}_support_pose_x".format(robot)] = point[0]
+                row["agv{}_support_pose_y".format(robot)] = point[1]
+        # Match the real terminal fail-zero message: its support references
+        # are cleared, while load reference progress/yaw remain meaningful.
+        for robot in range(1, 4):
+            rows[2]["agv{}_support_reference_x".format(robot)] = 0.0
+            rows[2]["agv{}_support_reference_y".format(robot)] = 0.0
+
+        result = compute_metrics(
+            rows, sample_period=0.1, evaluation_target=1.0)
+        heading = result["geometry"]["vehicle_heading"]
+        self.assertAlmostEqual(heading["agv2"]["rmse"], 0.02)
+        self.assertAlmostEqual(heading["agv3"]["max_absolute"], 0.03)
+        self.assertAlmostEqual(heading["agv2"]["endpoint_error"], 0.02)
+        endpoint = result["geometry"]["endpoint"]
+        self.assertAlmostEqual(endpoint["reference_progress"], 0.5)
+        self.assertAlmostEqual(
+            endpoint["side"]["agv2_agv3"]["target"], 0.30)
+        self.assertGreater(
+            endpoint["side"]["agv2_agv3"]["signed_error"], 0.0)
+
 
 class ValidationTest(unittest.TestCase):
     def setUp(self):

@@ -144,6 +144,9 @@ class BringupStaticTest(unittest.TestCase):
         runtime = (
             PACKAGE / "config" / "formal_serial_m1_r1_runtime.yaml"
         ).read_text(encoding="utf-8")
+        terminal_path = (
+            PACKAGE / "config" / "path_s_curve_terminal_straight.yaml"
+        ).read_text(encoding="utf-8")
         m1 = (
             PACKAGE / "config" / "exp2a_M1_serial_008.yaml"
         ).read_text(encoding="utf-8")
@@ -183,6 +186,11 @@ class BringupStaticTest(unittest.TestCase):
         self.assertIn("minimum_battery_voltage_duration: 0.5", runtime)
         self.assertIn("velocity: 0.08", runtime)
         self.assertIn("velocity: [0.08, 0.08, 0.08]", runtime)
+        self.assertIn("target_progress: 1.2042352285", runtime)
+        self.assertIn(
+            "model: sine_single_period_with_straight_exit", terminal_path)
+        self.assertIn("longitudinal_length: 1.0", terminal_path)
+        self.assertIn("exit_straight_length: 0.18", terminal_path)
         self.assertIn("velocity_lower_bound: -0.15", runtime)
         self.assertIn("velocity_upper_bound: 0.58", runtime)
         for config in (m1, m2a):
@@ -191,6 +199,7 @@ class BringupStaticTest(unittest.TestCase):
             self.assertIn("initial_upper: [0.095, 0.095, 0.095]", config)
             self.assertIn("nominal_upper: [0.095, 0.095, 0.095]", config)
         self.assertIn("exp2a_M1_serial_008.yaml", serial_launch)
+        self.assertIn("path_s_curve_terminal_straight.yaml", serial_launch)
         self.assertNotIn("capability_mapping.yaml", serial_launch)
         self.assertIn(
             "wheel_separation: [0.135484339, 0.139284482, 0.136802843]",
@@ -204,6 +213,11 @@ class BringupStaticTest(unittest.TestCase):
         self.assertIn('formal_wheel_limit="0.15"', chassis_entry)
         self.assertIn("pre-limit demand abort threshold", experiment_entry)
         self.assertIn("--confirm-unloaded-30cm-fixture", experiment_entry)
+        self.assertIn(
+            'path_config="src/multi_agv_bringup/config/'
+            'path_s_curve_terminal_straight.yaml"', experiment_entry)
+        self.assertIn('evaluation_target:="$target_progress"',
+                      experiment_entry)
         self.assertIn('nominal_common_velocity="$(awk', experiment_entry)
         self.assertIn('/^[[:space:]]*leader:/', experiment_entry)
         self.assertIn(
@@ -216,15 +230,19 @@ class BringupStaticTest(unittest.TestCase):
             experiment_entry.count('lower_config:="${workspace}/${lower_config}"'),
             2)
         self.assertNotIn("nominal_common_velocity:=0.08", experiment_entry)
-        self.assertIn("plot_paper_experiments.py", experiment_entry)
-        self.assertIn("--numbered-folders", experiment_entry)
-        self.assertIn("01_M1_R1_complete_method", experiment_entry)
+        self.assertNotIn("plot_paper_experiments.py", experiment_entry)
+        self.assertIn("stop_runtime_nodes", experiment_entry)
+        self.assertIn("PHYSICAL_TASK_STATUS=PASSED", experiment_entry)
+        self.assertIn("POSTPROCESS_STATUS=PASSED", experiment_entry)
+        self.assertIn("POSTPROCESS_STATUS=FAILED", experiment_entry)
+        self.assertIn("bag and run directory are retained", experiment_entry)
+        self.assertIn("Offline retry:", experiment_entry)
         self.assertGreater(
             experiment_entry.index("process_experiment_run.py"),
             experiment_entry.index("rosservice call /experiment_recorder/stop"))
         self.assertGreater(
-            experiment_entry.index("plot_paper_experiments.py"),
-            experiment_entry.index("process_experiment_run.py"))
+            experiment_entry.index("process_experiment_run.py"),
+            experiment_entry.index("stop_runtime_nodes"))
         self.assertIn("fleet_wheel_scale_ = 1.0", formal_source)
         self.assertIn("all three pre-limit demands", formal_source)
         self.assertIn("low_battery_since_", formal_source)

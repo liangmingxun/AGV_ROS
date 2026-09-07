@@ -14,7 +14,7 @@ from multi_agv_analysis.paper_pipeline import export_views, plot_run
 from multi_agv_analysis.validation import validate_converted_run
 
 
-PROCESSING_VERSION = "paper_run_pipeline_v4_algorithm_validity"
+PROCESSING_VERSION = "paper_run_pipeline_v5_endpoint_geometry"
 
 
 def battery_edges(converted):
@@ -54,6 +54,14 @@ def main():
     parser.add_argument("--skip-plots", action="store_true")
     args = parser.parse_args()
     run_dir = Path(args.run_dir).resolve()
+    status_path = run_dir / "postprocess_status.json"
+    status = {
+        "schema_version": 1,
+        "conversion": "pending",
+        "validation": "pending",
+        "metrics": "pending",
+        "plots": "skipped" if args.skip_plots else "pending",
+    }
     try:
         manifest_path = run_dir / "manifest.yaml"
         manifest = load_yaml(manifest_path)
@@ -66,12 +74,15 @@ def main():
             bag_path = bags[0]
         converted = run_dir / "converted"
         convert_bag(bag_path, converted)
+        status["conversion"] = "passed"
         rules = load_yaml(args.validation_rules).get(
             "experiment_recording", {})
         validation = validate_converted_run(
             converted, manifest_path, rules)
         atomic_dump_json(run_dir / "validation.json", validation)
         if not validation.get("valid", False):
+            status["validation"] = "failed"
+            atomic_dump_json(status_path, status)
             reason = "; ".join(
                 item.get("code", "INVALID")
                 for item in validation.get("issues", []))
@@ -79,6 +90,7 @@ def main():
             print("RUN PIPELINE REFUSED INVALID RUN: {}".format(reason),
                   file=sys.stderr)
             return 4
+        status["validation"] = "passed"
         aligned = read_csv(converted / "aligned_samples.csv")
         metrics_cfg = manifest.get("metrics", {})
         metrics = compute_metrics(
@@ -97,16 +109,32 @@ def main():
         })
         atomic_dump_json(run_dir / "summary_metrics.json", metrics)
         export_views(converted, run_dir)
-        if not args.skip_plots:
-            plot_run(converted / "aligned_samples.csv", run_dir / "plots")
+        status["metrics"] = "passed"
         update_meta(run_dir, True)
+        atomic_dump_json(status_path, status)
+        if not args.skip_plots:
+            try:
+                plot_run(
+                    converted / "aligned_samples.csv", run_dir / "plots")
+                status["plots"] = "passed"
+            except Exception as error:
+                status["plots"] = "failed"
+                status["plot_error"] = str(error)
+                atomic_dump_json(status_path, status)
+                print(
+                    "PAPER RUN DATA PASSED; PLOT GENERATION FAILED: {}".format(
+                        error), file=sys.stderr)
+                return 5
+        atomic_dump_json(status_path, status)
         print("PAPER RUN PIPELINE: PASSED")
         print("run_dir={}".format(run_dir))
         return 0
     except Exception as error:
+        status["pipeline_error"] = str(error)
         if run_dir.exists():
             try:
                 update_meta(run_dir, False, str(error))
+                atomic_dump_json(status_path, status)
             except Exception:
                 pass
         print("PAPER RUN PIPELINE FAILED: {}".format(error), file=sys.stderr)

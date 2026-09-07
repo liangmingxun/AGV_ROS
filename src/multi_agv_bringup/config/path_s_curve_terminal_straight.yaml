@@ -1,0 +1,13 @@
+# Formal 30 cm three-car path: retain the frozen 1.0 m longitudinal S wave,
+# complete its full period, then continue for 0.18 m at zero curvature and the
+# terminal tangent. This gives the rear vehicles normal-speed heading-settle
+# time without adding a low-speed endpoint search.
+path_s_curve:
+  schema_version: 1
+  model: sine_single_period_with_straight_exit
+  configuration_status: formal_short_s_with_0p18m_terminal_straight
+  hardware_execution_authorized: false
+  amplitude: 0.05
+  longitudinal_length: 1.0
+  exit_straight_length: 0.18
+  lookup_samples: 20001

@@ -5,8 +5,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from multi_agv_analysis.io_utils import atomic_dump_json, write_csv
-from multi_agv_analysis.paper_pipeline import export_views
+from multi_agv_analysis.io_utils import (
+    atomic_dump_json, load_yaml, write_csv)
+from multi_agv_analysis.paper_pipeline import export_views, plot_run
 from multi_agv_analysis.publication_plots import (
     plot_experiment1, plot_experiment2a, plot_experiment2b,
     plot_experiment3, write_statistics)
@@ -37,6 +38,8 @@ class PaperPipelineTest(unittest.TestCase):
                 "load_pose_y": 0.01,
                 "load_x_reference": index * 0.01,
                 "load_y_reference": 0.0,
+                "load_s_reference": index * 0.01,
+                "load_velocity_reference": 0.08,
                 "common_boundary_upper": 0.09,
                 "public_reference_velocity": 0.08,
             }
@@ -58,6 +61,9 @@ class PaperPipelineTest(unittest.TestCase):
                         0.002 * robot,
                     "agv{}_channel_input_raw".format(robot):
                         0.01 * robot,
+                    "agv{}_s_actual".format(robot):
+                        index * 0.01 + 0.0005 * robot,
+                    "agv{}_s_dot_actual".format(robot): 0.08,
                 })
                 for side in ("left", "right"):
                     prefix = "agv{}_wheel_{}".format(robot, side)
@@ -131,6 +137,44 @@ class PaperPipelineTest(unittest.TestCase):
                 plot_experiment1.__code__.co_filename).read_text(encoding="utf-8")
             self.assertNotIn("0.230940107", source_text)
             self.assertNotIn("0.115470053", source_text)
+
+    def test_single_run_pipeline_writes_six_chinese_adaptive_figures(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source = root / "aligned_samples.csv"
+            self._publication_fixture(source)
+            output = root / "plots"
+            self.assertEqual(plot_run(source, output), 6)
+            for name in (
+                    "figure2_trajectory",
+                    "figure3_capability_boundary_reference",
+                    "figure4_channel_constraints",
+                    "figure5_robot2_wheel_chain",
+                    "figure6_cooperative_errors",
+                    "figure7_progress_recovery"):
+                self.assertTrue((output / (name + ".png")).is_file())
+                self.assertTrue((output / (name + ".pdf")).is_file())
+            metadata = load_yaml(output / "plot_metadata.json")
+            self.assertEqual(metadata["figures"], 6)
+            self.assertEqual(
+                metadata["axes"]["figure6.position_error"]["unit"], "m")
+            self.assertEqual(
+                metadata["axes"]["figure6.position_error"]["y_min"], 0.0)
+            self.assertEqual(
+                metadata["axes"]["figure7.progress_error"]["unit"], "m")
+            self.assertGreaterEqual(
+                len(metadata["axes"]["figure6.position_error"]["ticks"]), 5)
+            source_text = Path(
+                plot_run.__code__.co_filename).read_text(encoding="utf-8")
+            for marker in (
+                    "S路径与三车支撑点轨迹",
+                    "路径域能力与M1动态边界",
+                    "三车通道速度及M1动态上下界",
+                    "Robot2轮速执行链",
+                    "等效载荷、支撑点及构型误差",
+                    "路径进度误差与速度误差",
+                    "dpi=320"):
+                self.assertIn(marker, source_text)
 
     def test_logical_views_are_rebuilt_from_aligned_source(self):
         with tempfile.TemporaryDirectory() as temporary:

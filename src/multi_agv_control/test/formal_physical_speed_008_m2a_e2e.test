@@ -6,7 +6,7 @@
   <node pkg="multi_agv_control" type="formal_fake_algorithm_node"
         name="formal_fake_algorithm" output="screen" required="true">
     <rosparam command="load"
-              file="$(find multi_agv_bringup)/config/path_s_curve.yaml"/>
+              file="$(find multi_agv_bringup)/config/path_s_curve_terminal_straight.yaml"/>
     <rosparam command="load"
               file="$(find multi_agv_bringup)/config/support_geometry.yaml"/>
     <rosparam command="load"

@@ -25,6 +25,15 @@ TEST(SCurvePath, RejectsInvalidConfiguration) {
   EXPECT_THROW(SCurvePath(
       {std::numeric_limits<double>::quiet_NaN(), 1.0, 100}),
       std::invalid_argument);
+  SCurveConfig undeclared_exit;
+  undeclared_exit.amplitude = 0.05;
+  undeclared_exit.longitudinal_length = 1.0;
+  undeclared_exit.lookup_samples = 1001;
+  undeclared_exit.exit_straight_length = 0.18;
+  EXPECT_THROW({
+    const SCurvePath path(undeclared_exit);
+    (void)path;
+  }, std::invalid_argument);
 }
 
 TEST(SCurvePath, ClampsEndpointsAndRejectsNonFiniteQuery) {
@@ -70,6 +79,28 @@ TEST(SCurvePath, ZeroAmplitudeIsAnExactStraightLine) {
     EXPECT_NEAR((value.tangent - Eigen::Vector2d::UnitX()).norm(),
                 0.0, 1e-14);
   }
+}
+
+TEST(SCurvePath, TerminalStraightContinuesTangentAtZeroCurvature) {
+  SCurveConfig config;
+  config.amplitude = 0.05;
+  config.longitudinal_length = 1.0;
+  config.lookup_samples = 20001;
+  config.model = "sine_single_period_with_straight_exit";
+  config.exit_straight_length = 0.18;
+  const SCurvePath path(config);
+
+  const double curve_end = path.arcLengthForXi(config.longitudinal_length);
+  EXPECT_NEAR(path.length() - curve_end, 0.18, 1e-12);
+  const auto before = path.sample(curve_end);
+  const auto after = path.sample(curve_end + 1e-6);
+  const auto finish = path.sample(path.length());
+  EXPECT_NEAR(after.heading, before.heading, 1e-12);
+  EXPECT_DOUBLE_EQ(after.curvature, 0.0);
+  EXPECT_DOUBLE_EQ(finish.curvature, 0.0);
+  EXPECT_NEAR((finish.position - before.position).norm(), 0.18, 1e-12);
+  EXPECT_NEAR((finish.position - before.position).normalized().dot(
+                  before.tangent), 1.0, 1e-12);
 }
 
 TEST(SCurvePath, RadiusOneCircleIsArcLengthParameterizedAndClosed) {

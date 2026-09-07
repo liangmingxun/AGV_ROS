@@ -44,6 +44,7 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 workspace="$(cd "${script_dir}/../../.." && pwd)"
 cd "$workspace"
 runtime_config="src/multi_agv_bringup/config/formal_serial_m1_r1_runtime.yaml"
+path_config="src/multi_agv_bringup/config/path_s_curve_terminal_straight.yaml"
 upper_config="src/multi_agv_bringup/config/exp2a_M1_serial_008.yaml"
 lower_config="src/multi_agv_bringup/config/exp3_R1.yaml"
 runtime_status="$(awk '/^[[:space:]]*configuration_status:/ {print $2; exit}' \
@@ -54,10 +55,19 @@ nominal_common_velocity="$(awk '
   /^[[:space:]]*leader:/ {in_leader=1; next}
   in_leader && /^[[:space:]]*velocity:/ {print $2; exit}
 ' "$runtime_config")"
+target_progress="$(awk '
+  /^[[:space:]]*target_progress:/ {print $2; exit}
+' "$runtime_config")"
 if ! awk -v value="$nominal_common_velocity" \
     'BEGIN {exit !(value ~ /^[0-9]+([.][0-9]+)?$/ && value > 0.0)}'; then
   echo "ERROR: runtime leader.velocity is missing or invalid: " \
        "${nominal_common_velocity:-<missing>}" >&2
+  exit 3
+fi
+if ! awk -v value="$target_progress" \
+    'BEGIN {exit !(value ~ /^[0-9]+([.][0-9]+)?$/ && value > 1.0)}'; then
+  echo "ERROR: runtime target_progress is missing or invalid: " \
+       "${target_progress:-<missing>}" >&2
   exit 3
 fi
 if [[ "$runtime_status" == NEEDS_MANUAL_CONFIRMATION* ||
@@ -173,7 +183,22 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM HUP
 
-roslaunch multi_agv_bringup camera_fused_virtual_load_state_estimator.launch &
+stop_runtime_nodes() {
+  for pid in "$evaluation_pid" "$algorithm_pid" "$estimator_pid"; do
+    if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then
+      kill -INT "$pid" 2>/dev/null || true
+    fi
+  done
+  for pid in "$evaluation_pid" "$algorithm_pid" "$estimator_pid"; do
+    if [[ -n "$pid" ]]; then wait "$pid" 2>/dev/null || true; fi
+  done
+  evaluation_pid=""
+  algorithm_pid=""
+  estimator_pid=""
+}
+
+roslaunch multi_agv_bringup camera_fused_virtual_load_state_estimator.launch \
+  path_config:="${workspace}/${path_config}" &
 estimator_pid="$!"
 deadline=$((SECONDS + 15))
 until rosnode list 2>/dev/null | grep -Fqx /path_state_estimator; do
@@ -188,6 +213,7 @@ run_id="m1_r1_serial_$(date +%Y%m%d_%H%M%S)"
 roslaunch multi_agv_bringup formal_serial_m1_r1.launch \
   upper_config:="${workspace}/${upper_config}" \
   lower_config:="${workspace}/${lower_config}" \
+  path_config:="${workspace}/${path_config}" \
   runtime_config:="${workspace}/${runtime_config}" \
   enable_commands:=true \
   confirm_test_area_clear:=true \
@@ -215,7 +241,9 @@ roslaunch multi_agv_bringup experiment.launch \
   upper_config:="${workspace}/${upper_config}" \
   lower_config:="${workspace}/${lower_config}" \
   execution_authorization_config:="${workspace}/src/multi_agv_bringup/config/formal_serial_m1_r1_authorization.yaml" \
-  nominal_common_velocity:="$nominal_common_velocity" evaluation_target:=1.0 &
+  path_config:="${workspace}/${path_config}" \
+  nominal_common_velocity:="$nominal_common_velocity" \
+  evaluation_target:="$target_progress" &
 recorder_pid="$!"
 
 deadline=$((SECONDS + 50))
@@ -227,7 +255,8 @@ while (( SECONDS < deadline )); do
   progress="$(timeout 2 rostopic echo -n 1 /multi_agv/path_reference 2>/dev/null |
     awk '/load_path_progress_reference:/ {print $2; exit}' || true)"
   if [[ -n "$progress" ]] && awk -v value="$progress" \
-      'BEGIN {exit !(value >= 0.999)}'; then
+      -v target="$target_progress" \
+      'BEGIN {exit !(value >= target - 0.000001)}'; then
     reached=true; break
   fi
   sleep 0.2
@@ -247,12 +276,21 @@ rosservice call /experiment_recorder/stop >/dev/null
 wait "$recorder_pid" || true
 recorder_pid=""
 run_dir="${output_root}/${run_id}"
-rosrun multi_agv_analysis process_experiment_run.py "$run_dir" \
-  "$(rospack find multi_agv_analysis)/config/validation_defaults.yaml"
-paper_output_dir="${run_dir}/paper_figures"
-rosrun multi_agv_analysis plot_paper_experiments.py \
-  --output-dir "$paper_output_dir" \
-  --numbered-folders \
-  --experiment1 "$run_dir"
-echo "PAPER FIGURES COMPLETE: ${paper_output_dir}/01_M1_R1_complete_method"
-echo "M1+R1 SERIAL RUN COMPLETE: ${run_dir}"
+stop_runtime_nodes
+echo "PHYSICAL_TASK_STATUS=PASSED run_dir=${run_dir}"
+if rosrun multi_agv_analysis process_experiment_run.py "$run_dir" \
+    "$(rospack find multi_agv_analysis)/config/validation_defaults.yaml"; then
+  echo "POSTPROCESS_STATUS=PASSED"
+  echo "SUMMARY: ${run_dir}/summary_metrics.json"
+  echo "VALIDATION: ${run_dir}/validation.json"
+  echo "FIGURES: ${run_dir}/plots"
+else
+  postprocess_result="$?"
+  echo "POSTPROCESS_STATUS=FAILED step=bag_csv_validation_metrics_or_plots" >&2
+  echo "The physical task passed. Its bag and run directory are retained:" >&2
+  echo "${run_dir}" >&2
+  echo "Offline retry:" >&2
+  echo "rosrun multi_agv_analysis process_experiment_run.py '${run_dir}' '$(rospack find multi_agv_analysis)/config/validation_defaults.yaml'" >&2
+  exit $((20 + postprocess_result))
+fi
+echo "M1+R1 SERIAL RUN AND AUTOMATIC FIGURES COMPLETE: ${run_dir}"

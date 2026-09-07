@@ -33,9 +33,16 @@ def _pyplot():
         )
         for candidate in candidates:
             if Path(candidate).is_file():
-                font_manager.fontManager.addfont(candidate)
-                selected = font_manager.FontProperties(
-                    fname=candidate).get_name()
+                properties = font_manager.FontProperties(fname=candidate)
+                # FontManager.addfont() is unavailable in Matplotlib 3.1.2.
+                # Register through its legacy public font list in that case.
+                if hasattr(font_manager.fontManager, "addfont"):
+                    font_manager.fontManager.addfont(candidate)
+                else:
+                    font = font_manager.ft2font.FT2Font(candidate)
+                    font_manager.fontManager.ttflist.append(
+                        font_manager.ttfFontProperty(font))
+                selected = properties.get_name()
                 break
     selected = selected or "DejaVu Sans"
     plt.rcParams.update({

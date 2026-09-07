@@ -47,7 +47,10 @@ formal_fake_runtime:
   confirm_wheels_on_floor: false
   confirm_unloaded_30cm_fixture: false
   initial_progress: 0.0
-  target_progress: 1.0
+  # Full 1.0 m-longitudinal S-wave arc (1.02423522856 m) plus a 0.18 m
+  # zero-curvature terminal straight. Normal reference speed is retained up
+  # to this point; the existing synchronized stop remains endpoint-search-free.
+  target_progress: 1.2042352285
   experiment_id: exp2a_m1_r1_unloaded_serial
 
   leader:

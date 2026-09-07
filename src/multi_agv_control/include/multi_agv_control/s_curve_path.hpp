@@ -17,6 +17,9 @@ struct SCurveConfig {
   double entry_straight_length{0.0};
   double curvature_ramp_length{0.0};
   double circle_direction{1.0};
+  // Optional zero-curvature continuation after a graph path. It follows the
+  // graph's terminal tangent, so position and heading remain continuous.
+  double exit_straight_length{0.0};
 };
 
 struct PathSample {
@@ -37,7 +40,9 @@ class SCurvePath {
   explicit SCurvePath(const SCurveConfig& config);
 
   const SCurveConfig& config() const noexcept { return config_; }
-  double length() const noexcept { return arc_length_.back(); }
+  double length() const noexcept {
+    return arc_length_.back() + config_.exit_straight_length;
+  }
   double maximumAbsoluteCurvature() const noexcept {
     return maximum_absolute_curvature_;
   }

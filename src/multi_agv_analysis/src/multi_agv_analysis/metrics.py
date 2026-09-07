@@ -29,6 +29,96 @@ def _wrap_angle(value):
     return math.atan2(math.sin(value), math.cos(value))
 
 
+def _distance(point_a, point_b):
+    if not all(math.isfinite(value) for value in point_a + point_b):
+        return math.nan
+    return math.hypot(point_a[0] - point_b[0],
+                      point_a[1] - point_b[1])
+
+
+def _endpoint_geometry(all_rows, evaluation_target):
+    """Measure geometry at the final commanded sample before stop.
+
+    The formal node's synchronized fail-zero message clears per-robot support
+    references at the exact terminal tick. Therefore use the latest preceding
+    valid, nondegenerate support-reference sample. This is outside the
+    0.1--0.9 m formal statistics window and represents the last commanded
+    vehicle poses without interpreting cleared message fields as references.
+    """
+    valid_rows = [row for row in all_rows
+                  if bool_value(row.get("localization_valid", True))]
+    if not valid_rows:
+        return None, {}
+    reference_values = [
+        finite_float(row.get("load_s_reference")) for row in valid_rows]
+    finite_references = _finite(reference_values)
+    if not finite_references:
+        return None, {}
+    target = (float(evaluation_target)
+              if evaluation_target is not None else max(finite_references))
+    terminal = next((
+        row for row in valid_rows
+        if finite_float(row.get("load_s_reference")) >= target - 1.0e-6),
+        None)
+    if terminal is None:
+        maximum = max(finite_references)
+        terminal = min(
+            valid_rows,
+            key=lambda row: abs(
+                finite_float(row.get("load_s_reference")) - maximum))
+
+    pairs = ((1, 2), (1, 3), (2, 3))
+    target_distances = {}
+    endpoint = None
+    terminal_index = all_rows.index(terminal)
+    for row in reversed(all_rows[:terminal_index + 1]):
+        if not bool_value(row.get("localization_valid", True)):
+            continue
+        reference_points = {
+            robot: (
+                finite_float(row.get(
+                    "agv{}_support_reference_x".format(robot))),
+                finite_float(row.get(
+                    "agv{}_support_reference_y".format(robot))))
+            for robot in range(1, 4)}
+        distances = {
+            "agv{}_agv{}".format(first, second): _distance(
+                reference_points[first], reference_points[second])
+            for first, second in pairs}
+        if all(math.isfinite(value) and value > 1.0e-6
+               for value in distances.values()):
+            target_distances = distances
+            endpoint = row
+            break
+    endpoint = endpoint or terminal
+
+    actual_points = {
+        robot: (
+            finite_float(endpoint.get(
+                "agv{}_support_pose_x".format(robot))),
+            finite_float(endpoint.get(
+                "agv{}_support_pose_y".format(robot))))
+        for robot in range(1, 4)}
+    sides = {}
+    for first, second in pairs:
+        name = "agv{}_agv{}".format(first, second)
+        actual = _distance(actual_points[first], actual_points[second])
+        expected = target_distances.get(name, math.nan)
+        sides[name] = {
+            "distance": actual if math.isfinite(actual) else None,
+            "target": expected if math.isfinite(expected) else None,
+            "signed_error": (
+                actual - expected
+                if math.isfinite(actual) and math.isfinite(expected)
+                else None),
+            "absolute_error": (
+                abs(actual - expected)
+                if math.isfinite(actual) and math.isfinite(expected)
+                else None),
+        }
+    return endpoint, sides
+
+
 def _rigid_fit_residual(actual, reference):
     if len(actual) != 3 or len(reference) != 3:
         return math.nan
@@ -146,6 +236,7 @@ def compute_metrics(rows, sample_period, command_epsilon=1e-6,
     path_velocity_errors = {robot: [] for robot in range(1, 4)}
     path_progress_errors = {robot: [] for robot in range(1, 4)}
     support_errors = {robot: [] for robot in range(1, 4)}
+    vehicle_heading_errors = {robot: [] for robot in range(1, 4)}
     load_position_errors = []
     load_yaw_errors = []
     rigid_residuals = []
@@ -235,6 +326,17 @@ def compute_metrics(rows, sample_period, command_epsilon=1e-6,
             if (localization_valid and math.isfinite(actual_v) and
                     math.isfinite(reference_v)):
                 path_velocity_errors[robot].append(actual_v - reference_v)
+            robot_yaw = finite_float(
+                row.get("agv{}_robot_pose_yaw".format(robot)))
+            heading_reference = finite_float(
+                row.get("agv{}_support_reference_yaw".format(robot)))
+            if not math.isfinite(heading_reference):
+                heading_reference = finite_float(
+                    row.get("load_yaw_reference"))
+            if (localization_valid and math.isfinite(robot_yaw) and
+                    math.isfinite(heading_reference)):
+                vehicle_heading_errors[robot].append(
+                    _wrap_angle(robot_yaw - heading_reference))
             actual = (
                 finite_float(row.get(
                     "agv{}_support_pose_x".format(robot))),
@@ -364,6 +466,31 @@ def compute_metrics(rows, sample_period, command_epsilon=1e-6,
         if task_completion_stamp is not None:
             task_time = task_completion_stamp - task_start_stamp
 
+    endpoint_row, endpoint_sides = _endpoint_geometry(
+        all_rows, evaluation_target)
+    endpoint_heading = {}
+    endpoint_stamp = None
+    endpoint_reference_progress = None
+    if endpoint_row is not None:
+        endpoint_stamp = finite_float(endpoint_row.get("stamp"))
+        endpoint_reference_progress = finite_float(
+            endpoint_row.get("load_s_reference"))
+        for robot in range(1, 4):
+            actual_yaw = finite_float(endpoint_row.get(
+                "agv{}_robot_pose_yaw".format(robot)))
+            reference_yaw = finite_float(endpoint_row.get(
+                "agv{}_support_reference_yaw".format(robot)))
+            if not math.isfinite(reference_yaw):
+                reference_yaw = finite_float(
+                    endpoint_row.get("load_yaw_reference"))
+            error = (_wrap_angle(actual_yaw - reference_yaw)
+                     if math.isfinite(actual_yaw) and
+                     math.isfinite(reference_yaw) else math.nan)
+            endpoint_heading["agv{}".format(robot)] = {
+                "error": error if math.isfinite(error) else None,
+                "absolute_error": abs(error) if math.isfinite(error) else None,
+            }
+
     invalid_samples = sum(
         not bool_value(row.get("localization_valid", True)) for row in rows)
     invalid_algorithm_samples = sum(
@@ -467,6 +594,22 @@ def compute_metrics(rows, sample_period, command_epsilon=1e-6,
             "load_yaw_max_absolute": _maximum_absolute(load_yaw_errors),
             "rigid_fit_residual_rmse": _rmse(rigid_residuals),
             "rigid_fit_residual_max": _maximum_absolute(rigid_residuals),
+            "vehicle_heading": {
+                "agv{}".format(robot): {
+                    "rmse": _rmse(vehicle_heading_errors[robot]),
+                    "max_absolute": _maximum_absolute(
+                        vehicle_heading_errors[robot]),
+                    "endpoint_error": endpoint_heading.get(
+                        "agv{}".format(robot), {}).get("error"),
+                    "endpoint_absolute_error": endpoint_heading.get(
+                        "agv{}".format(robot), {}).get("absolute_error"),
+                } for robot in range(1, 4)},
+            "endpoint": {
+                "definition": "last_commanded_sample_before_terminal_stop",
+                "stamp": endpoint_stamp,
+                "reference_progress": endpoint_reference_progress,
+                "side": endpoint_sides,
+            },
         },
         "capability": {
             "link_margin_minimum": (

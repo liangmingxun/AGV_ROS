@@ -217,6 +217,8 @@ class PathStateEstimatorNode {
                         config.curvature_ramp_length, 0.0);
     private_node_.param("path_s_curve/circle_direction",
                         config.circle_direction, 1.0);
+    private_node_.param("path_s_curve/exit_straight_length",
+                        config.exit_straight_length, 0.0);
     int samples = 20001;
     private_node_.param("path_s_curve/lookup_samples", samples, 20001);
     if (samples < 3) {

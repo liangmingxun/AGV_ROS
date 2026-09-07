@@ -413,6 +413,8 @@ class ThreeCarUnloadedBoundedPretestNode {
                    config.curvature_ramp_length, 0.0);
     private_.param("path_s_curve/circle_direction",
                    config.circle_direction, 1.0);
+    private_.param("path_s_curve/exit_straight_length",
+                   config.exit_straight_length, 0.0);
     int samples = private_.param("path_s_curve/lookup_samples", 20001);
     config.lookup_samples =
         static_cast<std::size_t>(std::max(samples, 0));
