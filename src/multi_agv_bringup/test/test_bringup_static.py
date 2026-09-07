@@ -168,13 +168,13 @@ class BringupStaticTest(unittest.TestCase):
         ).read_text(encoding="utf-8")
 
         self.assertIn(
-            "NEEDS_MANUAL_CONFIRMATION_ROBOT3_REPLACEMENT_0p15",
+            "PILOT_AUTHORIZED_0p15_APPLIED_0p18_PRELIMIT_ABORT",
             runtime)
         self.assertIn("command_publication_authorized: false", runtime)
-        self.assertIn("serial_execution_authorized: false", runtime)
+        self.assertIn("serial_execution_authorized: true", runtime)
         self.assertEqual(
-            authorization.count("hardware_execution_authorized: false"), 2)
-        self.assertNotIn("hardware_execution_authorized: true", authorization)
+            authorization.count("hardware_execution_authorized: true"), 2)
+        self.assertNotIn("hardware_execution_authorized: false", authorization)
         self.assertIn("emergency_abort_limit: 0.18", runtime)
         self.assertIn("velocity: 0.08", runtime)
         self.assertIn("velocity: [0.08, 0.08, 0.08]", runtime)
