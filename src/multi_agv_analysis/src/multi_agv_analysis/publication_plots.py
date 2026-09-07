@@ -57,6 +57,23 @@ def _pyplot():
     return plt
 
 
+def _save_pdf(figure, path):
+    """Write PDF, falling back around Matplotlib 3.1.x TTC embedding bugs."""
+    try:
+        figure.savefig(path, bbox_inches="tight")
+        return
+    except (RuntimeError, ValueError) as error:
+        if "TrueType font is missing table" not in str(error):
+            raise
+    from matplotlib.backends.backend_cairo import FigureCanvasCairo
+    original_canvas = figure.canvas
+    try:
+        FigureCanvasCairo(figure).print_figure(
+            str(path), format="pdf", bbox_inches="tight")
+    finally:
+        figure.set_canvas(original_canvas)
+
+
 def _load_rows(source):
     source = Path(source)
     candidates = (
@@ -211,7 +228,7 @@ def _save(figure, directory, name):
     figure.tight_layout()
     figure.savefig(directory / (name + ".png"), dpi=320,
                    bbox_inches="tight")
-    figure.savefig(directory / (name + ".pdf"), bbox_inches="tight")
+    _save_pdf(figure, directory / (name + ".pdf"))
 
 
 def _plot_boundary_method(axis, rows, time, method, event=None):

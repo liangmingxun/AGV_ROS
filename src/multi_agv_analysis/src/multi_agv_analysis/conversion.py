@@ -75,6 +75,12 @@ RAW_SCHEMAS = {
         "path_progress_actual_1", "path_progress_actual_2",
         "path_progress_actual_3", "path_velocity_actual_1",
         "path_velocity_actual_2", "path_velocity_actual_3",
+        "path_progress_execute_reference_1",
+        "path_progress_execute_reference_2",
+        "path_progress_execute_reference_3",
+        "path_velocity_execute_reference_1",
+        "path_velocity_execute_reference_2",
+        "path_velocity_execute_reference_3",
         "common_velocity_lower_bound", "common_velocity_upper_bound",
         "common_velocity_reference", "channel_input_raw_1",
         "channel_input_raw_2", "channel_input_raw_3",
@@ -282,6 +288,12 @@ def _extract(topic, bag_stamp, message):
             row, "path_progress_actual", message.path_progress_actual)
         _array_fields(
             row, "path_velocity_actual", message.path_velocity_actual)
+        _array_fields(
+            row, "path_progress_execute_reference",
+            message.path_progress_execute_reference)
+        _array_fields(
+            row, "path_velocity_execute_reference",
+            message.path_velocity_execute_reference)
         _array_fields(row, "channel_input_raw", message.channel_input_raw)
         _array_fields(
             row, "channel_input_limited", message.channel_input_limited)
@@ -555,6 +567,14 @@ def _aligned_rows(raw, maximum_age):
                 "s_actual_{}".format(robot), math.nan)
             row["agv{}_s_dot_actual".format(robot)] = state.get(
                 "s_dot_actual_{}".format(robot), math.nan)
+            row["agv{}_s_execute_reference".format(robot)] = (
+                controller.get(
+                    "path_progress_execute_reference_{}".format(robot),
+                    math.nan) if controller else math.nan)
+            row["agv{}_s_dot_execute_reference".format(robot)] = (
+                controller.get(
+                    "path_velocity_execute_reference_{}".format(robot),
+                    math.nan) if controller else math.nan)
             for axis in ("x", "y", "yaw"):
                 row["agv{}_support_reference_{}".format(robot, axis)] = (
                     path.get(

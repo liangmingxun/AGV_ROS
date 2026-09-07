@@ -8,7 +8,7 @@ import unittest
 from pathlib import Path
 
 import genpy
-from agv_msgs.msg import CooperativeState, PathReference
+from agv_msgs.msg import ControllerState, CooperativeState, PathReference
 from geometry_msgs.msg import PoseStamped
 from std_msgs.msg import Float64, UInt64
 
@@ -116,6 +116,16 @@ class CameraConversionTest(unittest.TestCase):
         self.assertEqual(row["support_y_reference_1"], 2.0)
         self.assertEqual(row["support_yaw_reference_1"], 0.4)
 
+        controller = ControllerState()
+        controller.header.stamp = stamp
+        controller.path_progress_execute_reference[0] = 0.45
+        controller.path_velocity_execute_reference[0] = 0.081
+        filename, row = _extract(
+            "/multi_agv/controller_state", stamp, controller)
+        self.assertEqual(filename, "controller_state.csv")
+        self.assertEqual(row["path_progress_execute_reference_1"], 0.45)
+        self.assertEqual(row["path_velocity_execute_reference_1"], 0.081)
+
     def test_internal_debug_and_support_references_are_causally_aligned(self):
         raw = {name: [] for name in RAW_SCHEMAS}
         state = {
@@ -140,6 +150,11 @@ class CameraConversionTest(unittest.TestCase):
             path["support_y_reference_{}".format(robot)] = 0.0
             path["support_yaw_reference_{}".format(robot)] = 0.0
         raw["path_reference.csv"] = [path]
+        raw["controller_state.csv"] = [{
+            "header_stamp": 1.0,
+            "path_progress_execute_reference_1": 0.11,
+            "path_velocity_execute_reference_1": 0.081,
+        }]
         formal = [0.0] * 90
         formal[9 + 16] = 0.25
         raw["formal_algorithm_state.csv"] = [{
@@ -166,6 +181,9 @@ class CameraConversionTest(unittest.TestCase):
         aligned = _aligned_rows(raw, 0.2)
         self.assertEqual(len(aligned), 1)
         self.assertEqual(aligned[0]["agv1_support_reference_x"], 1.0)
+        self.assertEqual(aligned[0]["agv1_s_execute_reference"], 0.11)
+        self.assertEqual(
+            aligned[0]["agv1_s_dot_execute_reference"], 0.081)
         self.assertEqual(aligned[0]["agv1_psi"], 0.25)
         self.assertTrue(math.isnan(
             aligned[0]["agv1_mapped_path_velocity_upper"]))

@@ -2,6 +2,7 @@
   <!-- Requires pose_provider and camera_odom_fusion to be running already. -->
   <arg name="path_config"
        default="$(find multi_agv_bringup)/config/path_s_curve.yaml"/>
+  <arg name="runtime_config" default=""/>
 
   <node pkg="multi_agv_control" type="path_state_estimator_node"
         name="path_state_estimator" output="screen" required="true">
@@ -12,5 +13,9 @@
               file="$(find multi_agv_bringup)/config/localization_camera.yaml"/>
     <rosparam command="load"
               file="$(find multi_agv_bringup)/config/localization_camera_three_car_closed_loop.yaml"/>
+    <!-- A formal run may overlay feedback conditioning without changing the
+         frozen shared camera/localization configuration. -->
+    <rosparam if="$(eval arg('runtime_config') != '')" command="load"
+              file="$(arg runtime_config)"/>
   </node>
 </launch>

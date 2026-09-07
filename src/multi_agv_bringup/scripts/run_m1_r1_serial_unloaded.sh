@@ -198,7 +198,8 @@ stop_runtime_nodes() {
 }
 
 roslaunch multi_agv_bringup camera_fused_virtual_load_state_estimator.launch \
-  path_config:="${workspace}/${path_config}" &
+  path_config:="${workspace}/${path_config}" \
+  runtime_config:="${workspace}/${runtime_config}" &
 estimator_pid="$!"
 deadline=$((SECONDS + 15))
 until rosnode list 2>/dev/null | grep -Fqx /path_state_estimator; do

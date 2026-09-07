@@ -64,6 +64,7 @@ class PaperPipelineTest(unittest.TestCase):
                     "agv{}_s_actual".format(robot):
                         index * 0.01 + 0.0005 * robot,
                     "agv{}_s_dot_actual".format(robot): 0.08,
+                    "agv{}_s_dot_execute_reference".format(robot): 0.079,
                 })
                 for side in ("left", "right"):
                     prefix = "agv{}_wheel_{}".format(robot, side)
@@ -166,10 +167,15 @@ class PaperPipelineTest(unittest.TestCase):
                 len(metadata["axes"]["figure6.position_error"]["ticks"]), 5)
             source_text = Path(
                 plot_run.__code__.co_filename).read_text(encoding="utf-8")
+            font_source = Path(
+                plot_experiment1.__code__.co_filename).read_text(
+                    encoding="utf-8")
+            self.assertIn("FigureCanvasCairo", font_source)
+            self.assertIn("TrueType font is missing table", font_source)
             for marker in (
                     "S路径与三车支撑点轨迹",
                     "路径域能力与M1动态边界",
-                    "三车通道速度及M1动态上下界",
+                    "M1参考动态边界与R1执行/实测速度",
                     "Robot2轮速执行链",
                     "等效载荷、支撑点及构型误差",
                     "路径进度误差与速度误差",

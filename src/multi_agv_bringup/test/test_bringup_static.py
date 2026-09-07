@@ -193,6 +193,13 @@ class BringupStaticTest(unittest.TestCase):
         self.assertIn("exit_straight_length: 0.18", terminal_path)
         self.assertIn("velocity_lower_bound: -0.15", runtime)
         self.assertIn("velocity_upper_bound: 0.58", runtime)
+        self.assertIn("filter_alpha: 0.90", runtime)
+        self.assertIn(
+            "angular_feedforward_scale_positive: [0.78, 0.82, 0.89]",
+            runtime)
+        self.assertIn(
+            "angular_feedforward_scale_negative: [0.89, 0.96, 0.93]",
+            runtime)
         for config in (m1, m2a):
             self.assertIn("physical_upper: [0.105, 0.105, 0.105]", config)
             self.assertIn("inner_margin: [0.005, 0.005, 0.005]", config)
@@ -216,6 +223,9 @@ class BringupStaticTest(unittest.TestCase):
         self.assertIn(
             'path_config="src/multi_agv_bringup/config/'
             'path_s_curve_terminal_straight.yaml"', experiment_entry)
+        self.assertIn(
+            'runtime_config:="${workspace}/${runtime_config}"',
+            experiment_entry)
         self.assertIn('evaluation_target:="$target_progress"',
                       experiment_entry)
         self.assertIn('nominal_common_velocity="$(awk', experiment_entry)

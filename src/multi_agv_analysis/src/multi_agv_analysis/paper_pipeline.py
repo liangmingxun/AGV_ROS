@@ -6,7 +6,7 @@ from pathlib import Path
 from multi_agv_analysis.io_utils import (
     atomic_dump_json, finite_float, load_yaml, read_csv, write_csv)
 from multi_agv_analysis.metrics import _rigid_fit_residual
-from multi_agv_analysis.publication_plots import _pyplot
+from multi_agv_analysis.publication_plots import _pyplot, _save_pdf
 
 
 GROUPS = {
@@ -107,7 +107,7 @@ def _finite_xy(x_values, y_values):
 def _save(fig, output, name):
     fig.tight_layout()
     fig.savefig(output / (name + ".png"), dpi=320, bbox_inches="tight")
-    fig.savefig(output / (name + ".pdf"), bbox_inches="tight")
+    _save_pdf(fig, output / (name + ".pdf"))
 
 
 def _command_rows(rows):
@@ -373,18 +373,27 @@ def plot_run(aligned_csv, output_dir, axis_overrides=None):
     channel_series = []
     for robot, ax, color in zip(range(1, 4), axes, colors):
         actual = _series(rows, "agv{}_s_dot_actual".format(robot))
+        execute = _series(
+            rows, "agv{}_s_dot_execute_reference".format(robot))
         lower = _series(rows, "agv{}_boundary_lower".format(robot))
         upper = _series(rows, "agv{}_boundary_upper".format(robot))
-        ax.plot(time, actual, color=color, label="实际通道速度")
-        ax.plot(time, lower, "k--", lw=0.8, label="M1动态下界")
-        ax.plot(time, upper, "k-.", lw=0.8, label="M1动态上界")
+        ax.plot(time, actual, color=color, alpha=0.72,
+                label="R1实测状态速度")
+        if any(math.isfinite(value) for value in execute):
+            ax.plot(time, execute, color=color, ls="--", lw=1.15,
+                    label="R1执行速度参考")
+        ax.plot(time, lower, "k--", lw=0.8,
+                label="M1参考动态下界")
+        ax.plot(time, upper, "k-.", lw=0.8,
+                label="M1参考动态上界")
         ax.set_ylabel("Robot{} / (m/s)".format(robot))
         _legend(ax)
-        channel_series.extend((actual, lower, upper))
+        channel_series.extend((actual, execute, lower, upper))
     for robot, ax in zip(range(1, 4), axes):
         _set_y_axis(ax, channel_series, "figure4.robot{}".format(robot),
                     "m/s", metadata, axis_overrides)
-    axes[0].set_title("三车通道速度及M1动态上下界")
+    axes[0].set_title(
+        "M1参考动态边界与R1执行/实测速度（语义分离）")
     axes[-1].set_xlabel("时间 / s")
     _record_ticks(fig, {
         "figure4.robot{}".format(robot): axes[robot - 1]
