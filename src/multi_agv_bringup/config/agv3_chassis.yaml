@@ -33,5 +33,7 @@ support_frame: agv3/support_link
 imu:
   acc_bias: [-0.00149775, -0.02231723, 0.08511986]
   acc_scale: [0.9904211, 0.99104174, 0.99421908]
-  gyro_bias: [0.0023492, 0.0031998, 0.00240794]
+  # Replacement STM32/IMU board: estimated from the final 180 s stationary
+  # window of robot3_odom_straight/20260905_171003.
+  gyro_bias: [0.003982790, -0.004442320, 0.001136470]
   gyro_lpf_tau: 0.02

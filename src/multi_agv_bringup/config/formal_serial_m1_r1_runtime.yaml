@@ -7,9 +7,11 @@ formal_fake_runtime:
   # robots at the 0.15 m/s chassis-applied wheel envelope, with emergency stop
   # effective and no abnormal vibration, loss of control or communication.
   # The 0.18 m/s value below remains only a pre-limit demand abort threshold.
-  configuration_status: PILOT_AUTHORIZED_0p15_APPLIED_0p18_PRELIMIT_ABORT
+  # Robot3 controller/IMU was replaced after that validation. Its 2026-09-05
+  # 0.05 m/s straight run and static gyro check do not validate 0.15 m/s.
+  configuration_status: NEEDS_MANUAL_CONFIRMATION_ROBOT3_REPLACEMENT_0p15
   command_publication_authorized: false
-  serial_execution_authorized: true
+  serial_execution_authorized: false
   publish_rate: 100.0
   maximum_state_age: 0.22
   maximum_capability_age: 0.25

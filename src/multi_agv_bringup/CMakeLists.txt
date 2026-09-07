@@ -9,6 +9,7 @@ catkin_install_python(PROGRAMS
   scripts/camera_wheel_turn_calibration.py
   scripts/check_three_car_readonly_gate.py
   scripts/initialize_three_car_camera_formation.py
+  scripts/robot3_single_wheel_check.py
   scripts/run_timed_straight_test.py
   scripts/wait_three_car_wheel_stop.py
   test/test_namespace_isolation.py

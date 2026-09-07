@@ -34,19 +34,19 @@ robots:
     odom_topic: /agv1/odom
     odom_frame: agv1/odom
     base_frame: agv1/base_link
-    world_to_odom: {x: 0.248770107675850, y: 0.0, yaw: 0.0}
+    world_to_odom: {x: 0.191035080756888, y: 0.0, yaw: 0.0}
     base_to_support: {x: -0.01783, y: 0.0, yaw: 0.0}
   - robot_id: agv2
     robot_index: 2
     odom_topic: /agv2/odom
     odom_frame: agv2/odom
     base_frame: agv2/base_link
-    world_to_odom: {x: -0.097640053837925, y: 0.20, yaw: 0.0}
+    world_to_odom: {x: -0.068772540378444, y: 0.150000000000000, yaw: 0.0}
     base_to_support: {x: -0.01783, y: 0.0, yaw: 0.0}
   - robot_id: agv3
     robot_index: 3
     odom_topic: /agv3/odom
     odom_frame: agv3/odom
     base_frame: agv3/base_link
-    world_to_odom: {x: -0.097640053837925, y: -0.20, yaw: 0.0}
+    world_to_odom: {x: -0.068772540378444, y: -0.150000000000000, yaw: 0.0}
     base_to_support: {x: -0.01783, y: 0.0, yaw: 0.0}

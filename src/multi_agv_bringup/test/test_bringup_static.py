@@ -9,6 +9,32 @@ SOURCE_ROOT = PACKAGE.parent
 
 
 class BringupStaticTest(unittest.TestCase):
+    def test_zero_odometry_reconstructs_30cm_supports(self):
+        import math
+        import yaml
+
+        config = PACKAGE / "config"
+        supports = yaml.safe_load((config / "support_geometry.yaml").read_text())[
+            "support_geometry"]["supports"]
+        for filename in ("localization_odom.yaml", "localization_odom_straight.yaml"):
+            robots = yaml.safe_load((config / filename).read_text())["robots"]
+            points = []
+            for robot, support in zip(robots, supports):
+                self.assertEqual(robot["robot_id"], support["robot_id"])
+                base = robot["base_to_support"]
+                self.assertEqual(base, {"x": -0.01783, "y": 0.0, "yaw": 0.0})
+                pose = robot["world_to_odom"]
+                c, s = math.cos(pose["yaw"]), math.sin(pose["yaw"])
+                x = pose["x"] + c * base["x"] - s * base["y"]
+                y = pose["y"] + s * base["x"] + c * base["y"]
+                self.assertAlmostEqual(c*x + s*y, support["q_tangent"], places=12)
+                self.assertAlmostEqual(-s*x + c*y, support["q_normal"], places=12)
+                points.append((x, y))
+            for i, j in ((0, 1), (0, 2), (1, 2)):
+                self.assertAlmostEqual(math.dist(points[i], points[j]), 0.30, places=12)
+            for axis in (0, 1):
+                self.assertAlmostEqual(sum(p[axis] for p in points)/3, 0.0, places=12)
+
     def test_all_launch_files_are_well_formed_and_do_not_start_move_base(self):
         for launch in (PACKAGE / "launch").glob("*.launch"):
             with self.subTest(launch=launch.name):
@@ -142,13 +168,13 @@ class BringupStaticTest(unittest.TestCase):
         ).read_text(encoding="utf-8")
 
         self.assertIn(
-            "PILOT_AUTHORIZED_0p15_APPLIED_0p18_PRELIMIT_ABORT",
+            "NEEDS_MANUAL_CONFIRMATION_ROBOT3_REPLACEMENT_0p15",
             runtime)
         self.assertIn("command_publication_authorized: false", runtime)
-        self.assertIn("serial_execution_authorized: true", runtime)
+        self.assertIn("serial_execution_authorized: false", runtime)
         self.assertEqual(
-            authorization.count("hardware_execution_authorized: true"), 2)
-        self.assertNotIn("hardware_execution_authorized: false", authorization)
+            authorization.count("hardware_execution_authorized: false"), 2)
+        self.assertNotIn("hardware_execution_authorized: true", authorization)
         self.assertIn("emergency_abort_limit: 0.18", runtime)
         self.assertIn("velocity: 0.08", runtime)
         self.assertIn("velocity: [0.08, 0.08, 0.08]", runtime)
@@ -278,11 +304,11 @@ class BringupStaticTest(unittest.TestCase):
         self.assertEqual(localization.count(
             "base_to_support: {x: -0.01783, y: 0.0, yaw: 0.0}"), 3)
         for transform in (
-                "x: 0.237333702114270, y: 0.074560581501146, "
+                "x: 0.182252857360210, y: 0.057256423777858, "
                 "yaw: 0.304395797364615",
-                "x: -0.153094727127932, y: 0.161541278437113, "
+                "x: -0.110568464571442, y: 0.122491946479834, "
                 "yaw: 0.304395797364615",
-                "x: -0.033208005692254, y: -0.220070008114273, "
+                "x: -0.020653423494683, y: -0.163716518433706, "
                 "yaw: 0.304395797364615"):
             self.assertIn(transform, localization)
         self.assertIn("maximum_rigid_fit_residual: 0.01", localization)
@@ -867,6 +893,58 @@ class BringupStaticTest(unittest.TestCase):
         self.assertIn("side_length:", runner_30cm)
         self.assertIn("0\\.30", runner_30cm)
         self.assertIn("run_three_car_camera_formation_init.sh", runner_30cm)
+
+    def test_robot3_single_wheel_check_is_lifted_bounded_and_recorded(self):
+        runner = (
+            SOURCE_ROOT.parent / "run_robot3_single_wheel_check.sh"
+        ).read_text(encoding="utf-8")
+        node = (
+            PACKAGE / "scripts" / "robot3_single_wheel_check.py"
+        ).read_text(encoding="utf-8")
+        for marker in (
+                "--confirm-wheels-lifted",
+                "--confirm-emergency-stop-ready",
+                "--wheel",
+                "formal_available_wheel_limit",
+                'limit" != "0.08"',
+                "rosbag record",
+                "chassis_command.csv",
+                "chassis_feedback.csv"):
+            self.assertIn(marker, runner)
+        for marker in (
+                "SPEED = 0.01",
+                "DURATION = 0.5",
+                "OVERSPEED = 0.03",
+                "LEFT_FORWARD",
+                "RIGHT_FORWARD",
+                "LEFT_REVERSE",
+                "RIGHT_REVERSE",
+                'choices=("left", "right", "both")',
+                "inactive wheel moved unexpectedly",
+                "SINGLE_WHEEL_STOP"):
+            self.assertIn(marker, node)
+
+    def test_robot3_imu_static_capture_is_stationary_and_recorded(self):
+        runner = (
+            SOURCE_ROOT.parent / "run_robot3_imu_static_capture.sh"
+        ).read_text(encoding="utf-8")
+        for marker in (
+                "duration_seconds=120",
+                "--confirm-robot-stationary",
+                "--confirm-no-motion-command",
+                "--confirm-emergency-stop-ready",
+                "starting a private roscore",
+                "car3_client.launch",
+                "formal_available_wheel_limit:=0.08",
+                "/agv3/chassis_controller",
+                "has_publisher /agv3/chassis_command",
+                "wheel velocity exceeds 0.01 m/s",
+                "rosbag record",
+                "/agv3/imu",
+                "/agv3/chassis_feedback",
+                "imu_static_summary.txt",
+                "VALID_STATIONARY_CAPTURE"):
+            self.assertIn(marker, runner)
 
 
 if __name__ == "__main__":
