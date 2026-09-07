@@ -168,9 +168,15 @@ class FormalFakeAlgorithmNode {
           upper_config.agents[index].initial_boundary;
     }
 
+    // These 100 Hz control-state links carry small safety-critical messages.
+    // Keep reliable TCPROS ordering, but disable Nagle buffering so an
+    // independent subscriber connection does not add avoidable latency.
+    const ros::TransportHints control_input_transport =
+        ros::TransportHints().reliable().tcpNoDelay();
     state_subscriber_ = node_.subscribe(
         "/multi_agv/cooperative_state", 5,
-        &FormalFakeAlgorithmNode::receiveState, this);
+        &FormalFakeAlgorithmNode::receiveState, this,
+        control_input_transport);
     recorder_armed_subscriber_ = node_.subscribe(
         "/experiment_recorder/armed", 1,
         &FormalFakeAlgorithmNode::receiveRecorderArmed, this);
@@ -185,12 +191,12 @@ class FormalFakeAlgorithmNode {
           "/agv" + std::to_string(index + 1U) + "/capability_report", 5,
           [this, index](const agv_msgs::CapabilityReport::ConstPtr& message) {
             receiveCapability(index, message);
-          });
+          }, ros::VoidConstPtr(), control_input_transport);
       feedback_subscribers_[index] = node_.subscribe<agv_msgs::ChassisFeedback>(
           "/agv" + std::to_string(index + 1U) + "/chassis_feedback", 5,
           [this, index](const agv_msgs::ChassisFeedback::ConstPtr& message) {
             receiveFeedback(index, message);
-          });
+          }, ros::VoidConstPtr(), control_input_transport);
     }
     reference_publisher_ = node_.advertise<agv_msgs::PathReference>(
         "/multi_agv/path_reference", 5, false);

@@ -200,6 +200,10 @@ class BringupStaticTest(unittest.TestCase):
         self.assertIn(
             "angular_feedforward_scale_negative: [0.89, 0.918767785, 0.883228287]",
             runtime)
+        self.assertIn(
+            "ros::TransportHints().reliable().tcpNoDelay()",
+            formal_source)
+        self.assertEqual(formal_source.count("control_input_transport"), 4)
         for config in (m1, m2a):
             self.assertIn("physical_upper: [0.105, 0.105, 0.105]", config)
             self.assertIn("inner_margin: [0.005, 0.005, 0.005]", config)
