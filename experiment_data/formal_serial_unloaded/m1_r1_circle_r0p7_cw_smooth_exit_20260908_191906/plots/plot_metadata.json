@@ -1,0 +1,158 @@
+{
+  "axes": {
+    "figure2.trajectory_y": {
+      "axis_equal": true,
+      "ticks": [
+        -1.5,
+        -1.25,
+        -1.0,
+        -0.75,
+        -0.5,
+        -0.25,
+        0.0,
+        0.25
+      ],
+      "unit": "m",
+      "y_max": 0.2673033936734378,
+      "y_min": -1.6797451102236578
+    },
+    "figure3.path_capability": {
+      "absolute_error_from_zero": true,
+      "ticks": [
+        0.0,
+        0.04,
+        0.08,
+        0.12,
+        0.16
+      ],
+      "unit": "m/s",
+      "y_max": 0.19890451944310586,
+      "y_min": 0.0
+    },
+    "figure3.wheel_capability": {
+      "absolute_error_from_zero": true,
+      "ticks": [
+        0.0,
+        0.03,
+        0.06,
+        0.09,
+        0.12,
+        0.15
+      ],
+      "unit": "m/s",
+      "y_max": 0.162,
+      "y_min": 0.0
+    },
+    "figure4.robot1": {
+      "absolute_error_from_zero": false,
+      "ticks": [
+        0.0,
+        0.03,
+        0.06,
+        0.09,
+        0.12
+      ],
+      "unit": "m/s",
+      "y_max": 0.13816483403318558,
+      "y_min": -0.026345543261717452
+    },
+    "figure4.robot2": {
+      "absolute_error_from_zero": false,
+      "ticks": [
+        0.0,
+        0.03,
+        0.06,
+        0.09,
+        0.12
+      ],
+      "unit": "m/s",
+      "y_max": 0.13816483403318558,
+      "y_min": -0.026345543261717452
+    },
+    "figure4.robot3": {
+      "absolute_error_from_zero": false,
+      "ticks": [
+        0.0,
+        0.03,
+        0.06,
+        0.09,
+        0.12
+      ],
+      "unit": "m/s",
+      "y_max": 0.13816483403318558,
+      "y_min": -0.026345543261717452
+    },
+    "figure5.left": {
+      "absolute_error_from_zero": false,
+      "ticks": [
+        -0.15999999999999998,
+        -0.07999999999999999,
+        0.0,
+        0.08000000000000002,
+        0.16000000000000003
+      ],
+      "unit": "m/s",
+      "y_max": 0.20879999999999999,
+      "y_min": -0.20879999999999999
+    },
+    "figure5.right": {
+      "absolute_error_from_zero": false,
+      "ticks": [
+        -0.15999999999999998,
+        -0.07999999999999999,
+        0.0,
+        0.08000000000000002,
+        0.16000000000000003
+      ],
+      "unit": "m/s",
+      "y_max": 0.20879999999999999,
+      "y_min": -0.20879999999999999
+    },
+    "figure6.position_error": {
+      "absolute_error_from_zero": true,
+      "ticks": [
+        0.0,
+        0.02,
+        0.039999999999999994,
+        0.06,
+        0.08
+      ],
+      "unit": "m",
+      "y_max": 0.08,
+      "y_min": 0.0
+    },
+    "figure7.progress_error": {
+      "absolute_error_from_zero": false,
+      "ticks": [
+        -0.019999999999999997,
+        -0.009999999999999998,
+        0.0,
+        0.010000000000000002,
+        0.020000000000000004,
+        0.03
+      ],
+      "unit": "m",
+      "y_max": 0.03,
+      "y_min": -0.02
+    },
+    "figure7.velocity_error": {
+      "absolute_error_from_zero": false,
+      "ticks": [
+        -0.07500000000000001,
+        -0.05,
+        -0.024999999999999994,
+        0.0,
+        0.024999999999999994,
+        0.05000000000000002,
+        0.07500000000000001
+      ],
+      "unit": "m/s",
+      "y_max": 0.07500000000000001,
+      "y_min": -0.07500000000000001
+    }
+  },
+  "emergency_pre_limit_threshold_mps": 0.18,
+  "figures": 6,
+  "schema_version": 1,
+  "source": "/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/experiment_data/formal_serial_unloaded/m1_r1_circle_r0p7_cw_smooth_exit_20260908_191906/converted/aligned_samples.csv"
+}

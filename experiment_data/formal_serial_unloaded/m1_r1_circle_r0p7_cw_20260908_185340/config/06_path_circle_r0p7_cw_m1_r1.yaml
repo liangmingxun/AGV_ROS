@@ -1,0 +1,18 @@
+# Optional M1+R1 physical pilot: clockwise R=0.70 m circle with the existing
+# curvature-continuous entry.  The load travels 0.20 m straight, ramps from
+# zero to -1/R curvature over 0.40 m, then completes one constant-radius lap.
+# This file does not replace the formal S-path baseline.
+path_s_curve:
+  schema_version: 1
+  model: circle_smooth_entry
+  configuration_status: pilot_circle_r0p7_cw_m1_r1
+  hardware_execution_authorized: false
+
+  amplitude: 0.0
+  circle_radius: 0.7
+  circle_direction: -1.0
+  entry_straight_length: 0.20
+  curvature_ramp_length: 0.40
+  # 0.20 m straight + 0.40 m ramp + 2*pi*0.70 m constant-radius lap.
+  longitudinal_length: 4.998229715025710
+  lookup_samples: 60001

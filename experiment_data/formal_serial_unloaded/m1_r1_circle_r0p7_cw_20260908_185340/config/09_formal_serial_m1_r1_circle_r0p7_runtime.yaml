@@ -1,0 +1,104 @@
+# R=0.7 m clockwise-circle pilot runtime for the real three-chassis entry.
+#
+# Only the method-shared planar execution adapter differs from the frozen S
+# baseline.  M1/R1, chassis calibration, physical limits, safety semantics,
+# localization and the 25 mm rigid-fit validity gate remain unchanged.  The
+# same circle adapter must be used by every paper method compared on this path.
+formal_fake_runtime:
+  schema_version: 1
+  configuration_status: PILOT_AUTHORIZED_0p15_APPLIED_0p18_PRELIMIT_ABORT
+  command_publication_authorized: false
+  serial_execution_authorized: true
+  publish_rate: 100.0
+  maximum_state_age: 0.22
+  maximum_capability_age: 0.25
+  maximum_feedback_age: 0.25
+  minimum_battery_voltage: 9.5
+  minimum_battery_voltage_duration: 0.5
+  emergency_abort_limit: 0.18
+
+  execution:
+    initialization_hold_seconds: 0.30
+    initialization_max_wheel_speed: 0.015
+    startup_ramp_seconds: 1.0
+    emergency_abort_persistence_seconds: 0.10
+    # Frozen from the valid short-arc runs: cover the observed camera
+    # resynchronization transient without changing the formal control law.
+    transient_state_hold_seconds: 0.08
+    # A single formal-node TCPROS feedback subscription stalled for about
+    # 0.28 s in full-circle run 183416 while the chassis and recorder still
+    # observed 100 Hz feedback. Preserve the last value for 0.10 s after the
+    # unchanged 0.25 s freshness bound; a sustained outage still fail-zeros.
+    transient_feedback_hold_seconds: 0.10
+
+  require_valid_load_state: true
+  require_recorder_armed: true
+  maximum_recorder_armed_age: 0.50
+  confirm_test_area_clear: false
+  confirm_wheels_on_floor: false
+  confirm_unloaded_30cm_fixture: false
+  initial_progress: 0.0
+  target_progress: 4.998229715025710
+  experiment_id: m1_r1_circle_r0p7_cw_serial
+
+  leader:
+    initial_position: 0.0
+    velocity: 0.08
+    acceleration: 0.0
+
+  distributed_initial:
+    position: [0.0, 0.0, 0.0]
+    velocity: [0.08, 0.08, 0.08]
+    auxiliary: [0.0, 0.0, 0.0]
+
+  risk:
+    capability_reserve: 0.005
+    capability_safe_margin: 0.010
+    input_safe_margin: 0.40
+    wheel_safe_margin: 0.010
+    position_limit: 0.12
+    position_safe_margin: 0.06
+    require_software_watchdog: false
+    maximum_watchdog_age: 0.25
+
+  capability_reserve:
+    body_linear_velocity: 0.0
+    body_angular_velocity: 0.0
+    wheel_linear_velocity: 0.0
+    path_acceleration: 0.0
+    path_deceleration: 0.0
+
+  lower:
+    velocity_lower_bound: -0.15
+    velocity_upper_bound: 0.58
+    initial_parameter: [0.0, 0.0]
+    initial_disturbance_estimate: 0.08
+
+  tracker:
+    longitudinal_gain: 1.0
+    lateral_gain: 2.0
+    heading_gain: 2.0
+    longitudinal_gain_per_robot: [1.0, 1.0, 1.0]
+    # Full-circle transfer of the accepted short-arc candidate. Robot2's 3.4
+    # lateral gain reduced its repeatable support error; Robot3 retains the
+    # accepted 3.0 heading gain after the 3.4 trial worsened position tracking.
+    lateral_gain_per_robot: [4.8, 3.4, 4.0]
+    heading_gain_per_robot: [3.5, 3.0, 3.0]
+    angular_feedforward_scale_positive: [0.78, 0.780810219, 0.850009371]
+    # Frozen from the accepted role-faithful single-car short-arc runs:
+    # Robot1 20260908_152227, Robot2 152717 and Robot3 152916.
+    angular_feedforward_scale_negative: [0.94, 0.951221879, 0.94]
+    formation_longitudinal_gain: 0.25
+    formation_lateral_gain: 0.85
+    formation_heading_gain: 0.70
+    curvature_preview_seconds_positive: [0.05, 0.0, 0.05]
+    curvature_preview_seconds_negative: [0.05, 0.0, 0.05]
+    chassis_reference_samples: 10001
+    wheel_separation: [0.135484339, 0.139284482, 0.136802843]
+    base_to_support:
+      - {x: -0.01783, y: 0.0}
+      - {x: 0.09908, y: 0.0}
+      - {x: 0.09908, y: 0.0}
+
+estimator:
+  filter_alpha: 0.90
