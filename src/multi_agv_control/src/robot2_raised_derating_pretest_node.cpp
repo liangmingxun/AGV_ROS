@@ -255,6 +255,13 @@ class Robot2RaisedDeratingPretestNode {
       throw std::runtime_error("invalid initial derating command sequence");
     }
     sequence_base_ = static_cast<std::uint32_t>(initial_sequence);
+    sequence_base_ = std::max(sequence_base_, ros::WallTime::now().sec);
+    expected_nominal_wheel_limit_ = finiteParam(
+        private_, root + "expected_nominal_wheel_limit", 0.15);
+    expected_derated_wheel_limit_ = finiteParam(
+        private_, root + "expected_derated_wheel_limit", 0.06);
+    wheel_limit_tolerance_ = finiteParam(
+        private_, root + "wheel_limit_tolerance", 0.003);
     private_.param<std::string>(
         root + "experiment_id", experiment_id_,
         "robot2_raised_derating_pretest");
@@ -270,6 +277,10 @@ class Robot2RaisedDeratingPretestNode {
         !(maximum_motion_time_ > 0.0) ||
         !(stopped_wheel_tolerance_ >= 0.0) ||
         motion_detection_speed_ < stopped_wheel_tolerance_ ||
+        !(expected_nominal_wheel_limit_ > 0.0) ||
+        !(expected_derated_wheel_limit_ > 0.0) ||
+        !(expected_derated_wheel_limit_ < expected_nominal_wheel_limit_) ||
+        !(wheel_limit_tolerance_ > 0.0) ||
         !(maximum_progress_ > minimum_progress_) ||
         required_subscribers_ < 1 || required_subscribers_ > 8) {
       throw std::runtime_error(
@@ -345,13 +356,27 @@ class Robot2RaisedDeratingPretestNode {
     capability_ = *message;
     capability_receive_time_ = ros::WallTime::now();
     has_capability_ = true;
-    if (message->derating_active && message->derating_ratio <= 0.45) {
+    if (!message->derating_active &&
+        wheelLimitsNear(*message, expected_nominal_wheel_limit_)) {
+      saw_nominal_capability_ = true;
+    }
+    if (message->derating_active && message->derating_ratio <= 0.45 &&
+        wheelLimitsNear(*message, expected_derated_wheel_limit_)) {
       saw_derated_capability_ = true;
     }
     if (saw_derated_capability_ && !message->derating_active &&
-        message->derating_ratio >= 0.99) {
+        message->derating_ratio >= 0.99 &&
+        wheelLimitsNear(*message, expected_nominal_wheel_limit_)) {
       saw_restored_capability_ = true;
     }
+  }
+
+  bool wheelLimitsNear(const agv_msgs::CapabilityReport& message,
+                       double expected) const {
+    return std::abs(message.max_wheel_linear_velocity_left - expected) <=
+               wheel_limit_tolerance_ &&
+           std::abs(message.max_wheel_linear_velocity_right - expected) <=
+               wheel_limit_tolerance_;
   }
 
   bool stateFresh() const {
@@ -368,7 +393,7 @@ class Robot2RaisedDeratingPretestNode {
     while (ros::ok() && !stop_requested.load() &&
            ros::WallTime::now() < deadline) {
       ros::spinOnce();
-      if (stateFresh() &&
+      if (stateFresh() && saw_nominal_capability_ &&
           derating_publisher_.getNumSubscribers() >=
               static_cast<std::uint32_t>(required_subscribers_)) {
         ROS_INFO("Robot2 raised derating pretest ready: %u derating "
@@ -379,8 +404,9 @@ class Robot2RaisedDeratingPretestNode {
       rate.sleep();
     }
     ROS_ERROR("Robot2 raised derating pretest not ready: state fresh=%s, "
-              "derating subscribers=%u/%d",
+              "0.15 m/s nominal capability=%s, derating subscribers=%u/%d",
               stateFresh() ? "true" : "false",
+              saw_nominal_capability_ ? "true" : "false",
               derating_publisher_.getNumSubscribers(), required_subscribers_);
     return false;
   }
@@ -498,6 +524,7 @@ class Robot2RaisedDeratingPretestNode {
   bool has_odometry_{false};
   bool has_feedback_{false};
   bool has_capability_{false};
+  bool saw_nominal_capability_{false};
   bool saw_derated_capability_{false};
   bool saw_restored_capability_{false};
   double anchor_x_{0.0};
@@ -510,6 +537,9 @@ class Robot2RaisedDeratingPretestNode {
   double maximum_motion_time_{18.0};
   double stopped_wheel_tolerance_{0.01};
   double motion_detection_speed_{0.01};
+  double expected_nominal_wheel_limit_{0.15};
+  double expected_derated_wheel_limit_{0.06};
+  double wheel_limit_tolerance_{0.003};
   double minimum_progress_{-0.02};
   double maximum_progress_{0.85};
   int required_subscribers_{2};

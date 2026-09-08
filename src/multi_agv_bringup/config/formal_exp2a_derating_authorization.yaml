@@ -1,0 +1,6 @@
+# This lock is intentionally separate from the already confirmed 0.15 m/s
+# chassis envelope. Set true only after the current-envelope Robot2 raised-wheel
+# derating pretest has passed and the operator has accepted that evidence.
+exp2a_derating_pretest:
+  configuration_status: pending_robot2_0p15_to_0p06_raised_wheel_validation
+  hardware_execution_authorized: false

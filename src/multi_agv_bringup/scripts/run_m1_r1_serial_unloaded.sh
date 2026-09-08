@@ -8,16 +8,27 @@ usage: run_m1_r1_serial_unloaded.sh \
   --confirm-area-clear --confirm-wheels-on-floor \
   --confirm-unloaded-30cm-fixture
 
-Runs the first paper M1+R1 serial entry on Robot1. The three chassis,
-vision bridge and camera fusion must already be running. This command starts
-the virtual-load CooperativeState estimator, formal algorithm, evaluation
-window and recorder. Any missing recorder heartbeat makes the algorithm
-publish zero commands.
+Runs the selected M1+R1 or M2a+R1 serial entry on Robot1. The public M1 entry
+keeps Robot2 derating disabled; the dedicated Experiment-2a wrappers enable
+the separately gated Robot2 derating. The three chassis, vision bridge and
+camera fusion must already be running. Any missing recorder heartbeat makes
+the algorithm publish zero commands.
 EOF
 }
 
 operator=""
 pair_block=""
+formal_upper_mode="${FORMAL_UPPER_MODE:-M1}"
+enable_robot2_derating="${FORMAL_ENABLE_ROBOT2_DERATING:-false}"
+if [[ "$formal_upper_mode" != M1 && "$formal_upper_mode" != M2a ]]; then
+  echo "ERROR: unsupported formal upper mode: ${formal_upper_mode}" >&2
+  exit 2
+fi
+if [[ "$enable_robot2_derating" != true &&
+      "$enable_robot2_derating" != false ]]; then
+  echo "ERROR: invalid Robot2 derating selection" >&2
+  exit 2
+fi
 confirm_area=false
 confirm_floor=false
 confirm_fixture=false
@@ -44,8 +55,19 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 workspace="$(cd "${script_dir}/../../.." && pwd)"
 cd "$workspace"
 runtime_config="src/multi_agv_bringup/config/formal_serial_m1_r1_runtime.yaml"
-path_config="src/multi_agv_bringup/config/path_s_curve_terminal_straight.yaml"
-upper_config="src/multi_agv_bringup/config/exp2a_M1_serial_008.yaml"
+path_config="${FORMAL_PATH_CONFIG:-src/multi_agv_bringup/config/path_s_curve_terminal_straight.yaml}"
+evaluation_config="${FORMAL_EVALUATION_CONFIG:-src/multi_agv_bringup/config/formal_evaluation_window.yaml}"
+if [[ "$formal_upper_mode" == M2a ]]; then
+  upper_config="src/multi_agv_bringup/config/exp2a_M2a_serial_008.yaml"
+  method_id="M2a_R1"
+  experiment_id="${FORMAL_EXPERIMENT_ID:-exp2a_m2a_r1_robot2_derating_serial}"
+  run_prefix="${FORMAL_RUN_PREFIX:-m2a_r1_serial}"
+else
+  upper_config="src/multi_agv_bringup/config/exp2a_M1_serial_008.yaml"
+  method_id="M1_R1"
+  experiment_id="${FORMAL_EXPERIMENT_ID:-exp2a_m1_r1_unloaded_serial}"
+  run_prefix="${FORMAL_RUN_PREFIX:-m1_r1_serial}"
+fi
 lower_config="src/multi_agv_bringup/config/exp3_R1.yaml"
 runtime_status="$(awk '/^[[:space:]]*configuration_status:/ {print $2; exit}' \
   "$runtime_config")"
@@ -58,6 +80,8 @@ nominal_common_velocity="$(awk '
 target_progress="$(awk '
   /^[[:space:]]*target_progress:/ {print $2; exit}
 ' "$runtime_config")"
+target_progress="${FORMAL_TARGET_PROGRESS:-$target_progress}"
+run_timeout_seconds="${FORMAL_RUN_TIMEOUT_SECONDS:-50}"
 if ! awk -v value="$nominal_common_velocity" \
     'BEGIN {exit !(value ~ /^[0-9]+([.][0-9]+)?$/ && value > 0.0)}'; then
   echo "ERROR: runtime leader.velocity is missing or invalid: " \
@@ -68,6 +92,11 @@ if ! awk -v value="$target_progress" \
     'BEGIN {exit !(value ~ /^[0-9]+([.][0-9]+)?$/ && value > 1.0)}'; then
   echo "ERROR: runtime target_progress is missing or invalid: " \
        "${target_progress:-<missing>}" >&2
+  exit 3
+fi
+if [[ ! "$run_timeout_seconds" =~ ^[0-9]+$ ]] ||
+   (( run_timeout_seconds < 10 || run_timeout_seconds > 300 )); then
+  echo "ERROR: run timeout must be an integer from 10 to 300 seconds" >&2
   exit 3
 fi
 if [[ "$runtime_status" == NEEDS_MANUAL_CONFIRMATION* ||
@@ -210,12 +239,14 @@ done
 rosrun multi_agv_bringup check_three_car_readonly_gate.py \
   --observe-seconds 5 --require-fused-cooperative-state
 
-run_id="m1_r1_serial_$(date +%Y%m%d_%H%M%S)"
+run_id="${run_prefix}_$(date +%Y%m%d_%H%M%S)"
 roslaunch multi_agv_bringup formal_serial_m1_r1.launch \
   upper_config:="${workspace}/${upper_config}" \
   lower_config:="${workspace}/${lower_config}" \
   path_config:="${workspace}/${path_config}" \
   runtime_config:="${workspace}/${runtime_config}" \
+  experiment_id:="$experiment_id" \
+  target_progress:="$target_progress" \
   enable_commands:=true \
   confirm_test_area_clear:=true \
   confirm_wheels_on_floor:=true \
@@ -223,16 +254,24 @@ roslaunch multi_agv_bringup formal_serial_m1_r1.launch \
 algorithm_pid="$!"
 roslaunch multi_agv_bringup formal_evaluation_window.launch \
   platform_transport_type:=serial \
-  run_id:="$run_id" method_id:=M1_R1 \
-  experiment_id:=exp2a_m1_r1_unloaded_serial \
-  block_id:="$pair_block" &
+  evaluation_config:="${workspace}/${evaluation_config}" \
+  derating_publication_authorized:="$enable_robot2_derating" \
+  confirm_robot2_local_derating:="$enable_robot2_derating" \
+  run_id:="$run_id" method_id:="$method_id" \
+  experiment_id:="$experiment_id" block_id:="$pair_block" &
 evaluation_pid="$!"
+deadline=$((SECONDS + 10))
+until rosnode list 2>/dev/null | grep -Fqx /formal_evaluation_supervisor; do
+  if ! kill -0 "$evaluation_pid" 2>/dev/null; then wait "$evaluation_pid"; fi
+  (( SECONDS < deadline )) || { echo "ERROR: evaluation supervisor timeout" >&2; exit 6; }
+  sleep 0.2
+done
 
 output_root="${workspace}/experiment_data/formal_serial_unloaded"
 roslaunch multi_agv_bringup experiment.launch \
   arming_authorized:=true \
   output_root:="$output_root" run_id:="$run_id" \
-  experiment_id:=exp2a_m1_r1_unloaded_serial method_id:=M1_R1 \
+  experiment_id:="$experiment_id" method_id:="$method_id" \
   pair_block_id:="$pair_block" payload_state:=unloaded \
   localization_source:=camera_imu_wheel_fused operator:="$operator" \
   camera_mode:=true virtual_load_from_robots:=true \
@@ -242,15 +281,16 @@ roslaunch multi_agv_bringup experiment.launch \
   upper_config:="${workspace}/${upper_config}" \
   lower_config:="${workspace}/${lower_config}" \
   execution_authorization_config:="${workspace}/src/multi_agv_bringup/config/formal_serial_m1_r1_authorization.yaml" \
+  evaluation_config:="${workspace}/${evaluation_config}" \
   path_config:="${workspace}/${path_config}" \
   nominal_common_velocity:="$nominal_common_velocity" \
   evaluation_target:="$target_progress" &
 recorder_pid="$!"
 
-deadline=$((SECONDS + 50))
+deadline=$((SECONDS + run_timeout_seconds))
 reached=false
 while (( SECONDS < deadline )); do
-  for pid in "$algorithm_pid" "$recorder_pid"; do
+  for pid in "$algorithm_pid" "$evaluation_pid" "$recorder_pid"; do
     if ! kill -0 "$pid" 2>/dev/null; then wait "$pid"; fi
   done
   progress="$(timeout 2 rostopic echo -n 1 /multi_agv/path_reference 2>/dev/null |
@@ -263,7 +303,7 @@ while (( SECONDS < deadline )); do
   sleep 0.2
 done
 if [[ "$reached" != true ]]; then
-  echo "ERROR: M1+R1 did not reach the bounded target" >&2
+  echo "ERROR: ${method_id} did not reach the bounded target" >&2
   exit 7
 fi
 
@@ -294,4 +334,4 @@ else
   echo "rosrun multi_agv_analysis process_experiment_run.py '${run_dir}' '$(rospack find multi_agv_analysis)/config/validation_defaults.yaml'" >&2
   exit $((20 + postprocess_result))
 fi
-echo "M1+R1 SERIAL RUN AND AUTOMATIC FIGURES COMPLETE: ${run_dir}"
+echo "${method_id} SERIAL RUN AND AUTOMATIC FIGURES COMPLETE: ${run_dir}"

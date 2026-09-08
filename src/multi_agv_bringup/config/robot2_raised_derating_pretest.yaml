@@ -3,7 +3,7 @@
 # loaded operation.
 robot2_raised_derating_pretest:
   schema_version: 1
-  configuration_status: robot2_raised_wheels_low_speed_pretest
+  configuration_status: robot2_raised_wheels_0p15_to_0p06_pretest
   hardware_execution_authorized: true
 
   publish_rate: 20.0
@@ -18,6 +18,10 @@ robot2_raised_derating_pretest:
   required_derating_subscribers: 2
   initial_command_sequence: 42000
 
+  expected_nominal_wheel_limit: 0.15
+  expected_derated_wheel_limit: 0.06
+  wheel_limit_tolerance: 0.003
+
   activation_progress: 0.30
   restoration_progress: 0.60
   derating_mode: 1
@@ -27,8 +31,8 @@ robot2_raised_derating_pretest:
   target_acceleration_ratio_right: 0.50
   target_deceleration_ratio_left: 0.60
   target_deceleration_ratio_right: 0.60
-  ramp_down_time: 0.40
-  ramp_up_time: 0.40
+  ramp_down_time: 0.50
+  ramp_up_time: 0.50
 
   experiment_id: robot2_raised_derating_pretest
   method_id: ACTUAL_ODOM_PROGRESS

@@ -228,6 +228,14 @@ class FormalFakeAlgorithmNode {
     private_node_.param(
         "path_s_curve/longitudinal_length",
         config.longitudinal_length, 1.0);
+    private_node_.param("path_s_curve/circle_radius", config.circle_radius,
+                        1.0);
+    private_node_.param("path_s_curve/entry_straight_length",
+                        config.entry_straight_length, 0.0);
+    private_node_.param("path_s_curve/curvature_ramp_length",
+                        config.curvature_ramp_length, 0.0);
+    private_node_.param("path_s_curve/circle_direction",
+                        config.circle_direction, 1.0);
     private_node_.param("path_s_curve/exit_straight_length",
                         config.exit_straight_length, 0.0);
     int samples = 20001;
@@ -686,6 +694,8 @@ class FormalFakeAlgorithmNode {
     gate.serial_execution_authorized = serial_execution_authorized_;
     gate.m1_r1_selected =
         upper.mode == UpperMode::kM1 && lower.mode == LowerMode::kR1;
+    gate.m2a_r1_selected =
+        upper.mode == UpperMode::kM2a && lower.mode == LowerMode::kR1;
     gate.recorder_required = require_recorder_armed_;
     gate.test_area_confirmed = confirm_test_area_clear_;
     gate.wheels_on_floor_confirmed = confirm_wheels_on_floor_;

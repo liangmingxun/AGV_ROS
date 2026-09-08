@@ -1,6 +1,7 @@
 <launch>
   <include file="$(find multi_agv_bringup)/launch/car2_client.launch">
     <arg name="transport_type" value="fake"/>
+    <arg name="formal_available_wheel_limit" value="0.15"/>
   </include>
 
   <include file="$(find multi_agv_bringup)/launch/robot2_raised_derating_pretest.launch">

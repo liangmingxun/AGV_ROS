@@ -19,6 +19,7 @@ struct FormalExecutionGateInput {
   bool m4_speed_preregistered{false};
   bool serial_execution_authorized{false};
   bool m1_r1_selected{false};
+  bool m2a_r1_selected{false};
   bool recorder_required{false};
   bool test_area_confirmed{false};
   bool wheels_on_floor_confirmed{false};

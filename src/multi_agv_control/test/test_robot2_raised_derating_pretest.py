@@ -125,8 +125,17 @@ class Robot2RaisedDeratingPretestTest(unittest.TestCase):
         self.assertLessEqual(restored[0][1], 0.65)
         self.assertTrue(any(value.derating_active for value in capability))
         self.assertLess(min(value.derating_ratio for value in capability), 0.45)
+        derated_limits = [
+            value.max_wheel_linear_velocity_left for value in capability
+            if value.derating_active and value.derating_ratio <= 0.45]
+        self.assertTrue(derated_limits)
+        self.assertAlmostEqual(min(derated_limits), 0.06, delta=0.003)
         self.assertFalse(capability[-1].derating_active)
         self.assertGreater(capability[-1].derating_ratio, 0.99)
+        self.assertAlmostEqual(
+            capability[-1].max_wheel_linear_velocity_left, 0.15, delta=0.003)
+        self.assertAlmostEqual(
+            capability[-1].max_wheel_linear_velocity_right, 0.15, delta=0.003)
         self.assertTrue(feedback)
         self.assertLess(abs(feedback[-1].wheel_linear_velocity_left_actual), 0.01)
         self.assertLess(abs(feedback[-1].wheel_linear_velocity_right_actual), 0.01)

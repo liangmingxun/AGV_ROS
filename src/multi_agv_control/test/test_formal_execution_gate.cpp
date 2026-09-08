@@ -98,6 +98,33 @@ TEST(FormalExecutionGate, AcceptsCompleteSerialM1R1Gate) {
   EXPECT_TRUE(mac::evaluateFormalSerialM1R1Gate(input).allowed);
 }
 
+TEST(FormalExecutionGate, AcceptsCompleteSerialM2aR1Gate) {
+  auto input = validInput();
+  input.transport_type = "serial";
+  input.upper_hardware_authorized = true;
+  input.lower_hardware_authorized = true;
+  input.serial_execution_authorized = true;
+  input.m2a_r1_selected = true;
+  input.recorder_required = true;
+  input.test_area_confirmed = true;
+  input.wheels_on_floor_confirmed = true;
+  input.unloaded_fixture_confirmed = true;
+  EXPECT_TRUE(mac::evaluateFormalSerialM1R1Gate(input).allowed);
+}
+
+TEST(FormalExecutionGate, SerialGateStillRejectsOtherMethodPairs) {
+  auto input = validInput();
+  input.transport_type = "serial";
+  input.upper_hardware_authorized = true;
+  input.lower_hardware_authorized = true;
+  input.serial_execution_authorized = true;
+  input.recorder_required = true;
+  input.test_area_confirmed = true;
+  input.wheels_on_floor_confirmed = true;
+  input.unloaded_fixture_confirmed = true;
+  EXPECT_FALSE(mac::evaluateFormalSerialM1R1Gate(input).allowed);
+}
+
 TEST(FormalExecutionGate, SerialGateRejectsMissingRecorderOrConfirmation) {
   auto input = validInput();
   input.transport_type = "serial";

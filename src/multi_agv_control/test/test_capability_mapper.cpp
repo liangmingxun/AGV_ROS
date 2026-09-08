@@ -36,12 +36,18 @@ CapabilityGeometry straight() {
   return {1.0, 0.0, 0.114};
 }
 
-std::array<double, 4> frozenScaleMinima(double robot2_wheel_limit) {
+std::array<double, 4> frozenScaleMinima(
+    double robot2_wheel_limit, double amplitude = 0.05,
+    double longitudinal_length = 1.0, double exit_straight_length = 0.0,
+    std::size_t lookup_samples = 20001U) {
   multi_agv_control::SCurveConfig path_config;
-  path_config.amplitude = 0.05;
-  path_config.longitudinal_length = 1.0;
-  path_config.lookup_samples = 20001U;
-  path_config.model = "sine_single_period";
+  path_config.amplitude = amplitude;
+  path_config.longitudinal_length = longitudinal_length;
+  path_config.lookup_samples = lookup_samples;
+  path_config.exit_straight_length = exit_straight_length;
+  path_config.model = exit_straight_length > 0.0
+      ? "sine_single_period_with_straight_exit"
+      : "sine_single_period";
   const multi_agv_control::SCurvePath path(path_config);
   multi_agv_control::SupportGeometryConfig support_config;
   support_config.offsets = {
@@ -140,9 +146,9 @@ TEST(CapabilityMapper, FormalAvailableWheelLimitEntersPathBoundary) {
 
 TEST(CapabilityMapper, PhysicalSpeedScale008MatchesFrozenSPath) {
   const auto nominal = frozenScaleMinima(0.15);
-  EXPECT_NEAR(nominal[1], 0.120202, 2e-6);
-  EXPECT_NEAR(nominal[2], 0.103331, 2e-6);
-  EXPECT_NEAR(nominal[3], 0.103507, 2e-6);
+  EXPECT_NEAR(nominal[1], 0.121934, 2e-6);
+  EXPECT_NEAR(nominal[2], 0.103626, 2e-6);
+  EXPECT_NEAR(nominal[3], 0.103808, 2e-6);
   EXPECT_GT(*std::min_element(nominal.begin() + 1, nominal.end()), 0.090);
   EXPECT_GT(nominal[0] - 0.090, 0.006);
 
@@ -151,6 +157,18 @@ TEST(CapabilityMapper, PhysicalSpeedScale008MatchesFrozenSPath) {
   EXPECT_GT(degraded[0], 0.065);
   EXPECT_GT(degraded[0] - 0.055, 0.010);
   EXPECT_LT(degraded[0], 0.080);
+}
+
+TEST(CapabilityMapper, LongThreeMetrePathRetains008WheelMargin) {
+  const auto nominal = frozenScaleMinima(
+      0.15, 0.4127396529000677, 2.184049318306566, 0.18, 60001U);
+  EXPECT_NEAR(nominal[1], 0.105211, 4e-6);
+  EXPECT_NEAR(nominal[2], 0.084223, 4e-6);
+  EXPECT_NEAR(nominal[3], 0.084427, 4e-6);
+  EXPECT_GT(nominal[0], 0.084);
+  EXPECT_LT(nominal[0], 0.090);
+  // At v_L=0.08 m/s, the most demanding wheel remains below 0.1426 m/s.
+  EXPECT_LT(0.15 * 0.08 / nominal[0], 0.1426);
 }
 
 TEST(CapabilityMapper, CurvatureAndAsymmetricWheelsUseCorrectSide) {

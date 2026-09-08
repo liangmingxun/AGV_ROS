@@ -10,6 +10,8 @@
        default="$(find multi_agv_bringup)/config/path_s_curve_terminal_straight.yaml"/>
   <arg name="authorization_config"
        default="$(find multi_agv_bringup)/config/formal_serial_m1_r1_authorization.yaml"/>
+  <arg name="experiment_id" default="exp2a_m1_r1_unloaded_serial"/>
+  <arg name="target_progress" default="1.2042352285"/>
   <arg name="enable_commands" default="false"/>
   <arg name="confirm_test_area_clear" default="false"/>
   <arg name="confirm_wheels_on_floor" default="false"/>
@@ -34,5 +36,7 @@
            value="$(arg confirm_wheels_on_floor)"/>
     <param name="formal_fake_runtime/confirm_unloaded_30cm_fixture"
            value="$(arg confirm_unloaded_30cm_fixture)"/>
+    <param name="formal_fake_runtime/experiment_id" value="$(arg experiment_id)"/>
+    <param name="formal_fake_runtime/target_progress" value="$(arg target_progress)"/>
   </node>
 </launch>

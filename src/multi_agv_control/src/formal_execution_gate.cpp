@@ -52,8 +52,8 @@ FormalExecutionGateResult evaluateFormalSerialM1R1Gate(
       !input.lower_hardware_authorized) {
     return {false, "formal serial hardware authorization is disabled"};
   }
-  if (!input.m1_r1_selected) {
-    return {false, "first formal serial entry permits M1+R1 only"};
+  if (!input.m1_r1_selected && !input.m2a_r1_selected) {
+    return {false, "formal serial entry permits M1+R1 or M2a+R1 only"};
   }
   if (!input.recorder_required) {
     return {false, "formal serial entry requires the recorder heartbeat"};

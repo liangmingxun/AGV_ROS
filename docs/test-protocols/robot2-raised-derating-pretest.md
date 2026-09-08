@@ -14,7 +14,9 @@
 - 实际进度到 `0.30 m` 时开始降额；
 - 实际进度到 `0.60 m` 时开始恢复；
 - 速度比例降至 `0.40`，加速度比例降至 `0.50`，减速度比例降至 `0.60`；
-- 降额和恢复斜坡均为 `0.40 s`。
+- 降额和恢复斜坡均为 `0.50 s`，与正式实验2a一致；
+- 当前已验证的底盘物理轮速包络为 `0.15 m/s`，降额目标为
+  `0.15 × 0.40 = 0.06 m/s`。
 
 专用节点只发布 `/agv2/derating_command`。底盘运动由
 `run_timed_straight_test.py` 独立发布；它在正常结束、信号中断和异常退出时
@@ -30,67 +32,28 @@
 - rosbag 与底盘节点都已订阅两个命令话题；
 - 不运行 `central_odom_pretest.launch`。
 
-## 终端1：Robot2底盘
+## 自动化入口
+
+先用 `start_three_car_chassis.sh 2 --confirm-formal-0p15-wheel-envelope`
+保持Robot2底盘节点运行。确认两个驱动轮可靠举升且急停可用后，在Robot2运行：
 
 ```bash
 cd /home/etlab/AGV_ROS/.worktrees/platform-foundation-linux
-source src/multi_agv_bringup/scripts/setup_local_ros.sh
-roslaunch multi_agv_bringup car2_client.launch transport_type:=serial
-```
-
-等待 `USB Connected`。
-
-## 终端2：记录
-
-```bash
-cd /home/etlab/AGV_ROS/.worktrees/platform-foundation-linux
-source src/multi_agv_bringup/scripts/setup_local_ros.sh
-rosbag record -O /home/etlab/AGV_ROS/agv2_raised_derating_pretest_run1.bag \
-  /agv2/chassis_command \
-  /agv2/derating_command \
-  /agv2/chassis_feedback \
-  /agv2/capability_report \
-  /agv2/odom \
-  /agv2/imu \
-  /agv2/raised_derating_pretest/experiment_state
-```
-
-## 终端3：实际进度降额入口
-
-先确认 `/agv2/derating_command` 没有发布者，然后启动：
-
-```bash
-roslaunch multi_agv_bringup robot2_raised_derating_pretest.launch \
-  platform_transport_type:=serial \
-  enable_derating:=true \
-  confirm_wheels_raised:=true
-```
-
-必须看到两个降额订阅者连接以及 `start the bounded 0.05 m/s` 提示。
-
-## 终端4：有界举升轮速
-
-```bash
-cd /home/etlab/AGV_ROS/.worktrees/platform-foundation-linux
-source src/multi_agv_bringup/scripts/setup_local_ros.sh
-rosrun multi_agv_bringup run_timed_straight_test.py \
-  --robot-id 2 \
-  --speed 0.05 \
-  --duration 14 \
-  --command-seq 6100 \
-  --experiment-id robot2_raised_derating_pretest_run1 \
-  --required-command-subscribers 2 \
+./src/multi_agv_bringup/scripts/run_robot2_0p15_derating_pretest.sh \
   --confirm-wheels-raised \
-  --confirm-extended-test
+  --confirm-emergency-stop-ready
 ```
+
+脚本自动检查串行节点和 `0.15 m/s` 参数、选择不会回退的命令序号、录包、
+执行14秒有界命令并验收 `0.15→0.06→0.15 m/s` 能力链。它不会启动底盘。
 
 正常过程应依次出现：
 
 1. 检测到举升轮运动；
 2. 实际进度约 `0.30 m`，开始降额；
-3. `0.40 s` 后达到降额目标；
+3. `0.50 s` 后达到降额目标；
 4. 实际进度约 `0.60 m`，开始恢复；
-5. `0.40 s` 后恢复完成；
+5. `0.50 s` 后恢复完成；
 6. 定时工具发送三次零速；
 7. 专用节点确认零轮速并退出。
 
@@ -101,8 +64,8 @@ rosrun multi_agv_bringup run_timed_straight_test.py \
 
 - 降额首次激活对应 Robot2 实际进度 `0.30 m` 附近；
 - 恢复首次触发对应实际进度 `0.60 m` 附近；
-- 能力报告的轮速上限从 `0.9 m/s` 平滑降至约 `0.36 m/s`；
-- 加速度上限降至 `0.5 m/s²`，减速度上限降至 `1.2 m/s²`；
+- 能力报告的左右轮速上限从 `0.15 m/s` 平滑降至约 `0.06 m/s`；
+- 恢复后左右轮速上限回到约 `0.15 m/s`；
 - 恢复后 `derating_active=false`、`derating_ratio=1.0`；
 - 轮速最终为零；
 - 没有 Robot1/Robot3 降额发布者；

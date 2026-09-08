@@ -1,4 +1,7 @@
+#include <algorithm>
+#include <atomic>
 #include <cmath>
+#include <csignal>
 #include <cstdint>
 #include <stdexcept>
 #include <string>
@@ -11,6 +14,15 @@
 #include "multi_agv_control/experiment_supervisor.hpp"
 
 namespace multi_agv_control {
+namespace {
+
+std::atomic<bool> stop_requested{false};
+
+void requestStop(int) {
+  stop_requested.store(true);
+}
+
+}  // namespace
 
 class ExperimentSupervisorNode {
  public:
@@ -32,6 +44,8 @@ class ExperimentSupervisorNode {
                                      run_id_, "fake_001");
     private_node_.param("derating_publication_authorized",
                         publication_authorized_, false);
+    private_node_.param("confirm_robot2_local_derating",
+                        robot2_derating_confirmed_, false);
     private_node_.param<std::string>("platform_transport_type",
                                      platform_transport_type_, "fake");
     bool hardware_authorized = false;
@@ -44,13 +58,18 @@ class ExperimentSupervisorNode {
       throw std::runtime_error("invalid supervisor node configuration");
     }
     if (publication_authorized_ && platform_transport_type_ != "fake" &&
-        !hardware_authorized) {
+        (!hardware_authorized || !robot2_derating_confirmed_)) {
       throw std::runtime_error(
-          "physical derating publication refused by authorization gate");
+          "physical derating publication requires hardware authorization "
+          "and explicit Robot2 local-derating confirmation");
     }
     if (!supervisor_.arm() || !supervisor_.start(ros::Time::now().toSec())) {
       throw std::runtime_error("failed to arm automatic pretest supervisor");
     }
+    // Chassis controllers reject a derating command sequence older than the
+    // previous run. A wall-clock epoch makes independently launched formal
+    // runs monotonic without weakening that vehicle-side replay protection.
+    sequence_base_ = ros::WallTime::now().sec;
 
     state_subscriber_ = node_.subscribe(
         "/multi_agv/cooperative_state", 5,
@@ -61,6 +80,16 @@ class ExperimentSupervisorNode {
         "/multi_agv/experiment_state", 10, true);
     timer_ = node_.createTimer(ros::Duration(1.0 / publish_rate_),
                               &ExperimentSupervisorNode::step, this);
+  }
+
+  int run() {
+    ros::Rate rate(std::max(20.0, publish_rate_));
+    while (ros::ok() && !stop_requested.load()) {
+      ros::spinOnce();
+      rate.sleep();
+    }
+    publishRepeatedNominalRestore();
+    return stop_requested.load() ? 130 : 0;
   }
 
  private:
@@ -138,7 +167,7 @@ class ExperimentSupervisorNode {
       agv_msgs::DeratingCommand command;
       command.header.stamp = now;
       command.robot_id = 2U;
-      command.command_seq = target.sequence;
+      command.command_seq = sequence_base_ + target.sequence;
       command.mode = target.mode;
       command.active = target.active;
       command.target_speed_ratio_left = target.speed_ratio_left;
@@ -167,6 +196,30 @@ class ExperimentSupervisorNode {
     experiment_publisher_.publish(state);
   }
 
+  void publishRepeatedNominalRestore() {
+    if (!publication_authorized_) return;
+    agv_msgs::DeratingCommand command;
+    command.robot_id = 2U;
+    command.command_seq = sequence_base_ + 4U;
+    command.mode = 1U;
+    command.active = false;
+    command.target_speed_ratio_left = 1.0;
+    command.target_speed_ratio_right = 1.0;
+    command.target_accel_ratio_left = 1.0;
+    command.target_accel_ratio_right = 1.0;
+    command.target_decel_ratio_left = 1.0;
+    command.target_decel_ratio_right = 1.0;
+    command.ramp_down_time = 0.50;
+    command.ramp_up_time = 0.50;
+    command.experiment_id = experiment_id_;
+    for (int repeat = 0; repeat < 10 && ros::master::check(); ++repeat) {
+      command.header.stamp = ros::Time::now();
+      derating_publisher_.publish(command);
+      ros::spinOnce();
+      ros::WallDuration(0.05).sleep();
+    }
+  }
+
   ros::NodeHandle node_;
   ros::NodeHandle private_node_;
   ExperimentSupervisor supervisor_;
@@ -176,6 +229,8 @@ class ExperimentSupervisorNode {
   ros::Timer timer_;
   double publish_rate_{10.0};
   bool publication_authorized_{false};
+  bool robot2_derating_confirmed_{false};
+  std::uint32_t sequence_base_{0U};
   std::string progress_source_;
   std::string experiment_id_;
   std::string method_id_;
@@ -187,10 +242,14 @@ class ExperimentSupervisorNode {
 }  // namespace multi_agv_control
 
 int main(int argc, char** argv) {
-  ros::init(argc, argv, "experiment_supervisor");
+  ros::init(argc, argv, "experiment_supervisor",
+            ros::init_options::NoSigintHandler);
+  std::signal(SIGINT, multi_agv_control::requestStop);
+  std::signal(SIGTERM, multi_agv_control::requestStop);
+  std::signal(SIGHUP, multi_agv_control::requestStop);
   try {
     multi_agv_control::ExperimentSupervisorNode node;
-    ros::spin();
+    return node.run();
   } catch (const std::exception& error) {
     ROS_FATAL("Failed to start experiment_supervisor: %s", error.what());
     return 1;

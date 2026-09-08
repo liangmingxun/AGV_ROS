@@ -1,0 +1,12 @@
+# Optional long-path pilot. The graph segment and its tangent continuation are
+# solved together so the complete path has x displacement 2.30 m and arc
+# length 3.00 m. This does not replace the frozen short-path configuration.
+path_s_curve:
+  schema_version: 1
+  model: sine_single_period_with_straight_exit
+  configuration_status: pilot_candidate_x2p3m_arc3p0m_reduced_margin
+  hardware_execution_authorized: false
+  amplitude: 0.4127396529000677
+  longitudinal_length: 2.184049318306566
+  exit_straight_length: 0.18
+  lookup_samples: 60001

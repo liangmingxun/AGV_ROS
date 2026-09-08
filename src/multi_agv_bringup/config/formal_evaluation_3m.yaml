@@ -1,0 +1,25 @@
+# Evaluation window for the optional 3.00 m path. Robot2 derating is disabled
+# by its runner; thresholds are placed beyond the path as an additional guard.
+exp2a_derating_pretest:
+  schema_version: 1
+  experiment_id: m1_r1_x2p3_arc3p0_serial
+  method_id: M1_R1
+  block_id: long_path_pilot
+  run_id: set_at_launch
+  progress_source: load_actual
+  publish_rate: 10.0
+  activation_progress: 3.10
+  restoration_progress: 3.20
+  evaluation_start_progress: 0.0
+  evaluation_end_progress: 3.0
+  target_speed_ratio_left: 0.40
+  target_speed_ratio_right: 0.40
+  target_acceleration_ratio_left: 0.50
+  target_acceleration_ratio_right: 0.50
+  target_deceleration_ratio_left: 0.60
+  target_deceleration_ratio_right: 0.60
+  ramp_down_time: 0.50
+  ramp_up_time: 0.50
+  derating_mode: 1
+  finish_after_restoration: false
+  hardware_execution_authorized: false

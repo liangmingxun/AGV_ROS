@@ -1,6 +1,11 @@
 <launch>
   <arg name="platform_transport_type" default="fake"/>
   <arg name="derating_publication_authorized" default="false"/>
+  <arg name="confirm_robot2_local_derating" default="false"/>
+  <arg name="authorization_config"
+       default="$(find multi_agv_bringup)/config/formal_exp2a_derating_authorization.yaml"/>
+  <arg name="evaluation_config"
+       default="$(find multi_agv_bringup)/config/formal_evaluation_window.yaml"/>
   <arg name="run_id" default="software_dress_rehearsal"/>
   <arg name="method_id" default="M1_R1"/>
   <arg name="experiment_id" default="formal_algorithm_fake_integration"/>
@@ -8,8 +13,8 @@
 
   <node pkg="multi_agv_control" type="experiment_supervisor_node"
         name="formal_evaluation_supervisor" output="screen" required="true">
-    <rosparam command="load"
-              file="$(find multi_agv_bringup)/config/formal_evaluation_window.yaml"/>
+    <rosparam command="load" file="$(arg evaluation_config)"/>
+    <rosparam command="load" file="$(arg authorization_config)"/>
     <param name="exp2a_derating_pretest/run_id" value="$(arg run_id)"/>
     <param name="exp2a_derating_pretest/method_id" value="$(arg method_id)"/>
     <param name="exp2a_derating_pretest/experiment_id"
@@ -19,5 +24,7 @@
            value="$(arg platform_transport_type)"/>
     <param name="derating_publication_authorized"
            value="$(arg derating_publication_authorized)"/>
+    <param name="confirm_robot2_local_derating"
+           value="$(arg confirm_robot2_local_derating)"/>
   </node>
 </launch>

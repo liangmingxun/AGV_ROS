@@ -117,7 +117,7 @@ class BringupStaticTest(unittest.TestCase):
         self.assertIn("/pose_provider/load/pose_filtered", recorded)
         self.assertIn("/pose_provider/agv1/base_pose_fused", recorded)
 
-    def test_task16_and_task18_remain_fake_or_rehearsal_only(self):
+    def test_m2b_remains_fake_and_exp2a_statistics_remain_gated(self):
         m2b = (
             PACKAGE / "config" / "exp2b_M2b.yaml"
         ).read_text(encoding="utf-8")
@@ -138,7 +138,7 @@ class BringupStaticTest(unittest.TestCase):
         self.assertNotIn("serial", launch)
         self.assertNotIn("formal_statistics_authorized: true", registry)
         self.assertIn("software_rehearsal_only", registry)
-        self.assertIn("状态：**关闭", formal_gate)
+        self.assertIn("Robot2正式降额与正式统计仍关闭", formal_gate)
 
     def test_serial_008_speed_scale_is_consistent_and_operator_authorized(self):
         runtime = (
@@ -164,6 +164,15 @@ class BringupStaticTest(unittest.TestCase):
         ).read_text(encoding="utf-8")
         experiment_entry = (
             PACKAGE / "scripts" / "run_m1_r1_serial_unloaded.sh"
+        ).read_text(encoding="utf-8")
+        m2a_entry = (
+            PACKAGE / "scripts" / "run_m2a_r1_serial_unloaded.sh"
+        ).read_text(encoding="utf-8")
+        m1_derating_entry = (
+            PACKAGE / "scripts" / "run_m1_r1_exp2a_derating_unloaded.sh"
+        ).read_text(encoding="utf-8")
+        derating_authorization = (
+            PACKAGE / "config" / "formal_exp2a_derating_authorization.yaml"
         ).read_text(encoding="utf-8")
         authorization = (
             PACKAGE / "config" / "formal_serial_m1_r1_authorization.yaml"
@@ -223,10 +232,18 @@ class BringupStaticTest(unittest.TestCase):
         self.assertIn("--confirm-formal-0p15-wheel-envelope", chassis_entry)
         self.assertIn('formal_wheel_limit="0.15"', chassis_entry)
         self.assertIn("pre-limit demand abort threshold", experiment_entry)
+        self.assertIn("FORMAL_UPPER_MODE=M2a", m2a_entry)
+        self.assertIn("FORMAL_ENABLE_ROBOT2_DERATING=true", m2a_entry)
+        self.assertIn("FORMAL_UPPER_MODE=M1", m1_derating_entry)
+        self.assertIn("FORMAL_ENABLE_ROBOT2_DERATING=true", m1_derating_entry)
+        self.assertIn("hardware_execution_authorized: false",
+                      derating_authorization)
+        self.assertIn("pending_robot2_0p15_to_0p06_raised_wheel_validation",
+                      derating_authorization)
         self.assertIn("--confirm-unloaded-30cm-fixture", experiment_entry)
         self.assertIn(
-            'path_config="src/multi_agv_bringup/config/'
-            'path_s_curve_terminal_straight.yaml"', experiment_entry)
+            'FORMAL_PATH_CONFIG:-src/multi_agv_bringup/config/'
+            'path_s_curve_terminal_straight.yaml', experiment_entry)
         self.assertIn(
             'runtime_config:="${workspace}/${runtime_config}"',
             experiment_entry)
@@ -263,6 +280,89 @@ class BringupStaticTest(unittest.TestCase):
         self.assertIn(
             "low_voltage_duration >= minimum_battery_voltage_duration_",
             formal_source)
+
+    def test_robot2_derating_pretest_uses_current_wheel_envelope(self):
+        config = (
+            PACKAGE / "config" / "robot2_raised_derating_pretest.yaml"
+        ).read_text(encoding="utf-8")
+        entry = (
+            PACKAGE / "scripts" / "run_robot2_0p15_derating_pretest.sh"
+        ).read_text(encoding="utf-8")
+        supervisor = (
+            SOURCE_ROOT / "multi_agv_control" / "src" /
+            "experiment_supervisor_node.cpp"
+        ).read_text(encoding="utf-8")
+        for marker in (
+                "expected_nominal_wheel_limit: 0.15",
+                "expected_derated_wheel_limit: 0.06",
+                "target_speed_ratio_left: 0.40",
+                "target_speed_ratio_right: 0.40",
+                "ramp_down_time: 0.50", "ramp_up_time: 0.50"):
+            self.assertIn(marker, config)
+        self.assertIn("--confirm-wheels-raised", entry)
+        self.assertIn("--confirm-emergency-stop-ready", entry)
+        self.assertIn("expected 0.15 m/s", entry)
+        self.assertIn("rosbag record", entry)
+        self.assertIn("sequence_base_ + target.sequence", supervisor)
+        self.assertIn("publishRepeatedNominalRestore", supervisor)
+
+    def test_optional_three_metre_path_is_isolated_and_auditable(self):
+        path = (
+            PACKAGE / "config" / "path_s_curve_x2p3_arc3p0.yaml"
+        ).read_text(encoding="utf-8")
+        evaluation = (
+            PACKAGE / "config" / "formal_evaluation_3m.yaml"
+        ).read_text(encoding="utf-8")
+        entry = (
+            PACKAGE / "scripts" / "run_m1_r1_serial_unloaded_3m.sh"
+        ).read_text(encoding="utf-8")
+        for marker in (
+                "amplitude: 0.4127396529000677",
+                "longitudinal_length: 2.184049318306566",
+                "exit_straight_length: 0.18",
+                "lookup_samples: 60001"):
+            self.assertIn(marker, path)
+        self.assertIn("evaluation_start_progress: 0.0", evaluation)
+        self.assertIn("evaluation_end_progress: 3.0", evaluation)
+        self.assertIn("--confirm-x2p3-arc3p0-reduced-margin-path", entry)
+        self.assertIn("FORMAL_TARGET_PROGRESS=3.0", entry)
+        self.assertIn("FORMAL_ENABLE_ROBOT2_DERATING=false", entry)
+
+    def test_optional_r0p7_circle_uses_formal_m1_r1_entry(self):
+        path = (
+            PACKAGE / "config" / "path_circle_r0p7_cw_m1_r1.yaml"
+        ).read_text(encoding="utf-8")
+        evaluation = (
+            PACKAGE / "config" / "formal_evaluation_circle_r0p7.yaml"
+        ).read_text(encoding="utf-8")
+        entry = (
+            PACKAGE / "scripts" /
+            "run_m1_r1_serial_unloaded_circle_r0p7.sh"
+        ).read_text(encoding="utf-8")
+        formal_algorithm = (
+            SOURCE_ROOT / "multi_agv_control" / "src" /
+            "formal_fake_algorithm_node.cpp"
+        ).read_text(encoding="utf-8")
+        for marker in (
+                "model: circle_smooth_entry", "circle_radius: 0.7",
+                "circle_direction: -1.0", "entry_straight_length: 0.20",
+                "curvature_ramp_length: 0.40",
+                "longitudinal_length: 4.998229715025710"):
+            self.assertIn(marker, path)
+        self.assertIn("evaluation_start_progress: 0.0", evaluation)
+        self.assertIn(
+            "evaluation_end_progress: 4.998229715025710", evaluation)
+        self.assertIn("--confirm-r0p7-circle-footprint-clear", entry)
+        self.assertIn("FORMAL_TARGET_PROGRESS=4.998229715025710", entry)
+        self.assertIn("FORMAL_UPPER_MODE=M1", entry)
+        self.assertIn("FORMAL_ENABLE_ROBOT2_DERATING=false", entry)
+        self.assertIn("run_m1_r1_serial_unloaded.sh", entry)
+        for parameter in (
+                "path_s_curve/circle_radius",
+                "path_s_curve/entry_straight_length",
+                "path_s_curve/curvature_ramp_length",
+                "path_s_curve/circle_direction"):
+            self.assertIn(parameter, formal_algorithm)
 
     def test_optional_software_watchdog_is_observer_only(self):
         launch = (

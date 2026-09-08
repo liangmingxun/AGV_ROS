@@ -103,6 +103,25 @@ TEST(SCurvePath, TerminalStraightContinuesTangentAtZeroCurvature) {
                   before.tangent), 1.0, 1e-12);
 }
 
+TEST(SCurvePath, LongPilotHasThreeMetresArcAndTwoPointThreeMetresX) {
+  SCurveConfig config;
+  config.amplitude = 0.4127396529000677;
+  config.longitudinal_length = 2.184049318306566;
+  config.lookup_samples = 60001;
+  config.model = "sine_single_period_with_straight_exit";
+  config.exit_straight_length = 0.18;
+  const SCurvePath path(config);
+
+  const auto finish = path.sample(path.length());
+  EXPECT_GE(path.length(), 3.0);
+  EXPECT_LT(path.length(), 3.0 + 1e-10);
+  EXPECT_NEAR(path.length(), 3.0, 1e-10);
+  EXPECT_NEAR(finish.position.x(), 2.3, 1e-10);
+  EXPECT_NEAR(finish.position.y(), 0.1376787544061468, 1e-10);
+  EXPECT_NEAR(path.maximumAbsoluteCurvature(), 3.415946414204, 1e-10);
+  EXPECT_DOUBLE_EQ(finish.curvature, 0.0);
+}
+
 TEST(SCurvePath, RadiusOneCircleIsArcLengthParameterizedAndClosed) {
   SCurveConfig config;
   config.amplitude = 0.0;
@@ -154,6 +173,26 @@ TEST(SCurvePath, ClockwiseHalfMetreCircleHasSmoothCurvatureEntry) {
               path.sample(0.20 + epsilon).curvature, 1e-8);
   EXPECT_NEAR(path.sample(0.60 - epsilon).curvature,
               path.sample(0.60 + epsilon).curvature, 1e-8);
+}
+
+TEST(SCurvePath, ClockwiseR0p7PilotHasRequestedRadiusAndLength) {
+  SCurveConfig config;
+  config.amplitude = 0.0;
+  config.circle_radius = 0.7;
+  config.entry_straight_length = 0.20;
+  config.curvature_ramp_length = 0.40;
+  config.circle_direction = -1.0;
+  config.longitudinal_length = 0.60 + 2.0 * kPi * 0.7;
+  config.lookup_samples = 60001;
+  config.model = "circle_smooth_entry";
+  const SCurvePath path(config);
+
+  EXPECT_NEAR(path.length(), 4.998229715025710, 1e-12);
+  EXPECT_NEAR(path.maximumAbsoluteCurvature(), 1.0 / 0.7, 1e-12);
+  EXPECT_DOUBLE_EQ(path.sample(0.0).curvature, 0.0);
+  EXPECT_NEAR(path.sample(0.60).curvature, -1.0 / 0.7, 1e-12);
+  EXPECT_NEAR(path.sample(path.length()).heading,
+              -0.20 / 0.7 - 2.0 * kPi, 1e-10);
 }
 
 TEST(SCurvePath, ArcLengthLookupIsMonotonicAndInvertible) {
