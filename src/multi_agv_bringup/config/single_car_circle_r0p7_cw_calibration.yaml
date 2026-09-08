@@ -1,0 +1,115 @@
+# One-run, per-role clockwise-circle identification entry. The path object
+# contains the same full R0.7 geometry as the three-car pilot, but motion stops
+# after a 90-degree constant-curvature arc. This isolates each vehicle's
+# method-independent planar execution response before formation gains are used.
+single_car_s_pretest:
+  schema_version: 3
+  configuration_status: single_car_circle_r0p7_cw_role_identification_v1
+  hardware_execution_authorized: true
+
+  publish_rate: 100.0
+  maximum_state_age: 0.15
+  subscriber_wait_seconds: 10.0
+  start_delay_seconds: 3.0
+  stop_confirmation_timeout_seconds: 3.0
+  stopped_wheel_tolerance: 0.01
+  maximum_integration_step: 0.1
+  maximum_motion_time: 28.0
+  post_stop_record_seconds: 2.0
+  required_command_subscribers: 2
+  initial_command_sequence: 33000
+
+  path:
+    model: circle_smooth_entry
+    amplitude: 0.0
+    circle_radius: 0.7
+    circle_direction: -1.0
+    entry_straight_length: 0.20
+    curvature_ramp_length: 0.40
+    # Keep the full mathematical path so it is identical to the formal run.
+    longitudinal_length: 4.998229715025710
+    # Stop after 0.20 + 0.40 + pi*0.70/2 = 1.699557428756428 m.
+    target_progress: 1.699557428756428
+    arc_length_speed: 0.08
+    lookup_samples: 60001
+
+  geometry:
+    wheel_separation: 0.114
+    base_to_support_x: -0.01783
+    base_to_support_y: 0.0
+    q_tangent: 0.0
+    q_normal: 0.0
+
+  tracker:
+    longitudinal_gain: 1.0
+    lateral_gain: 3.0
+    heading_gain: 2.5
+    angular_feedforward_scale: 1.0
+    angular_feedforward_scale_positive: 1.0
+    angular_feedforward_scale_negative: 0.94
+    curvature_preview_seconds: 0.05
+    chassis_reference_samples: 30001
+
+  robot_overrides:
+    agv1:
+      profile: robot1_circle_r0p7_cw_candidate
+      geometry:
+        wheel_separation: 0.135484339
+        base_to_support_x: -0.01783
+        q_tangent: 0.1732050807568877
+        q_normal: 0.0
+      tracker:
+        lateral_gain: 4.8
+        heading_gain: 3.5
+        angular_feedforward_scale_positive: 0.78
+        # Re-evaluate this frozen starting value after the measured Robot1
+        # marker offset changed from 132.74 mm to 187.89 mm. Candidates from
+        # bags recorded with the old tag-to-base transform are invalid.
+        angular_feedforward_scale_negative: 0.94
+        curvature_preview_seconds: 0.05
+    agv2:
+      profile: robot2_circle_r0p7_cw_candidate
+      geometry:
+        wheel_separation: 0.139284482
+        base_to_support_x: 0.09908
+        q_tangent: -0.0866025403784439
+        q_normal: 0.1500000000000000
+      tracker:
+        lateral_gain: 2.7
+        heading_gain: 3.0
+        angular_feedforward_scale_positive: 0.780810219
+        # One bounded Robot2-only refinement from run 20260908_152517.
+        angular_feedforward_scale_negative: 0.951221879
+        curvature_preview_seconds: 0.0
+    agv3:
+      profile: robot3_circle_r0p7_cw_candidate
+      geometry:
+        # Trial 20260908_154333 showed that deriving geometry directly from
+        # applied wheel commands folds drivetrain scale error into wheel
+        # separation. Retain the independently calibrated value.
+        wheel_separation: 0.136802843
+        base_to_support_x: 0.09908
+        q_tangent: -0.0866025403784439
+        q_normal: -0.1500000000000000
+      tracker:
+        # Retain the best accepted combination from run 20260908_152916.
+        lateral_gain: 4.0
+        heading_gain: 3.0
+        angular_feedforward_scale_positive: 0.850009371
+        angular_feedforward_scale_negative: 0.94
+        curvature_preview_seconds: 0.05
+
+  actual_wheel_watchdog:
+    warning_speed: 0.12
+    hard_stop_speed: 0.15
+    hard_stop_consecutive_samples: 5
+    emergency_stop_speed: 0.18
+    sustained_speed: 0.145
+    sustained_duration: 0.10
+
+  abort:
+    minimum_battery_voltage: 9.5
+    maximum_longitudinal_error: 0.20
+    maximum_lateral_error: 0.12
+    maximum_heading_error: 0.50
+    maximum_wheel_linear_velocity: 0.15

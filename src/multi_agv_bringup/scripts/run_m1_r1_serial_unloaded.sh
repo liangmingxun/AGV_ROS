@@ -54,7 +54,7 @@ fi
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 workspace="$(cd "${script_dir}/../../.." && pwd)"
 cd "$workspace"
-runtime_config="src/multi_agv_bringup/config/formal_serial_m1_r1_runtime.yaml"
+runtime_config="${FORMAL_RUNTIME_CONFIG:-src/multi_agv_bringup/config/formal_serial_m1_r1_runtime.yaml}"
 path_config="${FORMAL_PATH_CONFIG:-src/multi_agv_bringup/config/path_s_curve_terminal_straight.yaml}"
 evaluation_config="${FORMAL_EVALUATION_CONFIG:-src/multi_agv_bringup/config/formal_evaluation_window.yaml}"
 if [[ "$formal_upper_mode" == M2a ]]; then
@@ -277,7 +277,7 @@ roslaunch multi_agv_bringup experiment.launch \
   camera_mode:=true virtual_load_from_robots:=true \
   require_windows_sender_manifest:=false \
   localization_config:="${workspace}/src/multi_agv_bringup/config/localization_camera_three_car_closed_loop.yaml" \
-  runtime_config:="${workspace}/src/multi_agv_bringup/config/formal_serial_m1_r1_runtime.yaml" \
+  runtime_config:="${workspace}/${runtime_config}" \
   upper_config:="${workspace}/${upper_config}" \
   lower_config:="${workspace}/${lower_config}" \
   execution_authorization_config:="${workspace}/src/multi_agv_bringup/config/formal_serial_m1_r1_authorization.yaml" \

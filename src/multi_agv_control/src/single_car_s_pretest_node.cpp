@@ -18,6 +18,7 @@
 #include <ros/master.h>
 #include <ros/ros.h>
 #include <std_msgs/String.h>
+#include <std_msgs/Float64MultiArray.h>
 #include <std_msgs/UInt64.h>
 #include <tf2/LinearMath/Matrix3x3.h>
 #include <tf2/LinearMath/Quaternion.h>
@@ -139,6 +140,9 @@ class SingleCarSPretestNode {
         topic_prefix_ + "/s_pretest/chassis_reference", 5, false);
     result_publisher_ = node_.advertise<std_msgs::String>(
         topic_prefix_ + "/s_pretest/result", 1, true);
+    tracking_state_publisher_ =
+        node_.advertise<std_msgs::Float64MultiArray>(
+            topic_prefix_ + "/s_pretest/tracking_state", 10, false);
   }
 
   int run() {
@@ -153,10 +157,10 @@ class SingleCarSPretestNode {
     initialiseAnchor();
     publishReferencePath();
 
-    ROS_WARN("%s bounded S pretest starts in %.1f seconds: "
-             "A=%.3f m, longitudinal=%.3f m, arc_speed=%.3f m/s",
-             robot_label_.c_str(), start_delay_, path_->config().amplitude,
-             path_->config().longitudinal_length, speed_);
+    ROS_WARN("%s bounded %s pretest starts in %.1f seconds: "
+             "target_progress=%.3f m, load_path_speed=%.3f m/s",
+             robot_label_.c_str(), path_model_.c_str(), start_delay_,
+             target_progress_, speed_);
     const ros::WallTime delay_start = ros::WallTime::now();
     while (ros::ok() && !stop_requested.load() &&
            (ros::WallTime::now() - delay_start).toSec() < start_delay_) {
@@ -172,7 +176,7 @@ class SingleCarSPretestNode {
     ros::WallTime previous = motion_start;
     double progress = 0.0;
     while (ros::ok() && !stop_requested.load() &&
-           progress < path_->length()) {
+           progress < target_progress_) {
       ros::spinOnce();
       const ros::WallTime now = ros::WallTime::now();
       const double dt = (now - previous).toSec();
@@ -193,7 +197,7 @@ class SingleCarSPretestNode {
         return abortRun(3, "ABORTED_STALE");
       }
       if (dt > 0.0 && dt <= maximum_step_) {
-        progress = std::min(path_->length(), progress + speed_ * dt);
+        progress = std::min(target_progress_, progress + speed_ * dt);
       }
       const auto tracking = trackingAt(progress);
       if (!tracking.valid || trackingErrorExceeded(tracking)) {
@@ -215,7 +219,7 @@ class SingleCarSPretestNode {
                   tracking.wheel_linear_velocity_right_raw);
         return abortRun(5, "ABORTED_COMMAND_LIMIT");
       }
-      publishTracking(tracking);
+      publishTracking(tracking, progress);
       publishReference(tracking.chassis_pose_reference);
       if ((now - motion_start).toSec() > maximum_motion_time_) {
         ROS_ERROR("%s S pretest aborted: motion timeout", robot_label_.c_str());
@@ -257,9 +261,11 @@ class SingleCarSPretestNode {
   }
 
   std::string activeMethodId() const {
-    if (localization_source_ == "fused") return "FUSED_BOUNDED_S";
-    if (localization_source_ == "camera") return "CAMERA_BOUNDED_S";
-    return "ODOM_BOUNDED_S";
+    const std::string suffix = path_model_ == "circle_smooth_entry"
+        ? "BOUNDED_CIRCLE" : "BOUNDED_S";
+    if (localization_source_ == "fused") return "FUSED_" + suffix;
+    if (localization_source_ == "camera") return "CAMERA_" + suffix;
+    return "ODOM_" + suffix;
   }
 
   void loadConfiguration() {
@@ -283,9 +289,21 @@ class SingleCarSPretestNode {
         "camera_pose_topic",
         "/pose_provider/" + robot_name_ + "/base_pose_filtered");
 
+    path_model_ = private_.param<std::string>(
+        root + "path/model", "sine_single_period");
     amplitude_ = finiteParam(private_, root + "path/amplitude", 0.05);
     longitudinal_length_ = finiteParam(
         private_, root + "path/longitudinal_length", 1.0);
+    circle_radius_ = finiteParam(
+        private_, root + "path/circle_radius", 1.0);
+    circle_direction_ = finiteParam(
+        private_, root + "path/circle_direction", 1.0);
+    entry_straight_length_ = finiteParam(
+        private_, root + "path/entry_straight_length", 0.0);
+    curvature_ramp_length_ = finiteParam(
+        private_, root + "path/curvature_ramp_length", 0.0);
+    configured_target_progress_ = finiteParam(
+        private_, root + "path/target_progress", -1.0);
     speed_ = finiteParam(private_, root + "path/arc_length_speed", 0.05);
     int path_samples =
         private_.param(root + "path/lookup_samples", 20001);
@@ -357,6 +375,9 @@ class SingleCarSPretestNode {
     support_offset_ = {
         geometryParam("base_to_support_x", -0.01783),
         geometryParam("base_to_support_y", 0.0)};
+    support_path_offset_ = {
+        geometryParam("q_tangent", 0.0),
+        geometryParam("q_normal", 0.0)};
     const std::string common_tracker = root + "tracker/";
     const std::string robot_tracker =
         root + "robot_overrides/" + robot_name_ + "/tracker/";
@@ -421,14 +442,21 @@ class SingleCarSPretestNode {
     if (usesWorldPose() && camera_pose_topic_.empty()) {
       throw std::runtime_error("camera_pose_topic must not be empty");
     }
-    if (!(amplitude_ > 0.0) || !(longitudinal_length_ > 0.0) ||
-        std::abs(speed_ - 0.05) > 1e-12 || path_samples_ < 101U ||
+    const bool valid_sine =
+        path_model_ == "sine_single_period" && amplitude_ > 0.0;
+    const bool valid_circle =
+        path_model_ == "circle_smooth_entry" &&
+        amplitude_ == 0.0 && circle_radius_ > 0.0 &&
+        std::abs(std::abs(circle_direction_) - 1.0) <= 1e-12 &&
+        entry_straight_length_ >= 0.0 && curvature_ramp_length_ > 0.0;
+    if ((!valid_sine && !valid_circle) || !(longitudinal_length_ > 0.0) ||
+        !(speed_ >= 0.01 && speed_ <= 0.08) || path_samples_ < 101U ||
         !(publish_rate_ > 0.0) || !(state_timeout_ > 0.0) ||
         !(subscriber_wait_ > 0.0) || start_delay_ < 0.0 ||
         !(maximum_motion_time_ > 0.0) || !(maximum_step_ > 0.0) ||
         !(post_stop_record_seconds_ >= 1.0) ||
         !(maximum_wheel_command_ > speed_) ||
-        !(minimum_battery_voltage_ >= 10.0) ||
+        !(minimum_battery_voltage_ >= 9.5) ||
         !(actual_wheel_warning_speed_ > 0.0) ||
         !(actual_wheel_hard_stop_speed_ > actual_wheel_warning_speed_) ||
         actual_wheel_hard_stop_consecutive_samples_ < 2 ||
@@ -455,10 +483,27 @@ class SingleCarSPretestNode {
   }
 
   void initialiseGeometry() {
-    path_.reset(new SCurvePath(
-        {amplitude_, longitudinal_length_, path_samples_}));
+    SCurveConfig path_config;
+    path_config.model = path_model_;
+    path_config.amplitude = amplitude_;
+    path_config.longitudinal_length = longitudinal_length_;
+    path_config.lookup_samples = path_samples_;
+    path_config.circle_radius = circle_radius_;
+    path_config.circle_direction = circle_direction_;
+    path_config.entry_straight_length = entry_straight_length_;
+    path_config.curvature_ramp_length = curvature_ramp_length_;
+    path_.reset(new SCurvePath(path_config));
+    target_progress_ = configured_target_progress_ > 0.0
+        ? configured_target_progress_ : path_->length();
+    if (!std::isfinite(target_progress_) || target_progress_ <= 0.0 ||
+        target_progress_ > path_->length()) {
+      throw std::runtime_error(
+          "path target_progress must be within the configured path");
+    }
     SupportGeometryConfig geometry_config;
-    geometry_config.offsets = {{0.0, 0.0}, {0.0, 0.0}, {0.0, 0.0}};
+    const SupportOffset role_offset{
+        support_path_offset_.x(), support_path_offset_.y()};
+    geometry_config.offsets = {role_offset, role_offset, role_offset};
     geometry_config.validation_samples = 10001U;
     SupportGeometry geometry(*path_, geometry_config);
     PlanarTrackerConfig tracker_config;
@@ -488,9 +533,9 @@ class SingleCarSPretestNode {
              actual_wheel_hard_stop_consecutive_samples_,
              actual_wheel_emergency_stop_speed_,
              actual_wheel_sustained_speed_, actual_wheel_sustained_duration_);
-    if (maximum_motion_time_ < path_->length() / speed_ + 1.0) {
+    if (maximum_motion_time_ < target_progress_ / speed_ + 1.0) {
       throw std::runtime_error(
-          "maximum_motion_time is too short for the configured S path");
+          "maximum_motion_time is too short for the configured path target");
     }
   }
 
@@ -826,8 +871,26 @@ class SingleCarSPretestNode {
            std::abs(value.heading_error) > maximum_heading_error_;
   }
 
-  void publishTracking(const PlanarTrackingResult& value) {
+  void publishTracking(const PlanarTrackingResult& value, double progress) {
     publishTrackingMessage(value, activeMethodId());
+    std_msgs::Float64MultiArray state;
+    state.layout.dim.resize(1);
+    state.layout.dim[0].label =
+        "single_car_planar_tracking_v1:progress+9";
+    state.layout.dim[0].size = 10U;
+    state.layout.dim[0].stride = 10U;
+    state.data = {
+        progress,
+        value.longitudinal_error,
+        value.lateral_error,
+        value.heading_error,
+        value.linear_velocity_feedforward,
+        value.angular_velocity_feedforward,
+        value.linear_velocity_raw,
+        value.angular_velocity_raw,
+        value.wheel_linear_velocity_left_raw,
+        value.wheel_linear_velocity_right_raw};
+    tracking_state_publisher_.publish(state);
   }
 
   void publishTrackingMessage(
@@ -843,7 +906,8 @@ class SingleCarSPretestNode {
         value.wheel_linear_velocity_left_raw;
     command.wheel_linear_velocity_right_raw =
         value.wheel_linear_velocity_right_raw;
-    command.experiment_id = robot_name_ + "_single_s_pretest";
+    command.experiment_id = robot_name_ + "_single_" + path_model_ +
+        "_pretest";
     command.method_id = method_id;
     command_publisher_.publish(command);
   }
@@ -854,7 +918,8 @@ class SingleCarSPretestNode {
     command.robot_id = static_cast<std::uint8_t>(robot_index_);
     command.command_seq = ++command_sequence_;
     command.control_mode = 1U;
-    command.experiment_id = robot_name_ + "_single_s_pretest";
+    command.experiment_id = robot_name_ + "_single_" + path_model_ +
+        "_pretest";
     command.method_id = activeMethodId() + "_STOP";
     command_publisher_.publish(command);
   }
@@ -951,7 +1016,7 @@ class SingleCarSPretestNode {
     const PlanarPose dummy{{0.0, 0.0}, 0.0};
     for (std::size_t index = 0; index < kVisualizationSamples; ++index) {
       const double progress =
-          path_->length() * static_cast<double>(index) /
+          target_progress_ * static_cast<double>(index) /
           static_cast<double>(kVisualizationSamples - 1U);
       const auto reference =
           tracker_->track({0U, progress, 0.0, dummy, dummy});
@@ -975,6 +1040,7 @@ class SingleCarSPretestNode {
   ros::Publisher path_publisher_;
   ros::Publisher reference_publisher_;
   ros::Publisher result_publisher_;
+  ros::Publisher tracking_state_publisher_;
   std::unique_ptr<SCurvePath> path_;
   std::unique_ptr<PlanarSupportTracker> tracker_;
 
@@ -1004,8 +1070,15 @@ class SingleCarSPretestNode {
   double actual_wheel_overspeed_start_time_{0.0};
   double actual_wheel_overspeed_last_sample_time_{0.0};
   int actual_wheel_overspeed_sample_count_{0};
+  std::string path_model_{"sine_single_period"};
   double amplitude_{0.05};
   double longitudinal_length_{1.0};
+  double circle_radius_{1.0};
+  double circle_direction_{1.0};
+  double entry_straight_length_{0.0};
+  double curvature_ramp_length_{0.0};
+  double configured_target_progress_{-1.0};
+  double target_progress_{0.0};
   double speed_{0.05};
   std::size_t path_samples_{20001U};
   double publish_rate_{100.0};
@@ -1031,6 +1104,7 @@ class SingleCarSPretestNode {
   double actual_wheel_sustained_duration_{0.05};
   double wheel_separation_{0.114};
   Eigen::Vector2d support_offset_{-0.01783, 0.0};
+  Eigen::Vector2d support_path_offset_{0.0, 0.0};
   double longitudinal_gain_{1.0};
   double lateral_gain_{2.0};
   double heading_gain_{2.0};

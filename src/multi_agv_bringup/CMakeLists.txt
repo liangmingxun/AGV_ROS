@@ -5,6 +5,8 @@ find_package(catkin REQUIRED)
 catkin_package()
 
 catkin_install_python(PROGRAMS
+  scripts/aggregate_single_car_circle_calibrations.py
+  scripts/analyze_single_car_circle_calibration.py
   scripts/analyze_three_car_cooperative_bag.py
   scripts/camera_wheel_turn_calibration.py
   scripts/check_three_car_readonly_gate.py
@@ -27,6 +29,7 @@ install(PROGRAMS
         scripts/run_m1_r1_serial_unloaded.sh
         scripts/run_m1_r1_serial_unloaded_3m.sh
         scripts/run_m1_r1_serial_unloaded_circle_r0p7.sh
+        scripts/run_m1_r1_serial_unloaded_circle_r0p7_short_arc.sh
         scripts/run_m1_r1_exp2a_derating_unloaded.sh
         scripts/run_m2a_r1_serial_unloaded.sh
         scripts/run_robot2_0p15_derating_pretest.sh

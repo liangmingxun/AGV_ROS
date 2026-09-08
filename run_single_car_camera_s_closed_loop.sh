@@ -22,9 +22,8 @@ if [[ ! "${ROBOT_INDEX}" =~ ^[123]$ ]] ||
   usage
   exit 2
 fi
-if [[ "${ROBOT_INDEX}" == "1" && "${CHASSIS_MODE}" != "local" ]] ||
-   [[ "${ROBOT_INDEX}" != "1" && "${CHASSIS_MODE}" != "remote" ]]; then
-  echo "ERROR: Robot1 must use local chassis mode; Robot2/3 must use remote mode." >&2
+if [[ "${ROBOT_INDEX}" != "1" && "${CHASSIS_MODE}" != "remote" ]]; then
+  echo "ERROR: Robot2/3 must use remote mode; Robot1 may use local or an existing chassis node." >&2
   exit 2
 fi
 
@@ -33,6 +32,11 @@ ROBOT_LABEL="Robot${ROBOT_INDEX}"
 ROBOT_NS="/${ROBOT_NAME}"
 POSE_NS="/pose_provider/${ROBOT_NAME}"
 OUTPUT_ROOT="${WORKSPACE}/experiment_data/robot${ROBOT_INDEX}_camera_s_closed_loop"
+TEST_PROFILE="${SINGLE_CAR_TEST_PROFILE:-s}"
+CONFIG_FILE="${SINGLE_CAR_CONFIG_FILE:-${WORKSPACE}/src/multi_agv_bringup/config/single_car_s_pretest.yaml}"
+BAG_LABEL="camera_s"
+PATH_DESCRIPTION="anchored_single_period_s"
+PATH_SPEED_MPS="0.05"
 TRACKER_PROFILE="shared"
 TRACKER_LATERAL_GAIN="3.0"
 TRACKER_HEADING_GAIN="2.5"
@@ -76,6 +80,41 @@ elif [[ "${ROBOT_INDEX}" == "3" ]]; then
   WHEEL_HARD_STOP_SPEED="0.105"
   WHEEL_SUSTAINED_SPEED="0.10"
   WHEEL_SUSTAINED_DURATION="0.10"
+fi
+if [[ "${TEST_PROFILE}" == "circle_r0p7_cw" ]]; then
+  OUTPUT_ROOT="${WORKSPACE}/experiment_data/robot${ROBOT_INDEX}_camera_circle_r0p7_cw"
+  BAG_LABEL="camera_circle_r0p7_cw"
+  PATH_DESCRIPTION="role_faithful_r0p7_cw_90deg_smooth_entry"
+  PATH_SPEED_MPS="0.08"
+  TRACKER_FEEDFORWARD_SCALE_NEGATIVE="0.94"
+  TRACKER_PREVIEW_SECONDS="0.05"
+  WHEEL_WARNING_SPEED="0.12"
+  WHEEL_HARD_STOP_SPEED="0.15"
+  WHEEL_EMERGENCY_STOP_SPEED="0.18"
+  WHEEL_SUSTAINED_SPEED="0.145"
+  WHEEL_SUSTAINED_DURATION="0.10"
+  if [[ "${ROBOT_INDEX}" == "1" ]]; then
+    TRACKER_PROFILE="robot1_circle_r0p7_cw_candidate"
+    TRACKER_LATERAL_GAIN="4.8"
+    TRACKER_HEADING_GAIN="3.5"
+    TRACKER_FEEDFORWARD_SCALE_POSITIVE="0.78"
+  elif [[ "${ROBOT_INDEX}" == "2" ]]; then
+    TRACKER_PROFILE="robot2_circle_r0p7_cw_candidate"
+    TRACKER_LATERAL_GAIN="2.7"
+    TRACKER_HEADING_GAIN="3.0"
+    TRACKER_FEEDFORWARD_SCALE_POSITIVE="0.780810219"
+    TRACKER_FEEDFORWARD_SCALE_NEGATIVE="0.951221879"
+    TRACKER_PREVIEW_SECONDS="0.0"
+  else
+    TRACKER_PROFILE="robot3_circle_r0p7_cw_candidate"
+    TRACKER_LATERAL_GAIN="4.0"
+    TRACKER_HEADING_GAIN="3.0"
+    TRACKER_FEEDFORWARD_SCALE_POSITIVE="0.850009371"
+    TRACKER_FEEDFORWARD_SCALE_NEGATIVE="0.94"
+  fi
+elif [[ "${TEST_PROFILE}" != "s" ]]; then
+  echo "ERROR: unsupported SINGLE_CAR_TEST_PROFILE=${TEST_PROFILE}" >&2
+  exit 2
 fi
 
 cd "${WORKSPACE}"
@@ -149,7 +188,7 @@ fi
 run_id="$(date +%Y%m%d_%H%M%S)"
 run_directory="${OUTPUT_ROOT}/${run_id}"
 mkdir -p "${run_directory}"
-bag_path="${run_directory}/robot${ROBOT_INDEX}_camera_s_${run_id}.bag"
+bag_path="${run_directory}/robot${ROBOT_INDEX}_${BAG_LABEL}_${run_id}.bag"
 epoch_before="$({ timeout 5 rostopic echo -n 1 \
   /vision/aruco/calibration_epoch 2>/dev/null || true; } |
   awk '/data:/ {print $2; exit}')"
@@ -162,8 +201,10 @@ epoch_before="$({ timeout 5 rostopic echo -n 1 \
   echo "absolute_pose_authority=${POSE_NS}/base_pose_raw"
   echo "propagation=wheel_translation_plus_corrected_imu_yaw"
   echo "calibration_epoch_before=${epoch_before}"
-  echo "path=anchored_single_period_s"
-  echo "path_speed_mps=0.05"
+  echo "test_profile=${TEST_PROFILE}"
+  echo "config_file=${CONFIG_FILE}"
+  echo "path=${PATH_DESCRIPTION}"
+  echo "path_speed_mps=${PATH_SPEED_MPS}"
   echo "tracker_profile=${TRACKER_PROFILE}"
   echo "tracker_lateral_gain=${TRACKER_LATERAL_GAIN}"
   echo "tracker_heading_gain=${TRACKER_HEADING_GAIN}"
@@ -182,8 +223,12 @@ epoch_before="$({ timeout 5 rostopic echo -n 1 \
   echo "git_commit=$(git rev-parse HEAD 2>/dev/null || echo unknown)"
 } >"${run_directory}/metadata.txt"
 
-echo "${ROBOT_LABEL} will follow an automatically anchored fused-feedback S path."
-echo "Required clear area: at least 1.5 m forward and 0.4 m to the vehicle's right."
+echo "${ROBOT_LABEL} will follow ${PATH_DESCRIPTION} using fused feedback."
+if [[ "${TEST_PROFILE}" == "circle_r0p7_cw" ]]; then
+  echo "Required clear area: the role-specific 90-degree clockwise arc plus 0.35 m body margin."
+else
+  echo "Required clear area: at least 1.5 m forward and 0.4 m to the vehicle's right."
+fi
 echo "Bag: ${bag_path}"
 echo "Motion begins after the node's 3-second zero-speed countdown."
 
@@ -191,6 +236,7 @@ set +e
 if [[ "${CHASSIS_MODE}" == "local" ]]; then
   roslaunch multi_agv_bringup robot1_camera_s_capture.launch \
     bag_path:="${bag_path}" \
+    config_file:="${CONFIG_FILE}" \
     confirm_test_area_clear:=true \
     confirm_wheels_on_floor:=true \
     2>&1 | tee "${run_directory}/run.log"
@@ -198,6 +244,7 @@ else
   roslaunch multi_agv_bringup single_car_camera_s_capture.launch \
     robot_index:="${ROBOT_INDEX}" \
     bag_path:="${bag_path}" \
+    config_file:="${CONFIG_FILE}" \
     confirm_test_area_clear:=true \
     confirm_wheels_on_floor:=true \
     2>&1 | tee "${run_directory}/run.log"
@@ -236,5 +283,18 @@ if [[ "${result_status}" != "STOP_CONFIRMED" ]]; then
   exit 8
 fi
 
-echo "PASS: ${ROBOT_LABEL} fused-camera S run completed and stopped."
+if [[ "${TEST_PROFILE}" == "circle_r0p7_cw" ]]; then
+  analysis_path="${run_directory}/robot${ROBOT_INDEX}_circle_analysis.json"
+  rosrun multi_agv_bringup analyze_single_car_circle_calibration.py \
+    --bag "${bag_path}" \
+    --robot-index "${ROBOT_INDEX}" \
+    --output "${analysis_path}" \
+    --current-negative-scale "${TRACKER_FEEDFORWARD_SCALE_NEGATIVE}" \
+    --lateral-gain "${TRACKER_LATERAL_GAIN}" \
+    --heading-gain "${TRACKER_HEADING_GAIN}" \
+    2>&1 | tee "${run_directory}/analysis.log"
+  echo "Analysis: ${analysis_path}"
+fi
+
+echo "PASS: ${ROBOT_LABEL} fused-camera ${TEST_PROFILE} run completed and stopped."
 echo "Results: ${run_directory}"

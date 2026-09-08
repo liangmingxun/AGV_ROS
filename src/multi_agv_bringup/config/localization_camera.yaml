@@ -40,10 +40,10 @@ camera_adapter:
       confidence_topic: /camera/world/agv1_confidence
       raw_output_topic: /pose_provider/agv1/base_pose_raw
       filtered_output_topic: /pose_provider/agv1/base_pose_filtered
-      # Marker +Y points toward vehicle +X. The marker center is 132.74 mm
+      # Marker +Y points toward vehicle +X. The marker center is 187.89 mm
       # ahead of the drive-axle midpoint (base_link).
       tag_to_target_x: 0.0
-      tag_to_target_y: -0.13274
+      tag_to_target_y: -0.18789
       tag_to_target_yaw: 1.5707963267948966
     - entity_id: agv2
       enabled: true
@@ -51,11 +51,10 @@ camera_adapter:
       confidence_topic: /camera/world/agv2_confidence
       raw_output_topic: /pose_provider/agv2/base_pose_raw
       filtered_output_topic: /pose_provider/agv2/base_pose_filtered
-      # Marker +Y points toward vehicle +X. Dynamic rotation-centre fits from
-      # 20260811 runs 170430/171423/183204 give a 94.14--97.26 mm
-      # longitudinal offset; freeze the requested common value at 97.2 mm.
+      # Marker +Y points toward vehicle +X. The marker center is 88.19 mm
+      # behind the drive-axle midpoint (base_link).
       tag_to_target_x: 0.0
-      tag_to_target_y: 0.0972
+      tag_to_target_y: 0.08819
       tag_to_target_yaw: 1.5707963267948966
     - entity_id: agv3
       enabled: true
@@ -63,10 +62,9 @@ camera_adapter:
       confidence_topic: /camera/world/agv3_confidence
       raw_output_topic: /pose_provider/agv3/base_pose_raw
       filtered_output_topic: /pose_provider/agv3/base_pose_filtered
-      # Robot3 uses the same rear-marker installation value requested for
-      # Robot2. Its independent rotation-centre validation remains required.
+      # Robot3 uses the same 88.19 mm rear-marker installation as Robot2.
       tag_to_target_x: 0.0
-      tag_to_target_y: 0.0972
+      tag_to_target_y: 0.08819
       tag_to_target_yaw: 1.5707963267948966
     - entity_id: load
       enabled: false

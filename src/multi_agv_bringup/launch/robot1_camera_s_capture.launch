@@ -4,6 +4,8 @@
   <arg name="bag_path"/>
   <arg name="confirm_test_area_clear" default="false"/>
   <arg name="confirm_wheels_on_floor" default="false"/>
+  <arg name="config_file"
+       default="$(find multi_agv_bringup)/config/single_car_s_pretest.yaml"/>
 
   <include file="$(find multi_agv_bringup)/launch/car1_master.launch">
     <arg name="transport_type" value="serial"/>
@@ -14,5 +16,6 @@
     <arg name="bag_path" value="$(arg bag_path)"/>
     <arg name="confirm_test_area_clear" value="$(arg confirm_test_area_clear)"/>
     <arg name="confirm_wheels_on_floor" value="$(arg confirm_wheels_on_floor)"/>
+    <arg name="config_file" value="$(arg config_file)"/>
   </include>
 </launch>

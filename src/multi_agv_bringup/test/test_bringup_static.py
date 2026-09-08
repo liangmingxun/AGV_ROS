@@ -106,8 +106,8 @@ class BringupStaticTest(unittest.TestCase):
         self.assertIn("if (!stream.enabled)", adapter)
         self.assertIn("require_confidence: true", config)
         self.assertEqual(config.count("tag_to_target_x:"), 4)
-        self.assertEqual(config.count("tag_to_target_y: 0.0972"), 2)
-        self.assertIn("tag_to_target_y: -0.13274", config)
+        self.assertEqual(config.count("tag_to_target_y: 0.08819"), 2)
+        self.assertIn("tag_to_target_y: -0.18789", config)
         self.assertIn("SOURCE_CAMERA", estimator)
         self.assertIn("SOURCE_FUSED", estimator)
         self.assertIn('localization_mode_ != "fused"', estimator)
@@ -335,9 +335,17 @@ class BringupStaticTest(unittest.TestCase):
         evaluation = (
             PACKAGE / "config" / "formal_evaluation_circle_r0p7.yaml"
         ).read_text(encoding="utf-8")
+        runtime = (
+            PACKAGE / "config" /
+            "formal_serial_m1_r1_circle_r0p7_runtime.yaml"
+        ).read_text(encoding="utf-8")
         entry = (
             PACKAGE / "scripts" /
             "run_m1_r1_serial_unloaded_circle_r0p7.sh"
+        ).read_text(encoding="utf-8")
+        short_entry = (
+            PACKAGE / "scripts" /
+            "run_m1_r1_serial_unloaded_circle_r0p7_short_arc.sh"
         ).read_text(encoding="utf-8")
         formal_algorithm = (
             SOURCE_ROOT / "multi_agv_control" / "src" /
@@ -354,9 +362,27 @@ class BringupStaticTest(unittest.TestCase):
             "evaluation_end_progress: 4.998229715025710", evaluation)
         self.assertIn("--confirm-r0p7-circle-footprint-clear", entry)
         self.assertIn("FORMAL_TARGET_PROGRESS=4.998229715025710", entry)
+        self.assertIn(
+            "FORMAL_RUNTIME_CONFIG=src/multi_agv_bringup/config/"
+            "formal_serial_m1_r1_circle_r0p7_runtime.yaml", entry)
         self.assertIn("FORMAL_UPPER_MODE=M1", entry)
         self.assertIn("FORMAL_ENABLE_ROBOT2_DERATING=false", entry)
         self.assertIn("run_m1_r1_serial_unloaded.sh", entry)
+        self.assertIn(
+            "--confirm-r0p7-short-arc-footprint-clear", short_entry)
+        self.assertIn(
+            "FORMAL_TARGET_PROGRESS=1.699557428756428", short_entry)
+        self.assertIn(
+            "FORMAL_RUN_PREFIX=m1_r1_circle_r0p7_cw_short_arc",
+            short_entry)
+        for marker in (
+                "lateral_gain_per_robot: [4.8, 2.7, 4.0]",
+                "heading_gain_per_robot: [3.5, 3.0, 3.0]",
+                "angular_feedforward_scale_negative: [0.94, 0.951221879, 0.94]",
+                "formation_lateral_gain: 0.85",
+                "formation_heading_gain: 0.70",
+                "target_progress: 4.998229715025710"):
+            self.assertIn(marker, runtime)
         for parameter in (
                 "path_s_curve/circle_radius",
                 "path_s_curve/entry_straight_length",
@@ -572,6 +598,7 @@ class BringupStaticTest(unittest.TestCase):
             "angular_feedforward_scale_positive: 0.803566413", config)
         self.assertIn(
             "angular_feedforward_scale_negative: 0.845593913", config)
+
         self.assertIn(
             "profile: robot2_camera_s_frozen_v1", config)
         self.assertIn("wheel_separation: 0.139284482", config)
@@ -687,6 +714,53 @@ class BringupStaticTest(unittest.TestCase):
         self.assertIn('source "${SCRIPT_DIR}/setup_robot_ros.sh" 1',
                       camera_entry)
         self.assertIn("calibration_authorized:=true", camera_entry)
+
+    def test_single_car_circle_calibration_is_role_faithful_and_short(self):
+        config = (
+            PACKAGE / "config" /
+            "single_car_circle_r0p7_cw_calibration.yaml"
+        ).read_text(encoding="utf-8")
+        control = (
+            SOURCE_ROOT / "multi_agv_control" / "src" /
+            "single_car_s_pretest_node.cpp"
+        ).read_text(encoding="utf-8")
+        analyzer = (
+            PACKAGE / "scripts" /
+            "analyze_single_car_circle_calibration.py"
+        ).read_text(encoding="utf-8")
+        for marker in (
+                "model: circle_smooth_entry",
+                "circle_radius: 0.7",
+                "circle_direction: -1.0",
+                "target_progress: 1.699557428756428",
+                "arc_length_speed: 0.08",
+                "q_tangent: 0.1732050807568877",
+                "q_normal: 0.1500000000000000",
+                "q_normal: -0.1500000000000000",
+                "angular_feedforward_scale_negative: 0.951221879",
+                "angular_feedforward_scale_negative: 0.94",
+                "heading_gain: 3.0"):
+            self.assertIn(marker, config)
+        self.assertIn("single_car_planar_tracking_v1:progress+9", control)
+        self.assertIn("configured_target_progress_", control)
+        self.assertIn(
+            "CURRENT_PARAMETERS_READY_FOR_THREE_CAR_SHORT_ARC", analyzer)
+        self.assertIn(
+            "APPLY_CANDIDATE_AND_REPEAT_SINGLE_CAR_ONCE", analyzer)
+        for robot in range(1, 4):
+            entry = (
+                SOURCE_ROOT.parent /
+                "run_robot{}_camera_circle_r0p7_cw.sh".format(robot)
+            ).read_text(encoding="utf-8")
+            self.assertIn("SINGLE_CAR_TEST_PROFILE=circle_r0p7_cw", entry)
+            self.assertIn("--robot-index {}".format(robot), entry)
+            self.assertIn("--chassis-mode remote", entry)
+        aggregate = (
+            SOURCE_ROOT.parent /
+            "aggregate_three_car_circle_calibrations.sh"
+        ).read_text(encoding="utf-8")
+        self.assertIn("aggregate_single_car_circle_calibrations.py", aggregate)
+        self.assertIn("three_car_circle_r0p7_cw_candidate.yaml", aggregate)
 
     def test_central_readonly_entry_has_no_command_authority(self):
         launch = (
