@@ -22,7 +22,14 @@ formal_fake_runtime:
     initialization_max_wheel_speed: 0.015
     startup_ramp_seconds: 1.0
     emergency_abort_persistence_seconds: 0.10
-    transient_state_hold_seconds: 0.03
+    # Frozen from the valid short-arc runs: cover the observed camera
+    # resynchronization transient without changing the formal control law.
+    transient_state_hold_seconds: 0.08
+    # A single formal-node TCPROS feedback subscription stalled for about
+    # 0.28 s in full-circle run 183416 while the chassis and recorder still
+    # observed 100 Hz feedback. Preserve the last value for 0.10 s after the
+    # unchanged 0.25 s freshness bound; a sustained outage still fail-zeros.
+    transient_feedback_hold_seconds: 0.10
 
   require_valid_load_state: true
   require_recorder_armed: true
@@ -72,9 +79,10 @@ formal_fake_runtime:
     lateral_gain: 2.0
     heading_gain: 2.0
     longitudinal_gain_per_robot: [1.0, 1.0, 1.0]
-    # Circle-only shared execution candidate. Robot1 receives stronger lateral
-    # recovery; Robot2 remains deliberately softer to avoid over-steering.
-    lateral_gain_per_robot: [4.8, 2.7, 4.0]
+    # Full-circle transfer of the accepted short-arc candidate. Robot2's 3.4
+    # lateral gain reduced its repeatable support error; Robot3 retains the
+    # accepted 3.0 heading gain after the 3.4 trial worsened position tracking.
+    lateral_gain_per_robot: [4.8, 3.4, 4.0]
     heading_gain_per_robot: [3.5, 3.0, 3.0]
     angular_feedforward_scale_positive: [0.78, 0.780810219, 0.850009371]
     # Frozen from the accepted role-faithful single-car short-arc runs:

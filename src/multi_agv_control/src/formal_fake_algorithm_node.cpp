@@ -379,6 +379,9 @@ class FormalFakeAlgorithmNode {
     private_node_.param(
         root + "maximum_feedback_age", maximum_feedback_age_, 0.25);
     private_node_.param(
+        root + "execution/transient_feedback_hold_seconds",
+        transient_feedback_hold_seconds_, 0.0);
+    private_node_.param(
         root + "minimum_battery_voltage", minimum_battery_voltage_, 9.5);
     private_node_.param(
         root + "minimum_battery_voltage_duration",
@@ -476,6 +479,7 @@ class FormalFakeAlgorithmNode {
     if (!(publish_rate_ > 0.0) || !(maximum_state_age_ > 0.0) ||
         !(maximum_capability_age_ > 0.0) ||
         !(maximum_feedback_age_ > 0.0) ||
+        transient_feedback_hold_seconds_ < 0.0 ||
         !(minimum_battery_voltage_ > 0.0) ||
         !(minimum_battery_voltage_duration_ > 0.0) ||
         !(emergency_abort_limit_ > 0.0) ||
@@ -886,8 +890,22 @@ class FormalFakeAlgorithmNode {
           return "agv" + std::to_string(index + 1U) +
               " ChassisFeedback is missing";
         }
-        if ((now - feedback_receive_time_[index]).toSec() >
-            maximum_feedback_age_) {
+        const double feedback_age =
+            (now - feedback_receive_time_[index]).toSec();
+        const auto freshness = assessFeedbackFreshness(
+            feedback_age, maximum_feedback_age_,
+            transient_feedback_hold_seconds_);
+        if (freshness == FeedbackFreshnessStatus::kInvalidTiming) {
+          return "agv" + std::to_string(index + 1U) +
+              " ChassisFeedback freshness timing is invalid";
+        }
+        if (freshness == FeedbackFreshnessStatus::kTransientHold) {
+          ROS_WARN_THROTTLE(
+              1.0,
+              "Formal execution holding the last valid agv%zu ChassisFeedback for %.6f s beyond the %.6f s freshness bound",
+              index + 1U, feedback_age - maximum_feedback_age_,
+              maximum_feedback_age_);
+        } else if (freshness == FeedbackFreshnessStatus::kStale) {
           return "agv" + std::to_string(index + 1U) +
               " ChassisFeedback is stale";
         }
@@ -1952,6 +1970,7 @@ class FormalFakeAlgorithmNode {
   double maximum_state_age_{0.15};
   double maximum_capability_age_{0.20};
   double maximum_feedback_age_{0.25};
+  double transient_feedback_hold_seconds_{0.0};
   double minimum_battery_voltage_{9.5};
   double minimum_battery_voltage_duration_{0.5};
   double emergency_abort_limit_{0.12};

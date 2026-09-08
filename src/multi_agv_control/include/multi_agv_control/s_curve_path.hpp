@@ -17,8 +17,8 @@ struct SCurveConfig {
   double entry_straight_length{0.0};
   double curvature_ramp_length{0.0};
   double circle_direction{1.0};
-  // Optional zero-curvature continuation after a graph path. It follows the
-  // graph's terminal tangent, so position and heading remain continuous.
+  // Optional zero-curvature continuation after a graph path or a smooth
+  // circle exit. It follows the terminal tangent continuously.
   double exit_straight_length{0.0};
 };
 

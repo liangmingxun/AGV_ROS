@@ -399,7 +399,7 @@ class BringupStaticTest(unittest.TestCase):
             short_evaluation)
         self.assertIn("target_progress: 1.699557428756428", short_runtime)
         for marker in (
-                "lateral_gain_per_robot: [4.8, 2.7, 4.0]",
+                "lateral_gain_per_robot: [4.8, 3.4, 4.0]",
                 "heading_gain_per_robot: [3.5, 3.0, 3.0]",
                 "angular_feedforward_scale_negative: [0.94, 0.951221879, 0.94]",
                 "formation_lateral_gain: 0.85",
@@ -407,7 +407,7 @@ class BringupStaticTest(unittest.TestCase):
                 "target_progress: 4.998229715025710"):
             self.assertIn(marker, runtime)
         for marker in (
-                "lateral_gain_per_robot: [4.8, 2.7, 4.0]",
+                "lateral_gain_per_robot: [4.8, 3.4, 4.0]",
                 "heading_gain_per_robot: [3.5, 3.0, 3.0]",
                 "angular_feedforward_scale_negative: [0.94, 0.951221879, 0.94]"):
             self.assertIn(marker, short_runtime)
@@ -428,16 +428,23 @@ class BringupStaticTest(unittest.TestCase):
             calibration_data[f"agv{robot}"]["tracker"]
             ["angular_feedforward_scale_negative"]
             for robot in range(1, 4)]
-        for runtime_text in (runtime, short_runtime):
-            tracker = yaml.safe_load(runtime_text)["formal_fake_runtime"][
-                "tracker"]
-            self.assertEqual(
-                tracker["lateral_gain_per_robot"], expected_lateral)
-            self.assertEqual(
-                tracker["heading_gain_per_robot"], expected_heading)
-            self.assertEqual(
-                tracker["angular_feedforward_scale_negative"],
-                expected_negative_ff)
+        tracker = yaml.safe_load(runtime)["formal_fake_runtime"]["tracker"]
+        self.assertEqual(
+            tracker["lateral_gain_per_robot"], [4.8, 3.4, 4.0])
+        self.assertEqual(
+            tracker["heading_gain_per_robot"], expected_heading)
+        self.assertEqual(
+            tracker["angular_feedforward_scale_negative"],
+            expected_negative_ff)
+        short_tracker = yaml.safe_load(short_runtime)[
+            "formal_fake_runtime"]["tracker"]
+        self.assertEqual(
+            short_tracker["lateral_gain_per_robot"], [4.8, 3.4, 4.0])
+        self.assertEqual(
+            short_tracker["heading_gain_per_robot"], [3.5, 3.0, 3.0])
+        self.assertEqual(
+            short_tracker["angular_feedforward_scale_negative"],
+            expected_negative_ff)
         for parameter in (
                 "path_s_curve/circle_radius",
                 "path_s_curve/entry_straight_length",
@@ -453,6 +460,69 @@ class BringupStaticTest(unittest.TestCase):
             "run_m1_r1_serial_unloaded_circle_r0p7_short_arc.sh", entry)
         self.assertNotIn("aggregate_three_car_circle_calibrations.sh", entry)
         self.assertNotIn("verify_circle", entry)
+
+    def test_circle_smooth_exit_is_isolated_and_uses_frozen_tracker(self):
+        import yaml
+
+        path = (PACKAGE / "config" /
+                "path_circle_r0p7_cw_smooth_exit.yaml").read_text(
+                    encoding="utf-8")
+        runtime = (PACKAGE / "config" /
+                   "formal_serial_m1_r1_circle_r0p7_smooth_exit_runtime.yaml"
+                   ).read_text(encoding="utf-8")
+        evaluation = (PACKAGE / "config" /
+                      "formal_evaluation_circle_r0p7_smooth_exit.yaml"
+                      ).read_text(encoding="utf-8")
+        entry = (PACKAGE / "scripts" /
+                 "run_m1_r1_serial_unloaded_circle_r0p7_smooth_exit.sh"
+                 ).read_text(encoding="utf-8")
+        wrapper = (SOURCE_ROOT.parent /
+                   "run_three_car_m1_r1_circle_r0p7_smooth_exit.sh"
+                   ).read_text(encoding="utf-8")
+        freeze = (PACKAGE / "config" /
+                  "m1_r1_circle_r0p7_cw_smooth_exit_freeze_v1.yaml"
+                  ).read_text(encoding="utf-8")
+
+        for marker in (
+                "model: circle_smooth_entry_exit",
+                "circle_radius: 0.7",
+                "circle_direction: -1.0",
+                "entry_straight_length: 0.20",
+                "curvature_ramp_length: 0.40",
+                "exit_straight_length: 0.18",
+                "longitudinal_length: 4.998229715025710"):
+            self.assertIn(marker, path)
+        for marker in (
+                "target_progress: 5.178229715025710",
+                "lateral_gain_per_robot: [4.8, 3.4, 4.0]",
+                "heading_gain_per_robot: [3.5, 3.0, 3.0]",
+                "angular_feedforward_scale_negative: [0.94, 0.951221879, 0.94]",
+                "transient_state_hold_seconds: 0.08",
+                "transient_feedback_hold_seconds: 0.10"):
+            self.assertIn(marker, runtime)
+        self.assertIn(
+            "evaluation_end_progress: 5.178229715025710", evaluation)
+        self.assertIn(
+            "--confirm-r0p7-smooth-exit-footprint-clear", entry)
+        self.assertIn("FORMAL_TARGET_PROGRESS=5.178229715025710", entry)
+        self.assertIn(
+            "path_circle_r0p7_cw_smooth_exit.yaml", entry)
+        self.assertIn(
+            "run_m1_r1_serial_unloaded_circle_r0p7_smooth_exit.sh",
+            wrapper)
+        self.assertIn(
+            "freeze_id: m1_r1_circle_r0p7_cw_smooth_exit_frozen_v1",
+            freeze)
+        self.assertIn("status: frozen", freeze)
+        self.assertIn("formal_statistics_authorized: false", freeze)
+        self.assertIn(
+            "m1_r1_circle_r0p7_cw_smooth_exit_20260908_191906", freeze)
+        self.assertIn(
+            "m1_r1_circle_r0p7_cw_smooth_exit_20260908_193838", freeze)
+
+        runtime_data = yaml.safe_load(runtime)["formal_fake_runtime"]
+        self.assertEqual(runtime_data["leader"]["velocity"], 0.08)
+        self.assertFalse(runtime_data["command_publication_authorized"])
 
     def test_optional_software_watchdog_is_observer_only(self):
         launch = (

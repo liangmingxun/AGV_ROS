@@ -126,6 +126,26 @@ SerialWheelDemandAssessment assessSerialWheelDemand(
   return result;
 }
 
+FeedbackFreshnessStatus assessFeedbackFreshness(
+    double receive_age_seconds,
+    double maximum_fresh_age_seconds,
+    double transient_hold_seconds) {
+  if (!std::isfinite(receive_age_seconds) || receive_age_seconds < 0.0 ||
+      !std::isfinite(maximum_fresh_age_seconds) ||
+      !(maximum_fresh_age_seconds > 0.0) ||
+      !std::isfinite(transient_hold_seconds) || transient_hold_seconds < 0.0) {
+    return FeedbackFreshnessStatus::kInvalidTiming;
+  }
+  if (receive_age_seconds <= maximum_fresh_age_seconds) {
+    return FeedbackFreshnessStatus::kFresh;
+  }
+  if (receive_age_seconds <=
+      maximum_fresh_age_seconds + transient_hold_seconds) {
+    return FeedbackFreshnessStatus::kTransientHold;
+  }
+  return FeedbackFreshnessStatus::kStale;
+}
+
 bool seedCommandSequenceFromFeedback(
     std::uint32_t command_seq_applied,
     std::uint32_t* command_sequence) {

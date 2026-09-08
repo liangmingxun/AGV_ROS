@@ -34,6 +34,22 @@ TEST(SCurvePath, RejectsInvalidConfiguration) {
     const SCurvePath path(undeclared_exit);
     (void)path;
   }, std::invalid_argument);
+
+  SCurveConfig impossible_circle_exit;
+  impossible_circle_exit.amplitude = 0.0;
+  impossible_circle_exit.circle_radius = 0.05;
+  impossible_circle_exit.entry_straight_length = 0.20;
+  impossible_circle_exit.curvature_ramp_length = 0.40;
+  impossible_circle_exit.circle_direction = -1.0;
+  impossible_circle_exit.longitudinal_length =
+      0.20 + 0.40 + 2.0 * kPi * 0.05;
+  impossible_circle_exit.exit_straight_length = 0.18;
+  impossible_circle_exit.lookup_samples = 1001;
+  impossible_circle_exit.model = "circle_smooth_entry_exit";
+  EXPECT_THROW({
+    const SCurvePath path(impossible_circle_exit);
+    (void)path;
+  }, std::invalid_argument);
 }
 
 TEST(SCurvePath, ClampsEndpointsAndRejectsNonFiniteQuery) {
@@ -193,6 +209,50 @@ TEST(SCurvePath, ClockwiseR0p7PilotHasRequestedRadiusAndLength) {
   EXPECT_NEAR(path.sample(0.60).curvature, -1.0 / 0.7, 1e-12);
   EXPECT_NEAR(path.sample(path.length()).heading,
               -0.20 / 0.7 - 2.0 * kPi, 1e-10);
+}
+
+TEST(SCurvePath, ClockwiseR0p7CircleReturnsSmoothlyToStraight) {
+  SCurveConfig config;
+  config.amplitude = 0.0;
+  config.circle_radius = 0.7;
+  config.entry_straight_length = 0.20;
+  config.curvature_ramp_length = 0.40;
+  config.circle_direction = -1.0;
+  // Entry straight + ramp-in + shortened constant arc + ramp-out.
+  config.longitudinal_length = 0.60 + 2.0 * kPi * 0.7;
+  config.exit_straight_length = 0.18;
+  config.lookup_samples = 60001;
+  config.model = "circle_smooth_entry_exit";
+  const SCurvePath path(config);
+
+  const double constant_arc_start = 0.60;
+  const double exit_ramp_start = 0.20 + 2.0 * kPi * 0.7;
+  const double curve_end = config.longitudinal_length;
+  EXPECT_NEAR(path.length(), 5.178229715025710, 1e-12);
+  EXPECT_NEAR(path.maximumAbsoluteCurvature(), 1.0 / 0.7, 1e-12);
+  EXPECT_DOUBLE_EQ(path.sample(0.20).curvature, 0.0);
+  EXPECT_NEAR(path.sample(constant_arc_start).curvature, -1.0 / 0.7,
+              1e-12);
+  EXPECT_NEAR(path.sample(exit_ramp_start).curvature, -1.0 / 0.7,
+              1e-12);
+  EXPECT_NEAR(path.sample(curve_end).curvature, 0.0, 1e-12);
+  EXPECT_NEAR(path.sample(curve_end).heading, -2.0 * kPi, 1e-10);
+
+  const auto curve_finish = path.sample(curve_end);
+  const auto finish = path.sample(path.length());
+  EXPECT_DOUBLE_EQ(finish.curvature, 0.0);
+  EXPECT_NEAR(finish.heading, curve_finish.heading, 1e-12);
+  EXPECT_NEAR((finish.position - curve_finish.position).norm(), 0.18,
+              1e-12);
+  EXPECT_NEAR((finish.position - curve_finish.position).normalized().dot(
+                  curve_finish.tangent), 1.0, 1e-12);
+
+  const double epsilon = 1e-6;
+  for (const double boundary :
+       {0.20, constant_arc_start, exit_ramp_start, curve_end}) {
+    EXPECT_NEAR(path.sample(boundary - epsilon).curvature,
+                path.sample(boundary + epsilon).curvature, 1e-8);
+  }
 }
 
 TEST(SCurvePath, ArcLengthLookupIsMonotonicAndInvertible) {

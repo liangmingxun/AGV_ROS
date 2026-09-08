@@ -179,6 +179,24 @@ TEST(FormalExecutionGate, EmergencyLimitMustBeIndependentOfAvailableLimit) {
   EXPECT_TRUE(result.emergency_abort);
 }
 
+TEST(FormalExecutionGate, FeedbackTransientHoldIsBounded) {
+  EXPECT_EQ(
+      mac::FeedbackFreshnessStatus::kFresh,
+      mac::assessFeedbackFreshness(0.25, 0.25, 0.10));
+  EXPECT_EQ(
+      mac::FeedbackFreshnessStatus::kTransientHold,
+      mac::assessFeedbackFreshness(0.28, 0.25, 0.10));
+  EXPECT_EQ(
+      mac::FeedbackFreshnessStatus::kTransientHold,
+      mac::assessFeedbackFreshness(0.35, 0.25, 0.10));
+  EXPECT_EQ(
+      mac::FeedbackFreshnessStatus::kStale,
+      mac::assessFeedbackFreshness(0.350001, 0.25, 0.10));
+  EXPECT_EQ(
+      mac::FeedbackFreshnessStatus::kInvalidTiming,
+      mac::assessFeedbackFreshness(-0.01, 0.25, 0.10));
+}
+
 TEST(FormalExecutionGate, SeedsSerialCommandSequenceFromChassisFeedback) {
   std::uint32_t sequence = 0U;
   ASSERT_TRUE(mac::seedCommandSequenceFromFeedback(57456U, &sequence));

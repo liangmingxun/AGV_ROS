@@ -810,6 +810,52 @@ class ValidationTest(unittest.TestCase):
         self.assertIn("ALGORITHM_INVALID_DURATION", codes)
         self.assertEqual(report["algorithm"]["invalid_samples"], 1)
 
+    def test_algorithm_audit_excludes_warmup_and_terminal_stop(self):
+        self.rules["algorithm_exclusion"] = {
+            "maximum_invalid_fraction": 0.0,
+            "maximum_consecutive_invalid_seconds": 0.0,
+        }
+        self.rules["require_task_completion"] = True
+        manifest = copy.deepcopy(self.manifest)
+        manifest["metrics"] = {"evaluation_target": 1.0}
+        atomic_dump_yaml(self.manifest_path, manifest)
+        write_csv(self.converted / "aligned_samples.csv", [
+            {"stamp": 1.00, "experiment_state_available": True,
+             "evaluation_active": True, "algorithm_state_available": True,
+             "algorithm_valid": False, "localization_valid": True,
+             "load_s_actual": 0.0},
+            {"stamp": 1.01, "experiment_state_available": True,
+             "evaluation_active": True, "algorithm_state_available": True,
+             "algorithm_valid": True, "localization_valid": True,
+             "load_s_actual": 0.1},
+            {"stamp": 1.02, "experiment_state_available": True,
+             "evaluation_active": True, "algorithm_state_available": True,
+             "algorithm_valid": True, "localization_valid": True,
+             "load_s_actual": 0.9},
+            {"stamp": 1.03, "experiment_state_available": True,
+             "evaluation_active": True, "algorithm_state_available": True,
+             "algorithm_valid": False, "localization_valid": True,
+             "load_s_actual": 1.0, "load_s_reference": 1.0,
+             "load_velocity_reference": 0.0},
+        ])
+        write_csv(self.converted / "experiment_state.csv", [
+            {"header_stamp": 0.99, "experiment_id": "E2a",
+             "method_id": "M1_R1", "evaluation_active": False},
+            {"header_stamp": 1.00, "experiment_id": "E2a",
+             "method_id": "M1_R1", "evaluation_active": True},
+            {"header_stamp": 1.03, "experiment_id": "E2a",
+             "method_id": "M1_R1", "evaluation_active": False},
+        ])
+
+        report = self._validate()
+        self.assertTrue(report["valid"], report["issues"])
+        self.assertEqual(report["algorithm"]["samples"], 2)
+        self.assertEqual(report["algorithm"]["invalid_samples"], 0)
+        self.assertEqual(report["algorithm"]["excluded_samples"], 2)
+        self.assertEqual(
+            report["algorithm"]["scope"],
+            "after_first_valid_before_task_completion")
+
     def test_required_task_completion_fails_when_target_is_not_reached(self):
         self.rules["require_task_completion"] = True
         manifest = copy.deepcopy(self.manifest)

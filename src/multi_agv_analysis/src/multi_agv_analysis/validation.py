@@ -135,6 +135,49 @@ def _invalid_algorithm_statistics(rows, sample_period):
     }
 
 
+def _algorithm_evaluation_rows(rows, completion_stamp, target):
+    """Exclude controller warm-up and samples at/after task completion.
+
+    The formal evaluation window is armed before the controller has completed
+    its stationary initialization and remains armed briefly while the terminal
+    stop is confirmed.  Those book-end samples are not executed algorithm
+    failures.  A fail-zero between the first valid algorithm sample and task
+    completion remains in scope and is therefore still rejected.
+    """
+    first_valid_stamp = None
+    for row in rows:
+        if (bool_value(row.get("algorithm_state_available", False)) and
+                bool_value(row.get("algorithm_valid", False))):
+            stamp = finite_float(row.get("stamp"))
+            if math.isfinite(stamp):
+                first_valid_stamp = stamp
+                break
+    if first_valid_stamp is None:
+        return [], None
+    algorithm_end_stamp = completion_stamp
+    if target is not None and math.isfinite(target):
+        for row in rows:
+            reference = finite_float(row.get("load_s_reference"))
+            velocity = finite_float(row.get("load_velocity_reference"))
+            stamp = finite_float(row.get("stamp"))
+            if (math.isfinite(reference) and reference >= target - 1e-9 and
+                    math.isfinite(velocity) and abs(velocity) <= 1e-9 and
+                    math.isfinite(stamp)):
+                algorithm_end_stamp = stamp
+                break
+    scoped = []
+    for row in rows:
+        stamp = finite_float(row.get("stamp"))
+        if not math.isfinite(stamp) or stamp < first_valid_stamp:
+            continue
+        if (algorithm_end_stamp is not None and
+                math.isfinite(algorithm_end_stamp) and
+                stamp >= algorithm_end_stamp):
+            continue
+        scoped.append(row)
+    return scoped, first_valid_stamp, algorithm_end_stamp
+
+
 def _check_task_completion(aligned_rows, manifest, required, issues):
     target = finite_float(manifest.get("metrics", {}).get(
         "evaluation_target"))
@@ -516,13 +559,30 @@ def validate_converted_run(converted_dir, manifest_path, rules):
                 float(exclusion.get(
                     "maximum_consecutive_invalid_seconds", 0.0)))))
 
+    task_completion = _check_task_completion(
+        aligned_rows, manifest,
+        bool(rules.get("require_task_completion", False)), issues)
+
     algorithm = None
     algorithm_exclusion = rules.get("algorithm_exclusion")
     if algorithm_exclusion is not None:
-        algorithm_rows = (
+        algorithm_candidates = (
             localization_rows if experiment_state_rows else aligned_rows)
+        algorithm_rows, first_valid_stamp, algorithm_end_stamp = (
+            _algorithm_evaluation_rows(
+                algorithm_candidates,
+                task_completion.get("completion_stamp"),
+                task_completion.get("target")))
         algorithm = _invalid_algorithm_statistics(
             algorithm_rows, sample_period)
+        algorithm["scope"] = (
+            "after_first_valid_before_task_completion")
+        algorithm["first_valid_stamp"] = first_valid_stamp
+        algorithm["completion_stamp"] = task_completion.get(
+            "completion_stamp")
+        algorithm["algorithm_end_stamp"] = algorithm_end_stamp
+        algorithm["excluded_samples"] = (
+            len(algorithm_candidates) - len(algorithm_rows))
         maximum_fraction = float(algorithm_exclusion.get(
             "maximum_invalid_fraction", 0.0))
         maximum_duration = float(algorithm_exclusion.get(
@@ -540,10 +600,6 @@ def validate_converted_run(converted_dir, manifest_path, rules):
                 "{:.6f}s".format(
                     algorithm["maximum_consecutive_invalid_seconds"],
                     maximum_duration)))
-
-    task_completion = _check_task_completion(
-        aligned_rows, manifest,
-        bool(rules.get("require_task_completion", False)), issues)
 
     _check_methods(converted_dir, manifest, issues)
     _check_manual_abort(converted_dir, issues)

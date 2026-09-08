@@ -71,6 +71,18 @@ SerialWheelDemandAssessment assessSerialWheelDemand(
     double available_left, double available_right,
     double emergency_abort_limit);
 
+enum class FeedbackFreshnessStatus {
+  kFresh,
+  kTransientHold,
+  kStale,
+  kInvalidTiming,
+};
+
+FeedbackFreshnessStatus assessFeedbackFreshness(
+    double receive_age_seconds,
+    double maximum_fresh_age_seconds,
+    double transient_hold_seconds);
+
 bool seedCommandSequenceFromFeedback(
     std::uint32_t command_seq_applied,
     std::uint32_t* command_sequence);

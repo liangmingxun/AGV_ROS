@@ -40,6 +40,7 @@ formal_fake_runtime:
     # estimator re-synchronization. Missing/stale state and all independent
     # safety inputs still take the immediate fail-zero path.
     transient_state_hold_seconds: 0.03
+    transient_feedback_hold_seconds: 0.10
   require_valid_load_state: true
   require_recorder_armed: true
   maximum_recorder_armed_age: 0.50

@@ -12,6 +12,84 @@ namespace {
 constexpr double kPi = 3.14159265358979323846;
 constexpr std::size_t kMinimumLookupSamples = 101;
 
+bool isSmoothCircle(const SCurveConfig& config) {
+  return config.model == "circle_smooth_entry" ||
+      config.model == "circle_smooth_entry_exit";
+}
+
+double smoothStep(double t) noexcept {
+  return 3.0 * t * t - 2.0 * t * t * t;
+}
+
+double smoothCircleHeading(const SCurveConfig& config, double s) noexcept {
+  const double straight = config.entry_straight_length;
+  const double ramp = config.curvature_ramp_length;
+  const double signed_curvature =
+      config.circle_direction / config.circle_radius;
+  if (s <= straight) return 0.0;
+  if (s < straight + ramp) {
+    const double t = (s - straight) / ramp;
+    return signed_curvature * ramp *
+        (t * t * t - 0.5 * t * t * t * t);
+  }
+
+  const double entry_heading = 0.5 * signed_curvature * ramp;
+  if (config.model == "circle_smooth_entry") {
+    return entry_heading + signed_curvature * (s - straight - ramp);
+  }
+
+  const double constant_arc_length = 2.0 * kPi * config.circle_radius - ramp;
+  const double exit_ramp_start = straight + ramp + constant_arc_length;
+  if (s < exit_ramp_start) {
+    return entry_heading + signed_curvature * (s - straight - ramp);
+  }
+  const double t = std::clamp((s - exit_ramp_start) / ramp, 0.0, 1.0);
+  const double heading_at_exit_ramp =
+      entry_heading + signed_curvature * constant_arc_length;
+  // Integral of kappa=k*(1-3*t^2+2*t^3): C2 curvature exit.
+  return heading_at_exit_ramp + signed_curvature * ramp *
+      (t - t * t * t + 0.5 * t * t * t * t);
+}
+
+double smoothCircleCurvature(const SCurveConfig& config, double s) noexcept {
+  const double straight = config.entry_straight_length;
+  const double ramp = config.curvature_ramp_length;
+  const double signed_curvature =
+      config.circle_direction / config.circle_radius;
+  if (s <= straight) return 0.0;
+  if (s < straight + ramp) {
+    return signed_curvature * smoothStep((s - straight) / ramp);
+  }
+  if (config.model == "circle_smooth_entry") return signed_curvature;
+
+  const double exit_ramp_start = straight +
+      2.0 * kPi * config.circle_radius;
+  if (s < exit_ramp_start) return signed_curvature;
+  const double t = std::clamp((s - exit_ramp_start) / ramp, 0.0, 1.0);
+  return signed_curvature * (1.0 - smoothStep(t));
+}
+
+double smoothCircleCurvatureDerivative(
+    const SCurveConfig& config, double s) noexcept {
+  const double straight = config.entry_straight_length;
+  const double ramp = config.curvature_ramp_length;
+  const double signed_curvature =
+      config.circle_direction / config.circle_radius;
+  if (s > straight && s < straight + ramp) {
+    const double t = (s - straight) / ramp;
+    return signed_curvature * (6.0 * t - 6.0 * t * t) / ramp;
+  }
+  if (config.model == "circle_smooth_entry_exit") {
+    const double exit_ramp_start = straight +
+        2.0 * kPi * config.circle_radius;
+    if (s > exit_ramp_start && s < exit_ramp_start + ramp) {
+      const double t = (s - exit_ramp_start) / ramp;
+      return -signed_curvature * (6.0 * t - 6.0 * t * t) / ramp;
+    }
+  }
+  return 0.0;
+}
+
 double clampFinite(double value, double lower, double upper,
                    const char* quantity) {
   if (!std::isfinite(value)) {
@@ -25,32 +103,37 @@ double clampFinite(double value, double lower, double upper,
 SCurvePath::SCurvePath(const SCurveConfig& config) : config_(config) {
   const bool circle = config_.model == "circle";
   const bool smooth_circle = config_.model == "circle_smooth_entry";
+  const bool smooth_circle_exit =
+      config_.model == "circle_smooth_entry_exit";
   const bool graph_path = config_.model == "sine_single_period" ||
                           config_.model == "straight_zero_amplitude" ||
                           config_.model ==
                               "sine_single_period_with_straight_exit";
+  const bool path_with_exit =
+      config_.model == "sine_single_period_with_straight_exit" ||
+      smooth_circle_exit;
   if (!std::isfinite(config_.amplitude) ||
       !std::isfinite(config_.longitudinal_length) ||
       config_.longitudinal_length <= 0.0 ||
       !std::isfinite(config_.exit_straight_length) ||
       config_.exit_straight_length < 0.0 ||
-      ((!graph_path) && config_.exit_straight_length != 0.0) ||
-      (config_.model != "sine_single_period_with_straight_exit" &&
-       config_.exit_straight_length != 0.0) ||
-      (config_.model == "sine_single_period_with_straight_exit" &&
-       config_.exit_straight_length <= 0.0) ||
-      (!circle && !smooth_circle && !graph_path) ||
+      ((!path_with_exit) && config_.exit_straight_length != 0.0) ||
+      (path_with_exit && config_.exit_straight_length <= 0.0) ||
+      (!circle && !smooth_circle && !smooth_circle_exit && !graph_path) ||
       (circle && (!std::isfinite(config_.circle_radius) ||
                   config_.circle_radius <= 0.0 ||
                   std::abs(config_.longitudinal_length -
                            2.0 * kPi * config_.circle_radius) > 1e-6)) ||
-      (smooth_circle &&
+      ((smooth_circle || smooth_circle_exit) &&
        (!std::isfinite(config_.circle_radius) ||
         config_.circle_radius <= 0.0 ||
         !std::isfinite(config_.entry_straight_length) ||
         config_.entry_straight_length < 0.0 ||
         !std::isfinite(config_.curvature_ramp_length) ||
         config_.curvature_ramp_length <= 0.0 ||
+        (smooth_circle_exit &&
+         config_.curvature_ramp_length >=
+             2.0 * kPi * config_.circle_radius) ||
         !std::isfinite(config_.circle_direction) ||
         std::abs(std::abs(config_.circle_direction) - 1.0) > 1e-12 ||
         std::abs(config_.longitudinal_length -
@@ -62,13 +145,14 @@ SCurvePath::SCurvePath(const SCurveConfig& config) : config_(config) {
   }
 
   wave_number_ = 2.0 * kPi / config_.longitudinal_length;
-  maximum_absolute_curvature_ = (circle || smooth_circle)
+  maximum_absolute_curvature_ =
+      (circle || smooth_circle || smooth_circle_exit)
       ? 1.0 / config_.circle_radius
       // For y=A*sin(k*xi), |curvature| is maximal where cos(k*xi)=0.
       : std::abs(config_.amplitude) * wave_number_ * wave_number_;
   xi_.resize(config_.lookup_samples);
   arc_length_.resize(config_.lookup_samples);
-  if (smooth_circle) {
+  if (smooth_circle || smooth_circle_exit) {
     path_position_.resize(config_.lookup_samples,
                           Eigen::Vector2d::Zero());
   }
@@ -90,25 +174,10 @@ SCurvePath::SCurvePath(const SCurveConfig& config) : config_(config) {
         arc_length_[index] <= arc_length_[index - 1]) {
       throw std::invalid_argument("S-curve arc-length table is not monotonic");
     }
-    if (smooth_circle) {
-      const auto heading_at = [this](double s) {
-        const double straight = config_.entry_straight_length;
-        const double ramp = config_.curvature_ramp_length;
-        const double signed_curvature =
-            config_.circle_direction / config_.circle_radius;
-        if (s <= straight) return 0.0;
-        if (s < straight + ramp) {
-          const double t = (s - straight) / ramp;
-          // Integral of kappa=k*(3*t^2-2*t^3): C2 curvature entry.
-          return signed_curvature * ramp *
-              (t * t * t - 0.5 * t * t * t * t);
-        }
-        return 0.5 * signed_curvature * ramp +
-            signed_curvature * (s - straight - ramp);
-      };
-      const double lower_heading = heading_at(lower);
-      const double midpoint_heading = heading_at(midpoint);
-      const double upper_heading = heading_at(upper);
+    if (smooth_circle || smooth_circle_exit) {
+      const double lower_heading = smoothCircleHeading(config_, lower);
+      const double midpoint_heading = smoothCircleHeading(config_, midpoint);
+      const double upper_heading = smoothCircleHeading(config_, upper);
       path_position_[index] = path_position_[index - 1] +
           (upper - lower) / 6.0 *
           (Eigen::Vector2d(std::cos(lower_heading), std::sin(lower_heading)) +
@@ -135,7 +204,7 @@ double SCurvePath::rawThirdDerivative(double xi) const noexcept {
 
 double SCurvePath::rawSpeed(double xi) const noexcept {
   if (config_.model == "circle" ||
-      config_.model == "circle_smooth_entry") return 1.0;
+      isSmoothCircle(config_)) return 1.0;
   return std::hypot(1.0, rawSlope(xi));
 }
 
@@ -179,20 +248,30 @@ PathSample SCurvePath::sample(double s) const {
 
   if (config_.exit_straight_length > 0.0 &&
       value.s > arc_length_.back()) {
-    const double terminal_slope = rawSlope(config_.longitudinal_length);
-    const double terminal_speed = std::hypot(1.0, terminal_slope);
-    value.tangent = {1.0 / terminal_speed,
-                     terminal_slope / terminal_speed};
+    const bool smooth_circle_exit =
+        config_.model == "circle_smooth_entry_exit";
+    if (smooth_circle_exit) {
+      value.heading = smoothCircleHeading(
+          config_, config_.longitudinal_length);
+      value.tangent = {std::cos(value.heading), std::sin(value.heading)};
+    } else {
+      const double terminal_slope = rawSlope(config_.longitudinal_length);
+      const double terminal_speed = std::hypot(1.0, terminal_slope);
+      value.tangent = {1.0 / terminal_speed,
+                       terminal_slope / terminal_speed};
+      value.heading = std::atan2(value.tangent.y(), value.tangent.x());
+    }
     value.normal = {-value.tangent.y(), value.tangent.x()};
-    value.heading = std::atan2(value.tangent.y(), value.tangent.x());
     value.curvature = 0.0;
     value.curvature_derivative = 0.0;
     value.first_derivative = value.tangent;
     value.second_derivative = Eigen::Vector2d::Zero();
-    const Eigen::Vector2d terminal_position(
-        config_.longitudinal_length,
-        config_.amplitude * std::sin(
-            wave_number_ * config_.longitudinal_length));
+    const Eigen::Vector2d terminal_position = smooth_circle_exit
+        ? path_position_.back()
+        : Eigen::Vector2d(
+              config_.longitudinal_length,
+              config_.amplitude * std::sin(
+                  wave_number_ * config_.longitudinal_length));
     value.position = terminal_position +
         (value.s - arc_length_.back()) * value.tangent;
     return value;
@@ -214,29 +293,11 @@ PathSample SCurvePath::sample(double s) const {
     return value;
   }
 
-  if (config_.model == "circle_smooth_entry") {
-    const double straight = config_.entry_straight_length;
-    const double ramp = config_.curvature_ramp_length;
-    const double signed_curvature =
-        config_.circle_direction / config_.circle_radius;
-    if (value.s <= straight) {
-      value.heading = 0.0;
-      value.curvature = 0.0;
-      value.curvature_derivative = 0.0;
-    } else if (value.s < straight + ramp) {
-      const double t = (value.s - straight) / ramp;
-      value.heading = signed_curvature * ramp *
-          (t * t * t - 0.5 * t * t * t * t);
-      value.curvature = signed_curvature *
-          (3.0 * t * t - 2.0 * t * t * t);
-      value.curvature_derivative = signed_curvature *
-          (6.0 * t - 6.0 * t * t) / ramp;
-    } else {
-      value.heading = 0.5 * signed_curvature * ramp +
-          signed_curvature * (value.s - straight - ramp);
-      value.curvature = signed_curvature;
-      value.curvature_derivative = 0.0;
-    }
+  if (isSmoothCircle(config_)) {
+    value.heading = smoothCircleHeading(config_, value.s);
+    value.curvature = smoothCircleCurvature(config_, value.s);
+    value.curvature_derivative =
+        smoothCircleCurvatureDerivative(config_, value.s);
     value.tangent = {std::cos(value.heading), std::sin(value.heading)};
     value.normal = {-value.tangent.y(), value.tangent.x()};
     value.first_derivative = value.tangent;

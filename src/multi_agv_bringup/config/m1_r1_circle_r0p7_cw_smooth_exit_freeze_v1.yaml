@@ -1,0 +1,87 @@
+schema_version: 1
+freeze_id: m1_r1_circle_r0p7_cw_smooth_exit_frozen_v1
+status: frozen
+frozen_on: "2026-09-08"
+method_id: M1_R1
+scope: unloaded_three_car_0p30m_circle_engineering_baseline
+formal_statistics_authorized: false
+
+configuration:
+  path: path_circle_r0p7_cw_smooth_exit.yaml
+  runtime: formal_serial_m1_r1_circle_r0p7_smooth_exit_runtime.yaml
+  evaluation: formal_evaluation_circle_r0p7_smooth_exit.yaml
+  radius_m: 0.7
+  direction: clockwise
+  speed_mps: 0.08
+  entry_straight_m: 0.20
+  curvature_ramp_in_m: 0.40
+  curvature_ramp_out_m: 0.40
+  terminal_straight_m: 0.18
+  total_progress_m: 5.178229715025710
+  config_sha256:
+    path_circle_r0p7_cw_smooth_exit.yaml: 9dd10798b3f0af1c98d6ee80d335ffb34637845238ddd023a23a7edb1df5451f
+    formal_serial_m1_r1_circle_r0p7_smooth_exit_runtime.yaml: 40d86f399d6b1f573a20f2800484f3542ff7dcdd25f7d5fad62db872662e4b5f
+    formal_evaluation_circle_r0p7_smooth_exit.yaml: 73936182fb9492bf97a2d39dc1ba45c0679ea2c525450e68decc75bf6a946213
+  tracker:
+    lateral_gain_per_robot: [4.8, 3.4, 4.0]
+    heading_gain_per_robot: [3.5, 3.0, 3.0]
+    angular_feedforward_scale_negative: [0.94, 0.951221879, 0.94]
+    formation_longitudinal_gain: 0.25
+    formation_lateral_gain: 0.85
+    formation_heading_gain: 0.70
+  transient_state_hold_seconds: 0.08
+  transient_feedback_hold_seconds: 0.10
+
+evidence:
+  predecessor_without_smooth_exit:
+    run: formal_serial_unloaded/m1_r1_circle_r0p7_cw_20260908_185340
+    physical_task_status: passed
+    postprocess_status: passed
+  completed_validation_runs:
+    - run: formal_serial_unloaded/m1_r1_circle_r0p7_cw_smooth_exit_20260908_191906
+      physical_task_status: passed
+      postprocess_status: passed
+      algorithm_invalid_samples_in_scope: 0
+      localization_invalid_samples_in_scope: 0
+      load_position_rmse_m: 0.017759774288147335
+      load_yaw_rmse_rad: 0.0904043432992756
+      rigid_fit_residual_rmse_m: 0.015572975851582798
+      maximum_endpoint_side_error_m: 0.01640611666987607
+      maximum_endpoint_heading_error_rad: 0.023961132886807703
+    - run: formal_serial_unloaded/m1_r1_circle_r0p7_cw_smooth_exit_20260908_193838
+      physical_task_status: passed
+      postprocess_status: passed
+      algorithm_invalid_samples_in_scope: 0
+      localization_invalid_samples_in_scope: 0
+      load_position_rmse_m: 0.015698361274051272
+      load_yaw_rmse_rad: 0.06903585672946635
+      rigid_fit_residual_rmse_m: 0.014416929267089817
+      maximum_endpoint_side_error_m: 0.020547375863698758
+      maximum_endpoint_heading_error_rad: 0.02901751128761124
+
+two_run_summary:
+  status: accepted_engineering_freeze
+  completed_runs: 2
+  load_position_rmse_mean_m: 0.016729067781099304
+  load_yaw_rmse_mean_rad: 0.07972010001437098
+  rigid_fit_residual_rmse_mean_m: 0.014994952559336308
+  support_position_rmse_mean_m:
+    agv1: 0.014524108895759
+    agv2: 0.03676404786832644
+    agv3: 0.02328484202322617
+  maximum_pre_limit_wheel_demand_mps: 0.12671144903339157
+  maximum_actual_wheel_speed_mps: 0.1611669597505713
+  fleet_scaling_observed: false
+
+known_residuals:
+  robot2_circle_position_rmse_is_largest: true
+  disposition: accepted_for_method_comparison_without_further_gain_tuning
+  note: >-
+    This is an engineering configuration freeze, not approval for formal
+    statistical claims. M1, M2a and M2b must share this path and planar
+    execution layer for subsequent comparisons.
+
+change_control:
+  preserve_original_evidence: true
+  modification_requires_new_named_version: true
+  modification_requires_repeat_circle_validation: true

@@ -1,9 +1,9 @@
-# First three-car validation of the accepted R=0.7 m clockwise-circle adapter.
-# M1/R1, chassis calibration and safety limits are identical to the full-circle
-# runtime; only the bounded target and experiment identity are short-arc ones.
+# R=0.7 m clockwise circle with smooth curvature exit and terminal straight.
+# M1/R1, vehicle calibration, shared planar execution gains and safety holds
+# are identical to the accepted full-circle runtime.
 formal_fake_runtime:
   schema_version: 1
-  configuration_status: PILOT_AUTHORIZED_0p15_APPLIED_0p18_PRELIMIT_ABORT
+  configuration_status: FROZEN_M1_R1_CIRCLE_R0P7_CW_SMOOTH_EXIT_V1
   command_publication_authorized: false
   serial_execution_authorized: true
   publish_rate: 100.0
@@ -19,8 +19,6 @@ formal_fake_runtime:
     initialization_max_wheel_speed: 0.015
     startup_ramp_seconds: 1.0
     emergency_abort_persistence_seconds: 0.10
-    # Cover the observed 50 ms three-camera resynchronization transient.  At
-    # 0.08 m/s this 80 ms bounded hold represents at most 6.4 mm of travel.
     transient_state_hold_seconds: 0.08
     transient_feedback_hold_seconds: 0.10
 
@@ -31,9 +29,8 @@ formal_fake_runtime:
   confirm_wheels_on_floor: false
   confirm_unloaded_30cm_fixture: false
   initial_progress: 0.0
-  # 0.20 m entry + 0.40 m ramp + one 90-degree R=0.7 m arc.
-  target_progress: 1.699557428756428
-  experiment_id: m1_r1_circle_r0p7_cw_short_arc_serial
+  target_progress: 5.178229715025710
+  experiment_id: m1_r1_circle_r0p7_cw_smooth_exit_serial
 
   leader:
     initial_position: 0.0
@@ -73,14 +70,9 @@ formal_fake_runtime:
     lateral_gain: 2.0
     heading_gain: 2.0
     longitudinal_gain_per_robot: [1.0, 1.0, 1.0]
-    # Three-car short-arc candidate: Robot2's 3.4 lateral gain reduced its
-    # support RMS from 44.1 mm to 29.9 mm in run 181718.  Robot3's attempted
-    # 3.4 heading gain increased its position error, so its accepted 3.0 value
-    # is restored. Robot1 and all frozen calibration parameters are unchanged.
     lateral_gain_per_robot: [4.8, 3.4, 4.0]
     heading_gain_per_robot: [3.5, 3.0, 3.0]
     angular_feedforward_scale_positive: [0.78, 0.780810219, 0.850009371]
-    # Accepted reports: Robot1 152227, Robot2 152717, Robot3 152916.
     angular_feedforward_scale_negative: [0.94, 0.951221879, 0.94]
     formation_longitudinal_gain: 0.25
     formation_lateral_gain: 0.85
