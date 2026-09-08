@@ -329,6 +329,8 @@ class BringupStaticTest(unittest.TestCase):
         self.assertIn("FORMAL_ENABLE_ROBOT2_DERATING=false", entry)
 
     def test_optional_r0p7_circle_uses_formal_m1_r1_entry(self):
+        import yaml
+
         path = (
             PACKAGE / "config" / "path_circle_r0p7_cw_m1_r1.yaml"
         ).read_text(encoding="utf-8")
@@ -338,6 +340,18 @@ class BringupStaticTest(unittest.TestCase):
         runtime = (
             PACKAGE / "config" /
             "formal_serial_m1_r1_circle_r0p7_runtime.yaml"
+        ).read_text(encoding="utf-8")
+        short_runtime = (
+            PACKAGE / "config" /
+            "formal_serial_m1_r1_circle_r0p7_short_arc_runtime.yaml"
+        ).read_text(encoding="utf-8")
+        short_evaluation = (
+            PACKAGE / "config" /
+            "formal_evaluation_circle_r0p7_short_arc.yaml"
+        ).read_text(encoding="utf-8")
+        calibration = (
+            PACKAGE / "config" /
+            "single_car_circle_r0p7_cw_calibration.yaml"
         ).read_text(encoding="utf-8")
         entry = (
             PACKAGE / "scripts" /
@@ -375,6 +389,15 @@ class BringupStaticTest(unittest.TestCase):
         self.assertIn(
             "FORMAL_RUN_PREFIX=m1_r1_circle_r0p7_cw_short_arc",
             short_entry)
+        self.assertIn(
+            "formal_serial_m1_r1_circle_r0p7_short_arc_runtime.yaml",
+            short_entry)
+        self.assertIn(
+            "formal_evaluation_circle_r0p7_short_arc.yaml", short_entry)
+        self.assertIn(
+            "evaluation_end_progress: 1.699557428756428",
+            short_evaluation)
+        self.assertIn("target_progress: 1.699557428756428", short_runtime)
         for marker in (
                 "lateral_gain_per_robot: [4.8, 2.7, 4.0]",
                 "heading_gain_per_robot: [3.5, 3.0, 3.0]",
@@ -383,12 +406,53 @@ class BringupStaticTest(unittest.TestCase):
                 "formation_heading_gain: 0.70",
                 "target_progress: 4.998229715025710"):
             self.assertIn(marker, runtime)
+        for marker in (
+                "lateral_gain_per_robot: [4.8, 2.7, 4.0]",
+                "heading_gain_per_robot: [3.5, 3.0, 3.0]",
+                "angular_feedforward_scale_negative: [0.94, 0.951221879, 0.94]"):
+            self.assertIn(marker, short_runtime)
+        for marker in (
+                "lateral_gain: 4.8", "lateral_gain: 2.7",
+                "lateral_gain: 4.0", "heading_gain: 3.5",
+                "angular_feedforward_scale_negative: 0.951221879"):
+            self.assertIn(marker, calibration)
+        calibration_data = yaml.safe_load(calibration)[
+            "single_car_s_pretest"]["robot_overrides"]
+        expected_lateral = [
+            calibration_data[f"agv{robot}"]["tracker"]["lateral_gain"]
+            for robot in range(1, 4)]
+        expected_heading = [
+            calibration_data[f"agv{robot}"]["tracker"]["heading_gain"]
+            for robot in range(1, 4)]
+        expected_negative_ff = [
+            calibration_data[f"agv{robot}"]["tracker"]
+            ["angular_feedforward_scale_negative"]
+            for robot in range(1, 4)]
+        for runtime_text in (runtime, short_runtime):
+            tracker = yaml.safe_load(runtime_text)["formal_fake_runtime"][
+                "tracker"]
+            self.assertEqual(
+                tracker["lateral_gain_per_robot"], expected_lateral)
+            self.assertEqual(
+                tracker["heading_gain_per_robot"], expected_heading)
+            self.assertEqual(
+                tracker["angular_feedforward_scale_negative"],
+                expected_negative_ff)
         for parameter in (
                 "path_s_curve/circle_radius",
                 "path_s_curve/entry_straight_length",
                 "path_s_curve/curvature_ramp_length",
                 "path_s_curve/circle_direction"):
             self.assertIn(parameter, formal_algorithm)
+
+    def test_circle_short_arc_entry_uses_confirmed_runtime_directly(self):
+        entry_path = (SOURCE_ROOT.parent /
+                      "run_three_car_m1_r1_circle_r0p7_short_arc.sh")
+        entry = entry_path.read_text(encoding="utf-8")
+        self.assertIn(
+            "run_m1_r1_serial_unloaded_circle_r0p7_short_arc.sh", entry)
+        self.assertNotIn("aggregate_three_car_circle_calibrations.sh", entry)
+        self.assertNotIn("verify_circle", entry)
 
     def test_optional_software_watchdog_is_observer_only(self):
         launch = (

@@ -20,9 +20,9 @@ fi
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 export FORMAL_UPPER_MODE=M1
 export FORMAL_ENABLE_ROBOT2_DERATING=false
-export FORMAL_RUNTIME_CONFIG=src/multi_agv_bringup/config/formal_serial_m1_r1_circle_r0p7_runtime.yaml
+export FORMAL_RUNTIME_CONFIG=src/multi_agv_bringup/config/formal_serial_m1_r1_circle_r0p7_short_arc_runtime.yaml
 export FORMAL_PATH_CONFIG=src/multi_agv_bringup/config/path_circle_r0p7_cw_m1_r1.yaml
-export FORMAL_EVALUATION_CONFIG=src/multi_agv_bringup/config/formal_evaluation_circle_r0p7.yaml
+export FORMAL_EVALUATION_CONFIG=src/multi_agv_bringup/config/formal_evaluation_circle_r0p7_short_arc.yaml
 export FORMAL_TARGET_PROGRESS=1.699557428756428
 export FORMAL_RUN_TIMEOUT_SECONDS=45
 export FORMAL_EXPERIMENT_ID=m1_r1_circle_r0p7_cw_short_arc_serial
