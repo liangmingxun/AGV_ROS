@@ -2,7 +2,7 @@
 # envelope. The operator explicitly authorized the shared physical derating
 # gate on 2026-09-09. No raised-wheel result is fabricated by this record.
 exp2a_derating_pretest:
-  configuration_status: operator_authorized_2026_09_09
+  configuration_status: operator_authorized_2026_09_09_paper_aligned_0p68
   hardware_execution_authorized: true
   authorization_basis: explicit_operator_authorization
-  authorization_scope: unloaded_30cm_fixture_robot2_0p15_to_0p06_to_0p15
+  authorization_scope: unloaded_30cm_fixture_robot2_0p15_to_0p102_to_0p15
