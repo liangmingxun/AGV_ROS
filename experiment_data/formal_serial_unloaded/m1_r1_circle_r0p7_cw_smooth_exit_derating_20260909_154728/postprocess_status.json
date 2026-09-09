@@ -1,0 +1,9 @@
+{
+  "conversion": "passed",
+  "metrics": "passed",
+  "plots": "passed",
+  "plots_raw": "passed",
+  "plots_smoothed_0p8s": "passed",
+  "schema_version": 1,
+  "validation": "passed"
+}
