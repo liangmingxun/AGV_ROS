@@ -221,7 +221,7 @@ class PaperPipelineTest(unittest.TestCase):
             self.assertEqual(
                 metadata["axes"]["figure7.progress_error"]["unit"], "m")
             self.assertEqual(
-                metadata["axes"]["figure4.upper_layer"]["unit"], "m/s")
+                metadata["axes"]["figure4.robot1"]["unit"], "m/s")
             self.assertEqual(
                 metadata["run_context"]["r1_velocity_lower_bound"], -0.15)
             self.assertEqual(
@@ -251,9 +251,7 @@ class PaperPipelineTest(unittest.TestCase):
             for marker in (
                     "path_label",
                     "路径域能力与{}边界",
-                    "M1上层参考约束与R1下层执行跟踪",
-                    "R1固定状态域",
-                    "R1执行速度参考",
+                    "局部/公共边界、公共参考与实测路径速度",
                     "Robot{} M1局部动态上界",
                     'color="#7A3E9D", ls="--"',
                     "Robot2轮速需求、执行与反馈",
