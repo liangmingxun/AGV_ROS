@@ -37,3 +37,13 @@ formal_upper:
     current_inputs: [reported_capability]
     one_step_delayed_inputs:
       [channel_input_margin, wheel_margin, position_margin, failure_margin]
+
+# M1-only physical execution allowance. The local M1 boundary itself and the
+# R1 fixed state domain remain unchanged. This reserve is applied only while
+# Robot2 reports an active physical derating; normal operation and M2a/M2b do
+# not use it. The 0.005 m/s value covers the 0.00457 m/s peak of the smoothed
+# upper-bound tracking residual observed in run 20260909_154728.
+formal_fake_runtime:
+  execution:
+    m1_derating_reserve_robot_id: 2
+    m1_derating_actual_velocity_upper_reserve: 0.005

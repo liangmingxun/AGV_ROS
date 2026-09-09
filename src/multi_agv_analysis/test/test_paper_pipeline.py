@@ -220,6 +220,12 @@ class PaperPipelineTest(unittest.TestCase):
                 metadata["axes"]["figure6.position_error"]["y_min"], 0.0)
             self.assertEqual(
                 metadata["axes"]["figure7.progress_error"]["unit"], "m")
+            self.assertEqual(
+                metadata["axes"]["figure4.upper_layer"]["unit"], "m/s")
+            self.assertEqual(
+                metadata["run_context"]["r1_velocity_lower_bound"], -0.15)
+            self.assertEqual(
+                metadata["run_context"]["r1_velocity_upper_bound"], 0.58)
             self.assertEqual(metadata["schema_version"], 2)
             self.assertTrue(metadata["display_processing"]
                             ["raw_samples_preserved"])
@@ -245,8 +251,10 @@ class PaperPipelineTest(unittest.TestCase):
             for marker in (
                     "path_label",
                     "路径域能力与{}边界",
-                    "局部/公共边界、公共参考与实测路径速度",
-                    'color="#D9A900", ls="-."',
+                    "M1上层参考约束与R1下层执行跟踪",
+                    "R1固定状态域",
+                    "R1执行速度参考",
+                    "Robot{} M1局部动态上界",
                     'color="#7A3E9D", ls="--"',
                     "Robot2轮速需求、执行与反馈",
                     "等效载荷、支撑点及构型误差",

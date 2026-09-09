@@ -705,6 +705,24 @@ class BringupStaticTest(unittest.TestCase):
         self.assertIn("hardware_execution_authorized: true", physical_gate)
         self.assertIn("explicit_operator_authorization", physical_gate)
 
+    def test_m1_robot2_derating_tracking_reserve_is_method_scoped(self):
+        configs = PACKAGE / "config"
+        m1 = (configs / "exp2a_M1_serial_008.yaml").read_text(
+            encoding="utf-8")
+        m2a = (configs / "exp2a_M2a_serial_008.yaml").read_text(
+            encoding="utf-8")
+        m2b = (configs / "exp2b_M2b.yaml").read_text(encoding="utf-8")
+        runtime = (configs /
+            "formal_serial_m1_r1_circle_r0p7_smooth_exit_soft_start_runtime.yaml"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("m1_derating_reserve_robot_id: 2", m1)
+        self.assertIn(
+            "m1_derating_actual_velocity_upper_reserve: 0.005", m1)
+        for unaffected in (m2a, m2b, runtime):
+            self.assertNotIn(
+                "m1_derating_actual_velocity_upper_reserve", unaffected)
+
     def test_optional_software_watchdog_is_observer_only(self):
         launch = (
             PACKAGE / "launch" / "software_watchdog.launch"

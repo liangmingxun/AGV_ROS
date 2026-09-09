@@ -137,9 +137,19 @@ def _run_context(aligned_csv):
 
     path_label = "S形路径"
     path_model = "unknown"
+    r1_velocity_lower_bound = -0.15
+    r1_velocity_upper_bound = 0.58
     if run_dir and (run_dir / "config").is_dir():
         for snapshot in sorted((run_dir / "config").glob("*.yaml")):
             config = load_yaml(snapshot)
+            runtime = config.get("formal_fake_runtime", {})
+            lower = runtime.get("lower", {})
+            recorded_lower = finite_float(lower.get("velocity_lower_bound"))
+            recorded_upper = finite_float(lower.get("velocity_upper_bound"))
+            if math.isfinite(recorded_lower):
+                r1_velocity_lower_bound = recorded_lower
+            if math.isfinite(recorded_upper):
+                r1_velocity_upper_bound = recorded_upper
             path = config.get("path_s_curve", {})
             model = str(path.get("model", ""))
             if not model:
@@ -166,6 +176,8 @@ def _run_context(aligned_csv):
         "common_upper_label": common_upper_label,
         "path_model": path_model,
         "path_label": path_label,
+        "r1_velocity_lower_bound": r1_velocity_lower_bound,
+        "r1_velocity_upper_bound": r1_velocity_upper_bound,
     }
 
 
@@ -544,42 +556,70 @@ def plot_run(aligned_csv, output_dir, axis_overrides=None):
     _save(fig, output, "figure3_capability_boundary_reference")
     plt.close(fig)
 
-    fig, axes = plt.subplots(3, 1, figsize=(8.0, 7.0), sharex=True)
-    channel_series = []
+    fig, axes = plt.subplots(4, 1, figsize=(8.2, 9.4), sharex=True)
     public_reference = _series(rows, "public_reference_velocity")
+    common_lower = _series(rows, "common_boundary_lower")
     common_upper = _series(rows, "common_boundary_upper")
-    for robot, ax, color in zip(range(1, 4), axes, colors):
+    upper_axis = axes[0]
+    upper_axis.plot(time, public_reference, color="#222222", lw=1.7,
+                    label="M1公共参考速度")
+    upper_axis.plot(time, common_lower, color="#7A3E9D", ls="--", lw=1.2,
+                    label="M1公共动态下界")
+    upper_axis.plot(time, common_upper, color="#7A3E9D", ls="--", lw=1.4,
+                    label="M1公共动态上界")
+    upper_series = [public_reference, common_lower, common_upper]
+    for robot, color, style in zip(range(1, 4), colors, robot_styles):
+        local_upper = _series(
+            rows, "agv{}_boundary_upper".format(robot))
+        upper_axis.plot(time, local_upper, color=color, ls=style, lw=1.0,
+                        alpha=0.82,
+                        label="Robot{} M1局部动态上界".format(robot))
+        upper_series.append(local_upper)
+    upper_axis.set_ylabel("M1上层\n速度 / (m/s)")
+    upper_axis.set_title("{}：M1上层参考约束与R1下层执行跟踪".format(
+        context["method_label"]))
+    _legend(upper_axis, 3)
+    _set_y_axis(upper_axis, upper_series, "figure4.upper_layer",
+                "m/s", metadata, axis_overrides)
+
+    execution_series = []
+    fixed_lower = context["r1_velocity_lower_bound"]
+    fixed_upper = context["r1_velocity_upper_bound"]
+    fixed_domain_text = "R1固定状态域：[{:.2f}, {:.2f}] m/s".format(
+        fixed_lower, fixed_upper)
+    for robot, ax, color in zip(range(1, 4), axes[1:], colors):
         actual = _series(rows, "agv{}_s_dot_actual".format(robot))
-        lower = _series(rows, "agv{}_boundary_lower".format(robot))
-        upper = _series(rows, "agv{}_boundary_upper".format(robot))
+        execute_reference = _series(
+            rows, "agv{}_s_dot_execute_reference".format(robot))
         actual_trend = _plot_measured(
             ax, time, actual, color,
             "融合实测路径速度",
             window_seconds=smoothing_window, show_raw=show_raw,
             maximum_plot_rate_hz=maximum_plot_rate)
-        ax.plot(time, public_reference, color="#555555", ls=":", lw=1.25,
-                label="公共参考速度")
-        ax.plot(time, lower, "k--", lw=0.8,
-                label="{}下界".format(context["upper_label"]))
-        ax.plot(time, upper, color="#D9A900", ls="-.", lw=1.4,
-                label="Robot{} {}".format(
-                    robot, context["local_upper_label"]))
-        ax.plot(time, common_upper, color="#7A3E9D", ls="--", lw=1.25,
-                label=context["common_upper_label"])
-        ax.set_ylabel("Robot{} / (m/s)".format(robot))
-        _legend(ax)
-        channel_series.extend(
-            (actual, actual_trend, public_reference, lower, upper,
-             common_upper))
-    for robot, ax in zip(range(1, 4), axes):
-        _set_y_axis(ax, channel_series, "figure4.robot{}".format(robot),
+        execute_trend = _plot_measured(
+            ax, time, execute_reference, color,
+            "R1执行速度参考", style="--",
+            window_seconds=smoothing_window, show_raw=show_raw,
+            linewidth=1.35, maximum_plot_rate_hz=maximum_plot_rate)
+        ax.text(0.985, 0.09, fixed_domain_text, transform=ax.transAxes,
+                ha="right", va="bottom", fontsize=8, color="#555555",
+                bbox=dict(boxstyle="round,pad=0.25", facecolor="white",
+                          edgecolor="#BBBBBB", alpha=0.88))
+        ax.set_ylabel("Robot{}\n速度 / (m/s)".format(robot))
+        _legend(ax, 2)
+        execution_series.extend(
+            (actual, actual_trend, execute_reference, execute_trend))
+    for robot, ax in zip(range(1, 4), axes[1:]):
+        _set_y_axis(ax, execution_series, "figure4.robot{}".format(robot),
                     "m/s", metadata, axis_overrides)
-    axes[0].set_title("{}：局部/公共边界、公共参考与实测路径速度".format(
-        context["method_label"]))
     axes[-1].set_xlabel("时间 / s")
-    _record_ticks(fig, {
-        "figure4.robot{}".format(robot): axes[robot - 1]
-        for robot in range(1, 4)}, metadata)
+    figure4_axes = {
+        "figure4.upper_layer": upper_axis,
+    }
+    figure4_axes.update({
+        "figure4.robot{}".format(robot): axes[robot]
+        for robot in range(1, 4)})
+    _record_ticks(fig, figure4_axes, metadata)
     _save(fig, output, "figure4_channel_constraints")
     plt.close(fig)
 

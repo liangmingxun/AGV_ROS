@@ -408,6 +408,15 @@ class FormalFakeAlgorithmNode {
         root + "execution/initialization_max_wheel_speed",
         initialization_max_wheel_speed_, 0.015);
     private_node_.param(
+        root + "execution/m1_derating_actual_velocity_upper_reserve",
+        m1_derating_actual_velocity_upper_reserve_, 0.0);
+    int m1_derating_reserve_robot_id = 2;
+    private_node_.param(
+        root + "execution/m1_derating_reserve_robot_id",
+        m1_derating_reserve_robot_id, 2);
+    m1_derating_reserve_robot_index_ =
+        static_cast<std::size_t>(m1_derating_reserve_robot_id - 1);
+    private_node_.param(
         root + "require_valid_load_state", require_valid_load_state_, true);
     private_node_.param(
         root + "require_recorder_armed", require_recorder_armed_, false);
@@ -493,6 +502,10 @@ class FormalFakeAlgorithmNode {
         transient_state_hold_seconds_ > maximum_state_age_ ||
         !(initialization_hold_seconds_ > 0.0) ||
         !(initialization_max_wheel_speed_ > 0.0) ||
+        !std::isfinite(m1_derating_actual_velocity_upper_reserve_) ||
+        m1_derating_actual_velocity_upper_reserve_ < 0.0 ||
+        m1_derating_reserve_robot_id < 1 ||
+        m1_derating_reserve_robot_id > static_cast<int>(kRobotCount) ||
         !(maximum_recorder_armed_age_ > 0.0) ||
         !(maximum_watchdog_age_ > 0.0) ||
         !(target_progress_ > reference_progress_) ||
@@ -1162,6 +1175,27 @@ class FormalFakeAlgorithmNode {
     }
     double execution_lower_bound = lower_bound;
     double execution_upper_bound = upper_bound;
+    // The M1 boundary is a reference-state constraint, whereas the measured
+    // velocity can oscillate around an execution reference because of plant
+    // tracking error and camera-fusion noise.  During the explicitly enabled
+    // Robot2 derating interval, leave a small one-sided tracking reserve below
+    // M1's local dynamic upper boundary.  This is an execution projection,
+    // not a change to M1 or R1, and it is inactive for normal capability and
+    // for every non-M1 comparison method.
+    if (upper_mode_ == UpperMode::kM1 &&
+        index == m1_derating_reserve_robot_index_ &&
+        capability_[index].derating_active &&
+        m1_derating_actual_velocity_upper_reserve_ > 0.0) {
+      const double reserved_dynamic_upper =
+          current_upper_.agents[index].boundary.upper -
+          m1_derating_actual_velocity_upper_reserve_;
+      if (!std::isfinite(reserved_dynamic_upper)) {
+        output->valid = false;
+        return;
+      }
+      execution_upper_bound =
+          std::min(execution_upper_bound, reserved_dynamic_upper);
+    }
     if (startup_scale_ < 1.0) {
       // Make the shared serial soft-start an actual execution envelope. R1
       // still computes and records its unchanged control action, while the
@@ -2051,6 +2085,8 @@ class FormalFakeAlgorithmNode {
   double transient_state_hold_seconds_{0.03};
   double initialization_hold_seconds_{0.30};
   double initialization_max_wheel_speed_{0.015};
+  double m1_derating_actual_velocity_upper_reserve_{0.0};
+  std::size_t m1_derating_reserve_robot_index_{1U};
   double initialization_elapsed_seconds_{0.0};
   double startup_scale_{0.0};
   double fleet_wheel_scale_{1.0};
