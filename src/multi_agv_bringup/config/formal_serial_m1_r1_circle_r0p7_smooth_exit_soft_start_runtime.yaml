@@ -1,11 +1,11 @@
 # R=0.7 m clockwise circle with smooth curvature exit and terminal straight.
-# This v2 pilot preserves the frozen path, M1/R1 parameters and 0.08 m/s
-# steady target. Only the shared serial execution adapter's quintic start is
-# extended from 1.0 s to 2.5 s to reduce launch overshoot. M1/M2a/M2b must use
-# the same soft-start condition in subsequent method comparisons.
+# Frozen on 2026-09-09 from the two valid 142241/142920 engineering runs.
+# This configuration preserves the path, M1/R1 parameters and 0.08 m/s steady
+# target. The method-shared serial execution adapter uses the same quintic
+# start and transient-hold policy for M1, M2a and M2b comparisons.
 formal_fake_runtime:
   schema_version: 1
-  configuration_status: PILOT_M1_R1_CIRCLE_R0P7_CW_SMOOTH_EXIT_SOFT_START_V2
+  configuration_status: FROZEN_M1_R1_CIRCLE_R0P7_CW_SMOOTH_EXIT_SOFT_START_V2
   command_publication_authorized: false
   serial_execution_authorized: true
   publish_rate: 100.0
@@ -24,6 +24,10 @@ formal_fake_runtime:
     startup_ramp_seconds: 2.5
     emergency_abort_persistence_seconds: 0.10
     transient_state_hold_seconds: 0.08
+    # The chassis limiter remains authoritative while one delayed capability
+    # burst is bridged. The observed event remained invalid for 0.39 s after
+    # crossing the 0.25 s freshness limit, so total accepted age is 0.65 s.
+    transient_capability_hold_seconds: 0.40
     transient_feedback_hold_seconds: 0.10
 
   require_valid_load_state: true

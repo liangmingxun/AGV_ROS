@@ -2,7 +2,11 @@
 # position into fusion so marker-plane vibration is attenuated before path
 # projection and differentiation. The raw poses remain recorded for audit.
 # Existing chassis odometry provides 100 Hz propagation between camera frames.
-maximum_camera_age: 0.15
+# Continue the 100 Hz fused output from wheel/IMU odometry through one short
+# camera-confidence or delivery disturbance. The 20260909_135749 run measured
+# a 0.225 s Robot3 fused-stream interruption after a single rejected frame;
+# 0.30 s bridges that event without accepting an indefinitely camera-free run.
+maximum_camera_age: 0.30
 maximum_odometry_interval: 0.05
 minimum_confidence: 0.5
 position_measurement_weight: 0.8

@@ -245,7 +245,9 @@ class PaperPipelineTest(unittest.TestCase):
             for marker in (
                     "path_label",
                     "路径域能力与{}边界",
-                    "参考边界、公共参考与实测路径速度",
+                    "局部/公共边界、公共参考与实测路径速度",
+                    'color="#D9A900", ls="-."',
+                    'color="#7A3E9D", ls="--"',
                     "Robot2轮速需求、执行与反馈",
                     "等效载荷、支撑点及构型误差",
                     "路径进度误差与速度误差",

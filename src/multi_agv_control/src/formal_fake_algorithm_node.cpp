@@ -377,6 +377,9 @@ class FormalFakeAlgorithmNode {
     private_node_.param(
         root + "maximum_capability_age", maximum_capability_age_, 0.20);
     private_node_.param(
+        root + "execution/transient_capability_hold_seconds",
+        transient_capability_hold_seconds_, 0.0);
+    private_node_.param(
         root + "maximum_feedback_age", maximum_feedback_age_, 0.25);
     private_node_.param(
         root + "execution/transient_feedback_hold_seconds",
@@ -478,6 +481,7 @@ class FormalFakeAlgorithmNode {
         lower_initial_disturbance_, 0.08);
     if (!(publish_rate_ > 0.0) || !(maximum_state_age_ > 0.0) ||
         !(maximum_capability_age_ > 0.0) ||
+        transient_capability_hold_seconds_ < 0.0 ||
         !(maximum_feedback_age_ > 0.0) ||
         transient_feedback_hold_seconds_ < 0.0 ||
         !(minimum_battery_voltage_ > 0.0) ||
@@ -529,6 +533,18 @@ class FormalFakeAlgorithmNode {
     const auto zero_margin = array3(private_node_, root + "zero_margin");
     const auto minimum_width = array3(private_node_, root + "minimum_width");
     const auto inner_margin = array3(private_node_, root + "inner_margin");
+    distributed_inner_margin_ = inner_margin[0];
+    if (!std::isfinite(distributed_inner_margin_) ||
+        distributed_inner_margin_ < 0.0) {
+      throw std::runtime_error("invalid distributed inner margin");
+    }
+    for (std::size_t index = 1; index < kRobotCount; ++index) {
+      if (!std::isfinite(inner_margin[index]) ||
+          std::abs(inner_margin[index] - distributed_inner_margin_) > 1e-12) {
+        throw std::runtime_error(
+            "formal upper agents must share one distributed inner margin");
+      }
+    }
     const auto initial_lower = array3(private_node_, root + "initial_lower");
     const auto initial_upper = array3(private_node_, root + "initial_upper");
     const auto nominal_lower = array3(private_node_, root + "nominal_lower");
@@ -882,8 +898,22 @@ class FormalFakeAlgorithmNode {
         return "agv" + std::to_string(index + 1U) +
             " CapabilityReport is missing";
       }
-      if ((now - capability_receive_time_[index]).toSec() >
-          maximum_capability_age_) {
+      const double capability_age =
+          (now - capability_receive_time_[index]).toSec();
+      const auto capability_freshness = assessFeedbackFreshness(
+          capability_age, maximum_capability_age_,
+          transient_capability_hold_seconds_);
+      if (capability_freshness == FeedbackFreshnessStatus::kInvalidTiming) {
+        return "agv" + std::to_string(index + 1U) +
+            " CapabilityReport freshness timing is invalid";
+      }
+      if (capability_freshness == FeedbackFreshnessStatus::kTransientHold) {
+        ROS_WARN_THROTTLE(
+            1.0,
+            "Formal execution holding the last valid agv%zu CapabilityReport for %.6f s beyond the %.6f s freshness bound",
+            index + 1U, capability_age - maximum_capability_age_,
+            maximum_capability_age_);
+      } else if (capability_freshness == FeedbackFreshnessStatus::kStale) {
         return "agv" + std::to_string(index + 1U) +
             " CapabilityReport is stale";
       }
@@ -1028,7 +1058,7 @@ class FormalFakeAlgorithmNode {
         startup_elapsed_seconds_ / startup_ramp_seconds_;
     // Quintic smoothstep: both scale rate and its derivative are zero at
     // rest and at the end of the ramp. R1 therefore sees no acceleration
-    // discontinuity when normal 0.05 m/s execution begins.
+    // discontinuity when the configured steady execution begins.
     const double tau2 = tau * tau;
     const double tau3 = tau2 * tau;
     startup_scale_ = tau3 * (10.0 + tau * (-15.0 + 6.0 * tau));
@@ -1100,10 +1130,12 @@ class FormalFakeAlgorithmNode {
   }
 
   double algorithmVelocityActual(std::size_t index) const {
-    // Suppress stationary camera-difference noise at launch, then introduce
-    // measured velocity continuously with the same quintic execution ramp.
-    return state_.s_dot_actual[index] *
-        (transport_type_ == "serial" ? startup_scale_ : 1.0);
+    // R1 must always receive the measured path velocity. Multiplying this
+    // feedback by the startup scale makes a moving robot appear artificially
+    // slow and causes the lower controller to overtake the soft-start
+    // reference. Camera differentiation is conditioned by the estimator;
+    // the execution ramp belongs on the reference/command path only.
+    return state_.s_dot_actual[index];
   }
 
   void applySerialAccelerationExecutionAdapter(
@@ -1128,11 +1160,30 @@ class FormalFakeAlgorithmNode {
       output->valid = false;
       return;
     }
+    double execution_lower_bound = lower_bound;
+    double execution_upper_bound = upper_bound;
+    if (startup_scale_ < 1.0) {
+      // Make the shared serial soft-start an actual execution envelope. R1
+      // still computes and records its unchanged control action, while the
+      // actuator adapter prevents that correction from running ahead of the
+      // public ramp. The envelope disappears continuously at ramp completion.
+      const double startup_velocity_envelope =
+          std::abs(current_velocity_reference_);
+      execution_lower_bound =
+          std::max(execution_lower_bound, -startup_velocity_envelope);
+      execution_upper_bound =
+          std::min(execution_upper_bound, startup_velocity_envelope);
+    }
+    if (execution_lower_bound > execution_upper_bound) {
+      output->valid = false;
+      return;
+    }
     const double unprojected =
         execution_channel_velocity_command_[index] +
         dt * output->input_limited;
     execution_channel_velocity_command_[index] =
-        std::clamp(unprojected, lower_bound, upper_bound);
+        std::clamp(
+            unprojected, execution_lower_bound, execution_upper_bound);
     output->channel_velocity_command =
         execution_channel_velocity_command_[index];
     output->velocity_projection_active =
@@ -1221,6 +1272,20 @@ class FormalFakeAlgorithmNode {
 
   void publishZero(const ros::Time& stamp) {
     execution_channel_velocity_command_.fill(0.0);
+    if (transport_type_ == "serial" && execution_initialized_ &&
+        !terminal_stop_latched_) {
+      // A transient safety zero must not be followed by an immediate return
+      // to the steady reference. Keep resetting the ramp while the fault is
+      // present; the first valid tick then performs a bumpless restart from
+      // zero without advancing the path reference during the outage.
+      startup_elapsed_seconds_ = 0.0;
+      startup_scale_ = 0.0;
+      if (!recovery_ramp_armed_) {
+        ROS_WARN(
+            "Formal execution armed a fresh soft-start ramp after a runtime fail-zero");
+      }
+      recovery_ramp_armed_ = true;
+    }
     if (!command_outputs_ready_) return;
     for (std::size_t index = 0; index < kRobotCount; ++index) {
       agv_msgs::ChassisCommand command;
@@ -1651,6 +1716,7 @@ class FormalFakeAlgorithmNode {
         command.method_id = "M2b_M2b";
         command_publishers_[i].publish(command);
       }
+      recovery_ramp_armed_ = false;
       publishPublicState(now, true, lower, tracking);
       publishDebug(true, current_upper_, distributed, lower);
       publishM2bDebug(m2b);
@@ -1708,6 +1774,7 @@ class FormalFakeAlgorithmNode {
       reference_input.leader_position = leader_position_;
       reference_input.leader_velocity = leader_velocity_;
       reference_input.leader_acceleration = leader_acceleration_;
+      reference_input.inner_margin = distributed_inner_margin_;
       reference_input.dt_seconds =
           dt * static_cast<double>(upper_ticks_per_update_);
       for (std::size_t index = 0; index < kRobotCount; ++index) {
@@ -1882,6 +1949,7 @@ class FormalFakeAlgorithmNode {
           tracking[index].longitudinal_error,
           tracking[index].lateral_error);
     }
+    recovery_ramp_armed_ = false;
     publishPublicState(now, true, lower, tracking);
     publishDebug(true, current_upper_, distributed, lower);
   }
@@ -1951,6 +2019,7 @@ class FormalFakeAlgorithmNode {
   bool safety_abort_latched_{false};
   bool execution_initialized_{false};
   bool terminal_stop_latched_{false};
+  bool recovery_ramp_armed_{false};
   std::size_t upper_ticks_per_update_{4U};
 
   std::array<std::uint32_t, 3> command_sequence_{{0U, 0U, 0U}};
@@ -1971,6 +2040,7 @@ class FormalFakeAlgorithmNode {
   double publish_rate_{100.0};
   double maximum_state_age_{0.15};
   double maximum_capability_age_{0.20};
+  double transient_capability_hold_seconds_{0.0};
   double maximum_feedback_age_{0.25};
   double transient_feedback_hold_seconds_{0.0};
   double minimum_battery_voltage_{9.5};
@@ -1992,6 +2062,7 @@ class FormalFakeAlgorithmNode {
   double leader_acceleration_{0.0};
   double current_velocity_reference_{0.08};
   double current_acceleration_reference_{0.0};
+  double distributed_inner_margin_{0.01};
   double unramped_velocity_reference_{0.08};
   double unramped_acceleration_reference_{0.0};
   double velocity_lower_bound_{-0.15};

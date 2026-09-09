@@ -164,6 +164,16 @@ def _first_time(rows, predicate, not_before=-math.inf):
     return None
 
 
+def _median_finite(values):
+    values = sorted(value for value in values if math.isfinite(value))
+    if not values:
+        return math.nan
+    middle = len(values) // 2
+    if len(values) % 2:
+        return values[middle]
+    return 0.5 * (values[middle - 1] + values[middle])
+
+
 def _mapped_path_capability(row, robot):
     """Return only a genuinely recorded CapabilityMapper path bound.
 
@@ -422,20 +432,46 @@ def compute_metrics(rows, sample_period, command_epsilon=1e-6,
     capability_recovery_stamp = None
     velocity_recovery_stamp = None
     derating_observed_stamp = None
+    derating_command_start_stamp = _first_time(
+        rows, lambda row: bool_value(row.get("agv2_derating_active")))
+    derating_command_end_stamp = None
+    if derating_command_start_stamp is not None:
+        derating_command_end_stamp = _first_time(
+            rows,
+            lambda row: not bool_value(row.get("agv2_derating_active")),
+            not_before=derating_command_start_stamp + 1.0e-12)
     first_stamp = finite_float(rows[0].get("stamp"))
 
+    nominal_capability_source = None
     if (nominal_agv2_capability is not None and
+            float(nominal_agv2_capability) > 0.0):
+        nominal_agv2_capability = float(nominal_agv2_capability)
+        nominal_capability_source = "configured"
+    elif derating_command_start_stamp is not None:
+        nominal_agv2_capability = _median_finite([
+            _mapped_path_capability(row, 2) for row in rows
+            if finite_float(row.get("stamp")) < derating_command_start_stamp])
+        if math.isfinite(nominal_agv2_capability):
+            nominal_capability_source = "observed_pre_derating"
+
+    if (nominal_agv2_capability is not None and
+            math.isfinite(float(nominal_agv2_capability)) and
             float(nominal_agv2_capability) > 0.0):
         nominal_agv2_capability = float(nominal_agv2_capability)
         threshold = 0.95 * nominal_agv2_capability
         derating_observed_stamp = _first_time(
             rows,
-            lambda row: _mapped_path_capability(row, 2) < threshold)
+            lambda row: _mapped_path_capability(row, 2) < threshold,
+            not_before=(derating_command_start_stamp
+                        if derating_command_start_stamp is not None
+                        else -math.inf))
         if derating_observed_stamp is not None:
             capability_recovery_stamp = _first_time(
                 rows,
                 lambda row: _mapped_path_capability(row, 2) >= threshold,
-                not_before=derating_observed_stamp)
+                not_before=(derating_command_end_stamp
+                            if derating_command_end_stamp is not None
+                            else derating_observed_stamp + 1.0e-12))
             if capability_recovery_stamp is not None:
                 capability_recovery_time = (
                     capability_recovery_stamp - first_stamp)
@@ -636,6 +672,10 @@ def compute_metrics(rows, sample_period, command_epsilon=1e-6,
         "recovery": {
             "capability_source":
                 "explicit_mapper_output_or_historical_m2b_mapper_input",
+            "derating_command_start_stamp": derating_command_start_stamp,
+            "derating_command_end_stamp": derating_command_end_stamp,
+            "nominal_agv2_capability": nominal_agv2_capability,
+            "nominal_agv2_capability_source": nominal_capability_source,
             "derating_observed_stamp": derating_observed_stamp,
             "capability_95_stamp": capability_recovery_stamp,
             "capability_95_time": capability_recovery_time,

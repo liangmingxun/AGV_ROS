@@ -120,12 +120,20 @@ def _run_context(aligned_csv):
         if recorded:
             method_id = recorded
     methods = {
-        "M1_R1": ("M1+R1", "M1动态参考", "R1"),
-        "M2a_R1": ("M2a+R1", "M2a固定边界参考", "R1"),
-        "M2b_M2b": ("M2b", "M2b固定约束参考", "M2b"),
+        "M1_R1": (
+            "M1+R1", "M1动态参考", "R1",
+            "M1局部动态上界", "M1公共动态上界"),
+        "M2a_R1": (
+            "M2a+R1", "M2a固定边界参考", "R1",
+            "M2a局部固定上界", "M2a公共固定上界"),
+        "M2b_M2b": (
+            "M2b", "M2b固定约束参考", "M2b",
+            "M2b局部约束上界", "M2b公共约束上界"),
     }
-    method_label, upper_label, lower_label = methods.get(
-        method_id, (method_id, "参考", "执行层"))
+    (method_label, upper_label, lower_label,
+     local_upper_label, common_upper_label) = methods.get(
+        method_id, (
+            method_id, "参考", "执行层", "局部参考上界", "公共参考上界"))
 
     path_label = "S形路径"
     path_model = "unknown"
@@ -154,6 +162,8 @@ def _run_context(aligned_csv):
         "method_label": method_label,
         "upper_label": upper_label,
         "lower_label": lower_label,
+        "local_upper_label": local_upper_label,
+        "common_upper_label": common_upper_label,
         "path_model": path_model,
         "path_label": path_label,
     }
@@ -510,13 +520,14 @@ def plot_run(aligned_csv, output_dir, axis_overrides=None):
             color=color, ls=style, alpha=0.8,
             label="Robot{}路径映射能力".format(robot))
         axes[1].plot(time, boundary,
-            color=color, ls=":", alpha=0.65,
-            label="Robot{} {}上界".format(robot, context["upper_label"]))
+            color=color, ls="-.", alpha=0.75,
+            label="Robot{} {}".format(
+                robot, context["local_upper_label"]))
         path_series.extend((mapped, boundary))
     common_boundary = _series(rows, "common_boundary_upper")
     public_reference = _series(rows, "public_reference_velocity")
-    axes[1].plot(time, common_boundary, "k--", lw=1.0,
-                 label="{}公共上界".format(context["upper_label"]))
+    axes[1].plot(time, common_boundary, color="#7A3E9D", ls="--", lw=1.3,
+                 label=context["common_upper_label"])
     axes[1].plot(time, public_reference, "k", lw=1.5,
                  label="公共参考速度")
     path_series.extend((common_boundary, public_reference))
@@ -536,6 +547,7 @@ def plot_run(aligned_csv, output_dir, axis_overrides=None):
     fig, axes = plt.subplots(3, 1, figsize=(8.0, 7.0), sharex=True)
     channel_series = []
     public_reference = _series(rows, "public_reference_velocity")
+    common_upper = _series(rows, "common_boundary_upper")
     for robot, ax, color in zip(range(1, 4), axes, colors):
         actual = _series(rows, "agv{}_s_dot_actual".format(robot))
         lower = _series(rows, "agv{}_boundary_lower".format(robot))
@@ -549,16 +561,20 @@ def plot_run(aligned_csv, output_dir, axis_overrides=None):
                 label="公共参考速度")
         ax.plot(time, lower, "k--", lw=0.8,
                 label="{}下界".format(context["upper_label"]))
-        ax.plot(time, upper, "k-.", lw=0.8,
-                label="{}上界".format(context["upper_label"]))
+        ax.plot(time, upper, color="#D9A900", ls="-.", lw=1.4,
+                label="Robot{} {}".format(
+                    robot, context["local_upper_label"]))
+        ax.plot(time, common_upper, color="#7A3E9D", ls="--", lw=1.25,
+                label=context["common_upper_label"])
         ax.set_ylabel("Robot{} / (m/s)".format(robot))
         _legend(ax)
         channel_series.extend(
-            (actual, actual_trend, public_reference, lower, upper))
+            (actual, actual_trend, public_reference, lower, upper,
+             common_upper))
     for robot, ax in zip(range(1, 4), axes):
         _set_y_axis(ax, channel_series, "figure4.robot{}".format(robot),
                     "m/s", metadata, axis_overrides)
-    axes[0].set_title("{}：参考边界、公共参考与实测路径速度".format(
+    axes[0].set_title("{}：局部/公共边界、公共参考与实测路径速度".format(
         context["method_label"]))
     axes[-1].set_xlabel("时间 / s")
     _record_ticks(fig, {

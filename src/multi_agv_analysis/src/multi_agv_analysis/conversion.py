@@ -462,6 +462,9 @@ def _aligned_rows(raw, maximum_age):
         raw["formal_execution_limiter_state.csv"])
     m2b_debug = _series(raw["m2b_algorithm_state.csv"])
     experiment_states = _series(raw["experiment_state.csv"])
+    robot2_derating = _series([
+        value for value in raw["derating_command.csv"]
+        if int(value.get("robot_id", 0)) == 2])
     has_experiment_state_stream = bool(experiment_states[0])
 
     output = []
@@ -474,6 +477,7 @@ def _aligned_rows(raw, maximum_age):
         m2b = _latest(m2b_debug, stamp, maximum_age)
         experiment_state = _latest(
             experiment_states, stamp, maximum_age)
+        derating = _latest(robot2_derating, stamp, maximum_age)
         row = {
             "stamp": stamp,
             "localization_valid": _valid_cooperative(state),
@@ -516,6 +520,24 @@ def _aligned_rows(raw, maximum_age):
             "manual_abort": (
                 experiment_state.get("manual_abort", False)
                 if experiment_state else False),
+            "agv2_derating_command_available": derating is not None,
+            "agv2_derating_active": (
+                derating.get("active", False) if derating else False),
+            "agv2_derating_speed_ratio": (
+                min(float(derating["target_speed_ratio_left"]),
+                    float(derating["target_speed_ratio_right"]))
+                if derating else math.nan),
+            "agv2_derating_acceleration_ratio": (
+                min(float(derating["target_accel_ratio_left"]),
+                    float(derating["target_accel_ratio_right"]))
+                if derating else math.nan),
+            "agv2_derating_deceleration_ratio": (
+                min(float(derating["target_decel_ratio_left"]),
+                    float(derating["target_decel_ratio_right"]))
+                if derating else math.nan),
+            "agv2_derating_command_seq": (
+                derating.get("command_seq", math.nan)
+                if derating else math.nan),
         }
         debug_values = []
         debug_version = 0
@@ -626,6 +648,12 @@ def _aligned_rows(raw, maximum_age):
             row["agv{}_reported_velocity_limit".format(robot)] = (
                 min(float(current_capability["max_wheel_velocity_left"]),
                     float(current_capability["max_wheel_velocity_right"]))
+                if current_capability else math.nan)
+            row["agv{}_capability_derating_active".format(robot)] = (
+                current_capability.get("derating_active", False)
+                if current_capability else False)
+            row["agv{}_capability_derating_ratio".format(robot)] = (
+                current_capability.get("derating_ratio", math.nan)
                 if current_capability else math.nan)
             debug_header = 10 if debug_version == 2 else 9
             debug_fields = 29 if debug_version == 2 else 27

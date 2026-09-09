@@ -14,7 +14,7 @@ from multi_agv_analysis.paper_pipeline import export_views, plot_run
 from multi_agv_analysis.validation import validate_converted_run
 
 
-PROCESSING_VERSION = "paper_run_pipeline_v6_dual_plot_profiles"
+PROCESSING_VERSION = "paper_run_pipeline_v7_derating_events_common_boundary"
 
 RAW_DISPLAY_PROFILE = {
     "display": {

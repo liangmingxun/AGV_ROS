@@ -1,0 +1,105 @@
+schema_version: 1
+freeze_id: m1_r1_circle_r0p7_cw_smooth_exit_soft_start_frozen_v2
+status: frozen
+frozen_on: "2026-09-09"
+method_id: M1_R1
+scope: unloaded_three_car_0p30m_circle_engineering_baseline
+formal_statistics_authorized: false
+
+configuration:
+  path: path_circle_r0p7_cw_smooth_exit.yaml
+  runtime: formal_serial_m1_r1_circle_r0p7_smooth_exit_soft_start_runtime.yaml
+  evaluation: formal_evaluation_circle_r0p7_smooth_exit.yaml
+  localization_fusion: localization_fusion.yaml
+  upper: exp2a_M1_serial_008.yaml
+  lower: exp3_R1.yaml
+  radius_m: 0.7
+  direction: clockwise
+  speed_mps: 0.08
+  fixture_side_m: 0.30
+  startup_ramp_seconds: 2.5
+  target_progress_m: 5.178229715025710
+  config_sha256:
+    path_circle_r0p7_cw_smooth_exit.yaml: 9dd10798b3f0af1c98d6ee80d335ffb34637845238ddd023a23a7edb1df5451f
+    formal_serial_m1_r1_circle_r0p7_smooth_exit_soft_start_runtime.yaml: 74fd276d731f1a9af9bf64f7eaccf7dd4125835e4c957aa2e058d9025cbb2614
+    formal_evaluation_circle_r0p7_smooth_exit.yaml: 73936182fb9492bf97a2d39dc1ba45c0679ea2c525450e68decc75bf6a946213
+    localization_fusion.yaml: 1474d6bd1adb8cc69486c728cfb21486205a4838ea91e6d0c59adb4214725310
+    exp2a_M1_serial_008.yaml: 12f34f2d79c3baeaba3f74f560bfcb6955db02ca1f126125a958a0ce6c68a671
+    exp3_R1.yaml: f01b322086a9130903afe7c920778ae9f45a9bc73095bf9174e5ec26d57e61bc
+  tracker:
+    lateral_gain_per_robot: [4.8, 3.4, 4.0]
+    heading_gain_per_robot: [3.5, 3.0, 3.0]
+    angular_feedforward_scale_negative: [0.94, 0.951221879, 0.94]
+    formation_longitudinal_gain: 0.25
+    formation_lateral_gain: 0.85
+    formation_heading_gain: 0.70
+  transient_state_hold_seconds: 0.08
+  transient_capability_hold_seconds: 0.40
+  transient_feedback_hold_seconds: 0.10
+  maximum_camera_age_seconds: 0.30
+
+evidence:
+  completed_validation_runs:
+    - run: formal_serial_unloaded/m1_r1_circle_r0p7_cw_smooth_exit_soft_start_20260909_142241
+      physical_task_status: passed
+      postprocess_status: passed
+      algorithm_invalid_samples_in_scope: 0
+      localization_invalid_samples_in_scope: 0
+      load_position_rmse_m: 0.012253359821851493
+      load_yaw_rmse_rad: 0.0749129384994277
+      rigid_fit_residual_rmse_m: 0.012010473210947652
+      maximum_endpoint_side_error_m: 0.01150016573538798
+      maximum_pre_limit_wheel_demand_mps: 0.13619357152535702
+      maximum_actual_wheel_speed_mps: 0.17672418820721514
+      fleet_scaling_observed: false
+    - run: formal_serial_unloaded/m1_r1_circle_r0p7_cw_smooth_exit_soft_start_20260909_142920
+      preferred_repeat: true
+      physical_task_status: passed
+      postprocess_status: passed
+      algorithm_invalid_samples_in_scope: 0
+      localization_invalid_samples_in_scope: 0
+      runtime_zero_command_gaps: 0
+      load_position_rmse_m: 0.013209977888533116
+      load_yaw_rmse_rad: 0.07188654645892101
+      rigid_fit_residual_rmse_m: 0.011577483709737442
+      maximum_endpoint_side_error_m: 0.008325838660102725
+      maximum_pre_limit_wheel_demand_mps: 0.11454732620515973
+      maximum_actual_wheel_speed_mps: 0.14973992160581687
+      actual_above_reported_limit_time_s: 0.0
+      fleet_scaling_observed: false
+
+two_run_summary:
+  status: accepted_engineering_freeze
+  completed_runs: 2
+  load_position_rmse_mean_m: 0.012731668855192304
+  load_yaw_rmse_mean_rad: 0.07339974247917435
+  rigid_fit_residual_rmse_mean_m: 0.011793978460342546
+  support_position_rmse_mean_m:
+    agv1: 0.014738618093854237
+    agv2: 0.02707257989677751
+    agv3: 0.02108128042393215
+  maximum_pre_limit_wheel_demand_mps: 0.13619357152535702
+  maximum_actual_wheel_speed_mps: 0.17672418820721514
+  fleet_scaling_observed: false
+
+known_residuals:
+  robot2_circle_position_rmse_is_largest: true
+  robot3_circle_heading_rmse_is_largest: true
+  disposition: accepted_for_method_comparison_without_further_gain_tuning
+  note: >-
+    This is an engineering configuration freeze, not approval for formal
+    statistical claims. M1, M2a and M2b must share this path, localization,
+    soft-start and planar execution layer for subsequent comparisons.
+
+next_validation:
+  stage: robot2_circle_derating_m1
+  entry: run_m1_r1_serial_unloaded_circle_r0p7_smooth_exit_derating.sh
+  activation_progress_m: 1.50
+  restoration_progress_m: 3.50
+  target_speed_ratio: 0.40
+  requirement: use_the_same_frozen_execution_configuration
+
+change_control:
+  preserve_original_evidence: true
+  modification_requires_new_named_version: true
+  modification_requires_repeat_circle_validation: true

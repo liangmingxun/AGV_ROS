@@ -229,6 +229,12 @@ class BringupStaticTest(unittest.TestCase):
             "ros::TransportHints().reliable().tcpNoDelay()",
             formal_source)
         self.assertEqual(formal_source.count("control_input_transport"), 4)
+        self.assertIn(
+            "reference_input.inner_margin = distributed_inner_margin_",
+            formal_source)
+        self.assertIn(
+            "formal upper agents must share one distributed inner margin",
+            formal_source)
         for config in (m1, m2a):
             self.assertIn("physical_upper: [0.105, 0.105, 0.105]", config)
             self.assertIn("inner_margin: [0.005, 0.005, 0.005]", config)
@@ -305,6 +311,10 @@ class BringupStaticTest(unittest.TestCase):
         self.assertIn(
             "low_voltage_duration >= minimum_battery_voltage_duration_",
             formal_source)
+        self.assertIn(
+            "Formal execution armed a fresh soft-start ramp after a runtime fail-zero",
+            formal_source)
+        self.assertIn("startup_elapsed_seconds_ = 0.0", formal_source)
 
     def test_robot2_derating_pretest_uses_current_wheel_envelope(self):
         config = (
@@ -543,7 +553,10 @@ class BringupStaticTest(unittest.TestCase):
             entry)
         self.assertIn("startup_ramp_seconds: 2.5", soft_start_runtime)
         self.assertIn(
-            "PILOT_M1_R1_CIRCLE_R0P7_CW_SMOOTH_EXIT_SOFT_START_V2",
+            "transient_capability_hold_seconds: 0.40",
+            soft_start_runtime)
+        self.assertIn(
+            "FROZEN_M1_R1_CIRCLE_R0P7_CW_SMOOTH_EXIT_SOFT_START_V2",
             soft_start_runtime)
         self.assertIn(
             "run_m1_r1_serial_unloaded_circle_r0p7_smooth_exit.sh",
@@ -557,6 +570,21 @@ class BringupStaticTest(unittest.TestCase):
             "m1_r1_circle_r0p7_cw_smooth_exit_20260908_191906", freeze)
         self.assertIn(
             "m1_r1_circle_r0p7_cw_smooth_exit_20260908_193838", freeze)
+
+        soft_start_freeze = (PACKAGE / "config" /
+            "m1_r1_circle_r0p7_cw_smooth_exit_soft_start_freeze_v2.yaml"
+        ).read_text(encoding="utf-8")
+        self.assertIn(
+            "freeze_id: m1_r1_circle_r0p7_cw_smooth_exit_soft_start_frozen_v2",
+            soft_start_freeze)
+        self.assertIn("status: frozen", soft_start_freeze)
+        self.assertIn("formal_statistics_authorized: false", soft_start_freeze)
+        self.assertIn(
+            "m1_r1_circle_r0p7_cw_smooth_exit_soft_start_20260909_142241",
+            soft_start_freeze)
+        self.assertIn(
+            "m1_r1_circle_r0p7_cw_smooth_exit_soft_start_20260909_142920",
+            soft_start_freeze)
 
         runtime_data = yaml.safe_load(runtime)["formal_fake_runtime"]
         self.assertEqual(runtime_data["leader"]["velocity"], 0.08)
@@ -636,9 +664,12 @@ class BringupStaticTest(unittest.TestCase):
         self.assertIn("evaluation_end_progress: 5.178229715025710",
                       evaluation)
         self.assertEqual(evaluation.count("target_speed_ratio_"), 2)
-        self.assertIn("target_speed_ratio_left: 0.40", evaluation)
-        self.assertIn("ramp_down_time: 0.50", evaluation)
-        self.assertIn("ramp_up_time: 0.50", evaluation)
+        self.assertIn("target_speed_ratio_left: 0.68", evaluation)
+        self.assertIn("target_speed_ratio_right: 0.68", evaluation)
+        self.assertIn("target_acceleration_ratio_left: 0.70", evaluation)
+        self.assertIn("target_deceleration_ratio_left: 0.70", evaluation)
+        self.assertIn("ramp_down_time: 1.00", evaluation)
+        self.assertIn("ramp_up_time: 1.00", evaluation)
 
         entries = {
             "M1": "run_m1_r1_serial_unloaded_circle_r0p7_smooth_exit_derating.sh",
@@ -1225,6 +1256,7 @@ class BringupStaticTest(unittest.TestCase):
         recording = (
             PACKAGE / "config" / "record_topics.yaml"
         ).read_text(encoding="utf-8")
+        self.assertIn("maximum_camera_age: 0.30", fusion)
         for robot in range(1, 4):
             self.assertIn(
                 "camera_pose_topic: /pose_provider/agv{}/base_pose_filtered".

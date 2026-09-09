@@ -300,8 +300,10 @@ def plot_experiment1(source, output_dir):
         axes[0].plot(time, _series(rows, "agv{}_mapped_path_velocity_upper".format(robot)),
                      color=color, label="Robot{}映射能力".format(robot))
         axes[1].plot(time, _series(rows, "agv{}_boundary_upper".format(robot)),
-                     color=color, ls=":", label="Robot{}动态边界".format(robot))
-    axes[1].plot(time, _series(rows, "common_boundary_upper"), "k--", label="公共边界")
+                     color=color, ls="-.",
+                     label="Robot{}局部动态边界".format(robot))
+    axes[1].plot(time, _series(rows, "common_boundary_upper"),
+                 color="#7A3E9D", ls="--", label="公共动态边界")
     axes[1].plot(time, _series(rows, "public_reference_velocity"), "k-", label="公共参考速度")
     axes[0].set_ylabel("映射能力 / (m/s)"); axes[1].set_ylabel("路径速度 / (m/s)")
     axes[1].set_xlabel("时间 / s"); _legend(axes[0]); _legend(axes[1])

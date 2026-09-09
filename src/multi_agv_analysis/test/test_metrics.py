@@ -178,6 +178,26 @@ class CameraConversionTest(unittest.TestCase):
             "header_stamp": 1.0,
             "layout_label": "m2b_algorithm_state_v1:header6+3x20",
             "data_json": json.dumps(m2b)}]
+        raw["derating_command.csv"] = [{
+            "header_stamp": 1.0,
+            "robot_id": 2,
+            "command_seq": 7,
+            "active": True,
+            "target_speed_ratio_left": 0.68,
+            "target_speed_ratio_right": 0.70,
+            "target_accel_ratio_left": 0.70,
+            "target_accel_ratio_right": 0.72,
+            "target_decel_ratio_left": 0.69,
+            "target_decel_ratio_right": 0.70,
+        }]
+        raw["capability_report.csv"] = [{
+            "header_stamp": 1.0,
+            "robot_id": 2,
+            "max_wheel_velocity_left": 0.102,
+            "max_wheel_velocity_right": 0.102,
+            "derating_active": True,
+            "derating_ratio": 0.68,
+        }]
         aligned = _aligned_rows(raw, 0.2)
         self.assertEqual(len(aligned), 1)
         self.assertEqual(aligned[0]["agv1_support_reference_x"], 1.0)
@@ -193,6 +213,12 @@ class CameraConversionTest(unittest.TestCase):
         self.assertAlmostEqual(aligned[0]["fleet_scale"], 0.75)
         self.assertAlmostEqual(aligned[0]["m2b_delta_z"], 0.5)
         self.assertAlmostEqual(aligned[0]["m2b_delta_w"], 0.3)
+        self.assertTrue(aligned[0]["agv2_derating_active"])
+        self.assertAlmostEqual(aligned[0]["agv2_derating_speed_ratio"], 0.68)
+        self.assertEqual(aligned[0]["agv2_derating_command_seq"], 7)
+        self.assertTrue(aligned[0]["agv2_capability_derating_active"])
+        self.assertAlmostEqual(
+            aligned[0]["agv2_capability_derating_ratio"], 0.68)
 
     def test_v2_keeps_mapped_capability_distinct_from_dynamic_boundary(self):
         raw = {name: [] for name in RAW_SCHEMAS}
@@ -311,6 +337,26 @@ class MetricsTest(unittest.TestCase):
             "all_samples_fallback")
         self.assertFalse(
             result["evaluation_window"]["formal_statistics_ready"])
+
+    def test_recovery_uses_explicit_derating_event_and_observed_nominal(self):
+        rows = self.fixture()
+        for index, row in enumerate(rows):
+            row["agv2_derating_active"] = 2 <= index < 6
+            row["agv2_mapped_path_velocity_upper"] = (
+                1.0 if index < 2 else (0.5 if index < 6 else 0.96))
+        result = compute_metrics(
+            rows, sample_period=0.1,
+            nominal_common_velocity=1.0)
+        recovery = result["recovery"]
+        self.assertAlmostEqual(recovery["derating_command_start_stamp"], 0.2)
+        self.assertAlmostEqual(recovery["derating_command_end_stamp"], 0.6)
+        self.assertAlmostEqual(recovery["nominal_agv2_capability"], 1.0)
+        self.assertEqual(
+            recovery["nominal_agv2_capability_source"],
+            "observed_pre_derating")
+        self.assertAlmostEqual(recovery["derating_observed_stamp"], 0.2)
+        self.assertAlmostEqual(recovery["capability_95_stamp"], 0.6)
+        self.assertAlmostEqual(recovery["common_velocity_95_stamp"], 0.8)
 
     def test_chassis_limiting_uses_same_feedback_raw_and_applied(self):
         rows = self.fixture()
