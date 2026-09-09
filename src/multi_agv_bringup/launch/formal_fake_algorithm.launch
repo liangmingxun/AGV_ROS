@@ -5,23 +5,33 @@
        default="$(find multi_agv_bringup)/config/exp3_R1.yaml"/>
   <arg name="runtime_config"
        default="$(find multi_agv_bringup)/config/formal_fake_runtime.yaml"/>
+  <arg name="path_config"
+       default="$(find multi_agv_bringup)/config/path_s_curve.yaml"/>
   <arg name="start_state_estimator" default="true"/>
   <arg name="require_recorder_armed" default="false"/>
+  <arg name="command_publication_authorized" default="true"/>
+  <arg name="formal_available_wheel_limit" default="0.08"/>
 
-  <include file="$(find multi_agv_bringup)/launch/three_fake_chassis.launch"/>
+  <include file="$(find multi_agv_bringup)/launch/three_fake_chassis.launch">
+    <arg name="formal_available_wheel_limit"
+         value="$(arg formal_available_wheel_limit)"/>
+  </include>
   <include if="$(arg start_state_estimator)"
-           file="$(find multi_agv_bringup)/launch/odom_state_estimator.launch"/>
+           file="$(find multi_agv_bringup)/launch/odom_state_estimator.launch">
+    <arg name="path_config" value="$(arg path_config)"/>
+  </include>
 
   <node pkg="multi_agv_control" type="formal_fake_algorithm_node"
         name="formal_fake_algorithm" output="screen" required="true">
-    <rosparam command="load"
-              file="$(find multi_agv_bringup)/config/path_s_curve.yaml"/>
+    <rosparam command="load" file="$(arg path_config)"/>
     <rosparam command="load"
               file="$(find multi_agv_bringup)/config/support_geometry.yaml"/>
     <rosparam command="load" file="$(arg runtime_config)"/>
     <rosparam command="load" file="$(arg upper_config)"/>
     <rosparam command="load" file="$(arg lower_config)"/>
     <param name="platform_transport_type" value="fake"/>
+    <param name="formal_fake_runtime/command_publication_authorized"
+           value="$(arg command_publication_authorized)"/>
     <param name="formal_fake_runtime/require_recorder_armed"
            value="$(arg require_recorder_armed)"/>
   </node>

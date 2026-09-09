@@ -50,9 +50,20 @@ def _pyplot():
         "font.sans-serif": [selected, "DejaVu Sans"],
         "axes.unicode_minus": False,
         "font.size": 10,
+        "axes.titlesize": 12,
+        "axes.titleweight": "semibold",
+        "axes.labelsize": 10.5,
+        "axes.linewidth": 0.8,
+        "axes.axisbelow": True,
         "axes.grid": True,
-        "grid.alpha": 0.22,
-        "lines.linewidth": 1.35,
+        "grid.alpha": 0.18,
+        "grid.linewidth": 0.7,
+        "xtick.direction": "out",
+        "ytick.direction": "out",
+        "legend.frameon": False,
+        "savefig.facecolor": "white",
+        "figure.facecolor": "white",
+        "lines.linewidth": 1.45,
     })
     return plt
 

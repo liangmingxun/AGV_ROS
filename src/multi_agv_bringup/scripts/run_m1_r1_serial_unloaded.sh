@@ -8,11 +8,12 @@ usage: run_m1_r1_serial_unloaded.sh \
   --confirm-area-clear --confirm-wheels-on-floor \
   --confirm-unloaded-30cm-fixture
 
-Runs the selected M1+R1 or M2a+R1 serial entry on Robot1. The public M1 entry
-keeps Robot2 derating disabled; the dedicated Experiment-2a wrappers enable
-the separately gated Robot2 derating. The three chassis, vision bridge and
-camera fusion must already be running. Any missing recorder heartbeat makes
-the algorithm publish zero commands.
+Runs the selected M1+R1, M2a+R1 or M2b+M2b serial entry on Robot1. Method
+selection changes only the formal upper/lower configuration; the selected
+path, planar execution runtime, chassis limiter and recording chain remain
+shared. Each method uses its own physical-authorization overlay. The three
+chassis, vision bridge and camera fusion must already be running. Any missing
+recorder heartbeat makes the algorithm publish zero commands.
 EOF
 }
 
@@ -20,7 +21,8 @@ operator=""
 pair_block=""
 formal_upper_mode="${FORMAL_UPPER_MODE:-M1}"
 enable_robot2_derating="${FORMAL_ENABLE_ROBOT2_DERATING:-false}"
-if [[ "$formal_upper_mode" != M1 && "$formal_upper_mode" != M2a ]]; then
+if [[ "$formal_upper_mode" != M1 && "$formal_upper_mode" != M2a &&
+      "$formal_upper_mode" != M2b ]]; then
   echo "ERROR: unsupported formal upper mode: ${formal_upper_mode}" >&2
   exit 2
 fi
@@ -57,22 +59,73 @@ cd "$workspace"
 runtime_config="${FORMAL_RUNTIME_CONFIG:-src/multi_agv_bringup/config/formal_serial_m1_r1_runtime.yaml}"
 path_config="${FORMAL_PATH_CONFIG:-src/multi_agv_bringup/config/path_s_curve_terminal_straight.yaml}"
 evaluation_config="${FORMAL_EVALUATION_CONFIG:-src/multi_agv_bringup/config/formal_evaluation_window.yaml}"
-if [[ "$formal_upper_mode" == M2a ]]; then
-  upper_config="src/multi_agv_bringup/config/exp2a_M2a_serial_008.yaml"
-  method_id="M2a_R1"
-  experiment_id="${FORMAL_EXPERIMENT_ID:-exp2a_m2a_r1_robot2_derating_serial}"
-  run_prefix="${FORMAL_RUN_PREFIX:-m2a_r1_serial}"
-else
-  upper_config="src/multi_agv_bringup/config/exp2a_M1_serial_008.yaml"
-  method_id="M1_R1"
-  experiment_id="${FORMAL_EXPERIMENT_ID:-exp2a_m1_r1_unloaded_serial}"
-  run_prefix="${FORMAL_RUN_PREFIX:-m1_r1_serial}"
-fi
-lower_config="src/multi_agv_bringup/config/exp3_R1.yaml"
+case "$formal_upper_mode" in
+  M2a)
+    upper_config="src/multi_agv_bringup/config/exp2a_M2a_serial_008.yaml"
+    lower_config="src/multi_agv_bringup/config/exp3_R1.yaml"
+    authorization_config="${FORMAL_EXECUTION_AUTHORIZATION_CONFIG:-src/multi_agv_bringup/config/formal_serial_m2a_r1_authorization.yaml}"
+    method_id="M2a_R1"
+    experiment_id="${FORMAL_EXPERIMENT_ID:-exp2a_m2a_r1_robot2_derating_serial}"
+    run_prefix="${FORMAL_RUN_PREFIX:-m2a_r1_serial}"
+    ;;
+  M2b)
+    upper_config="src/multi_agv_bringup/config/exp2b_M2b.yaml"
+    lower_config="src/multi_agv_bringup/config/exp2b_M2b.yaml"
+    authorization_config="${FORMAL_EXECUTION_AUTHORIZATION_CONFIG:-src/multi_agv_bringup/config/formal_serial_m2b_authorization.yaml}"
+    method_id="M2b_M2b"
+    experiment_id="${FORMAL_EXPERIMENT_ID:-exp2b_m2b_unloaded_serial}"
+    run_prefix="${FORMAL_RUN_PREFIX:-m2b_serial}"
+    ;;
+  M1)
+    upper_config="src/multi_agv_bringup/config/exp2a_M1_serial_008.yaml"
+    lower_config="src/multi_agv_bringup/config/exp3_R1.yaml"
+    authorization_config="${FORMAL_EXECUTION_AUTHORIZATION_CONFIG:-src/multi_agv_bringup/config/formal_serial_m1_r1_authorization.yaml}"
+    method_id="M1_R1"
+    experiment_id="${FORMAL_EXPERIMENT_ID:-exp2a_m1_r1_unloaded_serial}"
+    run_prefix="${FORMAL_RUN_PREFIX:-m1_r1_serial}"
+    ;;
+esac
+for required_config in "$runtime_config" "$path_config" \
+                       "$evaluation_config" "$upper_config" \
+                       "$lower_config" "$authorization_config"; do
+  if [[ ! -f "$required_config" ]]; then
+    echo "ERROR: required formal configuration is missing: ${required_config}" >&2
+    exit 3
+  fi
+done
 runtime_status="$(awk '/^[[:space:]]*configuration_status:/ {print $2; exit}' \
   "$runtime_config")"
 serial_authorized="$(awk '/^[[:space:]]*serial_execution_authorized:/ {print $2; exit}' \
   "$runtime_config")"
+method_upper_authorized="$(awk '
+  /^formal_upper:/ {in_upper=1; next}
+  /^formal_lower:/ {in_upper=0}
+  in_upper && /^[[:space:]]*hardware_execution_authorized:/ {print $2; exit}
+' "$authorization_config")"
+method_lower_authorized="$(awk '
+  /^formal_lower:/ {in_lower=1; next}
+  in_lower && /^[[:space:]]*hardware_execution_authorized:/ {print $2; exit}
+' "$authorization_config")"
+authorized_path_config="$(awk '
+  /^authorization_scope:/ {in_scope=1; next}
+  in_scope && /^[[:space:]]*path_config:/ {print $2; exit}
+' "$authorization_config")"
+authorized_runtime_config="$(awk '
+  /^authorization_scope:/ {in_scope=1; next}
+  in_scope && /^[[:space:]]*runtime_config:/ {print $2; exit}
+' "$authorization_config")"
+authorized_evaluation_config="$(awk '
+  /^authorization_scope:/ {in_scope=1; next}
+  in_scope && /^[[:space:]]*evaluation_config:/ {print $2; exit}
+' "$authorization_config")"
+authorized_target_progress="$(awk '
+  /^authorization_scope:/ {in_scope=1; next}
+  in_scope && /^[[:space:]]*target_progress:/ {print $2; exit}
+' "$authorization_config")"
+authorized_robot2_derating="$(awk '
+  /^authorization_scope:/ {in_scope=1; next}
+  in_scope && /^[[:space:]]*robot2_derating:/ {print $2; exit}
+' "$authorization_config")"
 nominal_common_velocity="$(awk '
   /^[[:space:]]*leader:/ {in_leader=1; next}
   in_leader && /^[[:space:]]*velocity:/ {print $2; exit}
@@ -103,6 +156,22 @@ if [[ "$runtime_status" == NEEDS_MANUAL_CONFIRMATION* ||
       "$serial_authorized" != true ]]; then
   echo "ERROR: NEEDS_MANUAL_CONFIRMATION: confirm the 0.15 m/s chassis-applied " \
        "limit and approve 0.18 m/s as the pre-limit demand abort threshold" >&2
+  exit 3
+fi
+if [[ "$method_upper_authorized" != true ||
+      "$method_lower_authorized" != true ]]; then
+  echo "ERROR: ${method_id} has not received independent physical execution authorization" >&2
+  echo "Authorization remains fail-closed in ${authorization_config}" >&2
+  exit 3
+fi
+if [[ -n "$authorized_path_config" ]] &&
+   [[ "$path_config" != "$authorized_path_config" ||
+      "$runtime_config" != "$authorized_runtime_config" ||
+      "$evaluation_config" != "$authorized_evaluation_config" ||
+      "$target_progress" != "$authorized_target_progress" ||
+      "$enable_robot2_derating" != "$authorized_robot2_derating" ]]; then
+  echo "ERROR: ${method_id} execution request is outside its authorized scope" >&2
+  echo "Authorized scope: path=${authorized_path_config}, runtime=${authorized_runtime_config}, target=${authorized_target_progress}, Robot2_derating=${authorized_robot2_derating}" >&2
   exit 3
 fi
 source /opt/ros/noetic/setup.bash
@@ -280,7 +349,7 @@ roslaunch multi_agv_bringup experiment.launch \
   runtime_config:="${workspace}/${runtime_config}" \
   upper_config:="${workspace}/${upper_config}" \
   lower_config:="${workspace}/${lower_config}" \
-  execution_authorization_config:="${workspace}/src/multi_agv_bringup/config/formal_serial_m1_r1_authorization.yaml" \
+  execution_authorization_config:="${workspace}/${authorization_config}" \
   evaluation_config:="${workspace}/${evaluation_config}" \
   path_config:="${workspace}/${path_config}" \
   nominal_common_velocity:="$nominal_common_velocity" \

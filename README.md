@@ -3,8 +3,9 @@
 当前开发入口由 `agv_msgs`、`chassis_controller`、`multi_agv_control`、
 `multi_agv_bringup` 和 `multi_agv_analysis` 组成。平台层已覆盖三车命名空间、
 冻结接口、单车串口执行、物理限幅、平滑降额、预里程计与安全预检；M1+R1及
-M2a+R1已具备受独立安全门约束的串行pilot入口，M4、完整M2b和R2–R4仍仅接入
-fake transport算法入口；可复现实验记录、
+M2a+R1与完整M2b已接入与M1相同的R0.7圆形路径、二维执行层和记录链；当前
+独立实车授权仅覆盖空载、无Robot2降额的R0.7整圆对比，正式统计审批仍保持
+独立。M4和R2–R4仍仅接入fake transport算法入口；可复现实验记录、
 因果转换、合法性审计、配置审批及有界评价窗口链也已实现。
 
 开发和实车检查采用按改动影响面分级的最小验证策略；不要把历史 Stage 检查、完整

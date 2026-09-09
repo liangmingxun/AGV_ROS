@@ -1,6 +1,7 @@
 """Logical paper tables and deterministic draft figures for one run."""
 
 import math
+import statistics
 from pathlib import Path
 
 from multi_agv_analysis.io_utils import (
@@ -102,6 +103,131 @@ def _series(rows, field):
 def _finite_xy(x_values, y_values):
     return [(x, y) for x, y in zip(x_values, y_values)
             if math.isfinite(x) and math.isfinite(y)]
+
+
+def _run_context(aligned_csv):
+    """Infer method/path labels from the recorded run, never from filenames."""
+    aligned = Path(aligned_csv).resolve()
+    converted = aligned.parent
+    run_dir = converted.parent if converted.name == "converted" else None
+    method_id = "M1_R1"
+    controller = converted / "controller_state.csv"
+    if controller.is_file():
+        controller_rows = read_csv(controller)
+        recorded = next((str(row.get("method_id", "")).strip()
+                         for row in controller_rows
+                         if str(row.get("method_id", "")).strip()), "")
+        if recorded:
+            method_id = recorded
+    methods = {
+        "M1_R1": ("M1+R1", "M1动态参考", "R1"),
+        "M2a_R1": ("M2a+R1", "M2a固定边界参考", "R1"),
+        "M2b_M2b": ("M2b", "M2b固定约束参考", "M2b"),
+    }
+    method_label, upper_label, lower_label = methods.get(
+        method_id, (method_id, "参考", "执行层"))
+
+    path_label = "S形路径"
+    path_model = "unknown"
+    if run_dir and (run_dir / "config").is_dir():
+        for snapshot in sorted((run_dir / "config").glob("*.yaml")):
+            config = load_yaml(snapshot)
+            path = config.get("path_s_curve", {})
+            model = str(path.get("model", ""))
+            if not model:
+                continue
+            path_model = model
+            if model.startswith("circle_"):
+                radius = finite_float(path.get("circle_radius"))
+                direction = finite_float(path.get("circle_direction"))
+                turn = "顺时针" if direction < 0.0 else "逆时针"
+                path_label = "R={:.1f} m{}圆形路径".format(radius, turn)
+                if model == "circle_smooth_entry_exit":
+                    path_label += "（平滑进出）"
+            elif "sine" in model:
+                path_label = "S形路径"
+            else:
+                path_label = model
+            break
+    return {
+        "method_id": method_id,
+        "method_label": method_label,
+        "upper_label": upper_label,
+        "lower_label": lower_label,
+        "path_model": path_model,
+        "path_label": path_label,
+    }
+
+
+def _display_smooth(time, values, window_seconds=0.10):
+    """Robust centred display trend; source samples and metrics stay intact."""
+    finite_time = [value for value in time if math.isfinite(value)]
+    intervals = [right - left for left, right in zip(
+        finite_time[:-1], finite_time[1:]) if right > left]
+    if not intervals or window_seconds <= 0.0:
+        return list(values)
+    dt = statistics.median(intervals)
+    radius = max(1, int(round(window_seconds / dt / 2.0)))
+    median_radius = max(1, radius // 2)
+    medians = []
+    for index in range(len(values)):
+        local = [value for value in values[
+            max(0, index - median_radius):index + median_radius + 1]
+                 if math.isfinite(value)]
+        medians.append(statistics.median(local) if local else math.nan)
+    trend = []
+    for index in range(len(medians)):
+        local = [value for value in medians[
+            max(0, index - radius):index + radius + 1]
+                 if math.isfinite(value)]
+        trend.append(sum(local) / len(local) if local else math.nan)
+    return trend
+
+
+def _display_indices(time, maximum_rate_hz=25.0):
+    """Return plot-only indices; acquisition and metric samples are untouched."""
+    if len(time) <= 2 or maximum_rate_hz <= 0.0:
+        return list(range(len(time)))
+    finite_time = [value for value in time if math.isfinite(value)]
+    intervals = [right - left for left, right in zip(
+        finite_time[:-1], finite_time[1:]) if right > left]
+    if not intervals:
+        return list(range(len(time)))
+    source_rate = 1.0 / statistics.median(intervals)
+    stride = max(1, int(round(source_rate / maximum_rate_hz)))
+    indices = list(range(0, len(time), stride))
+    if indices[-1] != len(time) - 1:
+        indices.append(len(time) - 1)
+    return indices
+
+
+def _plot_measured(axis, time, values, color, label, style="-",
+                   window_seconds=0.10, show_raw=False, linewidth=1.7,
+                   maximum_plot_rate_hz=25.0):
+    if show_raw:
+        axis.plot(time, values, color=color, ls=style, lw=0.55,
+                  alpha=0.16, label="_nolegend_")
+    trend = _display_smooth(time, values, window_seconds)
+    indices = _display_indices(time, maximum_plot_rate_hz)
+    plot_time = [time[index] for index in indices]
+    plot_trend = [trend[index] for index in indices]
+    axis.plot(plot_time, plot_trend, color=color, ls=style, lw=linewidth,
+              alpha=0.96, label=label)
+    return trend
+
+
+def _same_series(series, tolerance=1.0e-9):
+    if not series:
+        return False
+    reference = series[0]
+    for candidate in series[1:]:
+        for left, right in zip(reference, candidate):
+            if math.isfinite(left) and math.isfinite(right):
+                if abs(left - right) > tolerance:
+                    return False
+            elif math.isfinite(left) != math.isfinite(right):
+                return False
+    return True
 
 
 def _save(fig, output, name):
@@ -287,6 +413,15 @@ def plot_run(aligned_csv, output_dir, axis_overrides=None):
     colors = ("#1f77b4", "#d62728", "#2ca02c")
     robot_styles = ("-", "--", "-.")
     emergency_threshold = _emergency_threshold_from_snapshot(aligned_csv)
+    context = _run_context(aligned_csv)
+    display = (axis_overrides or {}).get("display", {})
+    smoothing_window = float(display.get("smoothing_window_seconds", 0.10))
+    show_raw = bool(display.get("show_raw_samples", False))
+    maximum_plot_rate = float(display.get("maximum_plot_rate_hz", 25.0))
+    if not math.isfinite(smoothing_window) or smoothing_window < 0.0:
+        raise ValueError("invalid display smoothing window")
+    if not math.isfinite(maximum_plot_rate) or maximum_plot_rate <= 0.0:
+        raise ValueError("invalid maximum display plot rate")
     metadata = {}
 
     fig, ax = plt.subplots(figsize=(7.0, 5.4))
@@ -295,14 +430,30 @@ def plot_run(aligned_csv, output_dir, axis_overrides=None):
     if reference:
         ax.plot(*zip(*reference), "k--", label="等效载荷参考路径")
     for robot, color, style in zip(range(1, 4), colors, robot_styles):
-        values = _finite_xy(
-            _series(rows, "agv{}_support_pose_x".format(robot)),
-            _series(rows, "agv{}_support_pose_y".format(robot)))
-        if values:
-            ax.plot(*zip(*values), color=color, ls=style,
+        raw_x = _series(rows, "agv{}_support_pose_x".format(robot))
+        raw_y = _series(rows, "agv{}_support_pose_y".format(robot))
+        points = [(index, x, y) for index, (x, y) in enumerate(
+            zip(raw_x, raw_y)) if math.isfinite(x) and math.isfinite(y)]
+        if points:
+            point_time = [time[index] for index, _, _ in points]
+            x_values = [x for _, x, _ in points]
+            y_values = [y for _, _, y in points]
+            if show_raw:
+                ax.plot(x_values, y_values, color=color, ls=style,
+                        lw=0.5, alpha=0.14, label="_nolegend_")
+            trajectory_indices = _display_indices(
+                point_time, maximum_plot_rate)
+            smooth_x = _display_smooth(
+                point_time, x_values, smoothing_window)
+            smooth_y = _display_smooth(
+                point_time, y_values, smoothing_window)
+            ax.plot([smooth_x[index] for index in trajectory_indices],
+                    [smooth_y[index] for index in trajectory_indices],
+                    color=color, ls=style, lw=1.7,
                     label="Robot{}支撑点".format(robot))
     ax.set_aspect("equal", adjustable="box")
-    ax.set_title("S路径与三车支撑点轨迹")
+    ax.set_title("{}：{}与三车支撑点轨迹".format(
+        context["method_label"], context["path_label"]))
     ax.set_xlabel("x / m")
     ax.set_ylabel("y / m")
     _legend(ax, 2)
@@ -321,6 +472,7 @@ def plot_run(aligned_csv, output_dir, axis_overrides=None):
 
     fig, axes = plt.subplots(2, 1, figsize=(8.0, 6.5), sharex=True)
     physical_series = []
+    physical_to_plot = []
     for robot, color, style in zip(range(1, 4), colors, robot_styles):
         physical = []
         for row in rows:
@@ -330,10 +482,16 @@ def plot_run(aligned_csv, output_dir, axis_overrides=None):
                 "agv{}_wheel_right_reported_limit".format(robot)))
             physical.append(min(left, right) if math.isfinite(left + right)
                             else math.nan)
-        axes[0].plot(time, physical, color=color, ls=style,
-                     label="Robot{}物理轮速上限".format(robot))
         physical_series.append(physical)
-    axes[0].set_title("底盘物理轮速能力（轮速域）")
+        physical_to_plot.append((robot, color, style, physical))
+    if _same_series(physical_series):
+        axes[0].plot(time, physical_series[0], color="#333333", lw=1.6,
+                     label="三车物理轮速上限")
+    else:
+        for robot, color, style, physical in physical_to_plot:
+            axes[0].plot(time, physical, color=color, ls=style,
+                         label="Robot{}物理轮速上限".format(robot))
+    axes[0].set_title("三车底盘物理轮速能力（轮速域）")
     axes[0].set_ylabel("轮速 / (m/s)")
     _legend(axes[0])
     _set_y_axis(axes[0], physical_series, "figure3.wheel_capability",
@@ -348,16 +506,17 @@ def plot_run(aligned_csv, output_dir, axis_overrides=None):
             label="Robot{}路径映射能力".format(robot))
         axes[1].plot(time, boundary,
             color=color, ls=":", alpha=0.65,
-            label="Robot{} M1动态上界".format(robot))
+            label="Robot{} {}上界".format(robot, context["upper_label"]))
         path_series.extend((mapped, boundary))
     common_boundary = _series(rows, "common_boundary_upper")
     public_reference = _series(rows, "public_reference_velocity")
     axes[1].plot(time, common_boundary, "k--", lw=1.0,
-                 label="M1公共动态边界")
+                 label="{}公共上界".format(context["upper_label"]))
     axes[1].plot(time, public_reference, "k", lw=1.5,
                  label="公共参考速度")
     path_series.extend((common_boundary, public_reference))
-    axes[1].set_title("路径域能力与M1动态边界（非R1固定状态约束域）")
+    axes[1].set_title("{}：路径域能力与{}边界".format(
+        context["method_label"], context["upper_label"]))
     axes[1].set_xlabel("时间 / s")
     axes[1].set_ylabel("路径速度 / (m/s)")
     _legend(axes[1], 4)
@@ -377,23 +536,26 @@ def plot_run(aligned_csv, output_dir, axis_overrides=None):
             rows, "agv{}_s_dot_execute_reference".format(robot))
         lower = _series(rows, "agv{}_boundary_lower".format(robot))
         upper = _series(rows, "agv{}_boundary_upper".format(robot))
-        ax.plot(time, actual, color=color, alpha=0.72,
-                label="R1实测状态速度")
+        actual_trend = _plot_measured(
+            ax, time, actual, color,
+            "{}实测状态速度".format(context["lower_label"]),
+            window_seconds=smoothing_window, show_raw=show_raw,
+            maximum_plot_rate_hz=maximum_plot_rate)
         if any(math.isfinite(value) for value in execute):
             ax.plot(time, execute, color=color, ls="--", lw=1.15,
-                    label="R1执行速度参考")
+                    label="{}执行速度参考".format(context["lower_label"]))
         ax.plot(time, lower, "k--", lw=0.8,
-                label="M1参考动态下界")
+                label="{}下界".format(context["upper_label"]))
         ax.plot(time, upper, "k-.", lw=0.8,
-                label="M1参考动态上界")
+                label="{}上界".format(context["upper_label"]))
         ax.set_ylabel("Robot{} / (m/s)".format(robot))
         _legend(ax)
-        channel_series.extend((actual, execute, lower, upper))
+        channel_series.extend((actual, actual_trend, execute, lower, upper))
     for robot, ax in zip(range(1, 4), axes):
         _set_y_axis(ax, channel_series, "figure4.robot{}".format(robot),
                     "m/s", metadata, axis_overrides)
-    axes[0].set_title(
-        "M1参考动态边界与R1执行/实测速度（语义分离）")
+    axes[0].set_title("{}：参考边界与执行/实测速度".format(
+        context["method_label"]))
     axes[-1].set_xlabel("时间 / s")
     _record_ticks(fig, {
         "figure4.robot{}".format(robot): axes[robot - 1]
@@ -410,13 +572,22 @@ def plot_run(aligned_csv, output_dir, axis_overrides=None):
         applied = _series(rows, prefix + "_applied")
         actual = _series(rows, prefix + "_actual")
         limit = _series(rows, prefix + "_reported_limit")
-        ax.plot(time, pre_limit, color="#9467bd", label="限幅前需求")
+        _plot_measured(
+            ax, time, pre_limit, "#9467bd", "限幅前需求",
+            window_seconds=smoothing_window, show_raw=show_raw,
+            maximum_plot_rate_hz=maximum_plot_rate)
         if any(math.isfinite(a + b) and abs(a - b) > 1.0e-9
                for a, b in zip(pre_limit, fleet_scaled)):
             ax.plot(time, fleet_scaled, color="#8c564b", ls=":",
                     label="车队缩放后需求")
-        ax.plot(time, applied, color="#ff7f0e", ls="--", label="执行命令")
-        ax.plot(time, actual, color=colors[1], label="实际轮速")
+        _plot_measured(
+            ax, time, applied, "#ff7f0e", "执行命令", style="--",
+            window_seconds=smoothing_window, show_raw=show_raw,
+            maximum_plot_rate_hz=maximum_plot_rate)
+        _plot_measured(
+            ax, time, actual, colors[1], "实际轮速",
+            window_seconds=smoothing_window, show_raw=show_raw,
+            maximum_plot_rate_hz=maximum_plot_rate)
         ax.plot(time, limit, "k--", lw=0.9, label="物理上限")
         negative_limit = [-value if math.isfinite(value) else math.nan
                           for value in limit]
@@ -430,14 +601,15 @@ def plot_run(aligned_csv, output_dir, axis_overrides=None):
                     lw=0.9)
             wheel_axes_series.extend((emergency, negative_emergency))
         ax.set_ylabel("{} / (m/s)".format(side_cn))
-        _legend(ax, 4)
+        if side == "left":
+            _legend(ax, 4)
         wheel_axes_series.extend(
             (pre_limit, applied, actual, limit, negative_limit))
     for ax, side in zip(axes, ("left", "right")):
         _set_y_axis(ax, wheel_axes_series, "figure5.{}".format(side),
                     "m/s", metadata, axis_overrides)
     axes[0].set_title(
-        "Robot2轮速执行链（物理限幅与pre-limit紧急阈值语义分离）")
+        "{}：Robot2轮速需求、执行与反馈".format(context["method_label"]))
     axes[-1].set_xlabel("时间 / s")
     _record_ticks(fig, {
         "figure5.left": axes[0], "figure5.right": axes[1]}, metadata)
@@ -453,7 +625,10 @@ def plot_run(aligned_csv, output_dir, axis_overrides=None):
               finite_float(row.get("load_y_reference")))
         load_error.append(math.hypot(dx, dy) if math.isfinite(dx + dy)
                           else math.nan)
-    ax.plot(time, load_error, "k", label="虚拟等效载荷位置误差")
+    _plot_measured(
+        ax, time, load_error, "#222222", "虚拟等效载荷位置误差",
+        window_seconds=smoothing_window, show_raw=show_raw,
+        maximum_plot_rate_hz=maximum_plot_rate)
     error_series = [load_error]
     for robot, color, style in zip(range(1, 4), colors, robot_styles):
         errors = []
@@ -468,14 +643,20 @@ def plot_run(aligned_csv, output_dir, axis_overrides=None):
                     "agv{}_support_reference_y".format(robot))))
             errors.append(math.hypot(dx, dy) if math.isfinite(dx + dy)
                           else math.nan)
-        ax.plot(time, errors, color=color, ls=style,
-                label="Robot{}支撑点误差".format(robot))
+        _plot_measured(
+            ax, time, errors, color,
+            "Robot{}支撑点误差".format(robot), style=style,
+            window_seconds=smoothing_window, show_raw=show_raw,
+            maximum_plot_rate_hz=maximum_plot_rate)
         error_series.append(errors)
     formation_error = _formation_errors(rows)
-    ax.plot(time, formation_error, color="#7f3c8d", ls="--",
-            label="构型残差")
+    _plot_measured(
+        ax, time, formation_error, "#7f3c8d", "构型残差", style="--",
+        window_seconds=smoothing_window, show_raw=show_raw,
+        maximum_plot_rate_hz=maximum_plot_rate)
     error_series.append(formation_error)
-    ax.set_title("等效载荷、支撑点及构型误差")
+    ax.set_title("{}：等效载荷、支撑点及构型误差".format(
+        context["method_label"]))
     ax.set_xlabel("时间 / s")
     ax.set_ylabel("绝对误差 / m")
     _legend(ax, 3)
@@ -488,23 +669,29 @@ def plot_run(aligned_csv, output_dir, axis_overrides=None):
     fig, axes = plt.subplots(2, 1, figsize=(8.0, 6.0), sharex=True)
     s_ref = _series(rows, "load_s_reference")
     v_ref = _series(rows, "load_velocity_reference")
+    progress_series = []
+    velocity_series = []
     for robot, color, style in zip(range(1, 4), colors, robot_styles):
         s_error = [a - b for a, b in zip(
             _series(rows, "agv{}_s_actual".format(robot)), s_ref)]
         v_error = [a - b for a, b in zip(
             _series(rows, "agv{}_s_dot_actual".format(robot)), v_ref)]
-        axes[0].plot(time, s_error, color=color, ls=style,
-                     label="Robot{}".format(robot))
-        axes[1].plot(time, v_error, color=color, ls=style,
-                     label="Robot{}".format(robot))
-    axes[0].set_title("路径进度误差与速度误差")
+        _plot_measured(
+            axes[0], time, s_error, color, "Robot{}".format(robot),
+            style=style, window_seconds=smoothing_window,
+            show_raw=show_raw, maximum_plot_rate_hz=maximum_plot_rate)
+        _plot_measured(
+            axes[1], time, v_error, color, "Robot{}".format(robot),
+            style=style, window_seconds=smoothing_window,
+            show_raw=show_raw, maximum_plot_rate_hz=maximum_plot_rate)
+        progress_series.append(s_error)
+        velocity_series.append(v_error)
+    axes[0].set_title("{}：路径进度误差与速度误差".format(
+        context["method_label"]))
     axes[0].set_ylabel("进度误差 / m")
     _legend(axes[0])
     axes[1].set_ylabel("速度误差 / (m/s)")
     axes[1].set_xlabel("时间 / s")
-    _legend(axes[1])
-    progress_series = [line.get_ydata() for line in axes[0].lines]
-    velocity_series = [line.get_ydata() for line in axes[1].lines]
     _set_y_axis(axes[0], progress_series, "figure7.progress_error", "m",
                 metadata, axis_overrides, wide=True)
     _set_y_axis(axes[1], velocity_series, "figure7.velocity_error", "m/s",
@@ -515,10 +702,19 @@ def plot_run(aligned_csv, output_dir, axis_overrides=None):
     _save(fig, output, "figure7_progress_recovery")
     plt.close(fig)
     atomic_dump_json(output / "plot_metadata.json", {
-        "schema_version": 1,
+        "schema_version": 2,
         "source": str(Path(aligned_csv).resolve()),
         "figures": 6,
         "emergency_pre_limit_threshold_mps": emergency_threshold,
+        "run_context": context,
+        "display_processing": {
+            "raw_samples_preserved": True,
+            "metrics_use_raw_samples": True,
+            "outliers_removed": False,
+            "show_raw_samples": show_raw,
+            "robust_centered_trend_window_seconds": smoothing_window,
+            "maximum_trend_plot_rate_hz": maximum_plot_rate,
+        },
         "axes": metadata,
     })
     return 6

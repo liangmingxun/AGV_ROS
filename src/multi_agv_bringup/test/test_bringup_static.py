@@ -379,15 +379,18 @@ class BringupStaticTest(unittest.TestCase):
         self.assertIn(
             "FORMAL_RUNTIME_CONFIG=src/multi_agv_bringup/config/"
             "formal_serial_m1_r1_circle_r0p7_runtime.yaml", entry)
-        self.assertIn("FORMAL_UPPER_MODE=M1", entry)
-        self.assertIn("FORMAL_ENABLE_ROBOT2_DERATING=false", entry)
+        self.assertIn(
+            'FORMAL_UPPER_MODE="${FORMAL_UPPER_MODE:-M1}"', entry)
+        self.assertIn(
+            'FORMAL_ENABLE_ROBOT2_DERATING="${FORMAL_ENABLE_ROBOT2_DERATING:-false}"',
+            entry)
         self.assertIn("run_m1_r1_serial_unloaded.sh", entry)
         self.assertIn(
             "--confirm-r0p7-short-arc-footprint-clear", short_entry)
         self.assertIn(
             "FORMAL_TARGET_PROGRESS=1.699557428756428", short_entry)
         self.assertIn(
-            "FORMAL_RUN_PREFIX=m1_r1_circle_r0p7_cw_short_arc",
+            'FORMAL_RUN_PREFIX="${FORMAL_RUN_PREFIX:-m1_r1_circle_r0p7_cw_short_arc}"',
             short_entry)
         self.assertIn(
             "formal_serial_m1_r1_circle_r0p7_short_arc_runtime.yaml",
@@ -523,6 +526,69 @@ class BringupStaticTest(unittest.TestCase):
         runtime_data = yaml.safe_load(runtime)["formal_fake_runtime"]
         self.assertEqual(runtime_data["leader"]["velocity"], 0.08)
         self.assertFalse(runtime_data["command_publication_authorized"])
+
+    def test_m2a_and_m2b_share_the_exact_circle_execution_entry(self):
+        scripts = PACKAGE / "scripts"
+        base = (scripts / "run_m1_r1_serial_unloaded.sh").read_text(
+            encoding="utf-8")
+        circle = (scripts / "run_m1_r1_serial_unloaded_circle_r0p7.sh").read_text(
+            encoding="utf-8")
+        short_circle = (
+            scripts / "run_m1_r1_serial_unloaded_circle_r0p7_short_arc.sh"
+        ).read_text(encoding="utf-8")
+        m2a = (scripts / "run_m2a_r1_serial_unloaded_circle_r0p7.sh").read_text(
+            encoding="utf-8")
+        m2a_short = (
+            scripts / "run_m2a_r1_serial_unloaded_circle_r0p7_short_arc.sh"
+        ).read_text(encoding="utf-8")
+        m2b = (scripts / "run_m2b_serial_unloaded_circle_r0p7.sh").read_text(
+            encoding="utf-8")
+        m2b_short = (
+            scripts / "run_m2b_serial_unloaded_circle_r0p7_short_arc.sh"
+        ).read_text(encoding="utf-8")
+        m2a_authorization = (
+            PACKAGE / "config" / "formal_serial_m2a_r1_authorization.yaml"
+        ).read_text(encoding="utf-8")
+        m2b_authorization = (
+            PACKAGE / "config" / "formal_serial_m2b_authorization.yaml"
+        ).read_text(encoding="utf-8")
+
+        for entry, mode in ((m2a, "M2a"), (m2a_short, "M2a"),
+                            (m2b, "M2b"), (m2b_short, "M2b")):
+            self.assertIn("FORMAL_UPPER_MODE={}".format(mode), entry)
+            self.assertIn("FORMAL_ENABLE_ROBOT2_DERATING=false", entry)
+            self.assertNotIn("FORMAL_RUNTIME_CONFIG=", entry)
+            self.assertNotIn("FORMAL_PATH_CONFIG=", entry)
+        self.assertIn("run_m1_r1_serial_unloaded_circle_r0p7.sh", m2a)
+        self.assertIn("run_m1_r1_serial_unloaded_circle_r0p7.sh", m2b)
+        self.assertIn(
+            "run_m1_r1_serial_unloaded_circle_r0p7_short_arc.sh", m2a_short)
+        self.assertIn(
+            "run_m1_r1_serial_unloaded_circle_r0p7_short_arc.sh", m2b_short)
+        for entry in (circle, short_circle):
+            self.assertIn(
+                "FORMAL_PATH_CONFIG=src/multi_agv_bringup/config/"
+                "path_circle_r0p7_cw_m1_r1.yaml", entry)
+        self.assertIn("formal_upper_mode\" != M2b", base)
+        self.assertIn('method_id="M2b_M2b"', base)
+        self.assertIn(
+            'lower_config="src/multi_agv_bringup/config/exp2b_M2b.yaml"',
+            base)
+        self.assertIn("formal_serial_m2a_r1_authorization.yaml", base)
+        self.assertIn("formal_serial_m2b_authorization.yaml", base)
+        self.assertIn(
+            "has not received independent physical execution authorization",
+            base)
+        for authorization in (m2a_authorization, m2b_authorization):
+            self.assertEqual(authorization.count(
+                "hardware_execution_authorized: true"), 2)
+            self.assertIn("path_circle_r0p7_cw_m1_r1.yaml", authorization)
+            self.assertIn(
+                "formal_serial_m1_r1_circle_r0p7_runtime.yaml",
+                authorization)
+            self.assertIn(
+                "target_progress: 4.998229715025710", authorization)
+            self.assertIn("robot2_derating: false", authorization)
 
     def test_optional_software_watchdog_is_observer_only(self):
         launch = (
@@ -1067,6 +1133,24 @@ class BringupStaticTest(unittest.TestCase):
             PACKAGE / "config" /
             "three_car_unloaded_bounded_pretest.yaml"
         ).read_text(encoding="utf-8"))
+
+    def test_formal_fusion_filters_position_before_path_differentiation(self):
+        fusion = (
+            PACKAGE / "config" / "localization_fusion.yaml"
+        ).read_text(encoding="utf-8")
+        recording = (
+            PACKAGE / "config" / "record_topics.yaml"
+        ).read_text(encoding="utf-8")
+        for robot in range(1, 4):
+            self.assertIn(
+                "camera_pose_topic: /pose_provider/agv{}/base_pose_filtered".
+                format(robot), fusion)
+            self.assertIn(
+                "/pose_provider/agv{}/base_pose_raw".format(robot),
+                recording)
+            self.assertIn(
+                "/pose_provider/agv{}/base_pose_filtered".format(robot),
+                recording)
 
     def test_three_car_straight_entry_is_independent_and_records_imu(self):
         path = (

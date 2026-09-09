@@ -700,6 +700,8 @@ class FormalFakeAlgorithmNode {
         upper.mode == UpperMode::kM1 && lower.mode == LowerMode::kR1;
     gate.m2a_r1_selected =
         upper.mode == UpperMode::kM2a && lower.mode == LowerMode::kR1;
+    gate.m2b_m2b_selected =
+        upper.mode == UpperMode::kM2b && lower.mode == LowerMode::kM2b;
     gate.recorder_required = require_recorder_armed_;
     gate.test_area_confirmed = confirm_test_area_clear_;
     gate.wheels_on_floor_confirmed = confirm_wheels_on_floor_;

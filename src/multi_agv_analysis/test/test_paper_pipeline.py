@@ -7,7 +7,8 @@ from pathlib import Path
 
 from multi_agv_analysis.io_utils import (
     atomic_dump_json, load_yaml, write_csv)
-from multi_agv_analysis.paper_pipeline import export_views, plot_run
+from multi_agv_analysis.paper_pipeline import (
+    _display_smooth, _run_context, export_views, plot_run)
 from multi_agv_analysis.publication_plots import (
     plot_experiment1, plot_experiment2a, plot_experiment2b,
     plot_experiment3, write_statistics)
@@ -17,6 +18,60 @@ SCRIPT = Path(__file__).parents[1] / "scripts" / "plot_paper_experiments.py"
 
 
 class PaperPipelineTest(unittest.TestCase):
+    def test_run_context_uses_recorded_method_and_circle_snapshot(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            run = Path(temporary) / "m2b_run"
+            converted = run / "converted"
+            config = run / "config"
+            converted.mkdir(parents=True)
+            config.mkdir()
+            write_csv(converted / "aligned_samples.csv", [{"stamp": 1.0}])
+            write_csv(converted / "controller_state.csv", [{
+                "method_id": "M2b_M2b",
+            }])
+            (config / "06_path.yaml").write_text(
+                "path_s_curve:\n"
+                "  model: circle_smooth_entry\n"
+                "  circle_radius: 0.7\n"
+                "  circle_direction: -1.0\n",
+                encoding="utf-8")
+            context = _run_context(converted / "aligned_samples.csv")
+            self.assertEqual(context["method_label"], "M2b")
+            self.assertEqual(context["lower_label"], "M2b")
+            self.assertEqual(
+                context["path_label"], "R=0.7 m顺时针圆形路径")
+
+    def test_run_context_labels_smooth_circle_exit_in_chinese(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            run = Path(temporary) / "smooth_circle"
+            converted = run / "converted"
+            config = run / "config"
+            converted.mkdir(parents=True)
+            config.mkdir()
+            write_csv(converted / "controller_state.csv", [{
+                "method_id": "M1_R1",
+            }])
+            (config / "06_path.yaml").write_text(
+                "path_s_curve:\n"
+                "  model: circle_smooth_entry_exit\n"
+                "  circle_radius: 0.7\n"
+                "  circle_direction: -1.0\n",
+                encoding="utf-8")
+            context = _run_context(converted / "aligned_samples.csv")
+            self.assertEqual(
+                context["path_label"],
+                "R=0.7 m顺时针圆形路径（平滑进出）")
+
+    def test_display_smoothing_preserves_source_and_only_changes_trend(self):
+        time = [index * 0.01 for index in range(21)]
+        source = [0.08] * 21
+        source[10] = 0.18
+        frozen = list(source)
+        trend = _display_smooth(time, source, 0.10)
+        self.assertEqual(source, frozen)
+        self.assertEqual(len(trend), len(source))
+        self.assertLess(max(trend), max(source))
+
     def test_cli_exposes_stable_numbered_test_folders(self):
         script = SCRIPT.read_text(encoding="utf-8")
         for folder in (
@@ -163,6 +218,17 @@ class PaperPipelineTest(unittest.TestCase):
                 metadata["axes"]["figure6.position_error"]["y_min"], 0.0)
             self.assertEqual(
                 metadata["axes"]["figure7.progress_error"]["unit"], "m")
+            self.assertEqual(metadata["schema_version"], 2)
+            self.assertTrue(metadata["display_processing"]
+                            ["raw_samples_preserved"])
+            self.assertTrue(metadata["display_processing"]
+                            ["metrics_use_raw_samples"])
+            self.assertFalse(metadata["display_processing"]
+                             ["outliers_removed"])
+            self.assertFalse(metadata["display_processing"]
+                             ["show_raw_samples"])
+            self.assertEqual(metadata["display_processing"]
+                             ["maximum_trend_plot_rate_hz"], 25.0)
             self.assertGreaterEqual(
                 len(metadata["axes"]["figure6.position_error"]["ticks"]), 5)
             source_text = Path(
@@ -173,12 +239,14 @@ class PaperPipelineTest(unittest.TestCase):
             self.assertIn("FigureCanvasCairo", font_source)
             self.assertIn("TrueType font is missing table", font_source)
             for marker in (
-                    "S路径与三车支撑点轨迹",
-                    "路径域能力与M1动态边界",
-                    "M1参考动态边界与R1执行/实测速度",
-                    "Robot2轮速执行链",
+                    "path_label",
+                    "路径域能力与{}边界",
+                    "参考边界与执行/实测速度",
+                    "Robot2轮速需求、执行与反馈",
                     "等效载荷、支撑点及构型误差",
                     "路径进度误差与速度误差",
+                    "_display_smooth",
+                    "metrics_use_raw_samples",
                     "dpi=320"):
                 self.assertIn(marker, source_text)
 
