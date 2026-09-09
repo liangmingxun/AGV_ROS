@@ -1,0 +1,7 @@
+# Raw-sample publication view. No display smoothing is applied. Metrics and
+# converted CSV files use these same original samples.
+display:
+  smoothing_window_seconds: 0.0
+  wheel_feedback_smoothing_window_seconds: 0.0
+  show_raw_samples: false
+  maximum_plot_rate_hz: 1000.0

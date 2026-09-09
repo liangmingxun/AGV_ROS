@@ -1,0 +1,7 @@
+# Publication display profile. Only plotted trends are smoothed; converted CSV
+# samples and every reported metric remain based on the original 100 Hz data.
+display:
+  smoothing_window_seconds: 0.80
+  wheel_feedback_smoothing_window_seconds: 0.80
+  show_raw_samples: false
+  maximum_plot_rate_hz: 25.0

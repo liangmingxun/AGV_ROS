@@ -1,0 +1,12 @@
+# M2a+R1 method authorization for the exact same execution condition as M1.
+# Physical Robot2 derating publication has its own fail-closed overlay.
+formal_upper:
+  hardware_execution_authorized: true
+formal_lower:
+  hardware_execution_authorized: true
+authorization_scope:
+  path_config: src/multi_agv_bringup/config/path_circle_r0p7_cw_smooth_exit.yaml
+  runtime_config: src/multi_agv_bringup/config/formal_serial_m1_r1_circle_r0p7_smooth_exit_soft_start_runtime.yaml
+  evaluation_config: src/multi_agv_bringup/config/formal_evaluation_circle_r0p7_smooth_exit_derating.yaml
+  target_progress: 5.178229715025710
+  robot2_derating: true

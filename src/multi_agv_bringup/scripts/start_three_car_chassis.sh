@@ -3,6 +3,7 @@ set -euo pipefail
 
 usage() {
   echo "usage: $0 <robot-index: 1|2|3> [--confirm-formal-0p15-wheel-envelope]" >&2
+  echo "Robot1 also starts the UDP vision bridge and camera/odometry fusion." >&2
 }
 
 if [[ $# -lt 1 || ! "$1" =~ ^[123]$ ]]; then
@@ -27,7 +28,7 @@ robot_name="robot${robot_index}"
 agv_name="agv${robot_index}"
 master_ip="192.168.6.101"
 case "$robot_index" in
-  1) local_ip="192.168.6.101"; launch_file="car1_master.launch" ;;
+  1) local_ip="192.168.6.101"; launch_file="robot1_chassis_vision.launch" ;;
   2) local_ip="192.168.6.102"; launch_file="car2_client.launch" ;;
   3) local_ip="192.168.6.103"; launch_file="car3_client.launch" ;;
 esac
@@ -82,6 +83,16 @@ source devel/setup.bash
 source src/multi_agv_bringup/scripts/setup_ros_network.sh \
   "$local_ip" "$master_ip"
 
+if [[ "$robot_index" == "1" ]] && timeout 3 rosnode list >/dev/null 2>&1; then
+  for node in /vision_udp_bridge /pose_provider /camera_odom_fusion; do
+    if rosnode list 2>/dev/null | grep -Fqx "$node"; then
+      echo "ERROR: ${node} is already running." >&2
+      echo "Stop the old standalone Robot1 vision launch before using the unified entry." >&2
+      exit 10
+    fi
+  done
+fi
+
 if [[ "$robot_index" != "1" ]] &&
    ! timeout 3 rosnode list >/dev/null 2>&1; then
   echo "ERROR: Robot1 ROS master is unreachable at ${ROS_MASTER_URI}" >&2
@@ -134,5 +145,8 @@ echo "${agv_name} READY"
 echo "git=${git_sha}"
 echo "serial=${serial_device}"
 echo "formal_available_wheel_limit=${formal_wheel_limit} m/s"
+if [[ "$robot_index" == "1" ]]; then
+  echo "vision=/vision_udp_bridge + /pose_provider + /camera_odom_fusion"
+fi
 echo "Keep this terminal open. Stop with Ctrl+C only after the experiment."
 wait "$launch_pid"

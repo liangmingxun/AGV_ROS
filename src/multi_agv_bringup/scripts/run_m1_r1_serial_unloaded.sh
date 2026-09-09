@@ -59,6 +59,7 @@ cd "$workspace"
 runtime_config="${FORMAL_RUNTIME_CONFIG:-src/multi_agv_bringup/config/formal_serial_m1_r1_runtime.yaml}"
 path_config="${FORMAL_PATH_CONFIG:-src/multi_agv_bringup/config/path_s_curve_terminal_straight.yaml}"
 evaluation_config="${FORMAL_EVALUATION_CONFIG:-src/multi_agv_bringup/config/formal_evaluation_window.yaml}"
+derating_authorization_config="${FORMAL_DERATING_AUTHORIZATION_CONFIG:-src/multi_agv_bringup/config/formal_exp2a_derating_authorization.yaml}"
 case "$formal_upper_mode" in
   M2a)
     upper_config="src/multi_agv_bringup/config/exp2a_M2a_serial_008.yaml"
@@ -87,7 +88,8 @@ case "$formal_upper_mode" in
 esac
 for required_config in "$runtime_config" "$path_config" \
                        "$evaluation_config" "$upper_config" \
-                       "$lower_config" "$authorization_config"; do
+                       "$lower_config" "$authorization_config" \
+                       "$derating_authorization_config"; do
   if [[ ! -f "$required_config" ]]; then
     echo "ERROR: required formal configuration is missing: ${required_config}" >&2
     exit 3
@@ -126,6 +128,10 @@ authorized_robot2_derating="$(awk '
   /^authorization_scope:/ {in_scope=1; next}
   in_scope && /^[[:space:]]*robot2_derating:/ {print $2; exit}
 ' "$authorization_config")"
+derating_hardware_authorized="$(awk '
+  /^exp2a_derating_pretest:/ {in_derating=1; next}
+  in_derating && /^[[:space:]]*hardware_execution_authorized:/ {print $2; exit}
+' "$derating_authorization_config")"
 nominal_common_velocity="$(awk '
   /^[[:space:]]*leader:/ {in_leader=1; next}
   in_leader && /^[[:space:]]*velocity:/ {print $2; exit}
@@ -162,6 +168,12 @@ if [[ "$method_upper_authorized" != true ||
       "$method_lower_authorized" != true ]]; then
   echo "ERROR: ${method_id} has not received independent physical execution authorization" >&2
   echo "Authorization remains fail-closed in ${authorization_config}" >&2
+  exit 3
+fi
+if [[ "$enable_robot2_derating" == true &&
+      "$derating_hardware_authorized" != true ]]; then
+  echo "ERROR: Robot2 physical derating is not authorized" >&2
+  echo "First pass the 0.15 -> 0.06 -> 0.15 m/s raised-wheel pretest, review its evidence, then update ${derating_authorization_config}" >&2
   exit 3
 fi
 if [[ -n "$authorized_path_config" ]] &&
@@ -312,6 +324,7 @@ run_id="${run_prefix}_$(date +%Y%m%d_%H%M%S)"
 roslaunch multi_agv_bringup formal_serial_m1_r1.launch \
   upper_config:="${workspace}/${upper_config}" \
   lower_config:="${workspace}/${lower_config}" \
+  authorization_config:="${workspace}/${authorization_config}" \
   path_config:="${workspace}/${path_config}" \
   runtime_config:="${workspace}/${runtime_config}" \
   experiment_id:="$experiment_id" \
@@ -324,6 +337,7 @@ algorithm_pid="$!"
 roslaunch multi_agv_bringup formal_evaluation_window.launch \
   platform_transport_type:=serial \
   evaluation_config:="${workspace}/${evaluation_config}" \
+  authorization_config:="${workspace}/${derating_authorization_config}" \
   derating_publication_authorized:="$enable_robot2_derating" \
   confirm_robot2_local_derating:="$enable_robot2_derating" \
   run_id:="$run_id" method_id:="$method_id" \
@@ -350,6 +364,7 @@ roslaunch multi_agv_bringup experiment.launch \
   upper_config:="${workspace}/${upper_config}" \
   lower_config:="${workspace}/${lower_config}" \
   execution_authorization_config:="${workspace}/${authorization_config}" \
+  derating_authorization_config:="${workspace}/${derating_authorization_config}" \
   evaluation_config:="${workspace}/${evaluation_config}" \
   path_config:="${workspace}/${path_config}" \
   nominal_common_velocity:="$nominal_common_velocity" \
@@ -393,7 +408,8 @@ if rosrun multi_agv_analysis process_experiment_run.py "$run_dir" \
   echo "POSTPROCESS_STATUS=PASSED"
   echo "SUMMARY: ${run_dir}/summary_metrics.json"
   echo "VALIDATION: ${run_dir}/validation.json"
-  echo "FIGURES: ${run_dir}/plots"
+  echo "RAW FIGURES: ${run_dir}/plots_raw"
+  echo "SMOOTHED FIGURES: ${run_dir}/plots_smoothed_0p8s"
 else
   postprocess_result="$?"
   echo "POSTPROCESS_STATUS=FAILED step=bag_csv_validation_metrics_or_plots" >&2

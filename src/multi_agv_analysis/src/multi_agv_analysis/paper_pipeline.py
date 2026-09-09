@@ -416,10 +416,15 @@ def plot_run(aligned_csv, output_dir, axis_overrides=None):
     context = _run_context(aligned_csv)
     display = (axis_overrides or {}).get("display", {})
     smoothing_window = float(display.get("smoothing_window_seconds", 0.10))
+    wheel_feedback_smoothing_window = float(display.get(
+        "wheel_feedback_smoothing_window_seconds", 0.80))
     show_raw = bool(display.get("show_raw_samples", False))
     maximum_plot_rate = float(display.get("maximum_plot_rate_hz", 25.0))
     if not math.isfinite(smoothing_window) or smoothing_window < 0.0:
         raise ValueError("invalid display smoothing window")
+    if (not math.isfinite(wheel_feedback_smoothing_window) or
+            wheel_feedback_smoothing_window < 0.0):
+        raise ValueError("invalid wheel feedback display smoothing window")
     if not math.isfinite(maximum_plot_rate) or maximum_plot_rate <= 0.0:
         raise ValueError("invalid maximum display plot rate")
     metadata = {}
@@ -530,31 +535,30 @@ def plot_run(aligned_csv, output_dir, axis_overrides=None):
 
     fig, axes = plt.subplots(3, 1, figsize=(8.0, 7.0), sharex=True)
     channel_series = []
+    public_reference = _series(rows, "public_reference_velocity")
     for robot, ax, color in zip(range(1, 4), axes, colors):
         actual = _series(rows, "agv{}_s_dot_actual".format(robot))
-        execute = _series(
-            rows, "agv{}_s_dot_execute_reference".format(robot))
         lower = _series(rows, "agv{}_boundary_lower".format(robot))
         upper = _series(rows, "agv{}_boundary_upper".format(robot))
         actual_trend = _plot_measured(
             ax, time, actual, color,
-            "{}实测状态速度".format(context["lower_label"]),
+            "融合实测路径速度",
             window_seconds=smoothing_window, show_raw=show_raw,
             maximum_plot_rate_hz=maximum_plot_rate)
-        if any(math.isfinite(value) for value in execute):
-            ax.plot(time, execute, color=color, ls="--", lw=1.15,
-                    label="{}执行速度参考".format(context["lower_label"]))
+        ax.plot(time, public_reference, color="#555555", ls=":", lw=1.25,
+                label="公共参考速度")
         ax.plot(time, lower, "k--", lw=0.8,
                 label="{}下界".format(context["upper_label"]))
         ax.plot(time, upper, "k-.", lw=0.8,
                 label="{}上界".format(context["upper_label"]))
         ax.set_ylabel("Robot{} / (m/s)".format(robot))
         _legend(ax)
-        channel_series.extend((actual, actual_trend, execute, lower, upper))
+        channel_series.extend(
+            (actual, actual_trend, public_reference, lower, upper))
     for robot, ax in zip(range(1, 4), axes):
         _set_y_axis(ax, channel_series, "figure4.robot{}".format(robot),
                     "m/s", metadata, axis_overrides)
-    axes[0].set_title("{}：参考边界与执行/实测速度".format(
+    axes[0].set_title("{}：参考边界、公共参考与实测路径速度".format(
         context["method_label"]))
     axes[-1].set_xlabel("时间 / s")
     _record_ticks(fig, {
@@ -586,7 +590,8 @@ def plot_run(aligned_csv, output_dir, axis_overrides=None):
             maximum_plot_rate_hz=maximum_plot_rate)
         _plot_measured(
             ax, time, actual, colors[1], "实际轮速",
-            window_seconds=smoothing_window, show_raw=show_raw,
+            window_seconds=wheel_feedback_smoothing_window,
+            show_raw=show_raw,
             maximum_plot_rate_hz=maximum_plot_rate)
         ax.plot(time, limit, "k--", lw=0.9, label="物理上限")
         negative_limit = [-value if math.isfinite(value) else math.nan
@@ -713,6 +718,8 @@ def plot_run(aligned_csv, output_dir, axis_overrides=None):
             "outliers_removed": False,
             "show_raw_samples": show_raw,
             "robust_centered_trend_window_seconds": smoothing_window,
+            "wheel_feedback_trend_window_seconds": (
+                wheel_feedback_smoothing_window),
             "maximum_trend_plot_rate_hz": maximum_plot_rate,
         },
         "axes": metadata,

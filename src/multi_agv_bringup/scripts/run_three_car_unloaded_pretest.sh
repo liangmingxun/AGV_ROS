@@ -162,7 +162,7 @@ done
 for node in /pose_provider /camera_odom_fusion; do
   if ! rosnode list | grep -Fqx "$node"; then
     echo "ERROR: camera observation node is missing: ${node}" >&2
-    echo "Run ./start_camera_pose_fusion_only.sh on Robot1." >&2
+    echo "Restart Robot1 with start_three_car_chassis.sh 1 so its integrated vision stack is available." >&2
     exit 9
   fi
 done

@@ -30,10 +30,13 @@ install(PROGRAMS
         scripts/run_m1_r1_serial_unloaded_3m.sh
         scripts/run_m1_r1_serial_unloaded_circle_r0p7.sh
         scripts/run_m1_r1_serial_unloaded_circle_r0p7_smooth_exit.sh
+        scripts/run_m1_r1_serial_unloaded_circle_r0p7_smooth_exit_derating.sh
         scripts/run_m1_r1_serial_unloaded_circle_r0p7_short_arc.sh
         scripts/run_m2a_r1_serial_unloaded_circle_r0p7.sh
+        scripts/run_m2a_r1_serial_unloaded_circle_r0p7_smooth_exit_derating.sh
         scripts/run_m2a_r1_serial_unloaded_circle_r0p7_short_arc.sh
         scripts/run_m2b_serial_unloaded_circle_r0p7.sh
+        scripts/run_m2b_serial_unloaded_circle_r0p7_smooth_exit_derating.sh
         scripts/run_m2b_serial_unloaded_circle_r0p7_short_arc.sh
         scripts/run_m1_r1_exp2a_derating_unloaded.sh
         scripts/run_m2a_r1_serial_unloaded.sh

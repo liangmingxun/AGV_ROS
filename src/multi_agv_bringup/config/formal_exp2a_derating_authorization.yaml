@@ -1,6 +1,8 @@
-# This lock is intentionally separate from the already confirmed 0.15 m/s
-# chassis envelope. Set true only after the current-envelope Robot2 raised-wheel
-# derating pretest has passed and the operator has accepted that evidence.
+# This lock is intentionally separate from the confirmed 0.15 m/s chassis
+# envelope. The operator explicitly authorized the shared physical derating
+# gate on 2026-09-09. No raised-wheel result is fabricated by this record.
 exp2a_derating_pretest:
-  configuration_status: pending_robot2_0p15_to_0p06_raised_wheel_validation
-  hardware_execution_authorized: false
+  configuration_status: operator_authorized_2026_09_09
+  hardware_execution_authorized: true
+  authorization_basis: explicit_operator_authorization
+  authorization_scope: unloaded_30cm_fixture_robot2_0p15_to_0p06_to_0p15

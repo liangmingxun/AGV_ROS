@@ -44,6 +44,22 @@ class BringupStaticTest(unittest.TestCase):
                 ET.parse(launch)
                 self.assertNotIn("move_base", launch.read_text(encoding="utf-8"))
 
+    def test_robot1_unified_entry_starts_chassis_and_camera_stack(self):
+        launch = (
+            PACKAGE / "launch" / "robot1_chassis_vision.launch"
+        ).read_text(encoding="utf-8")
+        start = (
+            PACKAGE / "scripts" / "start_three_car_chassis.sh"
+        ).read_text(encoding="utf-8")
+        self.assertIn("car1_master.launch", launch)
+        self.assertIn("vision_udp_bridge.launch", launch)
+        self.assertIn("camera_pose_fusion_only.launch", launch)
+        self.assertIn('calibration_authorized" default="true', launch)
+        self.assertIn('launch_file="robot1_chassis_vision.launch"', start)
+        for node in ("/vision_udp_bridge", "/pose_provider",
+                     "/camera_odom_fusion"):
+            self.assertIn(node, start)
+
     def test_task17_recording_is_subscription_ready_and_auditable(self):
         launch = (
             PACKAGE / "launch" / "experiment.launch"
@@ -138,7 +154,7 @@ class BringupStaticTest(unittest.TestCase):
         self.assertNotIn("serial", launch)
         self.assertNotIn("formal_statistics_authorized: true", registry)
         self.assertIn("software_rehearsal_only", registry)
-        self.assertIn("Robot2正式降额与正式统计仍关闭", formal_gate)
+        self.assertIn("Robot2实车降额已由操作者授权", formal_gate)
 
     def test_serial_008_speed_scale_is_consistent_and_operator_authorized(self):
         runtime = (
@@ -236,9 +252,9 @@ class BringupStaticTest(unittest.TestCase):
         self.assertIn("FORMAL_ENABLE_ROBOT2_DERATING=true", m2a_entry)
         self.assertIn("FORMAL_UPPER_MODE=M1", m1_derating_entry)
         self.assertIn("FORMAL_ENABLE_ROBOT2_DERATING=true", m1_derating_entry)
-        self.assertIn("hardware_execution_authorized: false",
+        self.assertIn("hardware_execution_authorized: true",
                       derating_authorization)
-        self.assertIn("pending_robot2_0p15_to_0p06_raised_wheel_validation",
+        self.assertIn("operator_authorized_2026_09_09",
                       derating_authorization)
         self.assertIn("--confirm-unloaded-30cm-fixture", experiment_entry)
         self.assertIn(
@@ -260,6 +276,15 @@ class BringupStaticTest(unittest.TestCase):
         self.assertGreaterEqual(
             experiment_entry.count('lower_config:="${workspace}/${lower_config}"'),
             2)
+        self.assertIn(
+            'authorization_config:="${workspace}/${authorization_config}"',
+            experiment_entry)
+        self.assertIn(
+            'authorization_config:="${workspace}/${derating_authorization_config}"',
+            experiment_entry)
+        self.assertIn(
+            'derating_authorization_config:="${workspace}/${derating_authorization_config}"',
+            experiment_entry)
         self.assertNotIn("nominal_common_velocity:=0.08", experiment_entry)
         self.assertNotIn("plot_paper_experiments.py", experiment_entry)
         self.assertIn("stop_runtime_nodes", experiment_entry)
@@ -473,6 +498,9 @@ class BringupStaticTest(unittest.TestCase):
         runtime = (PACKAGE / "config" /
                    "formal_serial_m1_r1_circle_r0p7_smooth_exit_runtime.yaml"
                    ).read_text(encoding="utf-8")
+        soft_start_runtime = (PACKAGE / "config" /
+            "formal_serial_m1_r1_circle_r0p7_smooth_exit_soft_start_runtime.yaml"
+        ).read_text(encoding="utf-8")
         evaluation = (PACKAGE / "config" /
                       "formal_evaluation_circle_r0p7_smooth_exit.yaml"
                       ).read_text(encoding="utf-8")
@@ -510,6 +538,13 @@ class BringupStaticTest(unittest.TestCase):
         self.assertIn("FORMAL_TARGET_PROGRESS=5.178229715025710", entry)
         self.assertIn(
             "path_circle_r0p7_cw_smooth_exit.yaml", entry)
+        self.assertIn(
+            "formal_serial_m1_r1_circle_r0p7_smooth_exit_soft_start_runtime.yaml",
+            entry)
+        self.assertIn("startup_ramp_seconds: 2.5", soft_start_runtime)
+        self.assertIn(
+            "PILOT_M1_R1_CIRCLE_R0P7_CW_SMOOTH_EXIT_SOFT_START_V2",
+            soft_start_runtime)
         self.assertIn(
             "run_m1_r1_serial_unloaded_circle_r0p7_smooth_exit.sh",
             wrapper)
@@ -589,6 +624,55 @@ class BringupStaticTest(unittest.TestCase):
             self.assertIn(
                 "target_progress: 4.998229715025710", authorization)
             self.assertIn("robot2_derating: false", authorization)
+
+    def test_smooth_circle_derating_entries_share_one_physical_window(self):
+        scripts = PACKAGE / "scripts"
+        configs = PACKAGE / "config"
+        evaluation = (
+            configs / "formal_evaluation_circle_r0p7_smooth_exit_derating.yaml"
+        ).read_text(encoding="utf-8")
+        self.assertIn("activation_progress: 1.50", evaluation)
+        self.assertIn("restoration_progress: 3.50", evaluation)
+        self.assertIn("evaluation_end_progress: 5.178229715025710",
+                      evaluation)
+        self.assertEqual(evaluation.count("target_speed_ratio_"), 2)
+        self.assertIn("target_speed_ratio_left: 0.40", evaluation)
+        self.assertIn("ramp_down_time: 0.50", evaluation)
+        self.assertIn("ramp_up_time: 0.50", evaluation)
+
+        entries = {
+            "M1": "run_m1_r1_serial_unloaded_circle_r0p7_smooth_exit_derating.sh",
+            "M2a": "run_m2a_r1_serial_unloaded_circle_r0p7_smooth_exit_derating.sh",
+            "M2b": "run_m2b_serial_unloaded_circle_r0p7_smooth_exit_derating.sh",
+        }
+        for mode, filename in entries.items():
+            entry = (scripts / filename).read_text(encoding="utf-8")
+            self.assertIn("FORMAL_UPPER_MODE={}".format(mode), entry)
+            self.assertIn("FORMAL_ENABLE_ROBOT2_DERATING=true", entry)
+            self.assertIn(
+                "formal_evaluation_circle_r0p7_smooth_exit_derating.yaml",
+                entry)
+            self.assertIn("FORMAL_RUN_TIMEOUT_SECONDS=140", entry)
+            self.assertIn(
+                "run_m1_r1_serial_unloaded_circle_r0p7_smooth_exit.sh",
+                entry)
+
+        for filename in (
+                "formal_serial_m1_r1_circle_r0p7_smooth_exit_derating_authorization.yaml",
+                "formal_serial_m2a_r1_circle_r0p7_smooth_exit_derating_authorization.yaml",
+                "formal_serial_m2b_circle_r0p7_smooth_exit_derating_authorization.yaml"):
+            authorization = (configs / filename).read_text(encoding="utf-8")
+            self.assertIn("path_circle_r0p7_cw_smooth_exit.yaml",
+                          authorization)
+            self.assertIn(
+                "formal_serial_m1_r1_circle_r0p7_smooth_exit_soft_start_runtime.yaml",
+                authorization)
+            self.assertIn("robot2_derating: true", authorization)
+        physical_gate = (
+            configs / "formal_exp2a_derating_authorization.yaml"
+        ).read_text(encoding="utf-8")
+        self.assertIn("hardware_execution_authorized: true", physical_gate)
+        self.assertIn("explicit_operator_authorization", physical_gate)
 
     def test_optional_software_watchdog_is_observer_only(self):
         launch = (

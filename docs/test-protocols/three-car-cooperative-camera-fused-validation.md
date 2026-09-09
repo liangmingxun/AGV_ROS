@@ -57,26 +57,15 @@ cd C:\Users\lmx\Desktop\windows_sender
 python aruco_udp_sender.py --config config.yaml
 ```
 
-Robot1 窗口1：
-
-```bash
-cd /home/etlab/AGV_ROS/.worktrees/platform-foundation-linux
-./start_vision_udp_bridge.sh
-```
-
-Robot1 窗口2：
-
-```bash
-cd /home/etlab/AGV_ROS/.worktrees/platform-foundation-linux
-./start_camera_pose_fusion_only.sh
-```
-
-Robot1、Robot2、Robot3 分别启动底盘：
+Robot1 使用统一入口启动底盘、UDP视觉桥、位姿适配和相机/里程计融合；不再另开
+`start_vision_udp_bridge.sh` 或 `start_camera_pose_fusion_only.sh`：
 
 ```bash
 cd /home/etlab/AGV_ROS/.worktrees/platform-foundation-linux
 ./src/multi_agv_bringup/scripts/start_three_car_chassis.sh 1
 ```
+
+Robot2、Robot3 分别启动底盘：
 
 ```bash
 cd /home/etlab/AGV_ROS/.worktrees/platform-foundation-linux

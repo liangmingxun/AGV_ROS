@@ -31,6 +31,8 @@
   <arg name="lower_config"
        default="$(find multi_agv_bringup)/config/exp3_R1.yaml"/>
   <arg name="execution_authorization_config" default="$(arg upper_config)"/>
+  <arg name="derating_authorization_config"
+       default="$(find multi_agv_bringup)/config/formal_exp2a_derating_authorization.yaml"/>
   <arg name="evaluation_config"
        default="$(find multi_agv_bringup)/config/formal_evaluation_window.yaml"/>
   <!-- Must be frozen from the mapped nominal baseline before recovery metrics. -->
@@ -84,6 +86,7 @@
        "$(arg upper_config)",
        "$(arg lower_config)",
        "$(arg execution_authorization_config)",
+       "$(arg derating_authorization_config)",
        "$(arg evaluation_config)",
        "$(find multi_agv_bringup)/config/fleet_inventory.yaml",
        "$(find multi_agv_bringup)/config/software_watchdog.yaml",

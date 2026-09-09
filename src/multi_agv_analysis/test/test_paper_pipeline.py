@@ -15,6 +15,8 @@ from multi_agv_analysis.publication_plots import (
 
 
 SCRIPT = Path(__file__).parents[1] / "scripts" / "plot_paper_experiments.py"
+PROCESS_RUN_SCRIPT = (
+    Path(__file__).parents[1] / "scripts" / "process_experiment_run.py")
 
 
 class PaperPipelineTest(unittest.TestCase):
@@ -228,6 +230,8 @@ class PaperPipelineTest(unittest.TestCase):
             self.assertFalse(metadata["display_processing"]
                              ["show_raw_samples"])
             self.assertEqual(metadata["display_processing"]
+                             ["wheel_feedback_trend_window_seconds"], 0.80)
+            self.assertEqual(metadata["display_processing"]
                              ["maximum_trend_plot_rate_hz"], 25.0)
             self.assertGreaterEqual(
                 len(metadata["axes"]["figure6.position_error"]["ticks"]), 5)
@@ -241,7 +245,7 @@ class PaperPipelineTest(unittest.TestCase):
             for marker in (
                     "path_label",
                     "路径域能力与{}边界",
-                    "参考边界与执行/实测速度",
+                    "参考边界、公共参考与实测路径速度",
                     "Robot2轮速需求、执行与反馈",
                     "等效载荷、支撑点及构型误差",
                     "路径进度误差与速度误差",
@@ -249,6 +253,19 @@ class PaperPipelineTest(unittest.TestCase):
                     "metrics_use_raw_samples",
                     "dpi=320"):
                 self.assertIn(marker, source_text)
+
+    def test_automatic_pipeline_writes_raw_and_smoothed_plot_sets(self):
+        source = PROCESS_RUN_SCRIPT.read_text(encoding="utf-8")
+        self.assertIn('run_dir / "plots_raw"', source)
+        self.assertIn('run_dir / "plots_smoothed_0p8s"', source)
+        self.assertIn('"smoothing_window_seconds": 0.0', source)
+        self.assertIn('"wheel_feedback_smoothing_window_seconds": 0.0',
+                      source)
+        self.assertIn('"smoothing_window_seconds": 0.80', source)
+        self.assertIn('"wheel_feedback_smoothing_window_seconds": 0.80',
+                      source)
+        self.assertLess(source.index('run_dir / "plots_raw"'),
+                        source.index('run_dir / "plots_smoothed_0p8s"'))
 
     def test_logical_views_are_rebuilt_from_aligned_source(self):
         with tempfile.TemporaryDirectory() as temporary:

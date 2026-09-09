@@ -32,8 +32,9 @@ fake/observer 通过只证明消息链、录包门和离线处理可以工作，
 异常振动、失控或通信故障；因此当前 M1+R1 pilot 软件授权已开启。该授权依据是
 人工实测报告，不是 CapabilityMapper 扫描或软件测试结果。
 
-- Windows 相机发送端、Robot1 视觉桥和三车相机融合节点已经运行；
-- 三台底盘均用 `start_three_car_chassis.sh 1|2|3` 启动，Git SHA 一致；
+- Windows 相机发送端已经运行；Robot1 使用 `start_three_car_chassis.sh 1`
+  同时启动底盘、视觉桥和三车相机融合节点；
+- Robot2/3 分别用 `start_three_car_chassis.sh 2|3` 启动，三车 Git SHA 一致；
 - Robot1 当前代码已提交且工作树干净（`experiment_data/` 可保留）；
 - 三车已人工放成约 0.30 m 的空载支撑三角形并完全位于相机视野；
 - `/vision/aruco/alive` 为 `True`，三车 fused pose 和

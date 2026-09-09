@@ -1,0 +1,29 @@
+<launch>
+  <!-- Daily Robot1 entry: serial chassis plus the two camera-side launch
+       responsibilities that previously required separate terminals. -->
+  <arg name="transport_type" default="serial"/>
+  <arg name="formal_available_wheel_limit" default="0.08"/>
+  <arg name="calibration_authorized" default="true"/>
+  <arg name="vision_bridge_config"
+       default="$(find multi_agv_vision_bridge)/config/vision_udp_bridge.yaml"/>
+  <arg name="localization_config"
+       default="$(find multi_agv_bringup)/config/localization_camera.yaml"/>
+  <arg name="fusion_config"
+       default="$(find multi_agv_bringup)/config/localization_fusion.yaml"/>
+
+  <include file="$(find multi_agv_bringup)/launch/car1_master.launch">
+    <arg name="transport_type" value="$(arg transport_type)"/>
+    <arg name="formal_available_wheel_limit"
+         value="$(arg formal_available_wheel_limit)"/>
+  </include>
+
+  <include file="$(find multi_agv_vision_bridge)/launch/vision_udp_bridge.launch">
+    <arg name="config" value="$(arg vision_bridge_config)"/>
+  </include>
+
+  <include file="$(find multi_agv_bringup)/launch/camera_pose_fusion_only.launch">
+    <arg name="calibration_authorized" value="$(arg calibration_authorized)"/>
+    <arg name="localization_config" value="$(arg localization_config)"/>
+    <arg name="fusion_config" value="$(arg fusion_config)"/>
+  </include>
+</launch>

@@ -14,7 +14,25 @@ from multi_agv_analysis.paper_pipeline import export_views, plot_run
 from multi_agv_analysis.validation import validate_converted_run
 
 
-PROCESSING_VERSION = "paper_run_pipeline_v5_endpoint_geometry"
+PROCESSING_VERSION = "paper_run_pipeline_v6_dual_plot_profiles"
+
+RAW_DISPLAY_PROFILE = {
+    "display": {
+        "smoothing_window_seconds": 0.0,
+        "wheel_feedback_smoothing_window_seconds": 0.0,
+        "show_raw_samples": False,
+        "maximum_plot_rate_hz": 1000.0,
+    },
+}
+
+SMOOTHED_DISPLAY_PROFILE = {
+    "display": {
+        "smoothing_window_seconds": 0.80,
+        "wheel_feedback_smoothing_window_seconds": 0.80,
+        "show_raw_samples": False,
+        "maximum_plot_rate_hz": 25.0,
+    },
+}
 
 
 def battery_edges(converted):
@@ -61,6 +79,8 @@ def main():
         "validation": "pending",
         "metrics": "pending",
         "plots": "skipped" if args.skip_plots else "pending",
+        "plots_raw": "skipped" if args.skip_plots else "pending",
+        "plots_smoothed_0p8s": "skipped" if args.skip_plots else "pending",
     }
     try:
         manifest_path = run_dir / "manifest.yaml"
@@ -115,9 +135,21 @@ def main():
         if not args.skip_plots:
             try:
                 plot_run(
-                    converted / "aligned_samples.csv", run_dir / "plots")
+                    converted / "aligned_samples.csv", run_dir / "plots_raw",
+                    RAW_DISPLAY_PROFILE)
+                status["plots_raw"] = "passed"
+                atomic_dump_json(status_path, status)
+                plot_run(
+                    converted / "aligned_samples.csv",
+                    run_dir / "plots_smoothed_0p8s",
+                    SMOOTHED_DISPLAY_PROFILE)
+                status["plots_smoothed_0p8s"] = "passed"
                 status["plots"] = "passed"
             except Exception as error:
+                if status["plots_raw"] == "pending":
+                    status["plots_raw"] = "failed"
+                elif status["plots_smoothed_0p8s"] == "pending":
+                    status["plots_smoothed_0p8s"] = "failed"
                 status["plots"] = "failed"
                 status["plot_error"] = str(error)
                 atomic_dump_json(status_path, status)
