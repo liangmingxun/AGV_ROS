@@ -163,12 +163,15 @@
   "figures": 6,
   "run_context": {
     "common_upper_label": "M1公共动态上界",
+    "has_dynamic_boundaries": true,
     "local_upper_label": "M1局部动态上界",
     "lower_label": "R1",
     "method_id": "M1_R1",
     "method_label": "M1+R1",
     "path_label": "R=0.7 m顺时针圆形路径（平滑进出）",
     "path_model": "circle_smooth_entry_exit",
+    "r1_velocity_lower_bound": -0.15,
+    "r1_velocity_upper_bound": 0.58,
     "upper_label": "M1动态参考"
   },
   "schema_version": 2,

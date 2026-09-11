@@ -1,0 +1,9 @@
+schema_version: 1
+robot_count: 3
+ros_master_role: robot1
+ros_master_port: 11311
+hosts:
+  robot1: {ip: 192.168.6.101, role: ros_master_and_agv1}
+  robot2: {ip: 192.168.6.102, role: agv2_executor}
+  robot3: {ip: 192.168.6.103, role: agv3_executor}
+  windows_camera: {ip: 192.168.6.100, role: aruco_pose_source}

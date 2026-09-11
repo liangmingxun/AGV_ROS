@@ -1,0 +1,137 @@
+bag: engineering_baseline_circle_r0p7_cw_smooth_exit_20260909_200716.bag
+bag_exit_code: 0
+camera_mode: true
+command_authority:
+  /agv1/chassis_command:
+  - /three_car_unloaded_bounded_pretest
+  /agv2/chassis_command:
+  - /three_car_unloaded_bounded_pretest
+  /agv3/chassis_command:
+  - /three_car_unloaded_bounded_pretest
+command_authority_violations: []
+communication_age_note: Recorded ages are diagnostics only and do not establish an
+  independent communication watchdog.
+config_hashes:
+- archived_path: config/01_common_platform.yaml
+  path: /home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/common_platform.yaml
+  sha256: 65483e8a7a24965d46f69d6d86b7e36f1655e7a3a761209b2ddf70ccc0f69f2a
+- archived_path: config/02_agv1_chassis.yaml
+  path: /home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/agv1_chassis.yaml
+  sha256: fd0c4ebf8ba31c6b27df3869951e91d864422435da3fab09e0e0bcd1e8558105
+- archived_path: config/03_agv2_chassis.yaml
+  path: /home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/agv2_chassis.yaml
+  sha256: cd7c1a8456a68b2dabe74f375bbaccab35990c9e107a6839a3a11ca4e307520a
+- archived_path: config/04_agv3_chassis.yaml
+  path: /home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/agv3_chassis.yaml
+  sha256: ff37627ee5f1caa50c0c92d79953ef1baf1698dc888d9099b62f39ea11aacc9e
+- archived_path: config/05_path_circle_r0p7_cw_smooth_exit.yaml
+  path: /home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/path_circle_r0p7_cw_smooth_exit.yaml
+  sha256: 9dd10798b3f0af1c98d6ee80d335ffb34637845238ddd023a23a7edb1df5451f
+- archived_path: config/06_support_geometry.yaml
+  path: /home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/support_geometry.yaml
+  sha256: ddf201680f7ef9075a71e8e10853b3deff8e9398ef9ae58378005e482348f8f8
+- archived_path: config/07_localization_camera_three_car_closed_loop.yaml
+  path: /home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/localization_camera_three_car_closed_loop.yaml
+  sha256: 32e8edaeae2ae52415977065fb13c5bd89c77e1b2a00274500defb5cba8fd882
+- archived_path: config/08_three_car_engineering_baseline_circle_r0p7.yaml
+  path: /home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/three_car_engineering_baseline_circle_r0p7.yaml
+  sha256: e10df74275802a8406caef9a6df8c9980e910c010f33a46e6146a484dda9a68f
+- archived_path: config/09_record_topics_engineering_baseline.yaml
+  path: /home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/record_topics_engineering_baseline.yaml
+  sha256: 0f50a4960ac7f9e84e2f26d998ac0c952329f71ba7c2ce5affbe9d861b58b812
+- archived_path: config/10_vision_udp_bridge.yaml
+  path: /home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_vision_bridge/config/vision_udp_bridge.yaml
+  sha256: 9ac815e02578e8ad6ce4e0776da9a123a425eea1249fd5b83358f99615d9e0ef
+- archived_path: rosparams.yaml
+  path: ROS parameter server snapshot
+  sha256: 050280eceafbe613f12929b398e81d29b0f7b4da4cad32b023c09794a022a13f
+configuration_approval: null
+experiment_id: engineering_baseline_circle_r0p7_cw_smooth_exit
+finished_at: '2026-09-09T12:08:29.044331+00:00'
+formal_statistics_requested: false
+git_branch: fix/platform-foundation-closeout
+git_dirty: true
+git_sha: c00c2cf5ff829a5fb66d3bfd08bb751656341c02
+git_status:
+- M src/multi_agv_analysis/scripts/record_experiment.py
+- ' M src/multi_agv_analysis/src/multi_agv_analysis/conversion.py'
+- ' M src/multi_agv_analysis/src/multi_agv_analysis/paper_pipeline.py'
+- ' M src/multi_agv_analysis/test/test_metrics.py'
+- ' M src/multi_agv_analysis/test/test_paper_pipeline.py'
+- ' M src/multi_agv_bringup/CMakeLists.txt'
+- ' M src/multi_agv_control/src/three_car_unloaded_bounded_pretest_node.cpp'
+- ?? src/multi_agv_analysis/config/validation_engineering_baseline.yaml
+- ?? src/multi_agv_bringup/config/record_topics_engineering_baseline.yaml
+- ?? src/multi_agv_bringup/config/three_car_engineering_baseline_circle_r0p7.yaml
+- ?? src/multi_agv_bringup/launch/engineering_baseline_experiment.launch
+- ?? src/multi_agv_bringup/launch/three_car_engineering_baseline_circle_r0p7.launch
+- ?? src/multi_agv_bringup/scripts/run_engineering_baseline_circle_r0p7.sh
+hostname: robot1
+interface_version: agv_ros_interfaces_v1
+method_id: CAMERA_IMU_WHEEL_FUSED_CLOSED_LOOP
+metrics:
+  evaluation_target: 5.17822971502571
+  nominal_agv2_capability: 0.15
+  nominal_common_velocity: 0.08
+move_base_command_authority: false
+python_version: 3.8.10
+record_topics:
+- /agv1/chassis_command
+- /agv2/chassis_command
+- /agv3/chassis_command
+- /agv1/chassis_feedback
+- /agv2/chassis_feedback
+- /agv3/chassis_feedback
+- /agv1/capability_report
+- /agv2/capability_report
+- /agv3/capability_report
+- /agv1/imu
+- /agv2/imu
+- /agv3/imu
+- /agv1/odom
+- /agv2/odom
+- /agv3/odom
+- /multi_agv/experiment_state
+- /multi_agv/cooperative_state
+- /multi_agv/path_reference
+- /multi_agv/controller_state
+- /experiment_recorder/armed
+- /experiment_recorder/method_id
+- /vision/aruco/calibration_epoch
+- /camera/world/agv1_tag_pose
+- /camera/world/agv2_tag_pose
+- /camera/world/agv3_tag_pose
+- /camera/world/agv1_confidence
+- /camera/world/agv2_confidence
+- /camera/world/agv3_confidence
+- /pose_provider/agv1/base_pose_raw
+- /pose_provider/agv2/base_pose_raw
+- /pose_provider/agv3/base_pose_raw
+- /pose_provider/agv1/base_pose_filtered
+- /pose_provider/agv2/base_pose_filtered
+- /pose_provider/agv3/base_pose_filtered
+- /pose_provider/agv1/base_pose_fused
+- /pose_provider/agv2/base_pose_fused
+- /pose_provider/agv3/base_pose_fused
+recording_armed_at: '2026-09-09T12:07:17.444171+00:00'
+required_topics:
+- /agv1/chassis_command
+- /agv2/chassis_command
+- /agv3/chassis_command
+- /agv1/chassis_feedback
+- /agv2/chassis_feedback
+- /agv3/chassis_feedback
+- /agv1/capability_report
+- /agv2/capability_report
+- /agv3/capability_report
+- /multi_agv/experiment_state
+- /multi_agv/cooperative_state
+- /multi_agv/path_reference
+- /multi_agv/controller_state
+ros_distro: noetic
+run_id: engineering_baseline_circle_r0p7_cw_smooth_exit_20260909_200716
+schema_version: 1
+started_at: '2026-09-09T12:07:17.110529+00:00'
+virtual_load_from_robots: true
+windows_sender_manifest_present: false
+windows_sender_manifest_required: false

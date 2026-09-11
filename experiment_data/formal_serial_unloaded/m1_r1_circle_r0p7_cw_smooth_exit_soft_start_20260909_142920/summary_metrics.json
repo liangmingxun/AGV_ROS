@@ -1,0 +1,165 @@
+{
+  "capability": {
+    "demand_margin_minimum": 0.03263356831782262,
+    "link_margin_minimum": 0.022901925668910986,
+    "mapped_path_capability_available": true
+  },
+  "causal_unfiltered": true,
+  "evaluation_window": {
+    "bounded_and_contiguous": false,
+    "formal_statistics_ready": false,
+    "source": "experiment_state"
+  },
+  "experiment_id": "m1_r1_circle_r0p7_cw_smooth_exit_soft_start_serial",
+  "geometry": {
+    "endpoint": {
+      "definition": "last_commanded_sample_before_terminal_stop",
+      "reference_progress": 5.178043324212984,
+      "side": {
+        "agv1_agv2": {
+          "absolute_error": 0.003953410376927646,
+          "distance": 0.30395341037692764,
+          "signed_error": 0.003953410376927646,
+          "target": 0.3
+        },
+        "agv1_agv3": {
+          "absolute_error": 0.008325838660102725,
+          "distance": 0.2916741613398974,
+          "signed_error": -0.008325838660102725,
+          "target": 0.3000000000000001
+        },
+        "agv2_agv3": {
+          "absolute_error": 0.00024827525122494976,
+          "distance": 0.30024827525122494,
+          "signed_error": 0.00024827525122494976,
+          "target": 0.3
+        }
+      },
+      "stamp": 1788935428.1540284
+    },
+    "load_position_max": 0.027348530287607066,
+    "load_position_rmse": 0.013209977888533116,
+    "load_yaw_max_absolute": 0.13634346080631257,
+    "load_yaw_rmse": 0.07188654645892101,
+    "rigid_fit_residual_max": 0.021501822865627542,
+    "rigid_fit_residual_rmse": 0.011577483709737442,
+    "support": {
+      "agv1": {
+        "position_max": 0.03590873200297581,
+        "position_rmse": 0.014294040008897122
+      },
+      "agv2": {
+        "position_max": 0.04761111038917963,
+        "position_rmse": 0.026418946184604268
+      },
+      "agv3": {
+        "position_max": 0.037668298674156955,
+        "position_rmse": 0.022238981629770723
+      }
+    },
+    "vehicle_heading": {
+      "agv1": {
+        "endpoint_absolute_error": 0.009061712891744267,
+        "endpoint_error": 0.009061712891744267,
+        "max_absolute": 0.06449851485987779,
+        "rmse": 0.020772687415838296
+      },
+      "agv2": {
+        "endpoint_absolute_error": 0.015955632805102062,
+        "endpoint_error": -0.015955632805102062,
+        "max_absolute": 0.11011456659816224,
+        "rmse": 0.0718600473066806
+      },
+      "agv3": {
+        "endpoint_absolute_error": 0.012669693348323042,
+        "endpoint_error": -0.012669693348323042,
+        "max_absolute": 0.16887116620358175,
+        "rmse": 0.12665291318086994
+      }
+    }
+  },
+  "internal": {
+    "channel_input_max_absolute": 0.21953408462961188,
+    "composite_error_max_absolute": 0.05669547665634809,
+    "disturbance_estimate_max": 0.08968566757918679,
+    "m2b_delta_w_max": null,
+    "m2b_delta_z_max": null,
+    "psi_max_absolute": 0.05219960680494481,
+    "theta_hat_max_absolute": 0.00046509478395199646
+  },
+  "method_id": "M1_R1",
+  "path": {
+    "per_robot": {
+      "agv1": {
+        "progress_max_absolute": 0.0038636449523641,
+        "progress_rmse": 0.0012343590556298007,
+        "velocity_max_absolute": 0.0724743561969275,
+        "velocity_rmse": 0.0048348477579975395
+      },
+      "agv2": {
+        "progress_max_absolute": 0.006188508854875069,
+        "progress_rmse": 0.0024597853997581,
+        "velocity_max_absolute": 0.05260449354578882,
+        "velocity_rmse": 0.00525538339578023
+      },
+      "agv3": {
+        "progress_max_absolute": 0.004295307826232511,
+        "progress_rmse": 0.0015649229318298794,
+        "velocity_max_absolute": 0.059779819102406526,
+        "velocity_rmse": 0.005273822090781948
+      }
+    },
+    "progress_max_absolute": 0.0052582817687980565,
+    "progress_rmse": 0.0017449677923048578
+  },
+  "processing_version": "paper_run_pipeline_v6_dual_plot_profiles",
+  "recovery": {
+    "capability_95_stamp": null,
+    "capability_95_time": null,
+    "capability_source": "explicit_mapper_output_or_historical_m2b_mapper_input",
+    "common_velocity_95_stamp": null,
+    "common_velocity_95_time": null,
+    "common_velocity_after_capability_delay": null,
+    "derating_observed_stamp": null
+  },
+  "run_id": "m1_r1_circle_r0p7_cw_smooth_exit_soft_start_20260909_142920",
+  "sample_counts": {
+    "aligned": 6609,
+    "experiment_state": 6801,
+    "invalid_algorithm": 22,
+    "invalid_localization": 0,
+    "path_errors": 6608,
+    "recorded": 6801,
+    "wheel_errors": 39648
+  },
+  "sample_period": 0.01,
+  "schema_version": 3,
+  "task": {
+    "completion_scope": "all_recorded_samples",
+    "completion_stamp": 1788935428.144029,
+    "completion_time": 66.00004744529724,
+    "evaluation_target": 5.17822971502571,
+    "start_stamp": 1788935362.1439815
+  },
+  "wheel": {
+    "acceleration_limited_time": 0.21,
+    "actual_above_reported_limit_samples": 0,
+    "actual_above_reported_limit_time": 0.0,
+    "deceleration_limited_time": 0.1,
+    "demand_exceedance_samples": 0,
+    "demand_exceedance_time": 0.0,
+    "demand_source": "wheel_pre_limit",
+    "fleet_scaling_duration": 0.0,
+    "fleet_scaling_ratio": 0.0,
+    "limited_samples": 16,
+    "limited_time": 0.16,
+    "maximum_actual_speed": 0.14973992160581687,
+    "maximum_demand_exceedance": 0.0,
+    "maximum_demand_ratio": 0.7636488413677316,
+    "maximum_pre_limit_demand": 0.11454732620515973,
+    "minimum_fleet_scale": 1.0,
+    "speed_limited_time": 0.0,
+    "tracking_max_absolute": 0.09525360291537777,
+    "tracking_rmse": 0.019230457302643358
+  }
+}

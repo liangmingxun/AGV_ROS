@@ -251,6 +251,35 @@ class CameraConversionTest(unittest.TestCase):
             aligned["agv1_mapped_path_velocity_upper"], 0.09)
         self.assertTrue(aligned["mapped_path_capability_available"])
 
+    def test_engineering_baseline_uses_chassis_raw_without_fake_boundaries(self):
+        raw = {name: [] for name in RAW_SCHEMAS}
+        state = {
+            "header_stamp": 1.0, "load_pose_valid": True,
+            "load_path_state_valid": True}
+        for robot in range(1, 4):
+            state["robot_pose_valid_{}".format(robot)] = True
+            state["support_pose_valid_{}".format(robot)] = True
+            state["path_state_valid_{}".format(robot)] = True
+            raw["chassis_feedback.csv"].append({
+                "header_stamp": 1.0, "robot_id": robot,
+                "wheel_left_raw": 0.08 + robot * 0.001,
+                "wheel_right_raw": 0.07 + robot * 0.001,
+            })
+        raw["cooperative_state.csv"] = [state]
+        raw["controller_state.csv"] = [{
+            "header_stamp": 1.0,
+            "method_id": "CAMERA_IMU_WHEEL_FUSED_CLOSED_LOOP",
+            "common_velocity_reference": 0.08,
+            "common_velocity_lower_bound": 0.0,
+            "common_velocity_upper_bound": 0.0,
+        }]
+        aligned = _aligned_rows(raw, 0.2)[0]
+        self.assertTrue(math.isnan(aligned["common_boundary_upper"]))
+        self.assertTrue(math.isnan(aligned["agv1_boundary_upper"]))
+        self.assertAlmostEqual(aligned["agv1_wheel_left_pre_limit"], 0.081)
+        self.assertAlmostEqual(aligned["agv1_wheel_left_fleet_scaled"], 0.081)
+        self.assertEqual(aligned["fleet_scale"], 1.0)
+
 
 class MetricsTest(unittest.TestCase):
     @staticmethod

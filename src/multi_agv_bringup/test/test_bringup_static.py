@@ -199,7 +199,7 @@ class BringupStaticTest(unittest.TestCase):
         ).read_text(encoding="utf-8")
 
         self.assertIn(
-            "PILOT_AUTHORIZED_0p15_APPLIED_0p18_PRELIMIT_ABORT",
+            "PILOT_AUTHORIZED_0p16_APPLIED_0p18_PRELIMIT_ABORT",
             runtime)
         self.assertIn("command_publication_authorized: false", runtime)
         self.assertIn("serial_execution_authorized: true", runtime)
@@ -251,8 +251,8 @@ class BringupStaticTest(unittest.TestCase):
         self.assertIn("confirm_unloaded_30cm_fixture: false", runtime)
         self.assertIn('formal_available_wheel_limit" default="0.08"',
                       chassis_launch)
-        self.assertIn("--confirm-formal-0p15-wheel-envelope", chassis_entry)
-        self.assertIn('formal_wheel_limit="0.15"', chassis_entry)
+        self.assertIn("--confirm-formal-0p16-wheel-envelope", chassis_entry)
+        self.assertIn('formal_wheel_limit="0.16"', chassis_entry)
         self.assertIn("pre-limit demand abort threshold", experiment_entry)
         self.assertIn("FORMAL_UPPER_MODE=M2a", m2a_entry)
         self.assertIn("FORMAL_ENABLE_ROBOT2_DERATING=true", m2a_entry)
@@ -271,6 +271,7 @@ class BringupStaticTest(unittest.TestCase):
             experiment_entry)
         self.assertIn('evaluation_target:="$target_progress"',
                       experiment_entry)
+        self.assertIn('path_version:="$path_version"', experiment_entry)
         self.assertIn('nominal_common_velocity="$(awk', experiment_entry)
         self.assertIn('/^[[:space:]]*leader:/', experiment_entry)
         self.assertIn(
@@ -547,6 +548,8 @@ class BringupStaticTest(unittest.TestCase):
             "--confirm-r0p7-smooth-exit-footprint-clear", entry)
         self.assertIn("FORMAL_TARGET_PROGRESS=5.178229715025710", entry)
         self.assertIn(
+            "FORMAL_PATH_VERSION=circle_r0p7_cw_smooth_exit_v1", entry)
+        self.assertIn(
             "path_circle_r0p7_cw_smooth_exit.yaml", entry)
         self.assertIn(
             "formal_serial_m1_r1_circle_r0p7_smooth_exit_soft_start_runtime.yaml",
@@ -589,6 +592,71 @@ class BringupStaticTest(unittest.TestCase):
         runtime_data = yaml.safe_load(runtime)["formal_fake_runtime"]
         self.assertEqual(runtime_data["leader"]["velocity"], 0.08)
         self.assertFalse(runtime_data["command_publication_authorized"])
+
+    def test_0p10_circle_pilot_is_isolated_and_never_derates_robot2(self):
+        import yaml
+
+        configs = PACKAGE / "config"
+        runtime_path = (
+            configs /
+            "formal_serial_m1_r1_circle_r0p7_smooth_exit_0p10_pilot_runtime.yaml"
+        )
+        authorization_path = (
+            configs /
+            "formal_serial_m1_r1_circle_r0p7_smooth_exit_0p10_pilot_authorization.yaml"
+        )
+        upper_path = configs / "exp2a_M1_serial_0p10_pilot.yaml"
+        entry_path = (
+            PACKAGE / "scripts" /
+            "run_m1_r1_serial_unloaded_circle_r0p7_smooth_exit_0p10_pilot.sh"
+        )
+        root_entry_path = (
+            SOURCE_ROOT.parent /
+            "run_three_car_m1_r1_circle_r0p7_smooth_exit_0p10_pilot.sh"
+        )
+
+        runtime = yaml.safe_load(runtime_path.read_text(encoding="utf-8"))[
+            "formal_fake_runtime"]
+        entry = entry_path.read_text(encoding="utf-8")
+        shared_entry = (PACKAGE / "scripts" /
+            "run_m1_r1_serial_unloaded_circle_r0p7_smooth_exit.sh"
+        ).read_text(encoding="utf-8")
+        authorization = authorization_path.read_text(encoding="utf-8")
+        upper = yaml.safe_load(upper_path.read_text(encoding="utf-8"))[
+            "formal_upper"]
+        frozen_runtime = yaml.safe_load((
+            configs /
+            "formal_serial_m1_r1_circle_r0p7_smooth_exit_soft_start_runtime.yaml"
+        ).read_text(encoding="utf-8"))["formal_fake_runtime"]
+
+        self.assertEqual(runtime["leader"]["velocity"], 0.10)
+        self.assertEqual(runtime["distributed_initial"]["velocity"],
+                         [0.10, 0.10, 0.10])
+        self.assertEqual(runtime["execution"]["startup_ramp_seconds"], 3.2)
+        self.assertEqual(runtime["emergency_abort_limit"], 0.18)
+        self.assertEqual(upper["agents"]["initial_upper"],
+                         [0.115, 0.115, 0.115])
+        self.assertEqual(upper["agents"]["nominal_upper"],
+                         [0.115, 0.115, 0.115])
+        self.assertEqual(frozen_runtime["leader"]["velocity"], 0.08)
+        self.assertIn("FORMAL_UPPER_MODE=M1", entry)
+        self.assertIn("FORMAL_UPPER_CONFIG=src/multi_agv_bringup/config/"
+                      "exp2a_M1_serial_0p10_pilot.yaml", entry)
+        self.assertIn("FORMAL_ENABLE_ROBOT2_DERATING=false", entry)
+        self.assertIn("0p10_pilot_runtime.yaml", entry)
+        self.assertIn("0p10_pilot_authorization.yaml", entry)
+        self.assertIn(
+            "FORMAL_EVALUATION_CONFIG=src/multi_agv_bringup/config/"
+            "formal_evaluation_circle_r0p7_smooth_exit.yaml", entry)
+        self.assertIn(
+            'FORMAL_RUNTIME_CONFIG="${FORMAL_RUNTIME_CONFIG:-', shared_entry)
+        self.assertIn("robot2_derating: false", authorization)
+        self.assertIn("upper_config: src/multi_agv_bringup/config/"
+                      "exp2a_M1_serial_0p10_pilot.yaml", authorization)
+        self.assertIn("0p10_pilot_runtime.yaml", authorization)
+        self.assertIn(
+            "run_m1_r1_serial_unloaded_circle_r0p7_smooth_exit_0p10_pilot.sh",
+            root_entry_path.read_text(encoding="utf-8"))
 
     def test_m2a_and_m2b_share_the_exact_circle_execution_entry(self):
         scripts = PACKAGE / "scripts"
@@ -661,8 +729,8 @@ class BringupStaticTest(unittest.TestCase):
         ).read_text(encoding="utf-8")
         self.assertIn("activation_progress: 1.50", evaluation)
         self.assertIn("restoration_progress: 3.50", evaluation)
-        self.assertIn("evaluation_end_progress: 5.178229715025710",
-                      evaluation)
+        self.assertIn("evaluation_start_progress: 0.10", evaluation)
+        self.assertIn("evaluation_end_progress: 5.10", evaluation)
         self.assertEqual(evaluation.count("target_speed_ratio_"), 2)
         self.assertIn("target_speed_ratio_left: 0.68", evaluation)
         self.assertIn("target_speed_ratio_right: 0.68", evaluation)
@@ -704,6 +772,14 @@ class BringupStaticTest(unittest.TestCase):
         ).read_text(encoding="utf-8")
         self.assertIn("hardware_execution_authorized: true", physical_gate)
         self.assertIn("explicit_operator_authorization", physical_gate)
+
+        base_entry = (scripts / "run_m1_r1_serial_unloaded.sh").read_text(
+            encoding="utf-8")
+        self.assertIn("selected method/configuration mismatch", base_entry)
+        self.assertIn("log_only_never_used_by_control", base_entry)
+        self.assertIn("invalid or asymmetric Robot2 derating window", base_entry)
+        self.assertIn("ROBOT2_DERATING=enabled", base_entry)
+        self.assertNotIn("0.15 -> 0.06 -> 0.15", base_entry)
 
     def test_m1_robot2_derating_tracking_reserve_is_method_scoped(self):
         configs = PACKAGE / "config"

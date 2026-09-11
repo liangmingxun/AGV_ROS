@@ -1,0 +1,19 @@
+# Optional M1+R1 physical pilot: clockwise R=0.70 m circle with smooth entry
+# and exit. The constant-curvature section is shortened by one ramp length so
+# ramp-in + arc + ramp-out produce exactly one clockwise revolution. A final
+# zero-curvature segment verifies formation recovery before stopping.
+path_s_curve:
+  schema_version: 1
+  model: circle_smooth_entry_exit
+  configuration_status: frozen_m1_r1_circle_r0p7_cw_smooth_exit_v1
+  hardware_execution_authorized: false
+
+  amplitude: 0.0
+  circle_radius: 0.7
+  circle_direction: -1.0
+  entry_straight_length: 0.20
+  curvature_ramp_length: 0.40
+  exit_straight_length: 0.18
+  # Curved path ends at 4.998229715 m; terminal straight makes 5.178229715 m.
+  longitudinal_length: 4.998229715025710
+  lookup_samples: 60001

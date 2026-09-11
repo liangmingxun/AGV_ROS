@@ -64,6 +64,37 @@ class PaperPipelineTest(unittest.TestCase):
                 context["path_label"],
                 "R=0.7 m顺时针圆形路径（平滑进出）")
 
+    def test_run_context_identifies_engineering_baseline_without_boundaries(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            run = Path(temporary) / "baseline_circle"
+            converted = run / "converted"
+            config = run / "config"
+            converted.mkdir(parents=True)
+            config.mkdir()
+            write_csv(converted / "controller_state.csv", [{
+                "method_id": "CAMERA_IMU_WHEEL_FUSED_CLOSED_LOOP",
+            }])
+            atomic_dump_json(run / "run_meta.json", {
+                "experiment_id": (
+                    "engineering_baseline_circle_r0p7_cw_smooth_exit"),
+            })
+            (config / "06_path.yaml").write_text(
+                "path_s_curve:\n"
+                "  model: circle_smooth_entry_exit\n"
+                "  circle_radius: 0.7\n"
+                "  circle_direction: -1.0\n",
+                encoding="utf-8")
+            context = _run_context(converted / "aligned_samples.csv")
+            self.assertEqual(
+                context["method_label"], "未使用算法对照组")
+            self.assertEqual(
+                context["figure2_title"],
+                "未使用算法对照组：R=0.7m顺时针圆形路径")
+            self.assertEqual(
+                context["figure2_filename"],
+                "figure2_未使用算法对照组_R0p7m顺时针圆形路径")
+            self.assertFalse(context["has_dynamic_boundaries"])
+
     def test_display_smoothing_preserves_source_and_only_changes_trend(self):
         time = [index * 0.01 for index in range(21)]
         source = [0.08] * 21
@@ -223,6 +254,10 @@ class PaperPipelineTest(unittest.TestCase):
             self.assertEqual(
                 metadata["axes"]["figure4.robot1"]["unit"], "m/s")
             self.assertEqual(
+                sorted(key for key in metadata["axes"]
+                       if key.startswith("figure4.")),
+                ["figure4.robot1", "figure4.robot2", "figure4.robot3"])
+            self.assertEqual(
                 metadata["run_context"]["r1_velocity_lower_bound"], -0.15)
             self.assertEqual(
                 metadata["run_context"]["r1_velocity_upper_bound"], 0.58)
@@ -237,6 +272,27 @@ class PaperPipelineTest(unittest.TestCase):
                              ["show_raw_samples"])
             self.assertEqual(metadata["display_processing"]
                              ["wheel_feedback_trend_window_seconds"], 0.80)
+
+    def test_engineering_baseline_writes_same_six_figures_without_m1_bounds(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source = root / "aligned_samples.csv"
+            self._publication_fixture(source)
+            write_csv(root / "controller_state.csv", [{
+                "method_id": "CAMERA_IMU_WHEEL_FUSED_CLOSED_LOOP",
+            }])
+            output = root / "baseline_plots"
+            self.assertEqual(plot_run(source, output), 6)
+            metadata = load_yaml(output / "plot_metadata.json")
+            self.assertEqual(
+                metadata["run_context"]["method_label"],
+                "未使用算法对照组")
+            self.assertFalse(
+                metadata["run_context"]["has_dynamic_boundaries"])
+            self.assertEqual(
+                sorted(key for key in metadata["axes"]
+                       if key.startswith("figure4.")),
+                ["figure4.robot1", "figure4.robot2", "figure4.robot3"])
             self.assertEqual(metadata["display_processing"]
                              ["maximum_trend_plot_rate_hz"], 25.0)
             self.assertGreaterEqual(
@@ -252,7 +308,7 @@ class PaperPipelineTest(unittest.TestCase):
                     "path_label",
                     "路径域能力与{}边界",
                     "局部/公共边界、公共参考与实测路径速度",
-                    "Robot{} M1局部动态上界",
+                    'context["local_upper_label"]',
                     'color="#7A3E9D", ls="--"',
                     "Robot2轮速需求、执行与反馈",
                     "等效载荷、支撑点及构型误差",

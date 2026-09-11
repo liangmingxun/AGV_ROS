@@ -20,8 +20,8 @@ def _pyplot():
     from matplotlib import font_manager
 
     preferred = (
-        "Noto Sans CJK SC", "SimHei", "Microsoft YaHei",
-        "WenQuanYi Zen Hei")
+        "Noto Sans CJK JP", "Noto Sans CJK SC", "Droid Sans Fallback",
+        "SimHei", "Microsoft YaHei", "WenQuanYi Zen Hei")
     installed = {font.name for font in font_manager.fontManager.ttflist}
     selected = next((name for name in preferred if name in installed), None)
     if selected is None:
@@ -47,12 +47,21 @@ def _pyplot():
     selected = selected or "DejaVu Sans"
     plt.rcParams.update({
         "font.family": "sans-serif",
-        "font.sans-serif": [selected, "DejaVu Sans"],
+        # Use one concrete CJK family for every Chinese/Latin label.  Mixing
+        # an implicit CJK fallback with DejaVu made axis labels appear to use
+        # different weights on older Matplotlib releases.
+        "font.sans-serif": [selected],
+        "font.weight": "normal",
         "axes.unicode_minus": False,
         "font.size": 10,
         "axes.titlesize": 12,
         "axes.titleweight": "semibold",
         "axes.labelsize": 10.5,
+        "axes.labelweight": "normal",
+        "text.color": "#000000",
+        "axes.labelcolor": "#000000",
+        "xtick.color": "#000000",
+        "ytick.color": "#000000",
         "axes.linewidth": 0.8,
         "axes.axisbelow": True,
         "axes.grid": True,
@@ -66,6 +75,37 @@ def _pyplot():
         "lines.linewidth": 1.45,
     })
     return plt
+
+
+def _apply_figure_typography(figure):
+    """Apply one deterministic font face/weight policy to a saved figure."""
+    from matplotlib import rcParams
+
+    family = rcParams["font.sans-serif"][0]
+    for axis in figure.axes:
+        axis.title.set_fontfamily(family)
+        axis.title.set_fontweight("semibold")
+        axis.title.set_color("#000000")
+        for label in (axis.xaxis.label, axis.yaxis.label):
+            label.set_fontfamily(family)
+            label.set_fontweight("normal")
+            label.set_color("#000000")
+        tick_labels = list(axis.get_xticklabels()) + list(axis.get_yticklabels())
+        tick_labels.extend((axis.xaxis.get_offset_text(),
+                            axis.yaxis.get_offset_text()))
+        for label in tick_labels:
+            label.set_fontfamily(family)
+            label.set_fontweight("normal")
+            label.set_color("#000000")
+        legend = axis.get_legend()
+        if legend is not None:
+            for label in legend.get_texts():
+                label.set_fontfamily(family)
+                label.set_fontweight("normal")
+                label.set_color("#000000")
+    for label in figure.texts:
+        label.set_fontfamily(family)
+        label.set_color("#000000")
 
 
 def _save_pdf(figure, path):
@@ -236,6 +276,7 @@ def _legend(axis, columns=3):
 def _save(figure, directory, name):
     directory = Path(directory)
     directory.mkdir(parents=True, exist_ok=True)
+    _apply_figure_typography(figure)
     figure.tight_layout()
     figure.savefig(directory / (name + ".png"), dpi=320,
                    bbox_inches="tight")

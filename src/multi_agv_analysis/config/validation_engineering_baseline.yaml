@@ -1,0 +1,74 @@
+experiment_recording:
+  sample_period: 0.01
+  required_topics:
+    - /agv1/chassis_command
+    - /agv2/chassis_command
+    - /agv3/chassis_command
+    - /agv1/chassis_feedback
+    - /agv2/chassis_feedback
+    - /agv3/chassis_feedback
+    - /agv1/capability_report
+    - /agv2/capability_report
+    - /agv3/capability_report
+    - /multi_agv/experiment_state
+    - /multi_agv/cooperative_state
+    - /multi_agv/path_reference
+    - /multi_agv/controller_state
+  camera_virtual_load_required_topics:
+    - /vision/aruco/calibration_epoch
+    - /camera/world/agv1_tag_pose
+    - /camera/world/agv2_tag_pose
+    - /camera/world/agv3_tag_pose
+    - /camera/world/agv1_confidence
+    - /camera/world/agv2_confidence
+    - /camera/world/agv3_confidence
+    - /pose_provider/agv1/base_pose_raw
+    - /pose_provider/agv2/base_pose_raw
+    - /pose_provider/agv3/base_pose_raw
+    - /pose_provider/agv1/base_pose_filtered
+    - /pose_provider/agv2/base_pose_filtered
+    - /pose_provider/agv3/base_pose_filtered
+  fused_required_topics:
+    - /pose_provider/agv1/base_pose_fused
+    - /pose_provider/agv2/base_pose_fused
+    - /pose_provider/agv3/base_pose_fused
+  camera_calibration_epoch_required: true
+  maximum_camera_calibration_epoch_changes: 0
+  minimum_topic_rates:
+    /agv1/chassis_command: 90.0
+    /agv2/chassis_command: 90.0
+    /agv3/chassis_command: 90.0
+    /agv1/chassis_feedback: 90.0
+    /agv2/chassis_feedback: 90.0
+    /agv3/chassis_feedback: 90.0
+    /agv1/capability_report: 90.0
+    /agv2/capability_report: 90.0
+    /agv3/capability_report: 90.0
+    /multi_agv/cooperative_state: 90.0
+    /multi_agv/path_reference: 90.0
+    /multi_agv/controller_state: 90.0
+  stamp_files:
+    - chassis_command.csv
+    - chassis_feedback.csv
+    - capability_report.csv
+    - cooperative_state.csv
+    - path_reference.csv
+    - controller_state.csv
+    - experiment_state.csv
+    - imu.csv
+    - odometry.csv
+    - camera_pose.csv
+  sequence_rules:
+    - {file: chassis_command.csv, group_by: robot_id, field: command_seq,
+       max_gap: 5, allow_wrap: true}
+    # A <=0.10 s recorder-side feedback gap is acceptable for this 100 Hz
+    # engineering comparison when commands and CapabilityReport remain
+    # independently continuous. Larger gaps still invalidate the run.
+    - {file: chassis_feedback.csv, group_by: robot_id, field: feedback_seq,
+       max_gap: 10, allow_wrap: true}
+    - {file: capability_report.csv, group_by: robot_id, field: capability_seq,
+       max_gap: 5, allow_wrap: true}
+  localization_exclusion:
+    maximum_invalid_fraction: 0.01
+    maximum_consecutive_invalid_seconds: 0.10
+  require_task_completion: true

@@ -20,6 +20,7 @@
   <arg name="require_windows_sender_manifest" default="true"/>
   <arg name="path_config"
        default="$(find multi_agv_bringup)/config/path_s_curve.yaml"/>
+  <arg name="path_version" default="s_curve_v1"/>
   <arg name="support_config"
        default="$(find multi_agv_bringup)/config/support_geometry.yaml"/>
   <arg name="localization_config"
@@ -55,6 +56,7 @@
     <param name="pair_block_id" value="$(arg pair_block_id)"/>
     <param name="payload_state" value="$(arg payload_state)"/>
     <param name="localization_source" value="$(arg localization_source)"/>
+    <param name="path_version" value="$(arg path_version)"/>
     <param name="operator" value="$(arg operator)"/>
     <param name="interface_version" value="$(arg interface_version)"/>
     <param name="camera_mode" value="$(arg camera_mode)"/>

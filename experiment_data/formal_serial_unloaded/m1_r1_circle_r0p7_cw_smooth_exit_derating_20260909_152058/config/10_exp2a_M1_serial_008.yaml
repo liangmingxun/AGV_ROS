@@ -1,0 +1,39 @@
+# Physical Experiment 2a speed scale for the unloaded 1 m S path.
+# The M1 equations and dimensionless risk law are unchanged; only the
+# admissible velocity sets and velocity-valued gains are expressed on the
+# measured physical platform scale.
+formal_upper:
+  schema_version: 1
+  mode: M1
+  configuration_status: serial_vL_0p08_wheel_0p15_candidate
+  algorithm_execution_authorized: true
+  hardware_execution_authorized: false
+  golden_vectors_verified: true
+  update_rate: 25.0
+  controller_ticks_per_update: 4
+  agents:
+    physical_lower: [-0.030, -0.030, -0.030]
+    physical_upper: [0.105, 0.105, 0.105]
+    physical_margin_lower: [0.005, 0.005, 0.005]
+    physical_margin_upper: [0.005, 0.005, 0.005]
+    zero_margin: [0.005, 0.005, 0.005]
+    # At maximum contraction, upper >= minimum_width - zero_margin = 0.060.
+    # With the 0.005 inner margin this leaves a 0.055 m/s common reference,
+    # matching the conservative M4 candidate under a 0.68 Robot2 derating.
+    minimum_width: [0.065, 0.065, 0.065]
+    inner_margin: [0.005, 0.005, 0.005]
+    initial_lower: [-0.015, -0.015, -0.015]
+    initial_upper: [0.095, 0.095, 0.095]
+    nominal_lower: [-0.015, -0.015, -0.015]
+    nominal_upper: [0.095, 0.095, 0.095]
+    restore_gain_lower: [0.55, 0.55, 0.55]
+    restore_gain_upper: [0.65, 0.65, 0.65]
+    # Velocity-valued risk gains are scaled to the physical boundary range.
+    risk_gain_lower: [0.036, 0.036, 0.036]
+    risk_gain_upper: [0.100, 0.100, 0.100]
+    risk_scale: [0.95, 0.95, 0.95]
+    risk_decay: [0.42, 0.42, 0.42]
+  causality:
+    current_inputs: [reported_capability]
+    one_step_delayed_inputs:
+      [channel_input_margin, wheel_margin, position_margin, failure_margin]

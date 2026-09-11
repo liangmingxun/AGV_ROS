@@ -16,6 +16,7 @@
 #include <agv_msgs/ChassisFeedback.h>
 #include <agv_msgs/ControllerState.h>
 #include <agv_msgs/CooperativeState.h>
+#include <agv_msgs/ExperimentState.h>
 #include <agv_msgs/PathReference.h>
 #include <ros/master.h>
 #include <ros/ros.h>
@@ -168,9 +169,11 @@ class ThreeCarUnloadedBoundedPretestNode {
           "/agv" + robot + "/chassis_command", 1, false);
     }
     reference_publisher_ = node_.advertise<agv_msgs::PathReference>(
-        "/multi_agv/bounded_pretest/path_reference", 5, false);
+        reference_topic_, 5, false);
     controller_publisher_ = node_.advertise<agv_msgs::ControllerState>(
-        "/multi_agv/bounded_pretest/controller_state", 10, false);
+        controller_topic_, 10, false);
+    experiment_state_publisher_ = node_.advertise<agv_msgs::ExperimentState>(
+        experiment_state_topic_, 10, true);
   }
 
   ~ThreeCarUnloadedBoundedPretestNode() {
@@ -209,6 +212,7 @@ class ThreeCarUnloadedBoundedPretestNode {
         return 4;
       }
       publishStop();
+      publishExperimentState(false, false, 0U);
       rate.sleep();
     }
     if (!ros::ok() || stop_requested.load()) {
@@ -231,9 +235,13 @@ class ThreeCarUnloadedBoundedPretestNode {
         return 5;
       }
       const double elapsed = (now - motion_start).toSec();
-      const double ramp_scale = startup_ramp_seconds_ > 0.0
+      double ramp_scale = startup_ramp_seconds_ > 0.0
           ? std::clamp(elapsed / startup_ramp_seconds_, 0.0, 1.0)
           : 1.0;
+      if (startup_profile_ == "quintic") {
+        const double x = ramp_scale;
+        ramp_scale = x * x * x * (10.0 - 15.0 * x + 6.0 * x * x);
+      }
       const double requested_velocity = speed_ * ramp_scale;
       auto tracking = trackingAt(progress, requested_velocity);
       double command_scale = 1.0;
@@ -250,6 +258,7 @@ class ThreeCarUnloadedBoundedPretestNode {
       const double effective_velocity = requested_velocity * command_scale;
       publishTracking(tracking);
       publishReferenceAndController(tracking, progress, effective_velocity);
+      publishExperimentState(true, true, 1U);
       if (dt > 0.0 && dt <= maximum_step_) {
         progress = std::min(
             target_progress_, progress + effective_velocity * dt);
@@ -264,19 +273,29 @@ class ThreeCarUnloadedBoundedPretestNode {
     }
 
     publishRepeatedStop();
-    publishReferenceAndController(trackingAt(target_progress_, 0.0),
-                                  target_progress_, 0.0);
     if (!waitForStopped(rate)) {
       ROS_ERROR("Three-car stop was commanded but all-wheel zero feedback "
                 "was not confirmed before timeout");
       return 8;
     }
     const auto stopped_tracking = trackingAt(target_progress_, 0.0);
+    publishExperimentState(false, false, 2U);
     for (int repeat = 0; repeat < 3; ++repeat) {
       publishReferenceAndController(
           stopped_tracking, target_progress_, 0.0);
       ros::spinOnce();
       ros::WallDuration(0.02).sleep();
+    }
+    const ros::WallTime completion_hold_start = ros::WallTime::now();
+    while (ros::ok() && !stop_requested.load() &&
+           (ros::WallTime::now() - completion_hold_start).toSec() <
+               completion_authority_hold_seconds_) {
+      publishStop();
+      publishReferenceAndController(
+          stopped_tracking, target_progress_, 0.0);
+      publishExperimentState(false, false, 2U);
+      ros::spinOnce();
+      rate.sleep();
     }
     ROS_INFO("Three-car unloaded bounded pretest completed: %.3f m reference "
              "progress and all-wheel zero feedback confirmed",
@@ -324,6 +343,10 @@ class ThreeCarUnloadedBoundedPretestNode {
         private_, root + "motion/target_progress", 1.00);
     startup_ramp_seconds_ = finiteParam(
         private_, root + "motion/startup_ramp_seconds", 1.0);
+    startup_profile_ = private_.param<std::string>(
+        root + "motion/startup_profile", "linear");
+    completion_authority_hold_seconds_ = finiteParam(
+        private_, root + "motion/completion_authority_hold_seconds", 0.0);
     minimum_battery_voltage_ = finiteParam(
         private_, root + "abort/minimum_battery_voltage", 10.0);
     maximum_feedback_receive_age_ = finiteParam(
@@ -360,10 +383,23 @@ class ThreeCarUnloadedBoundedPretestNode {
         root + "experiment_id", "three_car_unloaded_s_1m");
     method_id_ = private_.param<std::string>(
         root + "method_id", "ODOM_BOUNDED_COMMON");
+    block_id_ = private_.param<std::string>(
+        root + "block_id", "engineering_baseline");
+    run_id_ = private_.param<std::string>(
+        root + "run_id", "engineering_baseline_run");
     path_id_ = private_.param<std::string>(
         root + "path_id", "s_curve_1m_bounded");
     validation_profile_ = private_.param<std::string>(
         root + "validation_profile", "legacy_unloaded_bounded");
+    reference_topic_ = private_.param<std::string>(
+        root + "telemetry/path_reference_topic",
+        "/multi_agv/bounded_pretest/path_reference");
+    controller_topic_ = private_.param<std::string>(
+        root + "telemetry/controller_state_topic",
+        "/multi_agv/bounded_pretest/controller_state");
+    experiment_state_topic_ = private_.param<std::string>(
+        root + "telemetry/experiment_state_topic",
+        "/multi_agv/bounded_pretest/experiment_state");
     wheel_separation_ = numericArrayParam(
         private_, root + "tracker/wheel_separation",
         {{0.114, 0.114, 0.114}});
@@ -490,6 +526,11 @@ class ThreeCarUnloadedBoundedPretestNode {
          path_id_ == "circle_r0p5_cw_smooth_entry_bounded" &&
          std::abs(speed_ - 0.05) <= 1e-12 &&
          std::abs(target_progress_ - (0.60 + kPi)) <= 1e-9) ||
+        (validation_profile_ ==
+             "engineering_baseline_circle_r0p7_cw_smooth_exit" &&
+         path_id_ == "circle_r0p7_cw_smooth_entry_exit_baseline" &&
+         std::abs(speed_ - 0.08) <= 1e-12 &&
+         std::abs(target_progress_ - 5.178229715025710) <= 1e-9) ||
         (validation_profile_ == "legacy_unloaded_bounded" &&
          std::abs(target_progress_ - 1.00) <= 1e-12 &&
          ((path_id_ == "s_curve_1m_bounded" &&
@@ -534,6 +575,9 @@ class ThreeCarUnloadedBoundedPretestNode {
         !(maximum_heading_error_ > 0.0) ||
         !(maximum_wheel_command_ > speed_) ||
         startup_ramp_seconds_ < 0.0 || startup_ramp_seconds_ > 5.0 ||
+        completion_authority_hold_seconds_ < 0.0 ||
+        completion_authority_hold_seconds_ > 10.0 ||
+        (startup_profile_ != "linear" && startup_profile_ != "quintic") ||
         !(minimum_wheel_command_scale_ > 0.0) ||
         minimum_wheel_command_scale_ > 1.0 ||
         formation_longitudinal_gain_ < 0.0 ||
@@ -546,7 +590,9 @@ class ThreeCarUnloadedBoundedPretestNode {
         readiness_stable_samples_ < 1 ||
         initial_command_sequence_ == 0U ||
         initial_command_sequence_ > 0xFFFFFF00U ||
-        experiment_id_.empty() || method_id_.empty() || path_id_.empty()) {
+        experiment_id_.empty() || method_id_.empty() || path_id_.empty() ||
+        reference_topic_.empty() || controller_topic_.empty() ||
+        experiment_state_topic_.empty()) {
       throw std::runtime_error(
           "invalid three-car unloaded bounded-pretest configuration");
     }
@@ -801,7 +847,9 @@ class ThreeCarUnloadedBoundedPretestNode {
     const bool camera_fused_profile =
         validation_profile_ == "camera_fused_s_1p00" ||
         validation_profile_ == "camera_fused_straight_0p30" ||
-        validation_profile_ == "camera_fused_circle_r0p5_cw_smooth";
+        validation_profile_ == "camera_fused_circle_r0p5_cw_smooth" ||
+        validation_profile_ ==
+            "engineering_baseline_circle_r0p7_cw_smooth_exit";
     if (camera_fused_profile && transport_type_ == "serial" &&
         (state_.header.frame_id != "three_car_path" ||
          state_.load_localization_source !=
@@ -1002,8 +1050,10 @@ class ThreeCarUnloadedBoundedPretestNode {
     command.command_seq = ++command_sequence_[index];
     command.control_mode = 1U;
     command.experiment_id = experiment_id_;
-    command.method_id =
-        tracking == nullptr ? method_id_ + "_STOP" : method_id_;
+    command.method_id = (
+        tracking == nullptr &&
+        method_id_ != "CAMERA_IMU_WHEEL_FUSED_CLOSED_LOOP")
+        ? method_id_ + "_STOP" : method_id_;
     if (tracking != nullptr) {
       command.linear_velocity_reference = tracking->linear_velocity_raw;
       command.angular_velocity_reference = tracking->angular_velocity_raw;
@@ -1039,6 +1089,21 @@ class ThreeCarUnloadedBoundedPretestNode {
       ros::spinOnce();
       ros::WallDuration(0.05).sleep();
     }
+  }
+
+  void publishExperimentState(
+      bool run_active, bool evaluation_active, std::uint8_t phase) {
+    agv_msgs::ExperimentState message;
+    message.header.stamp = ros::Time::now();
+    message.experiment_id = experiment_id_;
+    message.method_id = method_id_;
+    message.block_id = block_id_;
+    message.run_id = run_id_;
+    message.phase = phase;
+    message.run_active = run_active;
+    message.evaluation_active = evaluation_active;
+    message.manual_abort = false;
+    experiment_state_publisher_.publish(message);
   }
 
   void publishReferenceAndController(
@@ -1106,6 +1171,7 @@ class ThreeCarUnloadedBoundedPretestNode {
   std::array<ros::Publisher, kRobotCount> command_publishers_;
   ros::Publisher reference_publisher_;
   ros::Publisher controller_publisher_;
+  ros::Publisher experiment_state_publisher_;
   std::unique_ptr<SCurvePath> path_;
   std::unique_ptr<SupportGeometry> geometry_;
   std::unique_ptr<PlanarSupportTracker> tracker_;
@@ -1130,6 +1196,11 @@ class ThreeCarUnloadedBoundedPretestNode {
   std::string transport_type_;
   std::string experiment_id_;
   std::string method_id_;
+  std::string block_id_;
+  std::string run_id_;
+  std::string reference_topic_;
+  std::string controller_topic_;
+  std::string experiment_state_topic_;
   double publish_rate_{100.0};
   double state_timeout_{0.15};
   double subscriber_wait_{15.0};
@@ -1141,6 +1212,8 @@ class ThreeCarUnloadedBoundedPretestNode {
   double speed_{0.05};
   double target_progress_{1.00};
   double startup_ramp_seconds_{1.0};
+  std::string startup_profile_{"linear"};
+  double completion_authority_hold_seconds_{0.0};
   double minimum_battery_voltage_{10.0};
   double maximum_feedback_receive_age_{0.25};
   double maximum_serial_feedback_age_{0.25};

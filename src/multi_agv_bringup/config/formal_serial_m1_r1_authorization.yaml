@@ -1,8 +1,10 @@
 # Physical authorization overlay. The operator reported on 2026-09-04 that
-# Robot1/2/3 completed the 0.15 m/s physical test, emergency stop was effective,
+# Robot1/2/3 completed the earlier physical test, emergency stop was effective,
 # and no abnormal vibration, loss of control or communication occurred.
 # On 2026-09-07 the operator explicitly accepted the replacement Robot3
-# controller's 0.15 m/s envelope and emergency-stop validation.
+# controller and emergency-stop validation. On 2026-09-11 the operator reported
+# completion of the 0.16 m/s wheel-envelope test and explicitly authorized its
+# use as the formal available capability.
 formal_upper:
   hardware_execution_authorized: true
 

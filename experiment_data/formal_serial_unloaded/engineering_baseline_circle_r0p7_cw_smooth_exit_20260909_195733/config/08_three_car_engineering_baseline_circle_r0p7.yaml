@@ -1,0 +1,77 @@
+# Engineering baseline on the same R=0.7 m clockwise circle used by M1+R1.
+# This is not M1, M2a or M2b: there is no capability-driven upper reference
+# generator and Robot2 derating is disabled.  The planar execution adapter,
+# chassis calibration, localization and physical chassis limiters are shared.
+three_car_unloaded_bounded_pretest:
+  schema_version: 2
+  configuration_status: candidate_engineering_baseline_circle_r0p7_v1
+  baseline_id: CAMERA_IMU_WHEEL_FUSED_CLOSED_LOOP_CIRCLE_R0P7_V1
+  method_role: engineering_baseline
+  hardware_execution_authorized: true
+
+  experiment_id: engineering_baseline_circle_r0p7_cw_smooth_exit
+  method_id: CAMERA_IMU_WHEEL_FUSED_CLOSED_LOOP
+  block_id: circle_r0p7_baseline
+  run_id: set_at_launch
+  path_id: circle_r0p7_cw_smooth_entry_exit_baseline
+  validation_profile: engineering_baseline_circle_r0p7_cw_smooth_exit
+  publish_rate: 100.0
+  maximum_state_age: 0.22
+  subscriber_wait_seconds: 15.0
+  start_delay_seconds: 3.0
+  stop_confirmation_timeout_seconds: 4.0
+  stopped_wheel_tolerance: 0.01
+  maximum_integration_step: 0.05
+  maximum_motion_time: 90.0
+  required_command_subscribers: 2
+  readiness_stable_samples: 20
+  initial_command_sequence: 41000
+
+  telemetry:
+    path_reference_topic: /multi_agv/path_reference
+    controller_state_topic: /multi_agv/controller_state
+    experiment_state_topic: /multi_agv/experiment_state
+
+  motion:
+    load_path_speed: 0.08
+    target_progress: 5.178229715025710
+    startup_ramp_seconds: 2.5
+    startup_profile: quintic
+    # Keep the single command authority alive while the recorder closes.
+    completion_authority_hold_seconds: 3.0
+
+  # Frozen method-shared two-dimensional hardware execution layer.
+  tracker:
+    longitudinal_gain: 1.0
+    lateral_gain: 2.0
+    heading_gain: 2.0
+    longitudinal_gain_per_robot: [1.0, 1.0, 1.0]
+    lateral_gain_per_robot: [4.8, 3.4, 4.0]
+    heading_gain_per_robot: [3.5, 3.0, 3.0]
+    angular_feedforward_scale_positive: [0.78, 0.780810219, 0.850009371]
+    angular_feedforward_scale_negative: [0.94, 0.951221879, 0.94]
+    formation_longitudinal_gain: 0.25
+    formation_lateral_gain: 0.85
+    formation_heading_gain: 0.70
+    curvature_preview_seconds_positive: [0.05, 0.0, 0.05]
+    curvature_preview_seconds_negative: [0.05, 0.0, 0.05]
+    chassis_reference_samples: 10001
+    wheel_separation: [0.135484339, 0.139284482, 0.136802843]
+    base_to_support:
+      - {x: -0.01783, y: 0.0}
+      - {x: 0.09908, y: 0.0}
+      - {x: 0.09908, y: 0.0}
+
+  abort:
+    minimum_battery_voltage: 10.0
+    maximum_feedback_receive_age: 0.25
+    maximum_serial_feedback_age: 0.25
+    maximum_stamp_spread: 0.02
+    maximum_initial_load_progress: 0.03
+    maximum_robot_progress_spread: 0.08
+    maximum_load_progress_error: 0.10
+    maximum_longitudinal_error: 0.10
+    maximum_lateral_error: 0.08
+    maximum_heading_error: 0.20
+    maximum_wheel_linear_velocity: 0.15
+    minimum_wheel_command_scale: 0.70

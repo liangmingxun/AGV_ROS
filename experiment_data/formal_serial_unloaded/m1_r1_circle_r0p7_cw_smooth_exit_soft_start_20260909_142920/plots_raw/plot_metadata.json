@@ -1,0 +1,176 @@
+{
+  "axes": {
+    "figure2.trajectory_y": {
+      "axis_equal": true,
+      "ticks": [
+        -1.5,
+        -1.25,
+        -1.0,
+        -0.75,
+        -0.5,
+        -0.25,
+        0.0,
+        0.25
+      ],
+      "unit": "m",
+      "y_max": 0.25442479303821014,
+      "y_min": -1.6617849431189802
+    },
+    "figure3.path_capability": {
+      "absolute_error_from_zero": true,
+      "ticks": [
+        0.0,
+        0.04,
+        0.08,
+        0.12,
+        0.16
+      ],
+      "unit": "m/s",
+      "y_max": 0.1988949762409543,
+      "y_min": 0.0
+    },
+    "figure3.wheel_capability": {
+      "absolute_error_from_zero": true,
+      "ticks": [
+        0.0,
+        0.03,
+        0.06,
+        0.09,
+        0.12,
+        0.15
+      ],
+      "unit": "m/s",
+      "y_max": 0.162,
+      "y_min": 0.0
+    },
+    "figure4.robot1": {
+      "absolute_error_from_zero": false,
+      "ticks": [
+        0.0,
+        0.025,
+        0.05000000000000001,
+        0.07500000000000001,
+        0.1
+      ],
+      "unit": "m/s",
+      "y_max": 0.11903706205248724,
+      "y_min": -0.024928671263147205
+    },
+    "figure4.robot2": {
+      "absolute_error_from_zero": false,
+      "ticks": [
+        0.0,
+        0.025,
+        0.05000000000000001,
+        0.07500000000000001,
+        0.1
+      ],
+      "unit": "m/s",
+      "y_max": 0.11903706205248724,
+      "y_min": -0.024928671263147205
+    },
+    "figure4.robot3": {
+      "absolute_error_from_zero": false,
+      "ticks": [
+        0.0,
+        0.025,
+        0.05000000000000001,
+        0.07500000000000001,
+        0.1
+      ],
+      "unit": "m/s",
+      "y_max": 0.11903706205248724,
+      "y_min": -0.024928671263147205
+    },
+    "figure5.left": {
+      "absolute_error_from_zero": false,
+      "ticks": [
+        -0.15999999999999998,
+        -0.07999999999999999,
+        0.0,
+        0.08000000000000002,
+        0.16000000000000003
+      ],
+      "unit": "m/s",
+      "y_max": 0.20879999999999999,
+      "y_min": -0.20879999999999999
+    },
+    "figure5.right": {
+      "absolute_error_from_zero": false,
+      "ticks": [
+        -0.15999999999999998,
+        -0.07999999999999999,
+        0.0,
+        0.08000000000000002,
+        0.16000000000000003
+      ],
+      "unit": "m/s",
+      "y_max": 0.20879999999999999,
+      "y_min": -0.20879999999999999
+    },
+    "figure6.position_error": {
+      "absolute_error_from_zero": true,
+      "ticks": [
+        0.0,
+        0.01,
+        0.019999999999999997,
+        0.03,
+        0.04,
+        0.049999999999999996,
+        0.060000000000000005
+      ],
+      "unit": "m",
+      "y_max": 0.06,
+      "y_min": 0.0
+    },
+    "figure7.progress_error": {
+      "absolute_error_from_zero": false,
+      "ticks": [
+        -0.006000000000000001,
+        -0.003000000000000001,
+        0.0,
+        0.002999999999999999,
+        0.005999999999999998,
+        0.009000000000000001
+      ],
+      "unit": "m",
+      "y_max": 0.009000000000000001,
+      "y_min": -0.006
+    },
+    "figure7.velocity_error": {
+      "absolute_error_from_zero": false,
+      "ticks": [
+        -0.07500000000000001,
+        -0.05,
+        -0.024999999999999994,
+        0.0,
+        0.024999999999999994,
+        0.05000000000000002
+      ],
+      "unit": "m/s",
+      "y_max": 0.05,
+      "y_min": -0.07500000000000001
+    }
+  },
+  "display_processing": {
+    "maximum_trend_plot_rate_hz": 1000.0,
+    "metrics_use_raw_samples": true,
+    "outliers_removed": false,
+    "raw_samples_preserved": true,
+    "robust_centered_trend_window_seconds": 0.0,
+    "show_raw_samples": false,
+    "wheel_feedback_trend_window_seconds": 0.0
+  },
+  "emergency_pre_limit_threshold_mps": 0.18,
+  "figures": 6,
+  "run_context": {
+    "lower_label": "R1",
+    "method_id": "M1_R1",
+    "method_label": "M1+R1",
+    "path_label": "R=0.7 m顺时针圆形路径（平滑进出）",
+    "path_model": "circle_smooth_entry_exit",
+    "upper_label": "M1动态参考"
+  },
+  "schema_version": 2,
+  "source": "/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/experiment_data/formal_serial_unloaded/m1_r1_circle_r0p7_cw_smooth_exit_soft_start_20260909_142920/converted/aligned_samples.csv"
+}

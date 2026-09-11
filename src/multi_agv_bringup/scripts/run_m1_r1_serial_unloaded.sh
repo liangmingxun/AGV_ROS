@@ -58,6 +58,7 @@ workspace="$(cd "${script_dir}/../../.." && pwd)"
 cd "$workspace"
 runtime_config="${FORMAL_RUNTIME_CONFIG:-src/multi_agv_bringup/config/formal_serial_m1_r1_runtime.yaml}"
 path_config="${FORMAL_PATH_CONFIG:-src/multi_agv_bringup/config/path_s_curve_terminal_straight.yaml}"
+path_version="${FORMAL_PATH_VERSION:-s_curve_terminal_straight_v1}"
 evaluation_config="${FORMAL_EVALUATION_CONFIG:-src/multi_agv_bringup/config/formal_evaluation_window.yaml}"
 derating_authorization_config="${FORMAL_DERATING_AUTHORIZATION_CONFIG:-src/multi_agv_bringup/config/formal_exp2a_derating_authorization.yaml}"
 case "$formal_upper_mode" in
@@ -66,6 +67,7 @@ case "$formal_upper_mode" in
     lower_config="src/multi_agv_bringup/config/exp3_R1.yaml"
     authorization_config="${FORMAL_EXECUTION_AUTHORIZATION_CONFIG:-src/multi_agv_bringup/config/formal_serial_m2a_r1_authorization.yaml}"
     method_id="M2a_R1"
+    expected_lower_mode="R1"
     experiment_id="${FORMAL_EXPERIMENT_ID:-exp2a_m2a_r1_robot2_derating_serial}"
     run_prefix="${FORMAL_RUN_PREFIX:-m2a_r1_serial}"
     ;;
@@ -74,14 +76,16 @@ case "$formal_upper_mode" in
     lower_config="src/multi_agv_bringup/config/exp2b_M2b.yaml"
     authorization_config="${FORMAL_EXECUTION_AUTHORIZATION_CONFIG:-src/multi_agv_bringup/config/formal_serial_m2b_authorization.yaml}"
     method_id="M2b_M2b"
+    expected_lower_mode="M2b"
     experiment_id="${FORMAL_EXPERIMENT_ID:-exp2b_m2b_unloaded_serial}"
     run_prefix="${FORMAL_RUN_PREFIX:-m2b_serial}"
     ;;
   M1)
-    upper_config="src/multi_agv_bringup/config/exp2a_M1_serial_008.yaml"
+    upper_config="${FORMAL_UPPER_CONFIG:-src/multi_agv_bringup/config/exp2a_M1_serial_008.yaml}"
     lower_config="src/multi_agv_bringup/config/exp3_R1.yaml"
     authorization_config="${FORMAL_EXECUTION_AUTHORIZATION_CONFIG:-src/multi_agv_bringup/config/formal_serial_m1_r1_authorization.yaml}"
     method_id="M1_R1"
+    expected_lower_mode="R1"
     experiment_id="${FORMAL_EXPERIMENT_ID:-exp2a_m1_r1_unloaded_serial}"
     run_prefix="${FORMAL_RUN_PREFIX:-m1_r1_serial}"
     ;;
@@ -95,6 +99,35 @@ for required_config in "$runtime_config" "$path_config" \
     exit 3
   fi
 done
+if [[ -z "$path_version" || ! "$path_version" =~ ^[A-Za-z0-9._-]+$ ]]; then
+  echo "ERROR: path version is missing or invalid: ${path_version:-<missing>}" >&2
+  exit 3
+fi
+configured_upper_mode="$(awk '
+  /^formal_upper:/ {in_upper=1; next}
+  /^formal_lower:/ {in_upper=0}
+  in_upper && /^[[:space:]]*mode:/ {print $2; exit}
+' "$upper_config")"
+configured_lower_mode="$(awk '
+  /^formal_lower:/ {in_lower=1; next}
+  in_lower && /^[[:space:]]*mode:/ {print $2; exit}
+' "$lower_config")"
+if [[ "$configured_upper_mode" != "$formal_upper_mode" ||
+      "$configured_lower_mode" != "$expected_lower_mode" ]]; then
+  echo "ERROR: selected method/configuration mismatch: requested=${formal_upper_mode}+${expected_lower_mode}, configured=${configured_upper_mode:-missing}+${configured_lower_mode:-missing}" >&2
+  exit 3
+fi
+if [[ "$formal_upper_mode" == M2a ]]; then
+  m2a_capability_policy="$(awk '
+    /^formal_upper:/ {in_upper=1; next}
+    /^formal_lower:/ {in_upper=0}
+    in_upper && /^[[:space:]]*capability_policy:/ {print $2; exit}
+  ' "$upper_config")"
+  if [[ "$m2a_capability_policy" != log_only_never_used_by_control ]]; then
+    echo "ERROR: M2a must record runtime capability without using it for control" >&2
+    exit 3
+  fi
+fi
 runtime_status="$(awk '/^[[:space:]]*configuration_status:/ {print $2; exit}' \
   "$runtime_config")"
 serial_authorized="$(awk '/^[[:space:]]*serial_execution_authorized:/ {print $2; exit}' \
@@ -111,6 +144,10 @@ method_lower_authorized="$(awk '
 authorized_path_config="$(awk '
   /^authorization_scope:/ {in_scope=1; next}
   in_scope && /^[[:space:]]*path_config:/ {print $2; exit}
+' "$authorization_config")"
+authorized_upper_config="$(awk '
+  /^authorization_scope:/ {in_scope=1; next}
+  in_scope && /^[[:space:]]*upper_config:/ {print $2; exit}
 ' "$authorization_config")"
 authorized_runtime_config="$(awk '
   /^authorization_scope:/ {in_scope=1; next}
@@ -132,6 +169,22 @@ derating_hardware_authorized="$(awk '
   /^exp2a_derating_pretest:/ {in_derating=1; next}
   in_derating && /^[[:space:]]*hardware_execution_authorized:/ {print $2; exit}
 ' "$derating_authorization_config")"
+derating_activation_progress="$(awk '
+  /^exp2a_derating_pretest:/ {in_window=1; next}
+  in_window && /^[[:space:]]*activation_progress:/ {print $2; exit}
+' "$evaluation_config")"
+derating_restoration_progress="$(awk '
+  /^exp2a_derating_pretest:/ {in_window=1; next}
+  in_window && /^[[:space:]]*restoration_progress:/ {print $2; exit}
+' "$evaluation_config")"
+derating_speed_ratio_left="$(awk '
+  /^exp2a_derating_pretest:/ {in_window=1; next}
+  in_window && /^[[:space:]]*target_speed_ratio_left:/ {print $2; exit}
+' "$evaluation_config")"
+derating_speed_ratio_right="$(awk '
+  /^exp2a_derating_pretest:/ {in_window=1; next}
+  in_window && /^[[:space:]]*target_speed_ratio_right:/ {print $2; exit}
+' "$evaluation_config")"
 nominal_common_velocity="$(awk '
   /^[[:space:]]*leader:/ {in_leader=1; next}
   in_leader && /^[[:space:]]*velocity:/ {print $2; exit}
@@ -160,7 +213,7 @@ if [[ ! "$run_timeout_seconds" =~ ^[0-9]+$ ]] ||
 fi
 if [[ "$runtime_status" == NEEDS_MANUAL_CONFIRMATION* ||
       "$serial_authorized" != true ]]; then
-  echo "ERROR: NEEDS_MANUAL_CONFIRMATION: confirm the 0.15 m/s chassis-applied " \
+  echo "ERROR: NEEDS_MANUAL_CONFIRMATION: confirm the 0.16 m/s chassis-applied " \
        "limit and approve 0.18 m/s as the pre-limit demand abort threshold" >&2
   exit 3
 fi
@@ -173,17 +226,32 @@ fi
 if [[ "$enable_robot2_derating" == true &&
       "$derating_hardware_authorized" != true ]]; then
   echo "ERROR: Robot2 physical derating is not authorized" >&2
-  echo "First pass the 0.15 -> 0.06 -> 0.15 m/s raised-wheel pretest, review its evidence, then update ${derating_authorization_config}" >&2
+  echo "Authorize the reviewed Robot2 derating scope in ${derating_authorization_config}" >&2
   exit 3
 fi
+if [[ "$enable_robot2_derating" == true ]]; then
+  if ! awk -v start="$derating_activation_progress" \
+          -v restore="$derating_restoration_progress" \
+          -v target="$target_progress" \
+          -v left="$derating_speed_ratio_left" \
+          -v right="$derating_speed_ratio_right" 'BEGIN {
+        exit !(start >= 0.0 && start < restore && restore < target &&
+               left > 0.0 && left < 1.0 && right == left)
+      }'; then
+    echo "ERROR: invalid or asymmetric Robot2 derating window in ${evaluation_config}" >&2
+    exit 3
+  fi
+fi
 if [[ -n "$authorized_path_config" ]] &&
-   [[ "$path_config" != "$authorized_path_config" ||
+   [[ -n "$authorized_upper_config" &&
+      "$upper_config" != "$authorized_upper_config" ||
+      "$path_config" != "$authorized_path_config" ||
       "$runtime_config" != "$authorized_runtime_config" ||
       "$evaluation_config" != "$authorized_evaluation_config" ||
       "$target_progress" != "$authorized_target_progress" ||
       "$enable_robot2_derating" != "$authorized_robot2_derating" ]]; then
   echo "ERROR: ${method_id} execution request is outside its authorized scope" >&2
-  echo "Authorized scope: path=${authorized_path_config}, runtime=${authorized_runtime_config}, target=${authorized_target_progress}, Robot2_derating=${authorized_robot2_derating}" >&2
+  echo "Authorized scope: upper=${authorized_upper_config:-method-default}, path=${authorized_path_config}, runtime=${authorized_runtime_config}, target=${authorized_target_progress}, Robot2_derating=${authorized_robot2_derating}" >&2
   exit 3
 fi
 source /opt/ros/noetic/setup.bash
@@ -217,9 +285,9 @@ for index in 1 2 3; do
   available_limit="$(rosparam get \
     "${node}/formal_available_wheel_limit" 2>/dev/null || true)"
   if ! awk -v value="$available_limit" \
-      'BEGIN {exit !(value >= 0.149999 && value <= 0.150001)}'; then
+      'BEGIN {exit !(value >= 0.159999 && value <= 0.160001)}'; then
     echo "ERROR: agv${index} wheel capability is ${available_limit:-missing}; " \
-         "restart all chassis with the confirmed 0.15 m/s envelope" >&2
+         "restart all chassis with the confirmed 0.16 m/s envelope" >&2
     exit 4
   fi
   if [[ -z "$deployed_sha" ]] ||
@@ -279,6 +347,17 @@ done
 alive="$(timeout 3 rostopic echo -n 1 /vision/aruco/alive 2>/dev/null |
   awk '/data:/ {print $2; exit}' || true)"
 [[ "$alive" == True ]] || { echo "ERROR: ArUco stream is not alive" >&2; exit 5; }
+
+echo "EXPERIMENT_METHOD=${method_id} upper=${configured_upper_mode} lower=${configured_lower_mode}"
+echo "SHARED_CONDITION=R0.7_CW_SMOOTH_EXIT speed=${nominal_common_velocity}m/s target=${target_progress}m"
+if [[ "$enable_robot2_derating" == true ]]; then
+  echo "ROBOT2_DERATING=enabled ratio=${derating_speed_ratio_left} activation=${derating_activation_progress}m restoration=${derating_restoration_progress}m"
+  if [[ "$formal_upper_mode" == M2a ]]; then
+    echo "M2A_CAPABILITY_POLICY=${m2a_capability_policy}; fixed upper boundary remains independent of runtime capability"
+  fi
+else
+  echo "ROBOT2_DERATING=disabled"
+fi
 
 estimator_pid=""; algorithm_pid=""; evaluation_pid=""; recorder_pid=""
 cleanup() {
@@ -367,6 +446,7 @@ roslaunch multi_agv_bringup experiment.launch \
   derating_authorization_config:="${workspace}/${derating_authorization_config}" \
   evaluation_config:="${workspace}/${evaluation_config}" \
   path_config:="${workspace}/${path_config}" \
+  path_version:="$path_version" \
   nominal_common_velocity:="$nominal_common_velocity" \
   evaluation_target:="$target_progress" &
 recorder_pid="$!"

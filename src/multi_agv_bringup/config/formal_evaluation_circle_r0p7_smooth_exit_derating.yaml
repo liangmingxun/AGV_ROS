@@ -11,8 +11,11 @@ exp2a_derating_pretest:
   publish_rate: 10.0
   activation_progress: 1.50
   restoration_progress: 3.50
-  evaluation_start_progress: 0.0
-  evaluation_end_progress: 5.178229715025710
+  # Leave recorded inactive samples on both sides of one contiguous formal
+  # window. This excludes recorder/soft-start arming and terminal-stop
+  # handoff without excluding either Robot2 capability transition.
+  evaluation_start_progress: 0.10
+  evaluation_end_progress: 5.10
   # Paper-aligned, motor-friendly degradation.  The first 0.40 dress
   # rehearsal proved unnecessarily deep for reliable low-speed execution.
   target_speed_ratio_left: 0.68

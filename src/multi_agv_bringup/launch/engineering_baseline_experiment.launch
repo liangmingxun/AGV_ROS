@@ -1,0 +1,49 @@
+<launch>
+  <arg name="output_root"/>
+  <arg name="run_id"/>
+  <arg name="operator"/>
+  <arg name="pair_block_id"/>
+  <arg name="experiment_id"
+       default="engineering_baseline_circle_r0p7_cw_smooth_exit"/>
+
+  <node pkg="multi_agv_analysis" type="record_experiment.py"
+        name="experiment_recorder" output="screen" required="true">
+    <param name="arming_authorized" value="true"/>
+    <param name="output_root" value="$(arg output_root)"/>
+    <param name="run_id" value="$(arg run_id)"/>
+    <param name="experiment_id" value="$(arg experiment_id)"/>
+    <param name="method_id" value="CAMERA_IMU_WHEEL_FUSED_CLOSED_LOOP"/>
+    <param name="pair_block_id" value="$(arg pair_block_id)"/>
+    <param name="payload_state" value="unloaded"/>
+    <param name="localization_source" value="camera_imu_wheel_fused"/>
+    <param name="operator" value="$(arg operator)"/>
+    <param name="interface_version" value="agv_ros_interfaces_v1"/>
+    <param name="camera_mode" value="true"/>
+    <param name="virtual_load_from_robots" value="true"/>
+    <param name="require_windows_sender_manifest" value="false"/>
+    <param name="require_approved_config" value="false"/>
+    <param name="formal_statistics_requested" value="false"/>
+    <param name="workspace" value="$(find multi_agv_bringup)/../../.."/>
+    <param name="connection_wait_seconds" value="8.0"/>
+    <param name="preflight_wait_seconds" value="15.0"/>
+    <rosparam command="load"
+              file="$(find multi_agv_bringup)/config/record_topics_engineering_baseline.yaml"/>
+    <rosparam param="config_files" subst_value="true">
+      ["$(find multi_agv_bringup)/config/common_platform.yaml",
+       "$(find multi_agv_bringup)/config/agv1_chassis.yaml",
+       "$(find multi_agv_bringup)/config/agv2_chassis.yaml",
+       "$(find multi_agv_bringup)/config/agv3_chassis.yaml",
+       "$(find multi_agv_bringup)/config/path_circle_r0p7_cw_smooth_exit.yaml",
+       "$(find multi_agv_bringup)/config/support_geometry.yaml",
+       "$(find multi_agv_bringup)/config/localization_camera_three_car_closed_loop.yaml",
+       "$(find multi_agv_bringup)/config/three_car_engineering_baseline_circle_r0p7.yaml",
+       "$(find multi_agv_bringup)/config/record_topics_engineering_baseline.yaml"]
+    </rosparam>
+    <rosparam param="camera_config_files" subst_value="true">
+      ["$(find multi_agv_vision_bridge)/config/vision_udp_bridge.yaml"]
+    </rosparam>
+    <param name="metrics/nominal_agv2_capability" value="0.16"/>
+    <param name="metrics/nominal_common_velocity" value="0.08"/>
+    <param name="metrics/evaluation_target" value="5.178229715025710"/>
+  </node>
+</launch>

@@ -478,6 +478,10 @@ def _aligned_rows(raw, maximum_age):
         experiment_state = _latest(
             experiment_states, stamp, maximum_age)
         derating = _latest(robot2_derating, stamp, maximum_age)
+        controller_method = (
+            str(controller.get("method_id", "")) if controller else "")
+        engineering_baseline = (
+            controller_method == "CAMERA_IMU_WHEEL_FUSED_CLOSED_LOOP")
         row = {
             "stamp": stamp,
             "localization_valid": _valid_cooperative(state),
@@ -508,9 +512,11 @@ def _aligned_rows(raw, maximum_age):
                 controller.get("common_velocity_reference", math.nan)
                 if controller else math.nan),
             "common_boundary_lower": (
+                math.nan if engineering_baseline else
                 controller.get("common_velocity_lower_bound", math.nan)
                 if controller else math.nan),
             "common_boundary_upper": (
+                math.nan if engineering_baseline else
                 controller.get("common_velocity_upper_bound", math.nan)
                 if controller else math.nan),
             "evaluation_active": (
@@ -560,7 +566,8 @@ def _aligned_rows(raw, maximum_age):
             except (TypeError, ValueError):
                 limiter_values = []
         row["fleet_scale"] = (
-            limiter_values[2] if len(limiter_values) == 25 else math.nan)
+            limiter_values[2] if len(limiter_values) == 25 else
+            1.0 if engineering_baseline else math.nan)
         row["wheel_pre_limit_peak"] = (
             limiter_values[3] if len(limiter_values) == 25 else math.nan)
         row["mapped_path_capability_available"] = (
@@ -641,10 +648,23 @@ def _aligned_rows(raw, maximum_age):
                 row["agv{}_wheel_right_fleet_scaled".format(robot)] = (
                     limiter_values[limiter_offset + 3])
             else:
-                row["agv{}_wheel_left_pre_limit".format(robot)] = math.nan
-                row["agv{}_wheel_right_pre_limit".format(robot)] = math.nan
-                row["agv{}_wheel_left_fleet_scaled".format(robot)] = math.nan
-                row["agv{}_wheel_right_fleet_scaled".format(robot)] = math.nan
+                # The engineering baseline has no formal fleet scaler.  Its
+                # ChassisFeedback raw field is therefore the true planar
+                # execution demand and is preserved as both pre-limit and
+                # fleet-scaled demand.  Other methods must never infer these
+                # stages when their dedicated limiter debug stream is absent.
+                baseline_left = row.get(
+                    "agv{}_wheel_left_raw".format(robot), math.nan)
+                baseline_right = row.get(
+                    "agv{}_wheel_right_raw".format(robot), math.nan)
+                row["agv{}_wheel_left_pre_limit".format(robot)] = (
+                    baseline_left if engineering_baseline else math.nan)
+                row["agv{}_wheel_right_pre_limit".format(robot)] = (
+                    baseline_right if engineering_baseline else math.nan)
+                row["agv{}_wheel_left_fleet_scaled".format(robot)] = (
+                    baseline_left if engineering_baseline else math.nan)
+                row["agv{}_wheel_right_fleet_scaled".format(robot)] = (
+                    baseline_right if engineering_baseline else math.nan)
             row["agv{}_reported_velocity_limit".format(robot)] = (
                 min(float(current_capability["max_wheel_velocity_left"]),
                     float(current_capability["max_wheel_velocity_right"]))
@@ -688,6 +708,9 @@ def _aligned_rows(raw, maximum_age):
                     math.nan)
                 row["agv{}_mapped_path_velocity_upper".format(robot)] = (
                     math.nan)
+            if engineering_baseline:
+                row["agv{}_boundary_lower".format(robot)] = math.nan
+                row["agv{}_boundary_upper".format(robot)] = math.nan
             m2b_offset = 6 + (robot - 1) * 20
             if len(m2b_values) >= m2b_offset + 20:
                 names = (

@@ -1,0 +1,36 @@
+robot_id: agv2
+robot_index: 2
+host_ip: 192.168.6.102
+serial_device: /dev/ttyACM0
+transport_type: serial
+wheel_radius: 0.0325
+# Frozen as robot2_camera_s_frozen_v1 after the three-cycle camera/IMU
+# calibration 20260810_195509 and three completed S validations.
+# These values are Robot2-specific and must not be copied to Robot1/Robot3.
+wheel_separation: 0.139284482
+wheel_feedback_scale_left: 1.091612663
+wheel_feedback_scale_right: 1.102973507
+base_link_z: 0.05969
+control_loop_overrun_seconds: 0.008
+command_timeout_seconds: 0.20
+sensor_feedback_timeout_seconds: 0.15
+odometry_stationary_wheel_velocity_tolerance: 0.005
+serial_startup_timeout_seconds: 10.0
+capability_publish_rate: 100.0
+enable_vofa: false
+nominal:
+  max_wheel_linear_velocity_left: 0.9
+  max_wheel_linear_velocity_right: 0.9
+  max_wheel_linear_acceleration_left: 1.0
+  max_wheel_linear_acceleration_right: 1.0
+  max_wheel_linear_deceleration_left: 2.0
+  max_wheel_linear_deceleration_right: 2.0
+odom_frame: agv2/odom
+base_frame: agv2/base_link
+imu_frame: agv2/imu_link
+support_frame: agv2/support_link
+imu:
+  acc_bias: [0.03683805, -0.06633908, 0.09081783]
+  acc_scale: [0.99527174, 0.99124308, 0.9936862]
+  gyro_bias: [0.00196799, 0.00131178, -0.00024899]
+  gyro_lpf_tau: 0.02

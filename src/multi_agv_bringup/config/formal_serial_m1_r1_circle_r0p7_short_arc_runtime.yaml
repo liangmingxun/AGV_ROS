@@ -3,7 +3,7 @@
 # runtime; only the bounded target and experiment identity are short-arc ones.
 formal_fake_runtime:
   schema_version: 1
-  configuration_status: PILOT_AUTHORIZED_0p15_APPLIED_0p18_PRELIMIT_ABORT
+  configuration_status: PILOT_AUTHORIZED_0p16_APPLIED_0p18_PRELIMIT_ABORT
   command_publication_authorized: false
   serial_execution_authorized: true
   publish_rate: 100.0

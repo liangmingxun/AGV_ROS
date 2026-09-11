@@ -3,13 +3,12 @@
 # execution authority is separated by the serial gate and launch file.
 formal_fake_runtime:
   schema_version: 1
-  # Operator-reported physical validation on 2026-09-04 confirmed all three
-  # robots at the 0.15 m/s chassis-applied wheel envelope, with emergency stop
-  # effective and no abnormal vibration, loss of control or communication.
+  # Operator-reported physical validation confirmed all three robots and the
+  # emergency stop without abnormal vibration, loss of control or communication.
+  # On 2026-09-11 the operator reported completing the 0.16 m/s wheel-envelope
+  # test and explicitly authorized it as the formal available capability.
   # The 0.18 m/s value below remains only a pre-limit demand abort threshold.
-  # On 2026-09-07 the operator explicitly accepted the replacement Robot3
-  # controller's 0.15 m/s envelope and emergency-stop validation.
-  configuration_status: PILOT_AUTHORIZED_0p15_APPLIED_0p18_PRELIMIT_ABORT
+  configuration_status: PILOT_AUTHORIZED_0p16_APPLIED_0p18_PRELIMIT_ABORT
   command_publication_authorized: false
   serial_execution_authorized: true
   publish_rate: 100.0
@@ -21,7 +20,7 @@ formal_fake_runtime:
   minimum_battery_voltage: 9.5
   minimum_battery_voltage_duration: 0.5
   # Emergency threshold for unmodified tracker wheel demand. The chassis still
-  # clamps wheel_applied to the independently configured 0.15 m/s capability.
+  # clamps wheel_applied to the independently configured 0.16 m/s capability.
   emergency_abort_limit: 0.18
   execution:
     # Hold all chassis at zero while averaging the initial path coordinates.
@@ -85,7 +84,7 @@ formal_fake_runtime:
     # R1 fixed state-constraint domain from the frozen lower-controller
     # experiment.  This is deliberately independent of the much narrower M1
     # reference boundary above.  Serial execution is still projected through
-    # mapped path capability and the 0.15 m/s chassis wheel limiter.
+    # mapped path capability and the 0.16 m/s chassis wheel limiter.
     velocity_lower_bound: -0.15
     velocity_upper_bound: 0.58
     initial_parameter: [0.0, 0.0]

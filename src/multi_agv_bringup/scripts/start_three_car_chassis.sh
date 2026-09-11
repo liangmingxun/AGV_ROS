@@ -2,7 +2,7 @@
 set -euo pipefail
 
 usage() {
-  echo "usage: $0 <robot-index: 1|2|3> [--confirm-formal-0p15-wheel-envelope]" >&2
+  echo "usage: $0 <robot-index: 1|2|3> [--confirm-formal-0p16-wheel-envelope]" >&2
   echo "Robot1 also starts the UDP vision bridge and camera/odometry fusion." >&2
 }
 
@@ -15,14 +15,14 @@ robot_index="$1"
 shift
 formal_wheel_limit="0.08"
 if [[ $# -gt 0 ]]; then
-  if [[ $# -ne 1 || "$1" != "--confirm-formal-0p15-wheel-envelope" ]]; then
+  if [[ $# -ne 1 || "$1" != "--confirm-formal-0p16-wheel-envelope" ]]; then
     usage
     exit 2
   fi
   # This explicit operator action is required on all three robots. It selects
-  # the 0.15 m/s chassis-applied limit; it does not select the independent
+  # the operator-tested 0.16 m/s chassis-applied limit; it does not select the independent
   # 0.18 m/s pre-limit emergency demand threshold.
-  formal_wheel_limit="0.15"
+  formal_wheel_limit="0.16"
 fi
 robot_name="robot${robot_index}"
 agv_name="agv${robot_index}"

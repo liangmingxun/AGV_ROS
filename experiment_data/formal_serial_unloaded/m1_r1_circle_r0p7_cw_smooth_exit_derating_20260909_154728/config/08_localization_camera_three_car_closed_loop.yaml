@@ -1,0 +1,27 @@
+# Three-AGV unloaded closed-loop localization overlay.
+# The three base poses are 100 Hz camera/IMU/wheel fused streams. A run-local
+# path frame is anchored from their initial rigid fit, so no frozen
+# world_to_odom values or load marker are required.
+localization_mode: fused
+require_calibration_epoch: true
+configuration_status: three_agv_camera_fused_udp_resilient_closed_loop_v3
+hardware_execution_authorized: true
+
+output_frame: three_car_path
+derive_virtual_load_from_robots: true
+auto_anchor_from_robot_poses: true
+publish_rate: 100.0
+# Runs 20260811_203011 and 20260811_205606 measured simultaneous remote
+# fused-pose delivery stalls up to 0.176 s and recovery sample age up to
+# 0.194 s. Keep a bounded 0.22 s freshness window while retaining the strict
+# 0.02 s cross-robot timestamp match below.
+maximum_state_age: 0.22
+maximum_sync_slop: 0.02
+# If the newest asynchronous streams cannot form a 20 ms set, retain only the
+# last already-synchronized snapshot. The 0.20 s cap covers the measured
+# 0.118--0.194 s fusion stalls and remains below maximum_state_age.
+maximum_synchronized_snapshot_hold: 0.20
+synchronization_queue_size: 64
+maximum_rigid_fit_residual: 0.025
+maximum_load_path_transient_hold: 0.05
+maximum_robot_path_transient_hold: 0.05

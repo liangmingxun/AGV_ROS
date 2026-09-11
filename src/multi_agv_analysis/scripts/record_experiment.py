@@ -310,7 +310,11 @@ class ExperimentRecorder:
 
     def start(self):
         bag_path = self.run_dir / "{}.bag".format(self.run_id)
-        command = ["rosbag", "record", "--buffsize=512", "-O", str(bag_path)]
+        # Each remote chassis uses a separate TCPROS connection.  Disable
+        # Nagle buffering so one feedback connection cannot accumulate a
+        # large burst while command/capability streams remain current.
+        command = ["rosbag", "record", "--buffsize=512", "--tcpnodelay",
+                   "-O", str(bag_path)]
         command.extend(self.topics)
         command.append("__name:={}".format(
             self.bag_node_name.lstrip("/")))

@@ -7,7 +7,8 @@ from pathlib import Path
 from multi_agv_analysis.io_utils import (
     atomic_dump_json, finite_float, load_yaml, read_csv, write_csv)
 from multi_agv_analysis.metrics import _rigid_fit_residual
-from multi_agv_analysis.publication_plots import _pyplot, _save_pdf
+from multi_agv_analysis.publication_plots import (
+    _apply_figure_typography, _pyplot, _save_pdf)
 
 
 GROUPS = {
@@ -129,6 +130,9 @@ def _run_context(aligned_csv):
         "M2b_M2b": (
             "M2b", "M2b固定约束参考", "M2b",
             "M2b局部约束上界", "M2b公共约束上界"),
+        "CAMERA_IMU_WHEEL_FUSED_CLOSED_LOOP": (
+            "未使用算法对照组", "直接路径参考", "二维实车执行层",
+            "无上层动态边界", "无公共动态边界"),
     }
     (method_label, upper_label, lower_label,
      local_upper_label, common_upper_label) = methods.get(
@@ -136,7 +140,12 @@ def _run_context(aligned_csv):
             method_id, "参考", "执行层", "局部参考上界", "公共参考上界"))
 
     path_label = "S形路径"
+    figure2_path_label = "S形路径"
     path_model = "unknown"
+    experiment_id = ""
+    if run_dir and (run_dir / "run_meta.json").is_file():
+        run_meta = load_yaml(run_dir / "run_meta.json")
+        experiment_id = str(run_meta.get("experiment_id", "")).strip()
     r1_velocity_lower_bound = -0.15
     r1_velocity_upper_bound = 0.58
     if run_dir and (run_dir / "config").is_dir():
@@ -160,14 +169,29 @@ def _run_context(aligned_csv):
                 direction = finite_float(path.get("circle_direction"))
                 turn = "顺时针" if direction < 0.0 else "逆时针"
                 path_label = "R={:.1f} m{}圆形路径".format(radius, turn)
+                figure2_path_label = "R={:.1f}m{}圆形路径".format(
+                    radius, turn)
                 if model == "circle_smooth_entry_exit":
                     path_label += "（平滑进出）"
             elif "sine" in model:
                 path_label = "S形路径"
+                figure2_path_label = path_label
             else:
                 path_label = model
+                figure2_path_label = path_label
             break
+    figure2_group_label = method_label
+    if method_id == "M1_R1":
+        figure2_group_label = (
+            "本文算法组（Robot2降额）"
+            if "derating" in experiment_id else "本文算法组")
+    figure2_title = "{}：{}".format(
+        figure2_group_label, figure2_path_label)
+    figure2_filename = "figure2_{}_{}".format(
+        figure2_group_label.replace("（", "_").replace("）", ""),
+        figure2_path_label.replace("=", "").replace(".", "p"))
     return {
+        "experiment_id": experiment_id,
         "method_id": method_id,
         "method_label": method_label,
         "upper_label": upper_label,
@@ -176,8 +200,14 @@ def _run_context(aligned_csv):
         "common_upper_label": common_upper_label,
         "path_model": path_model,
         "path_label": path_label,
+        "figure2_group_label": figure2_group_label,
+        "figure2_path_label": figure2_path_label,
+        "figure2_title": figure2_title,
+        "figure2_filename": figure2_filename,
         "r1_velocity_lower_bound": r1_velocity_lower_bound,
         "r1_velocity_upper_bound": r1_velocity_upper_bound,
+        "has_dynamic_boundaries": (
+            method_id != "CAMERA_IMU_WHEEL_FUSED_CLOSED_LOOP"),
     }
 
 
@@ -253,6 +283,7 @@ def _same_series(series, tolerance=1.0e-9):
 
 
 def _save(fig, output, name):
+    _apply_figure_typography(fig)
     fig.tight_layout()
     fig.savefig(output / (name + ".png"), dpi=320, bbox_inches="tight")
     _save_pdf(fig, output / (name + ".pdf"))
@@ -479,11 +510,30 @@ def plot_run(aligned_csv, output_dir, axis_overrides=None):
                     color=color, ls=style, lw=1.7,
                     label="Robot{}支撑点".format(robot))
     ax.set_aspect("equal", adjustable="box")
-    ax.set_title("{}：{}与三车支撑点轨迹".format(
-        context["method_label"], context["path_label"]))
+    ax.set_title(context["figure2_title"])
     ax.set_xlabel("x / m")
     ax.set_ylabel("y / m")
     _legend(ax, 2)
+    trajectory_override = (axis_overrides or {}).get(
+        "figure2.trajectory_y", {})
+    if trajectory_override:
+        from matplotlib.ticker import MultipleLocator
+        trajectory_lower = float(trajectory_override.get(
+            "y_min", ax.get_ylim()[0]))
+        trajectory_upper = float(trajectory_override.get(
+            "y_max", ax.get_ylim()[1]))
+        if (not math.isfinite(trajectory_lower + trajectory_upper) or
+                trajectory_lower >= trajectory_upper):
+            raise ValueError(
+                "invalid y-axis override for figure2.trajectory_y")
+        ax.set_ylim(trajectory_lower, trajectory_upper)
+        trajectory_step = trajectory_override.get("y_tick_step")
+        if trajectory_step is not None:
+            trajectory_step = float(trajectory_step)
+            if not math.isfinite(trajectory_step) or trajectory_step <= 0.0:
+                raise ValueError(
+                    "invalid y_tick_step for figure2.trajectory_y")
+            ax.yaxis.set_major_locator(MultipleLocator(trajectory_step))
     fig.canvas.draw()
     trajectory_lower, trajectory_upper = ax.get_ylim()
     metadata["figure2.trajectory_y"] = {
@@ -495,6 +545,7 @@ def plot_run(aligned_csv, output_dir, axis_overrides=None):
         "axis_equal": True,
     }
     _save(fig, output, "figure2_trajectory")
+    _save(fig, output, context["figure2_filename"])
     plt.close(fig)
 
     fig, axes = plt.subplots(2, 1, figsize=(8.0, 6.5), sharex=True)
@@ -528,18 +579,23 @@ def plot_run(aligned_csv, output_dir, axis_overrides=None):
         mapped = _series(
             rows, "agv{}_mapped_path_velocity_upper".format(robot))
         boundary = _series(rows, "agv{}_boundary_upper".format(robot))
-        axes[1].plot(time, mapped,
-            color=color, ls=style, alpha=0.8,
-            label="Robot{}路径映射能力".format(robot))
-        axes[1].plot(time, boundary,
-            color=color, ls="-.", alpha=0.75,
-            label="Robot{} {}".format(
-                robot, context["local_upper_label"]))
+        if any(math.isfinite(value) for value in mapped):
+            axes[1].plot(time, mapped,
+                color=color, ls=style, alpha=0.8,
+                label="Robot{}路径映射能力".format(robot))
+        if (context["has_dynamic_boundaries"] and
+                any(math.isfinite(value) for value in boundary)):
+            axes[1].plot(time, boundary,
+                color=color, ls="-.", alpha=0.75,
+                label="Robot{} {}".format(
+                    robot, context["local_upper_label"]))
         path_series.extend((mapped, boundary))
     common_boundary = _series(rows, "common_boundary_upper")
     public_reference = _series(rows, "public_reference_velocity")
-    axes[1].plot(time, common_boundary, color="#7A3E9D", ls="--", lw=1.3,
-                 label=context["common_upper_label"])
+    if (context["has_dynamic_boundaries"] and
+            any(math.isfinite(value) for value in common_boundary)):
+        axes[1].plot(time, common_boundary, color="#7A3E9D", ls="--", lw=1.3,
+                     label=context["common_upper_label"])
     axes[1].plot(time, public_reference, "k", lw=1.5,
                  label="公共参考速度")
     path_series.extend((common_boundary, public_reference))
@@ -571,12 +627,14 @@ def plot_run(aligned_csv, output_dir, axis_overrides=None):
             maximum_plot_rate_hz=maximum_plot_rate)
         ax.plot(time, public_reference, color="#555555", ls=":", lw=1.15,
                 label="公共参考速度")
-        ax.plot(time, lower, "k--", lw=0.8,
-                label="M1动态参考下界")
-        ax.plot(time, upper, color="#D9A900", ls="-.", lw=1.35,
-                label="Robot{} M1局部动态上界".format(robot))
-        ax.plot(time, common_upper, color="#7A3E9D", ls="--", lw=1.2,
-                label="M1公共动态上界")
+        if context["has_dynamic_boundaries"]:
+            ax.plot(time, lower, "k--", lw=0.8,
+                    label="{}下界".format(context["upper_label"]))
+            ax.plot(time, upper, color="#D9A900", ls="-.", lw=1.35,
+                    label="Robot{} {}".format(
+                        robot, context["local_upper_label"]))
+            ax.plot(time, common_upper, color="#7A3E9D", ls="--", lw=1.2,
+                    label=context["common_upper_label"])
         ax.set_ylabel("Robot{} / (m/s)".format(robot))
         _legend(ax, 3)
         channel_series.extend(
@@ -586,8 +644,12 @@ def plot_run(aligned_csv, output_dir, axis_overrides=None):
         _set_y_axis(ax, channel_series, "figure4.robot{}".format(robot),
                     "m/s", metadata, axis_overrides)
     axes[-1].set_xlabel("时间 / s")
-    axes[0].set_title("{}：局部/公共边界、公共参考与实测路径速度".format(
-        context["method_label"]))
+    figure4_subject = (
+        "局部/公共边界、公共参考与实测路径速度"
+        if context["has_dynamic_boundaries"] else
+        "公共路径参考与实测路径速度（无M1动态边界）")
+    axes[0].set_title("{}：{}".format(
+        context["method_label"], figure4_subject))
     _record_ticks(fig, {
         "figure4.robot{}".format(robot): axes[robot - 1]
         for robot in range(1, 4)}, metadata)

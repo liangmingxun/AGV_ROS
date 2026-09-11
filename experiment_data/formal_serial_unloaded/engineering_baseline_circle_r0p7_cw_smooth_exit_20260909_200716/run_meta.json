@@ -1,0 +1,96 @@
+{
+  "abort_reason": "",
+  "battery_voltage_end": {
+    "agv1": 11.75428581237793,
+    "agv2": 11.576996803283691,
+    "agv3": 11.266739845275879
+  },
+  "battery_voltage_start": {
+    "agv1": 11.39084243774414,
+    "agv2": 11.594725608825684,
+    "agv3": 11.34652042388916
+  },
+  "config_hashes": [
+    {
+      "archived_path": "config/01_common_platform.yaml",
+      "path": "/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/common_platform.yaml",
+      "sha256": "65483e8a7a24965d46f69d6d86b7e36f1655e7a3a761209b2ddf70ccc0f69f2a"
+    },
+    {
+      "archived_path": "config/02_agv1_chassis.yaml",
+      "path": "/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/agv1_chassis.yaml",
+      "sha256": "fd0c4ebf8ba31c6b27df3869951e91d864422435da3fab09e0e0bcd1e8558105"
+    },
+    {
+      "archived_path": "config/03_agv2_chassis.yaml",
+      "path": "/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/agv2_chassis.yaml",
+      "sha256": "cd7c1a8456a68b2dabe74f375bbaccab35990c9e107a6839a3a11ca4e307520a"
+    },
+    {
+      "archived_path": "config/04_agv3_chassis.yaml",
+      "path": "/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/agv3_chassis.yaml",
+      "sha256": "ff37627ee5f1caa50c0c92d79953ef1baf1698dc888d9099b62f39ea11aacc9e"
+    },
+    {
+      "archived_path": "config/05_path_circle_r0p7_cw_smooth_exit.yaml",
+      "path": "/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/path_circle_r0p7_cw_smooth_exit.yaml",
+      "sha256": "9dd10798b3f0af1c98d6ee80d335ffb34637845238ddd023a23a7edb1df5451f"
+    },
+    {
+      "archived_path": "config/06_support_geometry.yaml",
+      "path": "/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/support_geometry.yaml",
+      "sha256": "ddf201680f7ef9075a71e8e10853b3deff8e9398ef9ae58378005e482348f8f8"
+    },
+    {
+      "archived_path": "config/07_localization_camera_three_car_closed_loop.yaml",
+      "path": "/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/localization_camera_three_car_closed_loop.yaml",
+      "sha256": "32e8edaeae2ae52415977065fb13c5bd89c77e1b2a00274500defb5cba8fd882"
+    },
+    {
+      "archived_path": "config/08_three_car_engineering_baseline_circle_r0p7.yaml",
+      "path": "/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/three_car_engineering_baseline_circle_r0p7.yaml",
+      "sha256": "e10df74275802a8406caef9a6df8c9980e910c010f33a46e6146a484dda9a68f"
+    },
+    {
+      "archived_path": "config/09_record_topics_engineering_baseline.yaml",
+      "path": "/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/record_topics_engineering_baseline.yaml",
+      "sha256": "0f50a4960ac7f9e84e2f26d998ac0c952329f71ba7c2ce5affbe9d861b58b812"
+    },
+    {
+      "archived_path": "config/10_vision_udp_bridge.yaml",
+      "path": "/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_vision_bridge/config/vision_udp_bridge.yaml",
+      "sha256": "9ac815e02578e8ad6ce4e0776da9a123a425eea1249fd5b83358f99615d9e0ef"
+    },
+    {
+      "archived_path": "rosparams.yaml",
+      "path": "ROS parameter server snapshot",
+      "sha256": "050280eceafbe613f12929b398e81d29b0f7b4da4cad32b023c09794a022a13f"
+    }
+  ],
+  "end_timestamp": "2026-09-09T12:08:29.044331+00:00",
+  "experiment_id": "engineering_baseline_circle_r0p7_cw_smooth_exit",
+  "git_sha": "c00c2cf5ff829a5fb66d3bfd08bb751656341c02",
+  "hostname": "robot1",
+  "localization_source": "camera_imu_wheel_fused",
+  "method_id": "CAMERA_IMU_WHEEL_FUSED_CLOSED_LOOP",
+  "operator": "ETLAB",
+  "pair_block_id": "B01",
+  "path_version": "s_curve_v1",
+  "payload_state": "unloaded",
+  "processing_version": "paper_run_pipeline_v7_derating_events_common_boundary",
+  "recording_armed_timestamp": "2026-09-09T12:07:17.444171+00:00",
+  "run_id": "engineering_baseline_circle_r0p7_cw_smooth_exit_20260909_200716",
+  "schema_version": 1,
+  "software_versions": {
+    "interface": "agv_ros_interfaces_v1",
+    "python": "3.8.10",
+    "ros_distro": "noetic"
+  },
+  "start_timestamp": "2026-09-09T12:07:17.110529+00:00",
+  "stm32_firmware": [
+    "unreported",
+    "unreported",
+    "unreported"
+  ],
+  "valid_run": true
+}
