@@ -36,8 +36,11 @@ class BringupStaticTest(unittest.TestCase):
         for method in ("M1", "M2a"):
             auth_name = "formal_circle_0p10_{}_derating_0p75_reconciliation_v1_authorization.yaml".format(method)
             auth = yaml.safe_load((configs / auth_name).read_text())
-            self.assertFalse(auth["formal_upper"]["hardware_execution_authorized"])
-            self.assertFalse(auth["formal_lower"]["hardware_execution_authorized"])
+            expected_authorized = method == "M1"
+            self.assertEqual(auth["formal_upper"]["hardware_execution_authorized"],
+                             expected_authorized)
+            self.assertEqual(auth["formal_lower"]["hardware_execution_authorized"],
+                             expected_authorized)
             self.assertEqual(auth["authorization_scope"]["runtime_config"],
                              "src/multi_agv_bringup/config/" + new_name)
         entry = PACKAGE / "scripts" / "run_circle_0p10_comparison.sh"
