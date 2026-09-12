@@ -42,6 +42,9 @@ class PathProjector {
 
   ProjectionResult project(const Eigen::Vector2d& point, double previous_s,
                            double half_window) const;
+  double projectedVelocity(const Eigen::Vector2d& point,
+                           const ProjectionResult& projection,
+                           const Eigen::Vector2d& velocity) const;
 
  private:
   double squaredDistance(const Eigen::Vector2d& point, double s) const;

@@ -3,6 +3,13 @@
 # path frame is anchored from their initial rigid fit, so no frozen
 # world_to_odom values or load marker are required.
 localization_mode: fused
+# Atomic fused pose + measured body twist; camera corrections affect position
+# but are not differentiated into motion speed. No PoseStamped fallback.
+use_fused_motion_velocity: true
+estimator:
+  # Measured twist does not conceal gross absolute-position corrections.
+  # Allow at most 25 mm plus the existing speed/time displacement envelope.
+  maximum_position_correction: 0.025
 require_calibration_epoch: true
 configuration_status: unloaded_paired_pilot_wide_error_gates_20260912
 hardware_execution_authorized: true

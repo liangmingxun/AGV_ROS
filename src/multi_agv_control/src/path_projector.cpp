@@ -7,6 +7,19 @@
 #include <utility>
 
 namespace multi_agv_control {
+double PathProjector::projectedVelocity(const Eigen::Vector2d& point,
+    const ProjectionResult& projection, const Eigen::Vector2d& velocity) const {
+  if (!projection.valid || !point.allFinite() || !velocity.allFinite())
+    return std::numeric_limits<double>::quiet_NaN();
+  const auto curve = sample_(projection.s);
+  // Differentiate the nearest-point stationarity equation. This retains
+  // speed-scale and curvature effects, including slightly off-path motion.
+  const double denominator = curve.first_derivative.squaredNorm() +
+      (curve.position-point).dot(curve.second_derivative);
+  if (!std::isfinite(denominator) || denominator <= 1e-12)
+    return std::numeric_limits<double>::quiet_NaN();
+  return curve.first_derivative.dot(velocity)/denominator;
+}
 namespace {
 
 bool finiteVector(const Eigen::Vector2d& value) {

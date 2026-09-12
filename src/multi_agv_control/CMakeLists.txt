@@ -68,6 +68,7 @@ add_dependencies(camera_pose_adapter_node ${catkin_EXPORTED_TARGETS})
 
 add_executable(camera_odom_fusion_node src/camera_odom_fusion_node.cpp)
 target_include_directories(camera_odom_fusion_node PRIVATE
+  ${CMAKE_CURRENT_SOURCE_DIR}/include
   ${catkin_INCLUDE_DIRS}
 )
 target_compile_options(camera_odom_fusion_node
@@ -164,8 +165,15 @@ install(DIRECTORY include/${PROJECT_NAME}/
 )
 
 if(CATKIN_ENABLE_TESTING)
+  catkin_add_gtest(test_temporal_pose test/test_temporal_pose.cpp)
+  if(TARGET test_temporal_pose)
+    target_include_directories(test_temporal_pose PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+    target_link_libraries(test_temporal_pose gtest_main)
+  endif()
   find_package(rostest REQUIRED)
   catkin_install_python(PROGRAMS
+    test/test_temporal_fusion.py
+    test/test_fused_motion_state.py
     test/test_odom_state_estimator.py
     test/test_camera_pose_adapter.py
     test/test_central_readonly_e2e.py
@@ -178,6 +186,8 @@ if(CATKIN_ENABLE_TESTING)
     test/test_three_car_unloaded_bounded_pretest.py
     DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
   add_rostest(test/odom_state_estimator.test)
+  add_rostest(test/temporal_fusion.test)
+  add_rostest(test/fused_motion_state.test)
   add_rostest(test/camera_pose_adapter.test)
   add_rostest(test/central_readonly_e2e.test)
   add_rostest(test/constant_reference_e2e.test)
@@ -207,6 +217,11 @@ if(CATKIN_ENABLE_TESTING)
   catkin_add_gtest(test_planar_support_tracker test/test_planar_support_tracker.cpp)
   catkin_add_gtest(test_experiment_supervisor test/test_experiment_supervisor.cpp)
   catkin_add_gtest(test_formal_execution_gate test/test_formal_execution_gate.cpp)
+  catkin_add_gtest(test_execution_reference_derivative test/test_execution_reference_derivative.cpp)
+  if(TARGET test_execution_reference_derivative)
+    target_include_directories(test_execution_reference_derivative PRIVATE include)
+    target_link_libraries(test_execution_reference_derivative multi_agv_geometry gtest_main)
+  endif()
   catkin_add_gtest(test_dynamic_boundary test/test_dynamic_boundary.cpp)
   catkin_add_gtest(test_upper_reference_generator test/test_upper_reference_generator.cpp)
   catkin_add_gtest(test_lower_channel_controller test/test_lower_channel_controller.cpp)

@@ -1,0 +1,40 @@
+# M1 upper-layer parameterization for the isolated 0.10 m/s no-derating
+# circle pilot. The equations and gains are unchanged from the frozen 0.08
+# configuration; only the admissible upper velocity set is translated by
+# +0.020 m/s so the requested initial reference lies inside the barrier.
+formal_upper:
+  schema_version: 1
+  mode: M1
+  configuration_status: serial_vL_0p10_wheel_0p16_pilot
+  algorithm_execution_authorized: true
+  hardware_execution_authorized: false
+  golden_vectors_verified: true
+  update_rate: 25.0
+  controller_ticks_per_update: 4
+  agents:
+    physical_lower: [-0.030, -0.030, -0.030]
+    physical_upper: [0.125, 0.125, 0.125]
+    physical_margin_lower: [0.005, 0.005, 0.005]
+    physical_margin_upper: [0.005, 0.005, 0.005]
+    zero_margin: [0.005, 0.005, 0.005]
+    minimum_width: [0.065, 0.065, 0.065]
+    inner_margin: [0.005, 0.005, 0.005]
+    initial_lower: [-0.015, -0.015, -0.015]
+    initial_upper: [0.115, 0.115, 0.115]
+    nominal_lower: [-0.015, -0.015, -0.015]
+    nominal_upper: [0.115, 0.115, 0.115]
+    restore_gain_lower: [0.55, 0.55, 0.55]
+    restore_gain_upper: [0.65, 0.65, 0.65]
+    risk_gain_lower: [0.036, 0.036, 0.036]
+    risk_gain_upper: [0.100, 0.100, 0.100]
+    risk_scale: [0.95, 0.95, 0.95]
+    risk_decay: [0.42, 0.42, 0.42]
+  causality:
+    current_inputs: [reported_capability]
+    one_step_delayed_inputs:
+      [channel_input_margin, wheel_margin, position_margin, failure_margin]
+
+formal_fake_runtime:
+  execution:
+    m1_derating_reserve_robot_id: 2
+    m1_derating_actual_velocity_upper_reserve: 0.005

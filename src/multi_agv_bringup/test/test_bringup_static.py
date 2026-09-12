@@ -9,6 +9,43 @@ SOURCE_ROOT = PACKAGE.parent
 
 
 class BringupStaticTest(unittest.TestCase):
+    def test_reference_v1_only_changes_acceleration_wiring(self):
+        import copy
+        import subprocess
+        import yaml
+        configs = PACKAGE / "config"
+        old_name = "formal_serial_m1_r1_circle_r0p7_smooth_exit_0p10_pilot_runtime.yaml"
+        new_name = "formal_serial_circle_r0p7_smooth_exit_0p10_reference_v1_pilot_runtime.yaml"
+        original = yaml.safe_load((configs / old_name).read_text())
+        expected = copy.deepcopy(original)
+        expected["formal_fake_runtime"]["configuration_status"] = "PILOT_SHARED_CIRCLE_0P10_REFERENCE_V1"
+        expected["formal_fake_runtime"]["execution"]["consistent_reference_acceleration"] = True
+        expected["formal_fake_runtime"]["execution"]["reconciliation"] = {"enabled": False}
+        self.assertEqual(yaml.safe_load((configs / new_name).read_text()), expected)
+        for method in ("M1", "M2a"):
+            name = "formal_circle_0p10_{}_derating_0p75".format(method)
+            old = yaml.safe_load((configs / (name + "_authorization.yaml")).read_text())
+            new = yaml.safe_load((configs / (name + "_reference_v1_authorization.yaml")).read_text())
+            old["authorization_scope"]["runtime_config"] = "src/multi_agv_bringup/config/" + new_name
+            self.assertEqual(old, new)
+        script = PACKAGE / "scripts" / "run_circle_0p10_comparison.sh"
+        for args in (["--method", "M1", "--no-derating"],
+                     ["--method", "M2b", "--derating-0p75"],
+                     ["--method", "M1", "--derating-0p75", "--tracking-v2"],
+                     ["--method", "M1", "--derating-0p75", "--reconciliation-v1"]):
+            result = subprocess.run(["bash", str(script), "--reference-v1"] + args,
+                                    capture_output=True, text=True)
+            self.assertEqual(result.returncode, 2)
+        for method in ("M1", "M2a"):
+            # No physical confirmations: downstream refuses before ROS motion.
+            result = subprocess.run(["bash", "-x", str(script), "--method", method,
+                                     "--derating-0p75", "--reference-v1"],
+                                    capture_output=True, text=True)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn(new_name, result.stderr)
+            self.assertIn("derating_0p75_reference_v1_pilot", result.stderr)
+            self.assertIn("derating_0p75_reference_v1_authorization.yaml", result.stderr)
+
     def test_reconciliation_v1_is_separate_shared_and_locked(self):
         import copy
         import subprocess

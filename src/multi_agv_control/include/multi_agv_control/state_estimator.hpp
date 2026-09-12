@@ -27,6 +27,13 @@ struct RigidPoseEstimate {
 RigidPoseEstimate fitRigidLoadPose(
     const std::array<Eigen::Vector2d, 3>& measured_supports,
     const std::array<SupportOffset, 3>& load_offsets);
+Eigen::Vector2d supportPointVelocity(const PlanarPose& base,
+    const PlanarPose& base_to_support, const Eigen::Vector2d& body_velocity,
+    double angular_velocity);
+Eigen::Vector2d rigidLoadVelocity(
+    const std::array<Eigen::Vector2d, 3>& positions,
+    const std::array<Eigen::Vector2d, 3>& velocities,
+    const std::array<SupportOffset, 3>& offsets, double load_yaw);
 
 struct StateEstimatorConfig {
   double filter_alpha{0.8};
@@ -35,6 +42,7 @@ struct StateEstimatorConfig {
   double minimum_measurement_interval{1e-5};
   double maximum_measurement_interval{0.2};
   double maximum_absolute_speed{0.5};
+  double maximum_position_correction{0.025};
 };
 
 struct StateEstimate {
@@ -52,12 +60,18 @@ class StateEstimator {
 
   StateEstimate update(const Eigen::Vector2d& measured_position,
                        double measurement_stamp);
+  StateEstimate updateWithVelocity(const Eigen::Vector2d& measured_position,
+                                  double measurement_stamp,
+                                  const Eigen::Vector2d& measured_velocity);
   void reset(double initial_progress = 0.0);
 
   bool initialized() const noexcept { return initialized_; }
   const StateEstimate& lastEstimate() const noexcept { return last_estimate_; }
 
  private:
+  StateEstimate updateImpl(const Eigen::Vector2d& measured_position,
+                           double measurement_stamp,
+                           const Eigen::Vector2d* measured_velocity);
   StateEstimate invalidEstimate(double measurement_stamp,
                                 const ProjectionResult& projection) const;
 

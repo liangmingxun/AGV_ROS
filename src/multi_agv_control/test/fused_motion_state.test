@@ -1,0 +1,11 @@
+<launch>
+  <node pkg="multi_agv_control" type="path_state_estimator_node" name="path_state_estimator" required="true">
+    <rosparam command="load" file="$(find multi_agv_bringup)/config/path_s_curve.yaml"/>
+    <rosparam command="load" file="$(find multi_agv_bringup)/config/support_geometry.yaml"/>
+    <rosparam command="load" file="$(find multi_agv_bringup)/config/localization_camera.yaml"/>
+    <rosparam command="load" file="$(find multi_agv_bringup)/config/localization_camera_three_car_closed_loop.yaml"/>
+    <param name="path_s_curve/amplitude" value="0.0"/>
+    <param name="path_s_curve/longitudinal_length" value="2.0"/>
+  </node>
+  <test pkg="multi_agv_control" type="test_fused_motion_state.py" test-name="fused_motion_state" time-limit="25"/>
+</launch>

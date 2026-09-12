@@ -30,6 +30,30 @@ PathProjector centerProjector(const SCurvePath& path,
 
 }  // namespace
 
+TEST(PathProjectorVelocity, MappingRetainsSpeedScale) {
+  PathProjector projector(1.,[](double s) { return ProjectionCurveSample{{2*s,0},{2,0},{0,0}}; });
+  const Eigen::Vector2d point(.4,0.);
+  const auto projection=projector.project(point,.2,.3);
+  ASSERT_TRUE(projection.valid);
+  EXPECT_NEAR(projector.projectedVelocity(point,projection,{.2,0.}),.1,1e-12);
+}
+
+TEST(PathProjectorVelocity, OffCircleVelocityRetainsCurvature) {
+  const double radius=.7, s=.8, angle=s/radius;
+  PathProjector projector(2.,[radius](double arc) {
+    const double a=arc/radius;
+    return ProjectionCurveSample{{radius*std::cos(a),radius*std::sin(a)},
+        {-std::sin(a),std::cos(a)},{-std::cos(a)/radius,-std::sin(a)/radius}};
+  });
+  const Eigen::Vector2d point(.72*std::cos(angle),.72*std::sin(angle));
+  const Eigen::Vector2d velocity=(-std::sin(angle)*.1*.72/.7)*Eigen::Vector2d::UnitX()+
+      (std::cos(angle)*.1*.72/.7)*Eigen::Vector2d::UnitY();
+  const auto projection=projector.project(point,s,.3);
+  ASSERT_TRUE(projection.valid);
+  EXPECT_NEAR(projector.projectedVelocity(point,projection,velocity),.1,1e-8);
+  EXPECT_TRUE(std::isnan(projector.projectedVelocity(point,{},velocity)));
+}
+
 TEST(PathProjector, RejectsInvalidConfigurationAndQuery) {
   const SCurvePath path({0.12, 2.0, 20001});
   EXPECT_THROW(PathProjector(0.0, [](double) { return ProjectionCurveSample{}; }),

@@ -1,0 +1,177 @@
+experiment_recording:
+  registered_method_ids: [M1_R1, M2a_R1, M2b_M2b]
+  # Keep source topics in the bag. bag_to_csv.py performs only latest-at-or-
+  # before causal alignment and never modifies these raw samples.
+  topics:
+    - /agv1/chassis_command
+    - /agv2/chassis_command
+    - /agv3/chassis_command
+    - /agv1/chassis_feedback
+    - /agv2/chassis_feedback
+    - /agv3/chassis_feedback
+    - /agv1/capability_report
+    - /agv2/capability_report
+    - /agv3/capability_report
+    - /agv1/derating_command
+    - /agv2/derating_command
+    - /agv3/derating_command
+    - /agv1/imu
+    - /agv2/imu
+    - /agv3/imu
+    - /agv1/odom
+    - /agv2/odom
+    - /agv3/odom
+    - /multi_agv/experiment_state
+    - /multi_agv/cooperative_state
+    - /multi_agv/path_reference
+    - /multi_agv/controller_state
+    - /multi_agv/formal_algorithm_state
+    - /multi_agv/formal_execution_limiter_state
+    - /multi_agv/m2b_algorithm_state
+    - /multi_agv/software_watchdog_ok
+    - /multi_agv/software_watchdog_diagnostics
+    - /experiment_recorder/armed
+    - /experiment_recorder/method_id
+    - /vision/aruco/calibration_epoch
+    - /camera/world/agv1_tag_pose
+    - /camera/world/agv2_tag_pose
+    - /camera/world/agv3_tag_pose
+    - /camera/world/load_tag_pose
+    - /camera/world/agv1_confidence
+    - /camera/world/agv2_confidence
+    - /camera/world/agv3_confidence
+    - /camera/world/load_confidence
+    - /pose_provider/agv1/base_pose_raw
+    - /pose_provider/agv2/base_pose_raw
+    - /pose_provider/agv3/base_pose_raw
+    - /pose_provider/load/pose_raw
+    - /pose_provider/agv1/base_pose_filtered
+    - /pose_provider/agv2/base_pose_filtered
+    - /pose_provider/agv3/base_pose_filtered
+    - /pose_provider/load/pose_filtered
+    - /pose_provider/agv1/base_pose_fused
+    - /pose_provider/agv1/fusion_timing
+    - /pose_provider/agv2/fusion_timing
+    - /pose_provider/agv3/fusion_timing
+    - /pose_provider/agv1/estimator_timing
+    - /pose_provider/agv2/estimator_timing
+    - /pose_provider/agv3/estimator_timing
+    - /pose_provider/agv2/base_pose_fused
+    - /pose_provider/agv3/base_pose_fused
+
+  # Generic fake rehearsals can be converted without this stream, but the
+  # resulting evaluation window is not admissible for formal statistics.
+  recommended_topics:
+    - /multi_agv/experiment_state
+
+  # Applied by validate_run only when CooperativeState selects CAMERA/FUSED.
+  camera_required_topics:
+    - /vision/aruco/calibration_epoch
+    - /camera/world/agv1_tag_pose
+    - /camera/world/agv2_tag_pose
+    - /camera/world/agv3_tag_pose
+    - /camera/world/load_tag_pose
+    - /camera/world/agv1_confidence
+    - /camera/world/agv2_confidence
+    - /camera/world/agv3_confidence
+    - /camera/world/load_confidence
+    - /pose_provider/agv1/base_pose_raw
+    - /pose_provider/agv2/base_pose_raw
+    - /pose_provider/agv3/base_pose_raw
+    - /pose_provider/load/pose_raw
+    - /pose_provider/agv1/base_pose_filtered
+    - /pose_provider/agv2/base_pose_filtered
+    - /pose_provider/agv3/base_pose_filtered
+    - /pose_provider/load/pose_filtered
+
+  # Current unloaded algorithm validation derives the equivalent load pose
+  # from three fused robot/support poses. ID0 remains disabled and therefore
+  # must not be fabricated as required evidence.
+  camera_virtual_load_required_topics:
+    - /vision/aruco/calibration_epoch
+    - /camera/world/agv1_tag_pose
+    - /camera/world/agv2_tag_pose
+    - /camera/world/agv3_tag_pose
+    - /camera/world/agv1_confidence
+    - /camera/world/agv2_confidence
+    - /camera/world/agv3_confidence
+    - /pose_provider/agv1/base_pose_raw
+    - /pose_provider/agv2/base_pose_raw
+    - /pose_provider/agv3/base_pose_raw
+    - /pose_provider/agv1/base_pose_filtered
+    - /pose_provider/agv2/base_pose_filtered
+    - /pose_provider/agv3/base_pose_filtered
+
+  # Required in addition to camera evidence whenever CooperativeState reports
+  # SOURCE_FUSED for at least one robot.
+  fused_required_topics:
+    - /pose_provider/agv1/base_pose_fused
+    - /pose_provider/agv2/base_pose_fused
+    - /pose_provider/agv3/base_pose_fused
+
+  # A formal run must use exactly one solved ground-reference frame.
+  camera_calibration_epoch_required: true
+  maximum_camera_calibration_epoch_changes: 0
+
+  required_topics:
+    - /agv1/chassis_command
+    - /agv2/chassis_command
+    - /agv3/chassis_command
+    - /agv1/chassis_feedback
+    - /agv2/chassis_feedback
+    - /agv3/chassis_feedback
+    - /agv1/capability_report
+    - /agv2/capability_report
+    - /agv3/capability_report
+    - /agv1/imu
+    - /agv2/imu
+    - /agv3/imu
+    - /agv1/odom
+    - /agv2/odom
+    - /agv3/odom
+    - /multi_agv/cooperative_state
+    - /multi_agv/path_reference
+    - /multi_agv/controller_state
+    - /multi_agv/formal_algorithm_state
+
+  method_required_topics:
+    M1_R1:
+      - /multi_agv/experiment_state
+    M2a_R1:
+      - /multi_agv/experiment_state
+    M2b_M2b:
+      - /multi_agv/m2b_algorithm_state
+
+  minimum_topic_rates:
+    /agv1/chassis_command: 90.0
+    /agv2/chassis_command: 90.0
+    /agv3/chassis_command: 90.0
+    /agv1/chassis_feedback: 90.0
+    /agv2/chassis_feedback: 90.0
+    /agv3/chassis_feedback: 90.0
+    /agv1/capability_report: 90.0
+    /agv2/capability_report: 90.0
+    /agv3/capability_report: 90.0
+    /agv1/imu: 90.0
+    /agv2/imu: 90.0
+    /agv3/imu: 90.0
+    /agv1/odom: 90.0
+    /agv2/odom: 90.0
+    /agv3/odom: 90.0
+    /multi_agv/cooperative_state: 90.0
+    /multi_agv/path_reference: 90.0
+    /multi_agv/controller_state: 90.0
+    /multi_agv/formal_algorithm_state: 90.0
+    /multi_agv/m2b_algorithm_state: 90.0
+
+  sample_period: 0.01
+  sequence_rules:
+    - {file: chassis_command.csv, group_by: robot_id, field: command_seq,
+       max_gap: 5, allow_wrap: true}
+    - {file: chassis_feedback.csv, group_by: robot_id, field: feedback_seq,
+       max_gap: 5, allow_wrap: true}
+    - {file: capability_report.csv, group_by: robot_id, field: capability_seq,
+       max_gap: 5, allow_wrap: true}
+  localization_exclusion:
+    maximum_invalid_fraction: 0.01
+    maximum_consecutive_invalid_seconds: 0.10

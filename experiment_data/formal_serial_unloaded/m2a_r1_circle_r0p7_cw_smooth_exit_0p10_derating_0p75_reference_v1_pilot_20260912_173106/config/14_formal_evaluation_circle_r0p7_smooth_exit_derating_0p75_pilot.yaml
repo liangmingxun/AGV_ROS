@@ -1,0 +1,32 @@
+# Shared Experiment 2a/2b Robot2 derating window. The constant-curvature
+# portion is approximately s=0.60..4.60 m; both transitions are deliberately
+# kept well inside that interval.
+exp2a_derating_pretest:
+  schema_version: 1
+  experiment_id: circle_r0p7_cw_smooth_exit_robot2_derating_0p75_pilot
+  method_id: set_at_launch
+  block_id: set_at_launch
+  run_id: set_at_launch
+  progress_source: load_actual
+  publish_rate: 10.0
+  activation_progress: 1.50
+  restoration_progress: 3.50
+  # Leave recorded inactive samples on both sides of one contiguous formal
+  # window. This excludes recorder/soft-start arming and terminal-stop
+  # handoff without excluding either Robot2 capability transition.
+  evaluation_start_progress: 0.10
+  evaluation_end_progress: 5.10
+  # Separate operator-requested 0.75 pilot; original 0.68 condition is retained.
+  # With the 0.16 m/s envelope, Robot2 capability becomes 0.120 m/s.
+  target_speed_ratio_left: 0.75
+  target_speed_ratio_right: 0.75
+  target_acceleration_ratio_left: 0.70
+  target_acceleration_ratio_right: 0.70
+  target_deceleration_ratio_left: 0.70
+  target_deceleration_ratio_right: 0.70
+  ramp_down_time: 1.00
+  ramp_up_time: 1.00
+  derating_mode: 1
+  finish_after_restoration: false
+  # Loaded from the separate reviewed authorization overlay at launch.
+  hardware_execution_authorized: false

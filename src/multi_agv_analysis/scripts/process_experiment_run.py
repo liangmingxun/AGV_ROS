@@ -14,7 +14,7 @@ from multi_agv_analysis.paper_pipeline import export_views, plot_run
 from multi_agv_analysis.validation import validate_converted_run
 
 
-PROCESSING_VERSION = "paper_run_pipeline_v8_recorded_progress_origin_alignment"
+PROCESSING_VERSION = "paper_run_pipeline_v10_atomic_fused_motion_routing"
 
 RAW_DISPLAY_PROFILE = {
     "display": {

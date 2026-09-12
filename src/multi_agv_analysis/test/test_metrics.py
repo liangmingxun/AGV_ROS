@@ -10,7 +10,8 @@ from pathlib import Path
 import genpy
 from agv_msgs.msg import ControllerState, CooperativeState, PathReference
 from geometry_msgs.msg import PoseStamped
-from std_msgs.msg import Float64, UInt64
+from nav_msgs.msg import Odometry
+from std_msgs.msg import Float64, Float64MultiArray, UInt64
 
 from multi_agv_analysis.conversion import RAW_SCHEMAS, _aligned_rows, _extract
 from multi_agv_analysis.approval import verify_approved_configuration
@@ -63,6 +64,52 @@ class ConfigurationApprovalTest(unittest.TestCase):
 
 
 class CameraConversionTest(unittest.TestCase):
+    def test_atomic_fused_motion_is_lossless_and_separate_from_raw_odom(self):
+        message = Odometry()
+        message.header.stamp = genpy.Time.from_sec(12.)
+        message.header.frame_id = "world@123"
+        message.child_frame_id = "agv2/base_link"
+        message.pose.pose.position.x = .25
+        message.twist.twist.linear.x = .1
+        message.twist.twist.angular.z = -.14
+        name, row = _extract("/pose_provider/agv2/base_motion_fused", message.header.stamp, message)
+        self.assertEqual(name, "fused_motion.csv")
+        self.assertEqual(row["position_x"], .25)
+        self.assertEqual(row["linear_x"], .1)
+        self.assertEqual(row["angular_z"], -.14)
+        self.assertEqual(_extract("/agv2/odom", message.header.stamp, message)[0], "odometry.csv")
+    def test_timing_arrays_are_separate_and_algorithm_routing_is_explicit(self):
+        stamp = genpy.Time.from_sec(12.5)
+        message = Float64MultiArray(data=[123, 12.0, 12.4, 12.5, 12.5, 0, .1])
+        for robot in range(1, 4):
+            for suffix in ("fusion_timing", "estimator_timing"):
+                topic = "/pose_provider/agv{}/{}".format(robot, suffix)
+                filename, row = _extract(topic, stamp, message)
+                self.assertEqual(filename, "state_chain_timing.csv")
+                self.assertEqual(row["topic"], topic)
+                self.assertEqual(json.loads(row["data_json"]), list(message.data))
+        for topic, expected in (
+                ("/multi_agv/formal_algorithm_state", "formal_algorithm_state.csv"),
+                ("/multi_agv/formal_execution_limiter_state", "formal_execution_limiter_state.csv"),
+                ("/multi_agv/m2b_algorithm_state", "m2b_algorithm_state.csv")):
+            self.assertEqual(_extract(topic, stamp, message)[0], expected)
+        self.assertEqual(_extract("/unrelated/diagnostic", stamp, message), (None, None))
+
+    def test_legacy_contaminated_algorithm_csv_cannot_mask_valid_state(self):
+        raw = {name: [] for name in RAW_SCHEMAS}
+        raw["cooperative_state.csv"] = [{"header_stamp": 1.01}]
+        values = [0.] * 97
+        values[0] = 1.
+        raw["formal_algorithm_state.csv"] = [{
+            "topic": "/multi_agv/formal_algorithm_state", "header_stamp": 1.,
+            "layout_label": "formal_algorithm_state_v2:header10+3x29",
+            "data_json": json.dumps(values)}, {
+            "topic": "/pose_provider/agv2/fusion_timing", "header_stamp": 1.005,
+            "layout_label": "", "data_json": "[123,1,1,1,1,1,0]"}]
+        aligned = _aligned_rows(raw, .2)[0]
+        self.assertTrue(aligned["algorithm_state_available"])
+        self.assertTrue(aligned["algorithm_valid"])
+
     def test_camera_and_world_pose_fields_are_losslessly_exported(self):
         stamp = genpy.Time.from_sec(12.5)
         camera = PoseStamped()

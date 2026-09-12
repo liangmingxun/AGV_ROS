@@ -13,6 +13,7 @@ using multi_agv_control::PathProjectorConfig;
 using multi_agv_control::PlanarPose;
 using multi_agv_control::ProjectionCurveSample;
 using multi_agv_control::SCurvePath;
+using multi_agv_control::SCurveConfig;
 using multi_agv_control::StateEstimator;
 using multi_agv_control::StateEstimatorConfig;
 using multi_agv_control::SupportOffset;
@@ -44,6 +45,53 @@ StateEstimatorConfig estimatorConfig() {
 }
 
 }  // namespace
+
+TEST(StateEstimatorMotion, CameraCorrectionChangesProgressNotMotionSpeed) {
+  SCurveConfig path_config; path_config.amplitude=0.0; path_config.longitudinal_length=1.0;
+  SCurvePath path(path_config);
+  StateEstimator legacy(makeProjector(path),estimatorConfig());
+  StateEstimator decoupled(makeProjector(path),estimatorConfig());
+  for (int i=0; i<100; ++i) {
+    const Eigen::Vector2d position(.1+.001*i,0.);
+    legacy.update(position,1.+.01*i);
+    decoupled.updateWithVelocity(position,1.+.01*i,{.1,0.});
+  }
+  const Eigen::Vector2d corrected(.199+.0008-.006,0.);
+  const auto old=legacy.update(corrected,1.998);
+  const auto now=decoupled.updateWithVelocity(corrected,1.998,{.1,0.});
+  EXPECT_FALSE(old.valid);
+  ASSERT_TRUE(now.valid);
+  EXPECT_NEAR(now.progress,corrected.x(),1e-7);
+  EXPECT_NEAR(now.speed,.1,1e-9);
+  EXPECT_FALSE(decoupled.updateWithVelocity({.299,0.},2.008,{.1,0.}).valid);
+}
+
+TEST(StateEstimatorMotion, NonfiniteRealOverspeedAndTimeGapStillRejected) {
+  SCurveConfig path_config; path_config.amplitude=0.;
+  SCurvePath path(path_config);
+  StateEstimator estimator(makeProjector(path),estimatorConfig());
+  estimator.updateWithVelocity({.1,0.},1.,{.1,0.});
+  EXPECT_FALSE(estimator.updateWithVelocity({.101,0.},1.01,{.6,0.}).valid);
+  EXPECT_FALSE(estimator.updateWithVelocity({.101,0.},1.01,
+      {std::numeric_limits<double>::quiet_NaN(),0.}).valid);
+  EXPECT_FALSE(estimator.updateWithVelocity({.102,0.},1.5,{.1,0.}).valid);
+  EXPECT_FALSE(estimator.updateWithVelocity({.103,0.},1.49,{.1,0.}).valid);
+}
+
+TEST(StateEstimatorMotion, SupportVelocityIncludesRotatingLeverArm) {
+  multi_agv_control::PlanarPose base{{0,0},std::acos(-1.)/2.};
+  multi_agv_control::PlanarPose offset{{.1,0},0};
+  const auto v=multi_agv_control::supportPointVelocity(base,offset,{.2,0},1.);
+  EXPECT_NEAR(v.x(),-.1,1e-12); EXPECT_NEAR(v.y(),.2,1e-12);
+}
+
+TEST(StateEstimatorMotion, RigidLoadVelocityAccountsForOffsetCentroid) {
+  std::array<SupportOffset,3> offsets{{{1,0},{0,1},{0,0}}};
+  std::array<Eigen::Vector2d,3> positions{{{1,0},{0,1},{0,0}}};
+  std::array<Eigen::Vector2d,3> velocities{{{.2,1},{-.8,0},{.2,0}}};
+  const auto v=multi_agv_control::rigidLoadVelocity(positions,velocities,offsets,0.);
+  EXPECT_NEAR(v.x(),.2,1e-12); EXPECT_NEAR(v.y(),0.,1e-12);
+}
 
 TEST(StateEstimator, RejectsInvalidConfiguration) {
   const SCurvePath path({0.12, 2.0, 20001});

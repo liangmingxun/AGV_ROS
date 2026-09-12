@@ -9,8 +9,9 @@ usage() {
   echo "--derating-0p75 selects the separate M1/M2a paired pilot, ratio=0.75."
   echo "--tracking-v2: separate 0.75 paired pilot with shared longitudinal gain 1.3; original configs unchanged."
   echo "--reconciliation-v1: separate 0.75 M1/M2a candidate with slow bounded shared-R1 execution reconciliation."
+  echo "--reference-v1: separate 0.75 M1/M2a pilot; acceleration follows final public velocity; tracker gain 1.0, reconciliation off."
 }
-method=""; condition=""; tracking_v2=false; reconciliation_v1=false; forwarded=()
+method=""; condition=""; tracking_v2=false; reconciliation_v1=false; reference_v1=false; forwarded=()
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --method)
@@ -21,6 +22,7 @@ while [[ $# -gt 0 ]]; do
       condition="${1#--}"; shift ;;
     --tracking-v2) tracking_v2=true; shift ;;
     --reconciliation-v1) reconciliation_v1=true; shift ;;
+    --reference-v1) reference_v1=true; shift ;;
     -h|--help) usage; exit 0 ;;
     *) forwarded+=("$1"); shift ;;
   esac
@@ -44,6 +46,10 @@ if [[ "$tracking_v2" == true && "$reconciliation_v1" == true ]]; then
   exit 2
 fi
 config_dir=src/multi_agv_bringup/config
+if [[ "$reference_v1" == true && ( "$condition" != derating-0p75 || "$method" == M2b || "$tracking_v2" == true || "$reconciliation_v1" == true ) ]]; then
+  echo "ERROR: --reference-v1 requires M1/M2a derating-0p75 and excludes other candidates" >&2
+  exit 2
+fi
 export FORMAL_UPPER_MODE="$method"
 case "$method" in
   M1) export FORMAL_UPPER_CONFIG="$config_dir/exp2a_M1_serial_0p10_pilot.yaml"; prefix=m1_r1 ;;
@@ -82,5 +88,11 @@ if [[ "$reconciliation_v1" == true ]]; then
   export FORMAL_EXPERIMENT_ID="${prefix}_circle_r0p7_cw_smooth_exit_0p10_${scope}_reconciliation_v1_pilot"
 fi
 export FORMAL_RUN_PREFIX="$FORMAL_EXPERIMENT_ID"
+if [[ "$reference_v1" == true ]]; then
+  export FORMAL_RUNTIME_CONFIG="$config_dir/formal_serial_circle_r0p7_smooth_exit_0p10_reference_v1_pilot_runtime.yaml"
+  export FORMAL_EXECUTION_AUTHORIZATION_CONFIG="$config_dir/formal_circle_0p10_${method}_derating_0p75_reference_v1_authorization.yaml"
+  export FORMAL_EXPERIMENT_ID="${prefix}_circle_r0p7_cw_smooth_exit_0p10_${scope}_reference_v1_pilot"
+  export FORMAL_RUN_PREFIX="$FORMAL_EXPERIMENT_ID"
+fi
 export FORMAL_RUN_TIMEOUT_SECONDS=140
 exec "$script_dir/run_m1_r1_serial_unloaded_circle_r0p7_smooth_exit.sh" "${forwarded[@]}"

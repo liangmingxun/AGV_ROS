@@ -50,8 +50,17 @@ experiment_recording:
     - /pose_provider/agv3/base_pose_filtered
     - /pose_provider/load/pose_filtered
     - /pose_provider/agv1/base_pose_fused
+    - /pose_provider/agv1/fusion_timing
+    - /pose_provider/agv2/fusion_timing
+    - /pose_provider/agv3/fusion_timing
+    - /pose_provider/agv1/estimator_timing
+    - /pose_provider/agv2/estimator_timing
+    - /pose_provider/agv3/estimator_timing
     - /pose_provider/agv2/base_pose_fused
     - /pose_provider/agv3/base_pose_fused
+    - /pose_provider/agv1/base_motion_fused
+    - /pose_provider/agv2/base_motion_fused
+    - /pose_provider/agv3/base_motion_fused
 
   # Generic fake rehearsals can be converted without this stream, but the
   # resulting evaluation window is not admissible for formal statistics.

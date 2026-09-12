@@ -24,6 +24,8 @@
 
 #include "multi_agv_control/capability_mapper.hpp"
 #include "multi_agv_control/execution_channel_reconciler.hpp"
+#include "multi_agv_control/execution_reference_derivative.hpp"
+#include "multi_agv_control/recovery_slew.hpp"
 #include "multi_agv_control/formal_execution_gate.hpp"
 #include "multi_agv_control/lower_channel_controller.hpp"
 #include "multi_agv_control/m2b_controller.hpp"
@@ -142,6 +144,9 @@ class FormalFakeAlgorithmNode {
     enforceExecutionGates(upper_config, lower_config);
     upper_mode_ = upper_config.mode;
     lower_mode_ = lower_config.mode;
+    if (consistent_reference_acceleration_ && lower_mode_ != LowerMode::kR1) {
+      throw std::runtime_error("reference-consistency pilot is scoped to shared R1");
+    }
     if (execution_reconciler_->config().enabled &&
         lower_mode_ != LowerMode::kR1) {
       throw std::runtime_error(
@@ -418,6 +423,9 @@ class FormalFakeAlgorithmNode {
         root + "execution/m1_derating_actual_velocity_upper_reserve",
         m1_derating_actual_velocity_upper_reserve_, 0.0);
     ExecutionChannelReconcilerConfig reconciliation;
+    private_node_.param(
+        root + "execution/consistent_reference_acceleration",
+        consistent_reference_acceleration_, false);
     private_node_.param(
         root + "execution/reconciliation/enabled",
         reconciliation.enabled, false);
@@ -785,6 +793,12 @@ class FormalFakeAlgorithmNode {
   }
 
   void receiveState(const agv_msgs::CooperativeState::ConstPtr& message) {
+    if (transport_type_ == "serial" && has_last_valid_state_) {
+      for (std::size_t i=0; i<3; ++i) {
+        if ((message->robot_pose_stamp[i]-last_valid_state_.robot_pose_stamp[i]).toSec() > 0.03)
+          recovery_slew_until_ = ros::Time::now()+ros::Duration(0.25);
+      }
+    }
     latest_received_state_ = *message;
     state_ = latest_received_state_;
     state_receive_time_ = ros::Time::now();
@@ -928,6 +942,7 @@ class FormalFakeAlgorithmNode {
       return false;
     }
     state_ = last_valid_state_;
+    recovery_slew_until_ = now + ros::Duration(0.25);
     ROS_WARN_THROTTLE(
         1.0,
         "Formal execution holding the last fully valid CooperativeState for %.6f s during temporal estimator resynchronization",
@@ -1092,7 +1107,7 @@ class FormalFakeAlgorithmNode {
           tracking.wheel_linear_velocity_right_raw;
       return true;
     }
-    const auto publication = limitSerialWheelPublication(
+    auto publication = limitSerialWheelPublication(
         tracking.wheel_linear_velocity_left_raw,
         tracking.wheel_linear_velocity_right_raw,
         tracker_config_.wheel_separation[index]);
@@ -1101,6 +1116,26 @@ class FormalFakeAlgorithmNode {
       ROS_ERROR("Serial wheel publication conversion is invalid; safety abort latched");
       return false;
     }
+    const ros::Time publication_stamp = ros::Time::now();
+    if (publication_stamp < recovery_slew_until_) recovery_slew_active_[index] = true;
+    if (recovery_slew_active_[index] &&
+        !last_wheel_publication_stamp_[index].isZero()) {
+      const double dt = (publication_stamp-last_wheel_publication_stamp_[index]).toSec();
+      if (dt > 0.0 && dt <= 0.1) {
+        const double target_left = publication.left;
+        const double target_right = publication.right;
+        publication.left = recoveryWheelSlew(publication.left, last_wheel_left_[index], dt);
+        publication.right = recoveryWheelSlew(publication.right, last_wheel_right_[index], dt);
+        publication.linear = 0.5*(publication.left+publication.right);
+        publication.angular = (publication.right-publication.left)/tracker_config_.wheel_separation[index];
+        if (publication_stamp >= recovery_slew_until_ &&
+            publication.left == target_left && publication.right == target_right)
+          recovery_slew_active_[index] = false;
+      }
+    }
+    last_wheel_left_[index] = publication.left;
+    last_wheel_right_[index] = publication.right;
+    last_wheel_publication_stamp_[index] = publication_stamp;
     command->linear_velocity_reference = publication.linear;
     command->angular_velocity_reference = publication.angular;
     command->wheel_linear_velocity_left_raw = publication.left;
@@ -1128,14 +1163,13 @@ class FormalFakeAlgorithmNode {
         "NaN/Inf", index + 1U);
   }
 
-  void updateExecutionReference(double dt) {
+  bool updateExecutionReference(double dt) {
     if (transport_type_ != "serial" || startup_ramp_seconds_ <= 0.0) {
       startup_scale_ = 1.0;
       current_velocity_reference_ = unramped_velocity_reference_;
       current_acceleration_reference_ = unramped_acceleration_reference_;
-      return;
-    }
-    startup_elapsed_seconds_ = std::min(
+    } else {
+      startup_elapsed_seconds_ = std::min(
         startup_ramp_seconds_, startup_elapsed_seconds_ + dt);
     const double tau =
         startup_elapsed_seconds_ / startup_ramp_seconds_;
@@ -1153,6 +1187,14 @@ class FormalFakeAlgorithmNode {
     current_acceleration_reference_ =
         unramped_acceleration_reference_ * startup_scale_ +
         unramped_velocity_reference_ * scale_rate;
+    }
+    if (transport_type_ == "serial" && consistent_reference_acceleration_) {
+      const auto derivative = execution_reference_derivative_.update(
+          current_velocity_reference_, dt);
+      if (!derivative.valid) return false;
+      current_acceleration_reference_ = derivative.acceleration;
+    }
+    return true;
   }
 
   bool updateExecutionInitialization(double dt) {
@@ -1427,6 +1469,13 @@ class FormalFakeAlgorithmNode {
   }
 
   void publishZero(const ros::Time& stamp) {
+    // Safety and terminal zeros bypass recovery slew immediately.
+    recovery_slew_until_ = ros::Time();
+    recovery_slew_active_.fill(false);
+    last_wheel_publication_stamp_.fill(ros::Time());
+    last_wheel_left_.fill(0.0);
+    last_wheel_right_.fill(0.0);
+    execution_reference_derivative_.reset();
     execution_channel_velocity_command_.fill(0.0);
     robot2_derating_elapsed_seconds_ = 0.0;
     if (transport_type_ == "serial" && execution_initialized_ &&
@@ -1970,7 +2019,13 @@ class FormalFakeAlgorithmNode {
                  distributed.acceleration[2]) /
                     static_cast<double>(kRobotCount);
     }
-    updateExecutionReference(dt);
+    if (!updateExecutionReference(dt)) {
+      ROS_ERROR_THROTTLE(1.0, "Final execution reference derivative is invalid; fail-zero");
+      publishZero(now);
+      publishPublicState(now, false, lower, tracking);
+      publishDebug(false, current_upper_, distributed, lower);
+      return;
+    }
     leader_position_ += dt * leader_velocity_;
     reference_progress_ = std::min(
         target_progress_,
@@ -2161,6 +2216,11 @@ class FormalFakeAlgorithmNode {
   std::array<agv_msgs::ChassisFeedback, 3> feedback_;
   ros::Time state_receive_time_;
   ros::Time last_valid_state_receive_time_;
+  ros::Time recovery_slew_until_;
+  std::array<ros::Time, 3> last_wheel_publication_stamp_{};
+  std::array<double, 3> last_wheel_left_{};
+  std::array<double, 3> last_wheel_right_{};
+  std::array<bool, 3> recovery_slew_active_{};
   std::array<ros::Time, 3> capability_receive_time_;
   std::array<ros::Time, 3> feedback_receive_time_;
   std::array<ros::Time, 3> low_battery_since_;
@@ -2238,6 +2298,8 @@ class FormalFakeAlgorithmNode {
   double leader_acceleration_{0.0};
   double current_velocity_reference_{0.08};
   double current_acceleration_reference_{0.0};
+  bool consistent_reference_acceleration_{false};
+  ExecutionReferenceDerivative execution_reference_derivative_;
   double distributed_inner_margin_{0.01};
   double unramped_velocity_reference_{0.08};
   double unramped_acceleration_reference_{0.0};

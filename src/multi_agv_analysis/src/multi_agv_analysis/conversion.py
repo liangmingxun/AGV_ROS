@@ -113,7 +113,16 @@ RAW_SCHEMAS = {
         "orientation_y", "orientation_z", "orientation_w", "linear_x",
         "linear_y", "angular_z",
     ],
+    "fused_motion.csv": [
+        "topic", "bag_stamp", "header_stamp", "frame_id", "child_frame_id",
+        "position_x", "position_y", "position_z", "orientation_x",
+        "orientation_y", "orientation_z", "orientation_w", "linear_x",
+        "linear_y", "angular_z",
+    ],
     "formal_algorithm_state.csv": [
+        "topic", "bag_stamp", "header_stamp", "layout_label", "data_json",
+    ],
+    "state_chain_timing.csv": [
         "topic", "bag_stamp", "header_stamp", "layout_label", "data_json",
     ],
     "formal_execution_limiter_state.csv": [
@@ -358,6 +367,8 @@ def _extract(topic, bag_stamp, message):
             "linear_y": message.twist.twist.linear.y,
             "angular_z": message.twist.twist.angular.z,
         })
+        if topic in {"/pose_provider/agv{}/base_motion_fused".format(n) for n in range(1,4)}:
+            return "fused_motion.csv", row
         return "odometry.csv", row
     if message_type == "geometry_msgs/PoseStamped":
         frame_id = message.header.frame_id
@@ -409,7 +420,16 @@ def _extract(topic, bag_stamp, message):
             return "m2b_algorithm_state.csv", row
         if topic == "/multi_agv/formal_execution_limiter_state":
             return "formal_execution_limiter_state.csv", row
-        return "formal_algorithm_state.csv", row
+        if topic == "/multi_agv/formal_algorithm_state":
+            return "formal_algorithm_state.csv", row
+        if topic in {
+                "/pose_provider/agv{}/{}".format(robot, suffix)
+                for robot in range(1, 4)
+                for suffix in ("fusion_timing", "estimator_timing")}:
+            return "state_chain_timing.csv", row
+        # Sharing a ROS message type does not make arbitrary diagnostics an
+        # algorithm state. Unknown arrays remain in the original bag.
+        return None, None
     return None, None
 
 
@@ -457,7 +477,10 @@ def _aligned_rows(raw, maximum_age):
         robot: _series(capability[robot]) for robot in range(1, 4)}
     paths = _series(raw["path_reference.csv"])
     controllers = _series(raw["controller_state.csv"])
-    formal_debug = _series(raw["formal_algorithm_state.csv"])
+    formal_debug = _series([
+        value for value in raw["formal_algorithm_state.csv"]
+        if value.get("topic", "/multi_agv/formal_algorithm_state") ==
+        "/multi_agv/formal_algorithm_state"])
     execution_limiter = _series(
         raw["formal_execution_limiter_state.csv"])
     m2b_debug = _series(raw["m2b_algorithm_state.csv"])

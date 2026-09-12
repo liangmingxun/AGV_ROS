@@ -16,6 +16,7 @@
 #include <geometry_msgs/PoseStamped.h>
 #include <nav_msgs/Odometry.h>
 #include <ros/ros.h>
+#include <std_msgs/Float64MultiArray.h>
 
 #include "multi_agv_control/path_projector.hpp"
 #include "multi_agv_control/rigid_fit_runtime_gate.hpp"
@@ -94,6 +95,10 @@ class PathStateEstimatorNode {
                         require_calibration_epoch_, true);
     private_node_.param("publish_rate", publish_rate_, 100.0);
     private_node_.param("maximum_state_age", maximum_state_age_, 0.15);
+    private_node_.param("maximum_live_fused_pose_age", maximum_live_fused_pose_age_, 0.05);
+    private_node_.param("use_fused_motion_velocity", use_fused_motion_velocity_, false);
+    if (use_fused_motion_velocity_ && localization_mode_ != "fused")
+      throw std::runtime_error("fused motion velocity requires fused localization");
     private_node_.param("maximum_sync_slop", maximum_sync_slop_, 0.02);
     private_node_.param("maximum_synchronized_snapshot_hold",
                         maximum_synchronized_snapshot_hold_, 0.05);
@@ -120,6 +125,7 @@ class PathStateEstimatorNode {
     private_node_.param("output_frame", output_frame_,
                         std::string("world"));
     if (!(publish_rate_ > 0.0) || !(maximum_state_age_ > 0.0) ||
+        !(maximum_live_fused_pose_age_ > 0.0 && maximum_live_fused_pose_age_ <= maximum_state_age_) ||
         !(maximum_sync_slop_ >= 0.0) ||
         maximum_synchronized_snapshot_hold_ < 0.0 ||
         maximum_synchronized_snapshot_hold_ > maximum_state_age_ ||
@@ -214,6 +220,8 @@ class PathStateEstimatorNode {
     PlanarPose robot_pose;
     PlanarPose support_pose;
     StateEstimate path_state;
+    Eigen::Vector2d support_velocity{Eigen::Vector2d::Zero()};
+    bool has_motion_velocity{false};
   };
 
   struct RobotState {
@@ -228,6 +236,7 @@ class PathStateEstimatorNode {
     StateEstimate last_valid_path_state;
     ros::Time last_valid_path_stamp;
     ros::Subscriber subscriber;
+    ros::Publisher reception_timing;
     std::deque<OdometrySample> samples;
   };
 
@@ -325,6 +334,8 @@ class PathStateEstimatorNode {
     private_node_.param("estimator/maximum_absolute_speed",
                         config.maximum_absolute_speed,
                         config.maximum_absolute_speed);
+    private_node_.param("estimator/maximum_position_correction",
+                       config.maximum_position_correction,config.maximum_position_correction);
     return config;
   }
 
@@ -361,6 +372,8 @@ class PathStateEstimatorNode {
     robot.estimator =
         std::make_unique<StateEstimator>(std::move(projector), estimator_config);
     if (camera_mode_) {
+      robot.reception_timing = node_.advertise<std_msgs::Float64MultiArray>(
+          "/pose_provider/" + robot.robot_id + "/estimator_timing", 10, false);
       robot.pose_topic = xmlString(value, "pose_topic");
       const boost::function<void(
           const geometry_msgs::PoseStamped::ConstPtr&)> callback =
@@ -378,11 +391,29 @@ class PathStateEstimatorNode {
       } else {
         pose_transport_hints.reliable().tcpNoDelay();
       }
+      if (use_fused_motion_velocity_) {
+        robot.subscriber = node_.subscribe<nav_msgs::Odometry>(
+            "/pose_provider/" + robot.robot_id + "/base_motion_fused",
+            static_cast<std::uint32_t>(synchronization_queue_size_),
+            [this,index](const nav_msgs::Odometry::ConstPtr& motion) {
+              if (motion->child_frame_id != robots_[index].base_frame) return;
+              geometry_msgs::PoseStamped::Ptr pose(new geometry_msgs::PoseStamped);
+              pose->header=motion->header; pose->pose=motion->pose.pose;
+              const Eigen::Vector2d velocity(motion->twist.twist.linear.x, motion->twist.twist.linear.y);
+              const double omega=motion->twist.twist.angular.z;
+              if (!velocity.allFinite() || !std::isfinite(omega)) {
+                ROS_ERROR_THROTTLE(1.0,"Rejected nonfinite measured fused twist for agv%zu",index+1U);
+                return;
+              }
+              receiveCameraRobot(index,pose,&velocity,omega);
+            }, ros::VoidConstPtr(), pose_transport_hints);
+      } else {
       robot.subscriber = node_.subscribe<geometry_msgs::PoseStamped>(
           robot.pose_topic,
           static_cast<std::uint32_t>(synchronization_queue_size_),
           callback, ros::VoidConstPtr(),
           pose_transport_hints);
+      }
     } else {
       robot.odom_topic = xmlString(value, "odom_topic");
       robot.odom_frame = xmlString(value, "odom_frame");
@@ -491,8 +522,24 @@ class PathStateEstimatorNode {
 
   void receiveCameraRobot(
       std::size_t index,
-      const geometry_msgs::PoseStamped::ConstPtr& message) {
+      const geometry_msgs::PoseStamped::ConstPtr& message,
+      const Eigen::Vector2d* body_velocity=nullptr, double angular_velocity=0.0) {
     auto& robot = robots_[index];
+    // Old TCP backlog must not advance the differentiator or become a newly
+    // received valid control snapshot. Source time, not callback time, wins.
+    const double source_age = (ros::Time::now() - message->header.stamp).toSec();
+    std_msgs::Float64MultiArray timing;
+    timing.data = {static_cast<double>(message->header.seq), message->header.stamp.toSec(),
+        ros::Time::now().toSec(), source_age,
+        std::isfinite(source_age) && source_age >= -maximum_sync_slop_ && source_age <= maximum_live_fused_pose_age_ ? 1.0 : 0.0};
+    robot.reception_timing.publish(timing);
+    if (localization_mode_ == "fused" &&
+        (!std::isfinite(source_age) || source_age < -maximum_sync_slop_ || source_age > maximum_live_fused_pose_age_)) {
+      ROS_WARN_THROTTLE(1.0,
+          "Discarded stale %s fused pose before projection: source age %.3f s (live-input limit %.3f s)",
+          robot.robot_id.c_str(), source_age, maximum_live_fused_pose_age_);
+      return;
+    }
     std::uint32_t epoch_token = 0U;
     if (!validWorldPose(*message, &epoch_token)) {
       ROS_WARN_THROTTLE(1.0, "Rejected %s camera pose with invalid stamp or frame",
@@ -518,9 +565,15 @@ class PathStateEstimatorNode {
     }
     sample.support_pose =
         composePose(sample.robot_pose, robot.base_to_support);
+    if (body_velocity) {
+      sample.support_velocity=supportPointVelocity(sample.robot_pose,
+          robot.base_to_support,*body_velocity,angular_velocity);
+      sample.has_motion_velocity=true;
+    }
     if (!auto_anchor_from_robot_poses_ || path_anchor_initialized_) {
       sample.path_state = updateRobotPathState(
-          &robot, sample.support_pose.position, sample.stamp);
+          &robot, sample.support_pose.position, sample.stamp,
+          sample.has_motion_velocity ? &sample.support_velocity : nullptr);
     }
     robot.samples.push_back(std::move(sample));
     while (robot.samples.size() > synchronization_queue_size_) {
@@ -700,8 +753,9 @@ class PathStateEstimatorNode {
 
   StateEstimate updateRobotPathState(
       RobotState* robot, const Eigen::Vector2d& position,
-      const ros::Time& measurement_stamp) {
-    const StateEstimate candidate = robot->estimator->update(
+      const ros::Time& measurement_stamp, const Eigen::Vector2d* velocity=nullptr) {
+    const StateEstimate candidate = velocity ? robot->estimator->updateWithVelocity(
+        position, measurement_stamp.toSec(), *velocity) : robot->estimator->update(
         position, measurement_stamp.toSec());
     if (candidate.valid) {
       robot->last_valid_path_state = candidate;
@@ -765,8 +819,15 @@ class PathStateEstimatorNode {
             path_frame_to_camera_world_, sample.robot_pose);
         sample.support_pose =
             composePose(sample.robot_pose, robot.base_to_support);
+        if (sample.has_motion_velocity) {
+          const double yaw=path_frame_to_camera_world_.yaw;
+          const double x=sample.support_velocity.x(), y=sample.support_velocity.y();
+          sample.support_velocity={std::cos(yaw)*x-std::sin(yaw)*y,
+                                   std::sin(yaw)*x+std::cos(yaw)*y};
+        }
         sample.path_state = updateRobotPathState(
-            &robot, sample.support_pose.position, sample.stamp);
+            &robot, sample.support_pose.position, sample.stamp,
+            sample.has_motion_velocity ? &sample.support_velocity : nullptr);
       }
     }
     load_estimator_->reset(0.0);
@@ -901,8 +962,23 @@ class PathStateEstimatorNode {
       return;
     }
 
-    const StateEstimate candidate = load_estimator_->update(
-        position, measurement_stamp.toSec());
+    StateEstimate candidate;
+    if (use_fused_motion_velocity_) {
+      std::array<Eigen::Vector2d,3> positions, velocities;
+      std::array<SupportOffset,3> offsets;
+      for (std::size_t i=0; i<3; ++i) {
+        if (!samples[i]->has_motion_velocity) { last_load_path_state_=StateEstimate{}; return; }
+        positions[i]=samples[i]->support_pose.position;
+        velocities[i]=samples[i]->support_velocity;
+        offsets[i]=geometry_.config().offsets[i];
+      }
+      const auto fit=fitRigidLoadPose(positions,offsets);
+      if (!fit.valid) { last_load_path_state_=StateEstimate{}; return; }
+      const auto velocity=rigidLoadVelocity(positions,velocities,offsets,fit.pose.yaw);
+      candidate=load_estimator_->updateWithVelocity(position,measurement_stamp.toSec(),velocity);
+    } else {
+      candidate=load_estimator_->update(position,measurement_stamp.toSec());
+    }
     last_load_measurement_stamp_ = measurement_stamp;
     if (candidate.valid) {
       last_load_path_state_ = candidate;
@@ -1036,6 +1112,8 @@ class PathStateEstimatorNode {
   ros::Timer timer_;
   double publish_rate_{100.0};
   double maximum_state_age_{0.15};
+  double maximum_live_fused_pose_age_{0.05};
+  bool use_fused_motion_velocity_{false};
   double maximum_sync_slop_{0.02};
   double maximum_synchronized_snapshot_hold_{0.05};
   std::size_t synchronization_queue_size_{64U};

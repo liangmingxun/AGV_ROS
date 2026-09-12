@@ -1,0 +1,13 @@
+<launch>
+  <node pkg="multi_agv_control" type="camera_odom_fusion_node" name="camera_odom_fusion" required="true">
+    <rosparam>
+      maximum_camera_age: 0.30
+      maximum_fused_publication_age: 0.05
+      streams:
+        - {entity_id: agv1, camera_pose_topic: /test/agv1/camera, confidence_topic: /test/agv1/confidence, odometry_topic: /test/agv1/odom, output_topic: /test/agv1/fused}
+        - {entity_id: agv2, camera_pose_topic: /test/agv2/camera, confidence_topic: /test/agv2/confidence, odometry_topic: /test/agv2/odom, output_topic: /test/agv2/fused}
+        - {entity_id: agv3, camera_pose_topic: /test/agv3/camera, confidence_topic: /test/agv3/confidence, odometry_topic: /test/agv3/odom, output_topic: /test/agv3/fused}
+    </rosparam>
+  </node>
+  <test pkg="multi_agv_control" type="test_temporal_fusion.py" test-name="temporal_fusion" time-limit="30"/>
+</launch>

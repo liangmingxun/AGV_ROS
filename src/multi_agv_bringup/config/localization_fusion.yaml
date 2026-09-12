@@ -8,6 +8,9 @@
 # 0.30 s bridges that event without accepting an indefinitely camera-free run.
 maximum_camera_age: 0.30
 maximum_odometry_interval: 0.05
+# Source-time live publication gate, separate from bounded camera loss hold.
+# Cumulative old odometry is still processed; stale fused outputs are withheld.
+maximum_fused_publication_age: 0.05
 minimum_confidence: 0.5
 position_measurement_weight: 0.8
 heading_measurement_weight: 0.8

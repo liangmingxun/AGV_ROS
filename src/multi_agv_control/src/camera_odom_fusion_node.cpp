@@ -1,4 +1,5 @@
 #include <cmath>
+#include <deque>
 #include <cstdint>
 #include <memory>
 #include <stdexcept>
@@ -10,16 +11,14 @@
 #include <nav_msgs/Odometry.h>
 #include <ros/ros.h>
 #include <std_msgs/Float64.h>
+#include <std_msgs/Float64MultiArray.h>
+#include "multi_agv_control/temporal_pose.hpp"
 #include <std_msgs/UInt64.h>
 #include <tf2/LinearMath/Matrix3x3.h>
 #include <tf2/LinearMath/Quaternion.h>
 
 namespace multi_agv_control {
 namespace {
-
-double wrapAngle(double value) {
-  return std::atan2(std::sin(value), std::cos(value));
-}
 
 double yawFromQuaternion(const geometry_msgs::Quaternion& message) {
   tf2::Quaternion quaternion(
@@ -55,30 +54,6 @@ std::string xmlString(const XmlRpc::XmlRpcValue& value, const char* key) {
   return static_cast<std::string>(value[key]);
 }
 
-struct Pose2 {
-  double x{0.0};
-  double y{0.0};
-  double yaw{0.0};
-};
-
-Pose2 odometryDelta(const Pose2& previous, const Pose2& current) {
-  const double dx = current.x - previous.x;
-  const double dy = current.y - previous.y;
-  const double c = std::cos(previous.yaw);
-  const double s = std::sin(previous.yaw);
-  return {c * dx + s * dy,
-          -s * dx + c * dy,
-          wrapAngle(current.yaw - previous.yaw)};
-}
-
-Pose2 compose(const Pose2& pose, const Pose2& delta) {
-  const double c = std::cos(pose.yaw);
-  const double s = std::sin(pose.yaw);
-  return {pose.x + c * delta.x - s * delta.y,
-          pose.y + s * delta.x + c * delta.y,
-          wrapAngle(pose.yaw + delta.yaw)};
-}
-
 }  // namespace
 
 class CameraOdomFusionNode {
@@ -90,7 +65,9 @@ class CameraOdomFusionNode {
     private_.param("minimum_confidence", minimum_confidence_, 0.5);
     private_.param("position_measurement_weight", position_weight_, 0.8);
     private_.param("heading_measurement_weight", heading_weight_, 0.8);
-    if (!(maximum_camera_age_ > 0.0) ||
+    private_.param("maximum_fused_publication_age", maximum_publication_age_, 0.05);
+    if (!(maximum_publication_age_ > 0.0 && maximum_publication_age_ <= 0.15) ||
+        !(maximum_camera_age_ > 0.0) ||
         !(maximum_odometry_interval_ > 0.0) ||
         !(minimum_confidence_ >= 0.0) ||
         !(position_weight_ > 0.0 && position_weight_ <= 1.0) ||
@@ -126,6 +103,13 @@ class CameraOdomFusionNode {
     ros::Subscriber confidence_subscriber;
     ros::Subscriber odometry_subscriber;
     ros::Publisher publisher;
+    ros::Publisher motion_publisher;
+    ros::Publisher timing_publisher;
+    std::deque<std::pair<ros::Time, Pose2>> odometry_history;
+    Pose2 pending_camera;
+    ros::Time pending_camera_stamp;
+    ros::Time last_camera_stamp;
+    bool camera_pending{false};
     Pose2 fused;
     Pose2 previous_odometry;
     ros::Time previous_odometry_stamp;
@@ -151,6 +135,10 @@ class CameraOdomFusionNode {
     state->output_topic = xmlString(config, "output_topic");
     state->publisher = node_.advertise<geometry_msgs::PoseStamped>(
         state->output_topic, 10, false);
+    state->motion_publisher = node_.advertise<nav_msgs::Odometry>(
+        "/pose_provider/" + state->entity_id + "/base_motion_fused", 10, false);
+    state->timing_publisher = node_.advertise<std_msgs::Float64MultiArray>(
+        "/pose_provider/" + state->entity_id + "/fusion_timing", 10, false);
     states_.push_back(std::move(state));
     auto& stored = *states_.back();
     stored.camera_subscriber = node_.subscribe<geometry_msgs::PoseStamped>(
@@ -164,11 +152,12 @@ class CameraOdomFusionNode {
         [this, index](const std_msgs::Float64::ConstPtr& message) {
           receiveConfidence(index, message);
         });
+    const boost::function<void(const ros::MessageEvent<nav_msgs::Odometry const>&)> callback =
+        [this, index](const ros::MessageEvent<nav_msgs::Odometry const>& event) {
+          receiveOdometry(index, event.getMessage(), event.getReceiptTime());
+        };
     stored.odometry_subscriber = node_.subscribe<nav_msgs::Odometry>(
-        stored.odometry_topic, 30,
-        [this, index](const nav_msgs::Odometry::ConstPtr& message) {
-          receiveOdometry(index, message);
-        }, ros::VoidConstPtr(),
+        stored.odometry_topic, 30, callback, ros::VoidConstPtr(),
         ros::TransportHints().reliable().tcpNoDelay());
   }
 
@@ -177,6 +166,9 @@ class CameraOdomFusionNode {
       state->initialized = false;
       state->has_camera = false;
       state->has_previous_odometry = false;
+      state->odometry_history.clear();
+      state->camera_pending = false;
+      state->last_camera_stamp = ros::Time();
       state->frame_id.clear();
       state->previous_odometry_stamp = ros::Time();
     }
@@ -216,6 +208,8 @@ class CameraOdomFusionNode {
       const geometry_msgs::PoseStamped::ConstPtr& message) {
     auto& state = *states_.at(index);
     const ros::WallTime now = ros::WallTime::now();
+    if (!timelyPose(message->header.stamp.toSec(), ros::Time::now().toSec(), maximum_camera_age_) ||
+        message->header.stamp <= state.last_camera_stamp) return;
     if (calibration_epoch_ == 0U || !confidenceValid(state, now)) {
       ROS_WARN_THROTTLE(1.0,
                         "Rejected fused camera correction for %s: epoch or confidence invalid",
@@ -236,33 +230,34 @@ class CameraOdomFusionNode {
                         state.entity_id.c_str(), error.what());
       return;
     }
-    if (!std::isfinite(camera.x) || !std::isfinite(camera.y)) return;
+    if (!std::isfinite(camera.x) || !std::isfinite(camera.y) || !std::isfinite(camera.yaw)) return;
     if (!state.frame_id.empty() && state.frame_id != message->header.frame_id) {
       state.initialized = false;
       state.has_previous_odometry = false;
+      state.odometry_history.clear();
       ROS_WARN("Reset %s fusion on world frame change", state.entity_id.c_str());
     }
     state.frame_id = message->header.frame_id;
-    if (!state.initialized) {
-      state.fused = camera;
-      state.initialized = true;
-    } else {
-      state.fused.x += position_weight_ * (camera.x - state.fused.x);
-      state.fused.y += position_weight_ * (camera.y - state.fused.y);
-      state.fused.yaw = wrapAngle(
-          state.fused.yaw + heading_weight_ *
-              wrapAngle(camera.yaw - state.fused.yaw));
-    }
+    state.pending_camera = camera;
+    state.pending_camera_stamp = message->header.stamp;
+    state.last_camera_stamp = message->header.stamp;
+    state.camera_pending = true;
     state.camera_receive_time = now;
     state.has_camera = true;
+    applyPendingCamera(state);
     // Camera updates correct the absolute state, but publication is driven by
     // odometry so downstream control receives one regular chassis-rate stream
     // instead of a bursty camera-rate + odometry-rate mixture.
   }
 
   void receiveOdometry(
-      std::size_t index, const nav_msgs::Odometry::ConstPtr& message) {
+      std::size_t index, const nav_msgs::Odometry::ConstPtr& message,
+      const ros::Time& receipt) {
     auto& state = *states_.at(index);
+    const ros::Time callback_time = ros::Time::now();
+    if (message->header.stamp.isZero() ||
+        (message->header.stamp - callback_time).toSec() > 0.02 ||
+        (state.has_previous_odometry && message->header.stamp <= state.previous_odometry_stamp)) return;
     Pose2 odometry;
     try {
       odometry = {message->pose.pose.position.x,
@@ -273,7 +268,7 @@ class CameraOdomFusionNode {
                         state.entity_id.c_str(), error.what());
       return;
     }
-    if (!std::isfinite(odometry.x) || !std::isfinite(odometry.y)) return;
+    if (!std::isfinite(odometry.x) || !std::isfinite(odometry.y) || !std::isfinite(odometry.yaw)) return;
     if (state.has_previous_odometry) {
       const double dt =
           (message->header.stamp - state.previous_odometry_stamp).toSec();
@@ -282,6 +277,7 @@ class CameraOdomFusionNode {
         state.fused = compose(
             state.fused, odometryDelta(state.previous_odometry, odometry));
       } else if (!(dt > 0.0 && dt <= maximum_odometry_interval_)) {
+        state.initialized = false;
         ROS_WARN_THROTTLE(1.0, "Reset %s odometry delta after %.4f s interval",
                           state.entity_id.c_str(), dt);
       }
@@ -289,6 +285,22 @@ class CameraOdomFusionNode {
     state.previous_odometry = odometry;
     state.previous_odometry_stamp = message->header.stamp;
     state.has_previous_odometry = true;
+    state.odometry_history.emplace_back(message->header.stamp, odometry);
+    while (state.odometry_history.size() > 100U) state.odometry_history.pop_front();
+    applyPendingCamera(state);
+
+    const ros::Time publication_time = ros::Time::now();
+    const bool timely = timelyPose(message->header.stamp.toSec(), publication_time.toSec(), maximum_publication_age_);
+    std_msgs::Float64MultiArray timing;
+    timing.data = {static_cast<double>(message->header.seq), message->header.stamp.toSec(),
+        receipt.toSec(), callback_time.toSec(), publication_time.toSec(),
+        timely ? 1.0 : 0.0, (callback_time - receipt).toSec()};
+    state.timing_publisher.publish(timing);
+    if (!timely) {
+      ROS_WARN_THROTTLE(1.0, "%s fusion suppressed stale output: source age %.3f s, callback queue wait %.3f s; odometry delta retained",
+          state.entity_id.c_str(), (publication_time-message->header.stamp).toSec(), (callback_time-receipt).toSec());
+      return;
+    }
 
     const ros::WallTime now = ros::WallTime::now();
     if (!state.initialized || !state.has_camera ||
@@ -304,6 +316,45 @@ class CameraOdomFusionNode {
       return;
     }
     publish(state, message->header.stamp);
+    nav_msgs::Odometry motion;
+    motion.header = message->header;
+    motion.header.frame_id = state.frame_id;
+    motion.child_frame_id = state.entity_id + "/base_link";
+    motion.pose.pose.position.x = state.fused.x;
+    motion.pose.pose.position.y = state.fused.y;
+    motion.pose.pose.orientation = quaternionFromYaw(state.fused.yaw);
+    // Body-frame measured twist remains independent of camera corrections.
+    // Do not differentiate the corrected absolute pose or use commands here.
+    motion.twist = message->twist;
+    state.motion_publisher.publish(motion);
+  }
+
+  void applyPendingCamera(StreamState& state) {
+    if (!state.camera_pending || state.odometry_history.empty()) return;
+    const auto& history = state.odometry_history;
+    if (state.pending_camera_stamp > history.back().first) return;
+    if (state.pending_camera_stamp < history.front().first) {
+      state.camera_pending = false;
+      return;
+    }
+    Pose2 camera_odom = history.front().second;
+    for (std::size_t i=1; i<history.size(); ++i) {
+      if (history[i].first >= state.pending_camera_stamp) {
+        const double dt=(history[i].first-history[i-1].first).toSec();
+        if (dt > maximum_odometry_interval_) { state.camera_pending=false; return; }
+        const double q=(state.pending_camera_stamp-history[i-1].first).toSec()/dt;
+        camera_odom=interpolatePose(history[i-1].second, history[i].second, q);
+        break;
+      }
+    }
+    if (state.initialized) {
+      state.fused=correctAtMeasurementTime(state.fused, history.back().second,
+          camera_odom, state.pending_camera, position_weight_, heading_weight_);
+    } else {
+      state.fused=compose(state.pending_camera, odometryDelta(camera_odom, history.back().second));
+      state.initialized=true;
+    }
+    state.camera_pending=false;
   }
 
   void publish(const StreamState& state, const ros::Time& stamp) const {
@@ -321,6 +372,7 @@ class CameraOdomFusionNode {
   std::vector<std::unique_ptr<StreamState>> states_;
   ros::Subscriber epoch_subscriber_;
   double maximum_camera_age_{0.15};
+  double maximum_publication_age_{0.05};
   double maximum_odometry_interval_{0.05};
   double minimum_confidence_{0.5};
   double position_weight_{0.8};
