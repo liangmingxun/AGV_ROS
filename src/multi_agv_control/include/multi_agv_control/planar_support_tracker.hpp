@@ -38,6 +38,11 @@ struct PlanarTrackingResult {
   double longitudinal_error{0.0};
   double lateral_error{0.0};
   double heading_error{0.0};
+  // Geometric conversion from path-channel speed to chassis linear
+  // feedforward. Exposed so the optional post-tracker reconciliation can
+  // convert a delivered linear command back to the channel domain without
+  // dividing by the (possibly zero) channel command.
+  double channel_speed_scale{0.0};
   double linear_velocity_feedforward{0.0};
   double angular_velocity_feedforward{0.0};
   double linear_velocity_raw{0.0};

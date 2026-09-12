@@ -23,6 +23,7 @@
 #include <tf2/LinearMath/Scalar.h>
 
 #include "multi_agv_control/capability_mapper.hpp"
+#include "multi_agv_control/execution_channel_reconciler.hpp"
 #include "multi_agv_control/formal_execution_gate.hpp"
 #include "multi_agv_control/lower_channel_controller.hpp"
 #include "multi_agv_control/m2b_controller.hpp"
@@ -141,6 +142,12 @@ class FormalFakeAlgorithmNode {
     enforceExecutionGates(upper_config, lower_config);
     upper_mode_ = upper_config.mode;
     lower_mode_ = lower_config.mode;
+    if (execution_reconciler_->config().enabled &&
+        lower_mode_ != LowerMode::kR1) {
+      throw std::runtime_error(
+          "execution channel reconciliation is currently qualified only "
+          "for the shared R1 execution layer");
+    }
     m2b_selected_ =
         upper_mode_ == UpperMode::kM2b && lower_mode_ == LowerMode::kM2b;
     if ((upper_mode_ == UpperMode::kM2b) !=
@@ -410,6 +417,40 @@ class FormalFakeAlgorithmNode {
     private_node_.param(
         root + "execution/m1_derating_actual_velocity_upper_reserve",
         m1_derating_actual_velocity_upper_reserve_, 0.0);
+    ExecutionChannelReconcilerConfig reconciliation;
+    private_node_.param(
+        root + "execution/reconciliation/enabled",
+        reconciliation.enabled, false);
+    private_node_.param(
+        root + "execution/reconciliation/require_robot2_derating",
+        reconciliation.require_robot2_derating, true);
+    private_node_.param(
+        root + "execution/reconciliation/gain_per_second",
+        reconciliation.gain_per_second, 0.05);
+    private_node_.param(
+        root + "execution/reconciliation/mismatch_deadband",
+        reconciliation.mismatch_deadband, 0.002);
+    private_node_.param(
+        root + "execution/reconciliation/maximum_correction_acceleration",
+        reconciliation.maximum_correction_acceleration, 0.001);
+    private_node_.param(
+        root + "execution/reconciliation/minimum_channel_speed_scale",
+        reconciliation.minimum_channel_speed_scale, 0.20);
+    private_node_.param(
+        root + "execution/reconciliation/activation_delay_seconds",
+        reconciliation_activation_delay_seconds_, 1.5);
+    int maximum_applied_sequence_lag = 5;
+    private_node_.param(
+        root + "execution/reconciliation/maximum_applied_command_sequence_lag",
+        maximum_applied_sequence_lag, 5);
+    if (maximum_applied_sequence_lag < 0) {
+      throw std::runtime_error(
+          "reconciliation applied-command sequence lag must be nonnegative");
+    }
+    reconciliation_maximum_applied_sequence_lag_ =
+        static_cast<std::uint32_t>(maximum_applied_sequence_lag);
+    execution_reconciler_ =
+        std::make_unique<ExecutionChannelReconciler>(reconciliation);
     int m1_derating_reserve_robot_id = 2;
     private_node_.param(
         root + "execution/m1_derating_reserve_robot_id",
@@ -504,6 +545,8 @@ class FormalFakeAlgorithmNode {
         !(initialization_max_wheel_speed_ > 0.0) ||
         !std::isfinite(m1_derating_actual_velocity_upper_reserve_) ||
         m1_derating_actual_velocity_upper_reserve_ < 0.0 ||
+        !std::isfinite(reconciliation_activation_delay_seconds_) ||
+        reconciliation_activation_delay_seconds_ < 0.0 ||
         m1_derating_reserve_robot_id < 1 ||
         m1_derating_reserve_robot_id > static_cast<int>(kRobotCount) ||
         !(maximum_recorder_armed_age_ > 0.0) ||
@@ -1245,6 +1288,8 @@ class FormalFakeAlgorithmNode {
     execution_channel_velocity_command_[index] =
         std::clamp(
             unprojected, execution_lower_bound, execution_upper_bound);
+    execution_channel_velocity_lower_bound_[index] = execution_lower_bound;
+    execution_channel_velocity_upper_bound_[index] = execution_upper_bound;
     output->channel_velocity_command =
         execution_channel_velocity_command_[index];
     output->velocity_projection_active =
@@ -1252,6 +1297,56 @@ class FormalFakeAlgorithmNode {
         output->channel_velocity_command != unprojected;
     output->valid = output->valid &&
         std::isfinite(output->channel_velocity_command);
+  }
+
+  bool reconcileExecutionChannel(
+      std::size_t index,
+      const PlanarTrackingResult& tracking, double dt) {
+    if (transport_type_ != "serial" ||
+        execution_reconciler_ == nullptr ||
+        !execution_reconciler_->config().enabled) {
+      return true;
+    }
+    // Do not let the slow correction interact with initial or post-fault
+    // soft-start. It resumes only after the normal execution envelope is
+    // fully open and only for the independently scoped candidate runtime.
+    const std::uint32_t applied_sequence_lag =
+        command_sequence_[index] - feedback_[index].command_seq_applied;
+    const bool applied_command_fresh =
+        applied_sequence_lag <=
+            reconciliation_maximum_applied_sequence_lag_;
+    if (!applied_command_fresh) {
+      ROS_WARN_THROTTLE(
+          1.0,
+          "agv%zu execution reconciliation paused: applied command lags by %u sequences",
+          index + 1U, applied_sequence_lag);
+    }
+    const bool robot2_derating_active =
+        startup_scale_ >= 1.0 && capability_[1].derating_active &&
+        robot2_derating_elapsed_seconds_ >=
+            reconciliation_activation_delay_seconds_ &&
+        applied_command_fresh;
+    const double applied_linear_velocity = 0.5 * (
+        feedback_[index].wheel_linear_velocity_left_applied +
+        feedback_[index].wheel_linear_velocity_right_applied);
+    const auto result = execution_reconciler_->step(
+        execution_channel_velocity_command_[index],
+        applied_linear_velocity, tracking.linear_velocity_feedforward,
+        tracking.heading_error, tracking.channel_speed_scale, dt,
+        execution_channel_velocity_lower_bound_[index],
+        execution_channel_velocity_upper_bound_[index],
+        robot2_derating_active);
+    if (!result.valid) {
+      safety_abort_latched_ = true;
+      ROS_ERROR(
+          "Execution channel reconciliation became invalid for agv%zu; "
+          "safety abort latched",
+          index + 1U);
+      return false;
+    }
+    execution_channel_velocity_command_[index] =
+        result.next_channel_velocity;
+    return true;
   }
 
   void blendStartupTrackingFeedback(
@@ -1333,6 +1428,7 @@ class FormalFakeAlgorithmNode {
 
   void publishZero(const ros::Time& stamp) {
     execution_channel_velocity_command_.fill(0.0);
+    robot2_derating_elapsed_seconds_ = 0.0;
     if (transport_type_ == "serial" && execution_initialized_ &&
         !terminal_stop_latched_) {
       // A transient safety zero must not be followed by an immediate return
@@ -1897,6 +1993,11 @@ class FormalFakeAlgorithmNode {
 
     std::array<PlanarPose, 3> robot_pose;
     std::array<PlanarPose, 3> support_pose;
+    if (capability_[1].derating_active) {
+      robot2_derating_elapsed_seconds_ += dt;
+    } else {
+      robot2_derating_elapsed_seconds_ = 0.0;
+    }
     for (std::size_t index = 0; index < kRobotCount; ++index) {
       LowerChannelInput input;
       input.position_actual = algorithmPositionActual(index);
@@ -1994,6 +2095,13 @@ class FormalFakeAlgorithmNode {
         publishDebug(false, current_upper_, distributed, lower);
         return;
       }
+      if (!reconcileExecutionChannel(
+              index, tracking[index], dt)) {
+        publishZero(now);
+        publishPublicState(now, false, lower, tracking);
+        publishDebug(false, current_upper_, distributed, lower);
+        return;
+      }
       command.experiment_id = experiment_id_;
       command.method_id =
           std::string(upperModeName(upper_mode_)) + "_" +
@@ -2022,6 +2130,7 @@ class FormalFakeAlgorithmNode {
   CapabilityMapper capability_mapper_;
   std::unique_ptr<UpperReferenceGenerator> upper_generator_;
   std::unique_ptr<M2bController> m2b_controller_;
+  std::unique_ptr<ExecutionChannelReconciler> execution_reconciler_;
   std::array<std::unique_ptr<LowerChannelController>, 3> lower_controllers_;
   DistributedReferenceConfig distributed_config_;
   DistributedReferenceState distributed_state_;
@@ -2090,6 +2199,10 @@ class FormalFakeAlgorithmNode {
   std::array<double, 3> initial_progress_offset_{{0.0, 0.0, 0.0}};
   std::array<double, 3> execution_channel_velocity_command_{{
       0.0, 0.0, 0.0}};
+  std::array<double, 3> execution_channel_velocity_lower_bound_{{
+      -0.15, -0.15, -0.15}};
+  std::array<double, 3> execution_channel_velocity_upper_bound_{{
+      0.58, 0.58, 0.58}};
   std::size_t initialization_sample_count_{0U};
   std::array<double, 3> previous_position_error_{{0.0, 0.0, 0.0}};
   std::array<double, 2> lower_initial_parameter_{{0.0, 0.0}};
@@ -2110,6 +2223,9 @@ class FormalFakeAlgorithmNode {
   double initialization_hold_seconds_{0.30};
   double initialization_max_wheel_speed_{0.015};
   double m1_derating_actual_velocity_upper_reserve_{0.0};
+  double reconciliation_activation_delay_seconds_{1.5};
+  double robot2_derating_elapsed_seconds_{0.0};
+  std::uint32_t reconciliation_maximum_applied_sequence_lag_{5U};
   std::size_t m1_derating_reserve_robot_index_{1U};
   double initialization_elapsed_seconds_{0.0};
   double startup_scale_{0.0};

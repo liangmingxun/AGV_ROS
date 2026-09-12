@@ -8,8 +8,9 @@ usage() {
   echo "--derating-0p80 selects the separate M1/M2a paired pilot, ratio=0.80."
   echo "--derating-0p75 selects the separate M1/M2a paired pilot, ratio=0.75."
   echo "--tracking-v2: separate 0.75 paired pilot with shared longitudinal gain 1.3; original configs unchanged."
+  echo "--reconciliation-v1: separate 0.75 M1/M2a candidate with slow bounded shared-R1 execution reconciliation."
 }
-method=""; condition=""; tracking_v2=false; forwarded=()
+method=""; condition=""; tracking_v2=false; reconciliation_v1=false; forwarded=()
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --method)
@@ -19,6 +20,7 @@ while [[ $# -gt 0 ]]; do
       [[ -z "$condition" ]] || { echo "ERROR: select only one derating condition" >&2; exit 2; }
       condition="${1#--}"; shift ;;
     --tracking-v2) tracking_v2=true; shift ;;
+    --reconciliation-v1) reconciliation_v1=true; shift ;;
     -h|--help) usage; exit 0 ;;
     *) forwarded+=("$1"); shift ;;
   esac
@@ -31,6 +33,14 @@ fi
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 if [[ "$tracking_v2" == true && ( "$condition" != derating-0p75 || "$method" == M2b ) ]]; then
   echo "ERROR: --tracking-v2 is scoped to the M1/M2a derating-0p75 paired pilot" >&2
+  exit 2
+fi
+if [[ "$reconciliation_v1" == true && ( "$condition" != derating-0p75 || "$method" == M2b ) ]]; then
+  echo "ERROR: --reconciliation-v1 is scoped to the M1/M2a derating-0p75 paired pilot" >&2
+  exit 2
+fi
+if [[ "$tracking_v2" == true && "$reconciliation_v1" == true ]]; then
+  echo "ERROR: --tracking-v2 and --reconciliation-v1 are mutually exclusive" >&2
   exit 2
 fi
 config_dir=src/multi_agv_bringup/config
@@ -65,6 +75,11 @@ if [[ "$tracking_v2" == true ]]; then
   export FORMAL_RUNTIME_CONFIG="$config_dir/formal_serial_circle_r0p7_smooth_exit_0p10_tracking_v2_pilot_runtime.yaml"
   export FORMAL_EXECUTION_AUTHORIZATION_CONFIG="$config_dir/formal_circle_0p10_${method}_derating_0p75_tracking_v2_authorization.yaml"
   export FORMAL_EXPERIMENT_ID="${prefix}_circle_r0p7_cw_smooth_exit_0p10_${scope}_tracking_v2_pilot"
+fi
+if [[ "$reconciliation_v1" == true ]]; then
+  export FORMAL_RUNTIME_CONFIG="$config_dir/formal_serial_circle_r0p7_smooth_exit_0p10_reconciliation_v1_pilot_runtime.yaml"
+  export FORMAL_EXECUTION_AUTHORIZATION_CONFIG="$config_dir/formal_circle_0p10_${method}_derating_0p75_reconciliation_v1_authorization.yaml"
+  export FORMAL_EXPERIMENT_ID="${prefix}_circle_r0p7_cw_smooth_exit_0p10_${scope}_reconciliation_v1_pilot"
 fi
 export FORMAL_RUN_PREFIX="$FORMAL_EXPERIMENT_ID"
 export FORMAL_RUN_TIMEOUT_SECONDS=140

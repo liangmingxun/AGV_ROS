@@ -9,6 +9,52 @@ SOURCE_ROOT = PACKAGE.parent
 
 
 class BringupStaticTest(unittest.TestCase):
+    def test_reconciliation_v1_is_separate_shared_and_locked(self):
+        import copy
+        import subprocess
+        import yaml
+        configs = PACKAGE / "config"
+        old_name = "formal_serial_m1_r1_circle_r0p7_smooth_exit_0p10_pilot_runtime.yaml"
+        new_name = "formal_serial_circle_r0p7_smooth_exit_0p10_reconciliation_v1_pilot_runtime.yaml"
+        original = yaml.safe_load((configs / old_name).read_text())
+        candidate = yaml.safe_load((configs / new_name).read_text())
+        expected = copy.deepcopy(original)
+        runtime = expected["formal_fake_runtime"]
+        runtime["configuration_status"] = "PILOT_SHARED_CIRCLE_0P10_RECONCILIATION_V1"
+        runtime["experiment_id"] = "shared_r1_circle_r0p7_cw_smooth_exit_0p10_reconciliation_v1"
+        runtime["execution"]["reconciliation"] = {
+            "enabled": True,
+            "require_robot2_derating": True,
+            "gain_per_second": .05,
+            "mismatch_deadband": .002,
+            "maximum_correction_acceleration": .001,
+            "minimum_channel_speed_scale": .20,
+            "activation_delay_seconds": 1.5,
+            "maximum_applied_command_sequence_lag": 5,
+        }
+        self.assertEqual(candidate, expected)
+        for method in ("M1", "M2a"):
+            auth_name = "formal_circle_0p10_{}_derating_0p75_reconciliation_v1_authorization.yaml".format(method)
+            auth = yaml.safe_load((configs / auth_name).read_text())
+            self.assertFalse(auth["formal_upper"]["hardware_execution_authorized"])
+            self.assertFalse(auth["formal_lower"]["hardware_execution_authorized"])
+            self.assertEqual(auth["authorization_scope"]["runtime_config"],
+                             "src/multi_agv_bringup/config/" + new_name)
+        entry = PACKAGE / "scripts" / "run_circle_0p10_comparison.sh"
+        for args in (("--method", "M2b", "--derating-0p75", "--reconciliation-v1"),
+                     ("--method", "M1", "--no-derating", "--reconciliation-v1"),
+                     ("--method", "M1", "--derating-0p75", "--tracking-v2", "--reconciliation-v1")):
+            result = subprocess.run(["bash", str(entry), *args], capture_output=True, text=True)
+            self.assertEqual(result.returncode, 2)
+        # With no physical confirmation flags, the downstream entry is safe
+        # and lets us verify exact candidate routing without starting ROS.
+        result = subprocess.run(["bash", "-x", str(entry), "--method", "M1",
+                                 "--derating-0p75", "--reconciliation-v1"],
+                                cwd=SOURCE_ROOT.parent, capture_output=True, text=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn(new_name, result.stderr)
+        self.assertIn("derating_0p75_reconciliation_v1_pilot", result.stderr)
+
     def test_tracking_v2_is_separate_shared_and_scoped(self):
         import copy
         import subprocess

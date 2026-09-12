@@ -211,7 +211,9 @@ if(CATKIN_ENABLE_TESTING)
   catkin_add_gtest(test_upper_reference_generator test/test_upper_reference_generator.cpp)
   catkin_add_gtest(test_lower_channel_controller test/test_lower_channel_controller.cpp)
   catkin_add_gtest(test_m2b_controller test/test_m2b_controller.cpp)
-  foreach(test_target test_s_curve_path test_support_geometry test_path_projector test_state_estimator test_capability_mapper test_planar_support_tracker test_experiment_supervisor test_formal_execution_gate test_dynamic_boundary test_upper_reference_generator test_lower_channel_controller test_m2b_controller)
+  catkin_add_gtest(test_execution_channel_reconciler
+    test/test_execution_channel_reconciler.cpp)
+  foreach(test_target test_s_curve_path test_support_geometry test_path_projector test_state_estimator test_capability_mapper test_planar_support_tracker test_experiment_supervisor test_formal_execution_gate test_dynamic_boundary test_upper_reference_generator test_lower_channel_controller test_m2b_controller test_execution_channel_reconciler)
     if(TARGET ${test_target})
       target_compile_options(${test_target} PRIVATE -Wall -Wextra -Wpedantic)
       target_compile_definitions(${test_target} PRIVATE

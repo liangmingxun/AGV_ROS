@@ -206,6 +206,7 @@ PlanarTrackingResult PlanarSupportTracker::track(
       -s * world_error.x() + c * world_error.y();
   result.heading_error = normalizeAngle(
       reference.chassis_pose.yaw - input.robot_pose_actual.yaw);
+  result.channel_speed_scale = reference.speed_scale;
   result.linear_velocity_feedforward =
       reference.speed_scale * input.channel_velocity_command;
   result.angular_velocity_feedforward =
