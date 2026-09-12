@@ -20,11 +20,19 @@ from multi_agv_analysis.io_utils import (
     sha256_file,
     write_csv,
 )
-from multi_agv_analysis.metrics import compute_metrics
+from multi_agv_analysis.metrics import compute_metrics, progress_tracking_actual
 from multi_agv_analysis.validation import validate_converted_run
 
 
 class ConfigurationApprovalTest(unittest.TestCase):
+    def test_progress_alignment_preserves_geometry_and_missing_evidence(self):
+        row = {"agv3_s_actual": 0.106, "agv3_s_tracking_actual": 0.101}
+        self.assertAlmostEqual(progress_tracking_actual(row, 3), 0.101)
+        self.assertEqual(row["agv3_s_actual"], 0.106)
+        self.assertEqual(progress_tracking_actual({"agv3_s_actual": 0.106}, 3), 0.106)
+        row["agv3_s_tracking_actual"] = math.nan
+        self.assertTrue(math.isnan(progress_tracking_actual(row, 3)))
+
     def test_rehearsal_passes_but_formal_and_mutation_are_refused(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -166,7 +174,7 @@ class CameraConversionTest(unittest.TestCase):
             limiter.extend([
                 0.10 + robot * 0.01, 0.12 + robot * 0.01,
                 0.075 + robot * 0.01, 0.09 + robot * 0.01,
-                0.08, 0.08, 0.0])
+                0.08, 0.08, 0.005 if robot == 2 else 0.0])
         raw["formal_execution_limiter_state.csv"] = [{
             "header_stamp": 1.0,
             "layout_label": "formal_execution_limiter_v1:header4+3x7",
@@ -202,6 +210,9 @@ class CameraConversionTest(unittest.TestCase):
         self.assertEqual(len(aligned), 1)
         self.assertEqual(aligned[0]["agv1_support_reference_x"], 1.0)
         self.assertEqual(aligned[0]["agv1_s_execute_reference"], 0.11)
+        self.assertAlmostEqual(aligned[0]["agv3_s_initial_offset"], 0.005)
+        self.assertAlmostEqual(aligned[0]["agv3_s_actual"], 0.1)
+        self.assertAlmostEqual(aligned[0]["agv3_s_tracking_actual"], 0.095)
         self.assertEqual(
             aligned[0]["agv1_s_dot_execute_reference"], 0.081)
         self.assertEqual(aligned[0]["agv1_psi"], 0.25)

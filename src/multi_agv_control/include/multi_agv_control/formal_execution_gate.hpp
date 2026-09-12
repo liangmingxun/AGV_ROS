@@ -63,14 +63,30 @@ FakeChassisBindingResult evaluateChassisBinding(
 
 struct SerialWheelDemandAssessment {
   bool available_limit_exceeded{false};
+  bool demand_threshold_exceeded{false};
   bool emergency_abort{false};
   std::string reason;
 };
 
+struct WheelPublicationCommand {
+  bool valid{false};
+  bool limited{false};
+  double left{0.0};
+  double right{0.0};
+  double linear{0.0};
+  double angular{0.0};
+};
+
+// Fixed per-wheel publication envelope, independent of runtime capability.
+// Call only AFTER assessing and recording the original planar demand.
+WheelPublicationCommand limitSerialWheelPublication(
+    double demand_left, double demand_right, double wheel_separation);
+
 SerialWheelDemandAssessment assessSerialWheelDemand(
     double raw_left, double raw_right,
     double available_left, double available_right,
-    double emergency_abort_limit);
+    double emergency_abort_limit,
+    bool raw_exceedance_warning_only = false);
 
 enum class FeedbackFreshnessStatus {
   kFresh,

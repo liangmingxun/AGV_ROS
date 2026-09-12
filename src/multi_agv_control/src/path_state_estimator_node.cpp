@@ -18,6 +18,7 @@
 #include <ros/ros.h>
 
 #include "multi_agv_control/path_projector.hpp"
+#include "multi_agv_control/rigid_fit_runtime_gate.hpp"
 #include "multi_agv_control/s_curve_path.hpp"
 #include "multi_agv_control/state_estimator.hpp"
 #include "multi_agv_control/support_geometry.hpp"
@@ -103,6 +104,11 @@ class PathStateEstimatorNode {
                         synchronization_queue_size);
     private_node_.param("maximum_rigid_fit_residual",
                         maximum_rigid_fit_residual_, 0.05);
+    private_node_.param("maximum_runtime_rigid_fit_residual",
+                        maximum_runtime_rigid_fit_residual_,
+                        maximum_rigid_fit_residual_);
+    private_node_.param("runtime_rigid_fit_confirmation_seconds",
+                        runtime_rigid_fit_confirmation_seconds_, 0.0);
     private_node_.param("maximum_load_path_transient_hold",
                         maximum_load_path_transient_hold_, 0.05);
     private_node_.param("maximum_robot_path_transient_hold",
@@ -119,6 +125,11 @@ class PathStateEstimatorNode {
         maximum_synchronized_snapshot_hold_ > maximum_state_age_ ||
         synchronization_queue_size < 3 ||
         !(maximum_rigid_fit_residual_ > 0.0) ||
+        !std::isfinite(maximum_runtime_rigid_fit_residual_) ||
+        maximum_runtime_rigid_fit_residual_ < maximum_rigid_fit_residual_ ||
+        !std::isfinite(runtime_rigid_fit_confirmation_seconds_) ||
+        runtime_rigid_fit_confirmation_seconds_ < 0.0 ||
+        runtime_rigid_fit_confirmation_seconds_ > 0.5 ||
         maximum_load_path_transient_hold_ < 0.0 ||
         maximum_load_path_transient_hold_ > 0.10 ||
         maximum_robot_path_transient_hold_ < 0.0 ||
@@ -180,6 +191,24 @@ class PathStateEstimatorNode {
   }
 
  private:
+  bool runtimeFitAccepted(bool valid, double residual, ros::Time stamp) {
+    if (!valid) return false;
+    const bool accepted = runtime_rigid_fit_gate_.accept(
+        residual, stamp.toSec(), maximum_runtime_rigid_fit_residual_,
+        runtime_rigid_fit_confirmation_seconds_);
+    if (!accepted) {
+      ROS_ERROR_THROTTLE(1.0,
+          "Runtime rigid-fit hard gate rejected residual %.6f m; limit %.6f m, confirmation %.3f s; confirmed violations remain latched until estimator restart",
+          residual, maximum_runtime_rigid_fit_residual_,
+          runtime_rigid_fit_confirmation_seconds_);
+    } else if (residual > maximum_rigid_fit_residual_) {
+      ROS_WARN_THROTTLE(1.0,
+          "Formation deformation: rigid-fit residual %.6f m exceeds warning %.6f m; publishing current measured fit, not a held pose",
+          residual, maximum_rigid_fit_residual_);
+    }
+    return accepted;
+  }
+
   struct OdometrySample {
     ros::Time stamp;
     PlanarPose robot_pose;
@@ -811,11 +840,8 @@ class PathStateEstimatorNode {
         offsets[index] = geometry_.config().offsets[index];
       }
       const auto fit = fitRigidLoadPose(supports, offsets);
-      if (!fit.valid || fit.rms_residual > maximum_rigid_fit_residual_) {
-        ROS_WARN_THROTTLE(
-            1.0,
-            "Camera-fused virtual-load rigid-fit residual %.6f m exceeds %.6f m",
-            fit.rms_residual, maximum_rigid_fit_residual_);
+      if (!runtimeFitAccepted(fit.valid, fit.rms_residual,
+                              (*minmax.first)->stamp)) {
         return;
       }
       state->load_localization_source = robot_pose_source_;
@@ -977,7 +1003,8 @@ class PathStateEstimatorNode {
         offsets[index] = geometry_.config().offsets[index];
       }
       const auto fit = fitRigidLoadPose(supports, offsets);
-      if (fit.valid && fit.rms_residual <= maximum_rigid_fit_residual_) {
+      if (runtimeFitAccepted(fit.valid, fit.rms_residual,
+                             (*minmax.first)->stamp)) {
         state.load_localization_source =
             agv_msgs::CooperativeState::SOURCE_ODOM;
         state.load_pose_valid = true;
@@ -1013,6 +1040,9 @@ class PathStateEstimatorNode {
   double maximum_synchronized_snapshot_hold_{0.05};
   std::size_t synchronization_queue_size_{64U};
   double maximum_rigid_fit_residual_{0.05};
+  double maximum_runtime_rigid_fit_residual_{0.05};
+  double runtime_rigid_fit_confirmation_seconds_{0.0};
+  RigidFitRuntimeGate runtime_rigid_fit_gate_;
   double maximum_load_path_transient_hold_{0.05};
   double maximum_robot_path_transient_hold_{0.05};
   std::string localization_mode_{"odometry_pretest"};

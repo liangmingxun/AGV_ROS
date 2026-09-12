@@ -1,0 +1,170 @@
+{
+  "capability": {
+    "demand_margin_minimum": 0.005314214975614906,
+    "link_margin_minimum": 0.0011728906572005815,
+    "mapped_path_capability_available": true
+  },
+  "causal_unfiltered": true,
+  "evaluation_window": {
+    "bounded_and_contiguous": true,
+    "formal_statistics_ready": true,
+    "source": "experiment_state"
+  },
+  "experiment_id": "m1_r1_circle_r0p7_cw_smooth_exit_0p10_derating_0p75_tracking_v2_pilot",
+  "geometry": {
+    "endpoint": {
+      "definition": "last_commanded_sample_before_terminal_stop",
+      "reference_progress": 5.177311108004935,
+      "side": {
+        "agv1_agv2": {
+          "absolute_error": 0.0027337668602493426,
+          "distance": 0.30273376686024933,
+          "signed_error": 0.0027337668602493426,
+          "target": 0.3
+        },
+        "agv1_agv3": {
+          "absolute_error": 0.0027357360320847124,
+          "distance": 0.3027357360320848,
+          "signed_error": 0.0027357360320847124,
+          "target": 0.3000000000000001
+        },
+        "agv2_agv3": {
+          "absolute_error": 2.038451336316971e-05,
+          "distance": 0.30002038451336316,
+          "signed_error": 2.038451336316971e-05,
+          "target": 0.3
+        }
+      },
+      "stamp": 1789196487.5035713
+    },
+    "load_position_max": 0.03485359416391599,
+    "load_position_rmse": 0.018432915921143267,
+    "load_yaw_max_absolute": 0.10130411407310572,
+    "load_yaw_rmse": 0.04648714310934205,
+    "rigid_fit_residual_max": 0.018943702988615172,
+    "rigid_fit_residual_rmse": 0.011617411965412968,
+    "support": {
+      "agv1": {
+        "position_max": 0.03507798313568707,
+        "position_rmse": 0.02077902001296566
+      },
+      "agv2": {
+        "position_max": 0.04748824238749342,
+        "position_rmse": 0.025273413114975187
+      },
+      "agv3": {
+        "position_max": 0.04237335307154048,
+        "position_rmse": 0.023534484777208032
+      }
+    },
+    "vehicle_heading": {
+      "agv1": {
+        "endpoint_absolute_error": 5.985144833944368e-05,
+        "endpoint_error": -5.985144833944368e-05,
+        "max_absolute": 0.08429701895018683,
+        "rmse": 0.04408962411729203
+      },
+      "agv2": {
+        "endpoint_absolute_error": 0.0006246720906408994,
+        "endpoint_error": -0.0006246720906408994,
+        "max_absolute": 0.11000405666820068,
+        "rmse": 0.07583529222825852
+      },
+      "agv3": {
+        "endpoint_absolute_error": 0.009286862881210634,
+        "endpoint_error": -0.009286862881210634,
+        "max_absolute": 0.17981111493537882,
+        "rmse": 0.12946321060081983
+      }
+    }
+  },
+  "internal": {
+    "channel_input_max_absolute": 0.33342883923875544,
+    "composite_error_max_absolute": 0.12236079372304463,
+    "disturbance_estimate_max": 0.16108228476767117,
+    "m2b_delta_w_max": null,
+    "m2b_delta_z_max": null,
+    "psi_max_absolute": 0.12668199960584284,
+    "theta_hat_max_absolute": 0.014202676750148661
+  },
+  "method_id": "M1_R1",
+  "path": {
+    "per_robot": {
+      "agv1": {
+        "progress_max_absolute": 0.01567925336731424,
+        "progress_rmse": 0.008465860186637059,
+        "velocity_max_absolute": 0.038865427127775166,
+        "velocity_rmse": 0.005423607773192281
+      },
+      "agv2": {
+        "progress_max_absolute": 0.0110352156408835,
+        "progress_rmse": 0.003517179921844532,
+        "velocity_max_absolute": 0.08663425603188465,
+        "velocity_rmse": 0.0067413000844720435
+      },
+      "agv3": {
+        "progress_max_absolute": 0.01625222441025631,
+        "progress_rmse": 0.008720770644576131,
+        "velocity_max_absolute": 0.09440418880665778,
+        "velocity_rmse": 0.009774885137902823
+      }
+    },
+    "per_robot_progress_definition": "recorded_origin_aligned_actual_minus_public_reference",
+    "progress_max_absolute": 0.014153110497619803,
+    "progress_rmse": 0.007910186746504243
+  },
+  "processing_version": "paper_run_pipeline_v8_recorded_progress_origin_alignment",
+  "recovery": {
+    "capability_95_stamp": 1789196471.3936224,
+    "capability_95_time": 39.420050621032715,
+    "capability_source": "explicit_mapper_output_or_historical_m2b_mapper_input",
+    "common_velocity_95_stamp": 1789196471.7336168,
+    "common_velocity_95_time": 39.76004505157471,
+    "common_velocity_after_capability_delay": 0.3399944305419922,
+    "derating_command_end_stamp": 1789196470.573616,
+    "derating_command_start_stamp": 1789196445.9735668,
+    "derating_observed_stamp": 1789196446.1935985,
+    "nominal_agv2_capability": 0.12046879950201114,
+    "nominal_agv2_capability_source": "observed_pre_derating"
+  },
+  "run_id": "m1_r1_circle_r0p7_cw_smooth_exit_0p10_derating_0p75_tracking_v2_pilot_20260912_150027",
+  "sample_counts": {
+    "aligned": 5480,
+    "experiment_state": 6051,
+    "invalid_algorithm": 0,
+    "invalid_localization": 0,
+    "path_errors": 5480,
+    "recorded": 6051,
+    "wheel_errors": 32880
+  },
+  "sample_period": 0.01,
+  "schema_version": 3,
+  "task": {
+    "completion_scope": "all_recorded_samples",
+    "completion_stamp": 1789196487.4135725,
+    "completion_time": 58.269949197769165,
+    "evaluation_target": 5.17822971502571,
+    "start_stamp": 1789196429.1436234
+  },
+  "wheel": {
+    "acceleration_limited_time": 0.4,
+    "actual_above_reported_limit_samples": 869,
+    "actual_above_reported_limit_time": 8.69,
+    "deceleration_limited_time": 0.24,
+    "demand_exceedance_samples": 2,
+    "demand_exceedance_time": 0.02,
+    "demand_source": "wheel_pre_limit",
+    "fleet_scaling_duration": 0.0,
+    "fleet_scaling_ratio": 0.0,
+    "limited_samples": 37,
+    "limited_time": 0.37,
+    "maximum_actual_speed": 0.18784226051480019,
+    "maximum_demand_exceedance": 0.002217465792797607,
+    "maximum_demand_ratio": 1.013859161204985,
+    "maximum_pre_limit_demand": 0.1622174657927976,
+    "minimum_fleet_scale": 1.0,
+    "speed_limited_time": 0.0,
+    "tracking_max_absolute": 0.05860706100022836,
+    "tracking_rmse": 0.019606989040999192
+  }
+}

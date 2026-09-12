@@ -1,10 +1,29 @@
 #include "multi_agv_control/formal_execution_gate.hpp"
 
 #include <cmath>
+#include <algorithm>
 #include <cstddef>
 #include <limits>
 
 namespace multi_agv_control {
+
+WheelPublicationCommand limitSerialWheelPublication(
+    double demand_left, double demand_right, double wheel_separation) {
+  WheelPublicationCommand command;
+  if (!std::isfinite(demand_left) || !std::isfinite(demand_right) ||
+      !std::isfinite(wheel_separation) || wheel_separation <= 0.0) {
+    return command;
+  }
+  constexpr double publication_limit = 0.16;
+  command.left = std::clamp(demand_left, -publication_limit, publication_limit);
+  command.right = std::clamp(demand_right, -publication_limit, publication_limit);
+  command.limited = command.left != demand_left || command.right != demand_right;
+  command.linear = 0.5 * (command.left + command.right);
+  command.angular = (command.right - command.left) / wheel_separation;
+  command.valid = std::isfinite(command.angular);
+  if (!command.valid) return WheelPublicationCommand{};
+  return command;
+}
 
 FormalExecutionGateResult evaluateFormalFakeGate(
     const FormalExecutionGateInput& input) {
@@ -102,7 +121,7 @@ FakeChassisBindingResult evaluateChassisBinding(
 SerialWheelDemandAssessment assessSerialWheelDemand(
     double raw_left, double raw_right,
     double available_left, double available_right,
-    double emergency_abort_limit) {
+    double emergency_abort_limit, bool raw_exceedance_warning_only) {
   SerialWheelDemandAssessment result;
   if (!std::isfinite(raw_left) || !std::isfinite(raw_right)) {
     result.emergency_abort = true;
@@ -123,8 +142,11 @@ SerialWheelDemandAssessment assessSerialWheelDemand(
       std::abs(raw_right) > available_right;
   if (std::abs(raw_left) > emergency_abort_limit ||
       std::abs(raw_right) > emergency_abort_limit) {
-    result.emergency_abort = true;
-    result.reason = "raw wheel demand exceeds emergency abort limit";
+    result.demand_threshold_exceeded = true;
+    result.emergency_abort = !raw_exceedance_warning_only;
+    result.reason = raw_exceedance_warning_only
+        ? "raw wheel demand exceeds warning threshold"
+        : "raw wheel demand exceeds emergency abort limit";
   }
   return result;
 }

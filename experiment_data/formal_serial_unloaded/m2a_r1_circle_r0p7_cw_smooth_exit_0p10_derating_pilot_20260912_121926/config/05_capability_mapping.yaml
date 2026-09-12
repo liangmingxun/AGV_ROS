@@ -1,0 +1,19 @@
+# Legacy Task 10 software-validation input. Formal serial M1+R1 does not load
+# this file; its mapper uses the measured per-robot wheel separations and
+# base-to-support offsets in formal_serial_m1_r1_runtime.yaml.
+capability_mapping:
+  configuration_status: software_validation_only
+  hardware_execution_authorized: false
+  geometry_source: offset_compensated_drive_axle_reference
+  # Must match localization_odom.yaml and the tracker configuration.
+  base_to_support:
+    - {x: -0.01783, y: 0.0}
+    - {x: 0.09908, y: 0.0}
+    - {x: 0.09908, y: 0.0}
+  body_linear_velocity_reserve: 0.0
+  body_angular_velocity_reserve: 0.0
+  wheel_linear_velocity_reserve: 0.0
+  path_acceleration_reserve: 0.0
+  path_deceleration_reserve: 0.0
+  heading_rate_epsilon: 1.0e-6
+  wheel_separation: [0.114, 0.114, 0.114]

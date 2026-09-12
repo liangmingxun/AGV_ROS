@@ -1,0 +1,17 @@
+# Shared comparison axes. Error ranges/ticks are frozen from the unfiltered
+# engineering control run 20260909_200716, not selected per method or smoothing.
+profile_id: engineering_control_200716_shared_axes_v1
+baseline_run: engineering_baseline_circle_r0p7_cw_smooth_exit_20260909_200716
+figure2.trajectory_y: {y_min: -1.75, y_max: 0.25, y_tick_step: 0.25}
+# Common speed envelopes accommodate current capability, mapping and abort
+# thresholds; the control run alone contains no upper-layer capability trace.
+figure3.wheel_capability: {y_min: 0.0, y_max: 0.20, y_tick_step: 0.04}
+figure3.path_capability: {y_min: 0.0, y_max: 0.24, y_tick_step: 0.04}
+figure4.robot1: {y_min: -0.04, y_max: 0.16, y_tick_step: 0.04}
+figure4.robot2: {y_min: -0.04, y_max: 0.16, y_tick_step: 0.04}
+figure4.robot3: {y_min: -0.04, y_max: 0.16, y_tick_step: 0.04}
+figure5.left: {y_min: -0.20, y_max: 0.20, y_tick_step: 0.05}
+figure5.right: {y_min: -0.20, y_max: 0.20, y_tick_step: 0.05}
+figure6.position_error: {y_min: 0.0, y_max: 0.06, y_tick_step: 0.01}
+figure7.progress_error: {y_min: -0.008, y_max: 0.016, y_tick_step: 0.004}
+figure7.velocity_error: {y_min: -0.12, y_max: 0.06, y_tick_step: 0.03}

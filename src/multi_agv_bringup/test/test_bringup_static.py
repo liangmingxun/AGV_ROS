@@ -9,6 +9,167 @@ SOURCE_ROOT = PACKAGE.parent
 
 
 class BringupStaticTest(unittest.TestCase):
+    def test_tracking_v2_is_separate_shared_and_scoped(self):
+        import copy
+        import subprocess
+        import yaml
+        configs = PACKAGE / "config"
+        old_name = "formal_serial_m1_r1_circle_r0p7_smooth_exit_0p10_pilot_runtime.yaml"
+        new_name = "formal_serial_circle_r0p7_smooth_exit_0p10_tracking_v2_pilot_runtime.yaml"
+        original = yaml.safe_load((configs / old_name).read_text())
+        candidate = yaml.safe_load((configs / new_name).read_text())
+        expected = copy.deepcopy(original)
+        runtime = expected["formal_fake_runtime"]
+        runtime["configuration_status"] = "PILOT_SHARED_CIRCLE_0P10_TRACKING_V2"
+        runtime["tracker"]["longitudinal_gain"] = 1.3
+        runtime["tracker"]["longitudinal_gain_per_robot"] = [1.3] * 3
+        self.assertEqual(candidate, expected)
+        for method in ("M1", "M2a"):
+            name = "formal_circle_0p10_{}_derating_0p75".format(method)
+            old = yaml.safe_load((configs / (name + "_authorization.yaml")).read_text())
+            new = yaml.safe_load((configs / (name + "_tracking_v2_authorization.yaml")).read_text())
+            old["authorization_scope"]["runtime_config"] = "src/multi_agv_bringup/config/" + new_name
+            self.assertEqual(new, old)
+        entry = PACKAGE / "scripts" / "run_circle_0p10_comparison.sh"
+        for method, condition in (("M2b", "--derating-0p75"), ("M1", "--no-derating")):
+            result = subprocess.run(["bash", str(entry), "--method", method, condition, "--tracking-v2"],
+                                    capture_output=True, text=True)
+            self.assertEqual(result.returncode, 2)
+        # Missing confirmations stop the downstream runner before any ROS motion.
+        for method in ("M1", "M2a"):
+            result = subprocess.run(["bash", "-x", str(entry), "--method", method,
+                                     "--derating-0p75", "--tracking-v2"],
+                                    capture_output=True, text=True)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn(new_name, result.stderr)
+            self.assertIn("derating_0p75_tracking_v2_pilot", result.stderr)
+            self.assertIn("derating_0p75_tracking_v2_authorization.yaml", result.stderr)
+
+    def test_unloaded_paired_runtime_error_gates_are_bounded(self):
+        import yaml
+        localization = yaml.safe_load((PACKAGE / "config" / "localization_camera_three_car_closed_loop.yaml").read_text())
+        self.assertEqual(localization["maximum_rigid_fit_residual"], .025)
+        self.assertEqual(localization["maximum_runtime_rigid_fit_residual"], .080)
+        self.assertEqual(localization["runtime_rigid_fit_confirmation_seconds"], .20)
+        self.assertEqual(localization["projector"]["maximum_projection_distance"], .150)
+        self.assertEqual(localization["maximum_state_age"], .22)
+        self.assertEqual(localization["maximum_sync_slop"], .02)
+        self.assertTrue(localization["require_calibration_epoch"])
+        generic = (PACKAGE / "scripts" / "run_m1_r1_serial_unloaded.sh").read_text()
+        self.assertIn('localization_config:="${workspace}/src/multi_agv_bringup/config/localization_camera_three_car_closed_loop.yaml"', generic)
+
+    def test_0p75_paired_pilot_preserves_other_conditions(self):
+        import subprocess
+        import yaml
+        configs = PACKAGE / "config"
+        original = yaml.safe_load((configs / "formal_evaluation_circle_r0p7_smooth_exit_derating.yaml").read_text())["exp2a_derating_pretest"]
+        name = "formal_evaluation_circle_r0p7_smooth_exit_derating_0p75_pilot.yaml"
+        pilot = yaml.safe_load((configs / name).read_text())["exp2a_derating_pretest"]
+        for key in original:
+            if key not in ("experiment_id", "target_speed_ratio_left", "target_speed_ratio_right"):
+                self.assertEqual(original[key], pilot[key], key)
+        self.assertEqual(original["target_speed_ratio_left"], .68)
+        self.assertEqual(pilot["target_speed_ratio_left"], .75)
+        self.assertEqual(pilot["target_speed_ratio_right"], .75)
+        self.assertAlmostEqual(.16 * pilot["target_speed_ratio_left"], .120)
+        entry = PACKAGE / "scripts" / "run_circle_0p10_comparison.sh"
+        for method in ("M1", "M2a"):
+            auth_name = "formal_circle_0p10_{}_derating_0p75_authorization.yaml".format(method)
+            auth = yaml.safe_load((configs / auth_name).read_text())["authorization_scope"]
+            old_auth = yaml.safe_load((configs / "formal_circle_0p10_{}_derating_authorization.yaml".format(method)).read_text())["authorization_scope"]
+            for key in old_auth:
+                if key != "evaluation_config":
+                    self.assertEqual(auth[key], old_auth[key], key)
+            self.assertEqual(auth["evaluation_config"], "src/multi_agv_bringup/config/" + name)
+            result = subprocess.run(["bash", "-x", str(entry), "--method", method, "--derating-0p75"],
+                                    cwd=SOURCE_ROOT.parent, capture_output=True, text=True)
+            self.assertEqual(result.returncode, 2)
+            self.assertIn(auth_name, result.stderr)
+            self.assertIn(name, result.stderr)
+            self.assertIn("formal_exp2a_derating_0p75_pilot_authorization.yaml", result.stderr)
+            self.assertIn("{}_circle_r0p7_cw_smooth_exit_0p10_derating_0p75_pilot".format("m1_r1" if method == "M1" else "m2a_r1"), result.stderr)
+            self.assertIn("--confirm-r0p7-smooth-exit-footprint-clear is required", result.stderr)
+        result = subprocess.run(["bash", str(entry), "--method", "M2b", "--derating-0p75"], capture_output=True, text=True)
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("scoped to M1 and M2a only", result.stderr)
+
+    def test_0p80_paired_pilot_preserves_other_conditions(self):
+        import subprocess
+        import yaml
+        configs = PACKAGE / "config"
+        original = yaml.safe_load((configs / "formal_evaluation_circle_r0p7_smooth_exit_derating.yaml").read_text())["exp2a_derating_pretest"]
+        name = "formal_evaluation_circle_r0p7_smooth_exit_derating_0p80_pilot.yaml"
+        pilot = yaml.safe_load((configs / name).read_text())["exp2a_derating_pretest"]
+        for key in original:
+            if key not in ("experiment_id", "target_speed_ratio_left", "target_speed_ratio_right"):
+                self.assertEqual(original[key], pilot[key], key)
+        self.assertEqual(original["target_speed_ratio_left"], .68)
+        self.assertEqual(pilot["target_speed_ratio_left"], .80)
+        self.assertEqual(pilot["target_speed_ratio_right"], .80)
+        self.assertAlmostEqual(.16 * pilot["target_speed_ratio_left"], .128)
+        entry = PACKAGE / "scripts" / "run_circle_0p10_comparison.sh"
+        for method in ("M1", "M2a"):
+            auth_name = "formal_circle_0p10_{}_derating_0p80_authorization.yaml".format(method)
+            auth = yaml.safe_load((configs / auth_name).read_text())["authorization_scope"]
+            old_auth = yaml.safe_load((configs / "formal_circle_0p10_{}_derating_authorization.yaml".format(method)).read_text())["authorization_scope"]
+            for key in old_auth:
+                if key != "evaluation_config":
+                    self.assertEqual(auth[key], old_auth[key], key)
+            self.assertEqual(auth["evaluation_config"], "src/multi_agv_bringup/config/" + name)
+            result = subprocess.run(["bash", "-x", str(entry), "--method", method, "--derating-0p80"],
+                                    cwd=SOURCE_ROOT.parent, capture_output=True, text=True)
+            self.assertEqual(result.returncode, 2)
+            self.assertIn(auth_name, result.stderr)
+            self.assertIn(name, result.stderr)
+            self.assertIn("formal_exp2a_derating_0p80_pilot_authorization.yaml", result.stderr)
+            self.assertIn("{}_circle_r0p7_cw_smooth_exit_0p10_derating_0p80_pilot".format("m1_r1" if method == "M1" else "m2a_r1"), result.stderr)
+            self.assertIn("--confirm-r0p7-smooth-exit-footprint-clear is required", result.stderr)
+        result = subprocess.run(["bash", str(entry), "--method", "M2b", "--derating-0p80"], capture_output=True, text=True)
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("scoped to M1 and M2a only", result.stderr)
+
+    def test_0p10_comparison_entry_scopes_all_methods_and_conditions(self):
+        import subprocess
+        import yaml
+
+        configs = PACKAGE / "config"
+        runtime_name = "formal_serial_m1_r1_circle_r0p7_smooth_exit_0p10_pilot_runtime.yaml"
+        runtime = yaml.safe_load((configs / runtime_name).read_text())["formal_fake_runtime"]
+        self.assertEqual(runtime["leader"]["velocity"], 0.10)
+        self.assertEqual(runtime["distributed_initial"]["velocity"], [0.10]*3)
+        self.assertEqual(runtime["emergency_abort_limit"], 0.18)
+        self.assertEqual(runtime["execution"]["startup_ramp_seconds"], 3.2)
+        m1 = yaml.safe_load((configs / "exp2a_M1_serial_0p10_pilot.yaml").read_text())["formal_upper"]
+        m2a = yaml.safe_load((configs / "exp2a_M2a_serial_0p10_pilot.yaml").read_text())["formal_upper"]
+        self.assertEqual(m1["agents"]["nominal_upper"], [0.115]*3)
+        for key in m2a["agents"]:
+            self.assertEqual(m1["agents"][key], m2a["agents"][key])
+        self.assertEqual(m2a["capability_policy"], "log_only_never_used_by_control")
+        entry = PACKAGE / "scripts" / "run_circle_0p10_comparison.sh"
+        for method in ("M1", "M2a", "M2b"):
+            for scope in ("normal", "derating"):
+                name = "formal_circle_0p10_{}_{}_authorization.yaml".format(method, scope)
+                auth = yaml.safe_load((configs / name).read_text())["authorization_scope"]
+                self.assertEqual(auth["runtime_config"], "src/multi_agv_bringup/config/"+runtime_name)
+                self.assertEqual(auth["robot2_derating"], scope == "derating")
+                upper = yaml.safe_load((SOURCE_ROOT.parent / auth["upper_config"]).read_text())
+                self.assertEqual(upper["formal_upper"]["mode"], method)
+                if method == "M2b":
+                    self.assertEqual(upper["formal_lower"]["mode"], "M2b")
+                # Deliberately omit footprint confirmation: exercise routing,
+                # then refuse before reaching ROS or publishing any commands.
+                flag = "--derating" if scope == "derating" else "--no-derating"
+                result = subprocess.run(["bash", "-x", str(entry), "--method", method, flag],
+                                        cwd=SOURCE_ROOT.parent, capture_output=True, text=True)
+                self.assertEqual(result.returncode, 2)
+                self.assertIn(name, result.stderr)
+                self.assertIn(runtime_name, result.stderr)
+                self.assertIn("--confirm-r0p7-smooth-exit-footprint-clear is required", result.stderr)
+        generic = (PACKAGE / "scripts" / "run_m1_r1_serial_unloaded.sh").read_text()
+        self.assertIn('upper_config="${FORMAL_UPPER_CONFIG:-src/multi_agv_bringup/config/exp2a_M2a_serial_008.yaml}"', generic)
+        self.assertIn('lower_config="src/multi_agv_bringup/config/exp3_R1.yaml"', generic)
+        self.assertIn('lower_config="src/multi_agv_bringup/config/exp2b_M2b.yaml"', generic)
+
     def test_zero_odometry_reconstructs_30cm_supports(self):
         import math
         import yaml

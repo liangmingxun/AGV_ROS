@@ -1,0 +1,136 @@
+{
+  "abort_reason": "",
+  "battery_voltage_end": {
+    "agv1": 9.715457916259766,
+    "agv2": 11.116044044494629,
+    "agv3": 11.913846015930176
+  },
+  "battery_voltage_start": {
+    "agv1": 10.637362480163574,
+    "agv2": 11.133772850036621,
+    "agv3": 11.931574821472168
+  },
+  "config_hashes": [
+    {
+      "archived_path": "config/01_common_platform.yaml",
+      "path": "/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/common_platform.yaml",
+      "sha256": "65483e8a7a24965d46f69d6d86b7e36f1655e7a3a761209b2ddf70ccc0f69f2a"
+    },
+    {
+      "archived_path": "config/02_agv1_chassis.yaml",
+      "path": "/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/agv1_chassis.yaml",
+      "sha256": "fd0c4ebf8ba31c6b27df3869951e91d864422435da3fab09e0e0bcd1e8558105"
+    },
+    {
+      "archived_path": "config/03_agv2_chassis.yaml",
+      "path": "/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/agv2_chassis.yaml",
+      "sha256": "cd7c1a8456a68b2dabe74f375bbaccab35990c9e107a6839a3a11ca4e307520a"
+    },
+    {
+      "archived_path": "config/04_agv3_chassis.yaml",
+      "path": "/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/agv3_chassis.yaml",
+      "sha256": "ff37627ee5f1caa50c0c92d79953ef1baf1698dc888d9099b62f39ea11aacc9e"
+    },
+    {
+      "archived_path": "config/05_capability_mapping.yaml",
+      "path": "/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/capability_mapping.yaml",
+      "sha256": "371249397636c2f343cf84601d156c2fac53325a36cdf464f45a7ed49b9c1a85"
+    },
+    {
+      "archived_path": "config/06_path_circle_r0p7_cw_smooth_exit.yaml",
+      "path": "/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/path_circle_r0p7_cw_smooth_exit.yaml",
+      "sha256": "9dd10798b3f0af1c98d6ee80d335ffb34637845238ddd023a23a7edb1df5451f"
+    },
+    {
+      "archived_path": "config/07_support_geometry.yaml",
+      "path": "/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/support_geometry.yaml",
+      "sha256": "ddf201680f7ef9075a71e8e10853b3deff8e9398ef9ae58378005e482348f8f8"
+    },
+    {
+      "archived_path": "config/08_localization_camera_three_car_closed_loop.yaml",
+      "path": "/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/localization_camera_three_car_closed_loop.yaml",
+      "sha256": "648b6cf49bfb536fcf252d8a505fc0538a87548f1dadb21b223abd9785d455f2"
+    },
+    {
+      "archived_path": "config/09_formal_serial_m1_r1_circle_r0p7_smooth_exit_0p10_pilot_runtime.yaml",
+      "path": "/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/formal_serial_m1_r1_circle_r0p7_smooth_exit_0p10_pilot_runtime.yaml",
+      "sha256": "25a20e4b8a8443cc9c157b15c01adff8d5d3e85102881fc8b921f20f5a06e334"
+    },
+    {
+      "archived_path": "config/10_exp2a_M1_serial_0p10_pilot.yaml",
+      "path": "/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/exp2a_M1_serial_0p10_pilot.yaml",
+      "sha256": "90820bdfd026f3ca94c22a8b9c4fe4373fed9ac6085239ac835d4c3cb756a422"
+    },
+    {
+      "archived_path": "config/11_exp3_R1.yaml",
+      "path": "/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/exp3_R1.yaml",
+      "sha256": "f01b322086a9130903afe7c920778ae9f45a9bc73095bf9174e5ec26d57e61bc"
+    },
+    {
+      "archived_path": "config/12_formal_circle_0p10_M1_derating_0p80_authorization.yaml",
+      "path": "/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/formal_circle_0p10_M1_derating_0p80_authorization.yaml",
+      "sha256": "eed5fa2a57381f1cb766bdd94633f786e5057b2c7a580a4bb6bd3b45be3e096f"
+    },
+    {
+      "archived_path": "config/13_formal_exp2a_derating_0p80_pilot_authorization.yaml",
+      "path": "/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/formal_exp2a_derating_0p80_pilot_authorization.yaml",
+      "sha256": "c641de42f68c626ad59e6162866def8d80ad88a5666035fbc7a6505f6bf922c7"
+    },
+    {
+      "archived_path": "config/14_formal_evaluation_circle_r0p7_smooth_exit_derating_0p80_pilot.yaml",
+      "path": "/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/formal_evaluation_circle_r0p7_smooth_exit_derating_0p80_pilot.yaml",
+      "sha256": "6b82404652d8f8bf5097f96da7163b4245affe518725b9af027a9eb0dc638bd6"
+    },
+    {
+      "archived_path": "config/15_fleet_inventory.yaml",
+      "path": "/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/fleet_inventory.yaml",
+      "sha256": "be71214076144a9a99bd0e1db275baa28b1ab1ae6fc05c7b154ec4cf7d8b1774"
+    },
+    {
+      "archived_path": "config/16_software_watchdog.yaml",
+      "path": "/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/software_watchdog.yaml",
+      "sha256": "f575259e7f9a2827bab66df15f21e2556d764da606cd0ac5a849f6e0344532b0"
+    },
+    {
+      "archived_path": "config/17_record_topics.yaml",
+      "path": "/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/record_topics.yaml",
+      "sha256": "371ec0af96a4a6e0d77fcb84b1460ddb74b905f8bf9b84b16f761140528586e9"
+    },
+    {
+      "archived_path": "config/18_vision_udp_bridge.yaml",
+      "path": "/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_vision_bridge/config/vision_udp_bridge.yaml",
+      "sha256": "9ac815e02578e8ad6ce4e0776da9a123a425eea1249fd5b83358f99615d9e0ef"
+    },
+    {
+      "archived_path": "rosparams.yaml",
+      "path": "ROS parameter server snapshot",
+      "sha256": "9126b5fdbf92dd10951bc8e0ca4dcc9da8043b51fd7dbd413624fdddeb0907ab"
+    }
+  ],
+  "end_timestamp": "2026-09-12T05:02:00.449956+00:00",
+  "experiment_id": "m1_r1_circle_r0p7_cw_smooth_exit_0p10_derating_0p80_pilot",
+  "git_sha": "d107a7f5082f8240bb9c8c280827fa26d0883a2f",
+  "hostname": "robot1",
+  "localization_source": "camera_imu_wheel_fused",
+  "method_id": "M1_R1",
+  "operator": "ETLAB",
+  "pair_block_id": "B02",
+  "path_version": "circle_r0p7_cw_smooth_exit_v1",
+  "payload_state": "unloaded",
+  "processing_version": "paper_run_pipeline_v8_recorded_progress_origin_alignment",
+  "recording_armed_timestamp": "2026-09-12T05:01:00.520516+00:00",
+  "run_id": "m1_r1_circle_r0p7_cw_smooth_exit_0p10_derating_0p80_pilot_20260912_130058",
+  "schema_version": 1,
+  "software_versions": {
+    "interface": "agv_ros_interfaces_v1",
+    "python": "3.8.10",
+    "ros_distro": "noetic"
+  },
+  "start_timestamp": "2026-09-12T05:01:00.180274+00:00",
+  "stm32_firmware": [
+    "unreported",
+    "unreported",
+    "unreported"
+  ],
+  "valid_run": true
+}

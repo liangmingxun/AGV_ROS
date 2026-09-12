@@ -6,6 +6,49 @@
 
 namespace mac = multi_agv_control;
 
+TEST(FormalExecutionGate, IndependentSignedPublicationHardLimit) {
+  const auto command = mac::limitSerialWheelPublication(0.184755, 0.098078, .139284482);
+  ASSERT_TRUE(command.valid);
+  EXPECT_TRUE(command.limited);
+  EXPECT_DOUBLE_EQ(command.left, .16);
+  EXPECT_DOUBLE_EQ(command.right, .098078);
+  EXPECT_DOUBLE_EQ(command.linear, .5 * (.16 + .098078));
+  EXPECT_DOUBLE_EQ(command.angular, (.098078 - .16) / .139284482);
+  const auto reverse = mac::limitSerialWheelPublication(-.20, -.17, .14);
+  EXPECT_DOUBLE_EQ(reverse.left, -.16);
+  EXPECT_DOUBLE_EQ(reverse.right, -.16);
+  EXPECT_DOUBLE_EQ(reverse.angular, 0.0);
+  const auto unchanged = mac::limitSerialWheelPublication(.10, .08, .14);
+  EXPECT_FALSE(unchanged.limited);
+  EXPECT_DOUBLE_EQ(unchanged.left, .10);
+  EXPECT_DOUBLE_EQ(unchanged.right, .08);
+}
+
+TEST(FormalExecutionGate, PublicationDoesNotOverrideCapabilityOrRawEmergency) {
+  const auto raw = mac::assessSerialWheelDemand(.184755, .098078, .1088, .1088, .18);
+  EXPECT_TRUE(raw.emergency_abort);
+  const auto publication = mac::limitSerialWheelPublication(.17, .09, .14);
+  ASSERT_TRUE(publication.valid);
+  EXPECT_TRUE(mac::assessSerialWheelDemand(
+      publication.left, publication.right, .1088, .1088, .18).available_limit_exceeded);
+  EXPECT_FALSE(mac::limitSerialWheelPublication(
+      std::numeric_limits<double>::quiet_NaN(), .1, .14).valid);
+  EXPECT_FALSE(mac::limitSerialWheelPublication(.1, .1, 0.0).valid);
+}
+
+TEST(FormalExecutionGate, WarningOnlyDemandStillRejectsNonfiniteAndInvalidLimits) {
+  for (int tick = 0; tick < 100; ++tick) {
+    const auto demand = mac::assessSerialWheelDemand(.25, -.19, .1088, .1088, .18, true);
+    EXPECT_TRUE(demand.demand_threshold_exceeded);
+    EXPECT_TRUE(demand.available_limit_exceeded);
+    EXPECT_FALSE(demand.emergency_abort);
+  }
+  EXPECT_TRUE(mac::assessSerialWheelDemand(
+      std::numeric_limits<double>::infinity(), 0., .1088, .1088, .18, true).emergency_abort);
+  EXPECT_TRUE(mac::assessSerialWheelDemand(.1, .1, -.1, .1, .18, true).emergency_abort);
+  EXPECT_FALSE(mac::assessSerialWheelDemand(.18, .1, .16, .16, .18, true).demand_threshold_exceeded);
+}
+
 namespace {
 
 mac::FormalExecutionGateInput validInput() {

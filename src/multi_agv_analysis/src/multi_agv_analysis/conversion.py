@@ -8,7 +8,7 @@ from pathlib import Path
 
 import rosbag
 
-from .io_utils import atomic_dump_yaml, stamp_to_sec, write_csv
+from .io_utils import atomic_dump_yaml, finite_float, stamp_to_sec, write_csv
 
 
 RAW_SCHEMAS = {
@@ -594,6 +594,15 @@ def _aligned_rows(raw, maximum_age):
                         robot, pose_name, axis)] = state.get(field, math.nan)
             row["agv{}_s_actual".format(robot)] = state.get(
                 "s_actual_{}".format(robot), math.nan)
+            # Match algorithmPositionActual: preserve geometric evidence and
+            # separately expose the controller's recorded origin alignment.
+            origin = (limiter_values[4 + (robot - 1) * 7 + 6]
+                      if len(limiter_values) == 25 else
+                      0.0 if engineering_baseline else math.nan)
+            row["agv{}_s_initial_offset".format(robot)] = origin
+            row["agv{}_s_tracking_actual".format(robot)] = (
+                finite_float(row["agv{}_s_actual".format(robot)]) -
+                finite_float(origin))
             row["agv{}_s_dot_actual".format(robot)] = state.get(
                 "s_dot_actual_{}".format(robot), math.nan)
             row["agv{}_s_execute_reference".format(robot)] = (

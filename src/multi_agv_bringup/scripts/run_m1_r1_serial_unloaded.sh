@@ -63,7 +63,7 @@ evaluation_config="${FORMAL_EVALUATION_CONFIG:-src/multi_agv_bringup/config/form
 derating_authorization_config="${FORMAL_DERATING_AUTHORIZATION_CONFIG:-src/multi_agv_bringup/config/formal_exp2a_derating_authorization.yaml}"
 case "$formal_upper_mode" in
   M2a)
-    upper_config="src/multi_agv_bringup/config/exp2a_M2a_serial_008.yaml"
+    upper_config="${FORMAL_UPPER_CONFIG:-src/multi_agv_bringup/config/exp2a_M2a_serial_008.yaml}"
     lower_config="src/multi_agv_bringup/config/exp3_R1.yaml"
     authorization_config="${FORMAL_EXECUTION_AUTHORIZATION_CONFIG:-src/multi_agv_bringup/config/formal_serial_m2a_r1_authorization.yaml}"
     method_id="M2a_R1"

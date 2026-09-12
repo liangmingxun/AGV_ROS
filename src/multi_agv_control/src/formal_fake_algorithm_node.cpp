@@ -992,24 +992,8 @@ class FormalFakeAlgorithmNode {
           left, right,
           capability_[index].max_wheel_linear_velocity_left,
           capability_[index].max_wheel_linear_velocity_right,
-          emergency_abort_limit_);
+          emergency_abort_limit_, true);
       if (assessment.emergency_abort) {
-        if (assessment.reason ==
-            "raw wheel demand exceeds emergency abort limit") {
-          emergency_violation_duration_[index] += dt;
-          if (emergency_violation_duration_[index] <
-              emergency_abort_persistence_seconds_) {
-            ROS_WARN_THROTTLE(
-                0.25,
-                "agv%zu raw wheel emergency threshold transient: "
-                "demand=[%.6f, %.6f] limit=%.6f m/s duration=%.3f/%.3f s; "
-                "continuing; each chassis retains its own physical limiter",
-                index + 1U, left, right, emergency_abort_limit_,
-                emergency_violation_duration_[index],
-                emergency_abort_persistence_seconds_);
-            continue;
-          }
-        }
         safety_abort_latched_ = true;
         ROS_ERROR(
             "Formal serial safety abort latched: agv%zu raw wheel command "
@@ -1020,7 +1004,15 @@ class FormalFakeAlgorithmNode {
             assessment.reason.c_str());
         return false;
       }
-      emergency_violation_duration_[index] = 0.0;
+      if (assessment.demand_threshold_exceeded) {
+        emergency_violation_duration_[index] += dt;
+        ROS_WARN_THROTTLE(1.0,
+            "agv%zu raw wheel demand threshold event: demand=[%.6f, %.6f], threshold=%.6f m/s, continuous duration=%.3f s; warning only, publication remains limited to +/-0.16 m/s; pre-limit demand is recorded for exceedance statistics",
+            index + 1U, left, right, emergency_abort_limit_,
+            emergency_violation_duration_[index]);
+      } else {
+        emergency_violation_duration_[index] = 0.0;
+      }
       if (assessment.available_limit_exceeded) {
         ROS_WARN_THROTTLE(
             1.0, "agv%zu raw wheel demand [%.6f, %.6f] exceeds current "
@@ -1043,6 +1035,41 @@ class FormalFakeAlgorithmNode {
     (void)tracking;
     fleet_wheel_scale_ = 1.0;
     return fleet_wheel_scale_;
+  }
+
+  bool fillWheelPublication(std::size_t index,
+                            const PlanarTrackingResult& tracking,
+                            agv_msgs::ChassisCommand* command) {
+    if (transport_type_ != "serial") {
+      command->linear_velocity_reference = tracking.linear_velocity_raw;
+      command->angular_velocity_reference = tracking.angular_velocity_raw;
+      command->wheel_linear_velocity_left_raw =
+          tracking.wheel_linear_velocity_left_raw;
+      command->wheel_linear_velocity_right_raw =
+          tracking.wheel_linear_velocity_right_raw;
+      return true;
+    }
+    const auto publication = limitSerialWheelPublication(
+        tracking.wheel_linear_velocity_left_raw,
+        tracking.wheel_linear_velocity_right_raw,
+        tracker_config_.wheel_separation[index]);
+    if (!publication.valid) {
+      safety_abort_latched_ = true;
+      ROS_ERROR("Serial wheel publication conversion is invalid; safety abort latched");
+      return false;
+    }
+    command->linear_velocity_reference = publication.linear;
+    command->angular_velocity_reference = publication.angular;
+    command->wheel_linear_velocity_left_raw = publication.left;
+    command->wheel_linear_velocity_right_raw = publication.right;
+    if (publication.limited) {
+      ROS_WARN_THROTTLE(1.0,
+          "agv%zu publication hard limit +/-0.16 m/s: demand=[%.6f, %.6f], published=[%.6f, %.6f]; pre-limit demand and emergency assessment are unchanged",
+          index + 1U, tracking.wheel_linear_velocity_left_raw,
+          tracking.wheel_linear_velocity_right_raw,
+          publication.left, publication.right);
+    }
+    return true;
   }
 
   void latchNonfiniteSerialWheelDemand(
@@ -1739,13 +1766,12 @@ class FormalFakeAlgorithmNode {
         command.robot_id = static_cast<std::uint8_t>(i + 1U);
         command.command_seq = ++command_sequence_[i];
         command.control_mode = 1U;
-        command.linear_velocity_reference = tracking[i].linear_velocity_raw;
-        command.angular_velocity_reference =
-            tracking[i].angular_velocity_raw;
-        command.wheel_linear_velocity_left_raw =
-            tracking[i].wheel_linear_velocity_left_raw;
-        command.wheel_linear_velocity_right_raw =
-            tracking[i].wheel_linear_velocity_right_raw;
+        if (!fillWheelPublication(i, tracking[i], &command)) {
+          publishZero(now);
+          publishPublicState(now, false, lower, tracking);
+          publishM2bDebug(m2b);
+          return;
+        }
         command.experiment_id = experiment_id_;
         command.method_id = "M2b_M2b";
         command_publishers_[i].publish(command);
@@ -1962,14 +1988,12 @@ class FormalFakeAlgorithmNode {
       command.robot_id = static_cast<std::uint8_t>(index + 1U);
       command.command_seq = ++command_sequence_[index];
       command.control_mode = 1U;
-      command.linear_velocity_reference =
-          tracking[index].linear_velocity_raw;
-      command.angular_velocity_reference =
-          tracking[index].angular_velocity_raw;
-      command.wheel_linear_velocity_left_raw =
-          tracking[index].wheel_linear_velocity_left_raw;
-      command.wheel_linear_velocity_right_raw =
-          tracking[index].wheel_linear_velocity_right_raw;
+      if (!fillWheelPublication(index, tracking[index], &command)) {
+        publishZero(now);
+        publishPublicState(now, false, lower, tracking);
+        publishDebug(false, current_upper_, distributed, lower);
+        return;
+      }
       command.experiment_id = experiment_id_;
       command.method_id =
           std::string(upperModeName(upper_mode_)) + "_" +

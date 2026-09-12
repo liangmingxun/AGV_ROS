@@ -1,0 +1,215 @@
+{
+  "axes": {
+    "figure2.trajectory_y": {
+      "axis_equal": true,
+      "ticks": [
+        -1.75,
+        -1.5,
+        -1.25,
+        -1.0,
+        -0.75,
+        -0.5,
+        -0.25,
+        0.0,
+        0.25
+      ],
+      "unit": "m",
+      "y_max": 0.25,
+      "y_min": -1.75
+    },
+    "figure3.path_capability": {
+      "absolute_error_from_zero": true,
+      "outside_axis_samples": 0,
+      "ticks": [
+        0.0,
+        0.04,
+        0.07999999999999999,
+        0.12,
+        0.16,
+        0.19999999999999998,
+        0.24000000000000002
+      ],
+      "unit": "m/s",
+      "y_max": 0.24,
+      "y_min": 0.0
+    },
+    "figure3.wheel_capability": {
+      "absolute_error_from_zero": true,
+      "outside_axis_samples": 0,
+      "ticks": [
+        0.0,
+        0.04,
+        0.07999999999999999,
+        0.12,
+        0.16,
+        0.19999999999999998
+      ],
+      "unit": "m/s",
+      "y_max": 0.2,
+      "y_min": 0.0
+    },
+    "figure4.robot1": {
+      "absolute_error_from_zero": false,
+      "outside_axis_samples": 0,
+      "ticks": [
+        -0.04,
+        0.0,
+        0.039999999999999994,
+        0.08,
+        0.12000000000000001,
+        0.15999999999999998
+      ],
+      "unit": "m/s",
+      "y_max": 0.16,
+      "y_min": -0.04
+    },
+    "figure4.robot2": {
+      "absolute_error_from_zero": false,
+      "outside_axis_samples": 0,
+      "ticks": [
+        -0.04,
+        0.0,
+        0.039999999999999994,
+        0.08,
+        0.12000000000000001,
+        0.15999999999999998
+      ],
+      "unit": "m/s",
+      "y_max": 0.16,
+      "y_min": -0.04
+    },
+    "figure4.robot3": {
+      "absolute_error_from_zero": false,
+      "outside_axis_samples": 0,
+      "ticks": [
+        -0.04,
+        0.0,
+        0.039999999999999994,
+        0.08,
+        0.12000000000000001,
+        0.15999999999999998
+      ],
+      "unit": "m/s",
+      "y_max": 0.16,
+      "y_min": -0.04
+    },
+    "figure5.left": {
+      "absolute_error_from_zero": false,
+      "outside_axis_samples": 0,
+      "ticks": [
+        -0.2,
+        -0.15,
+        -0.09999999999999998,
+        -0.04999999999999999,
+        0.0,
+        0.050000000000000044,
+        0.10000000000000003,
+        0.15000000000000002,
+        0.2
+      ],
+      "unit": "m/s",
+      "y_max": 0.2,
+      "y_min": -0.2
+    },
+    "figure5.right": {
+      "absolute_error_from_zero": false,
+      "outside_axis_samples": 0,
+      "ticks": [
+        -0.2,
+        -0.15,
+        -0.09999999999999998,
+        -0.04999999999999999,
+        0.0,
+        0.050000000000000044,
+        0.10000000000000003,
+        0.15000000000000002,
+        0.2
+      ],
+      "unit": "m/s",
+      "y_max": 0.2,
+      "y_min": -0.2
+    },
+    "figure6.position_error": {
+      "absolute_error_from_zero": true,
+      "outside_axis_samples": 0,
+      "ticks": [
+        0.0,
+        0.01,
+        0.019999999999999997,
+        0.03,
+        0.04,
+        0.049999999999999996,
+        0.060000000000000005
+      ],
+      "unit": "m",
+      "y_max": 0.06,
+      "y_min": 0.0
+    },
+    "figure7.progress_error": {
+      "absolute_error_from_zero": false,
+      "outside_axis_samples": 35,
+      "ticks": [
+        -0.008,
+        -0.004,
+        0.0,
+        0.004,
+        0.008,
+        0.012,
+        0.016
+      ],
+      "unit": "m",
+      "y_max": 0.016,
+      "y_min": -0.008
+    },
+    "figure7.velocity_error": {
+      "absolute_error_from_zero": false,
+      "outside_axis_samples": 0,
+      "ticks": [
+        -0.12,
+        -0.09,
+        -0.06,
+        -0.03,
+        0.0,
+        0.03,
+        0.06
+      ],
+      "unit": "m/s",
+      "y_max": 0.06,
+      "y_min": -0.12
+    }
+  },
+  "axis_baseline_run": "engineering_baseline_circle_r0p7_cw_smooth_exit_20260909_200716",
+  "axis_profile_id": "engineering_control_200716_shared_axes_v1",
+  "display_processing": {
+    "maximum_trend_plot_rate_hz": 1000.0,
+    "metrics_use_raw_samples": true,
+    "outliers_removed": false,
+    "raw_samples_preserved": true,
+    "robust_centered_trend_window_seconds": 0.0,
+    "show_raw_samples": false,
+    "wheel_feedback_trend_window_seconds": 0.0
+  },
+  "emergency_pre_limit_threshold_mps": 0.18,
+  "figures": 6,
+  "progress_error_definition": "recorded_origin_aligned_actual_minus_public_reference",
+  "run_context": {
+    "common_upper_label": "M1公共动态上界",
+    "experiment_id": "m1_r1_circle_r0p7_cw_smooth_exit_0p10_derating_0p75_tracking_v2_pilot",
+    "figure2_filename": "figure2_本文算法组_Robot2降额_R0p7m顺时针圆形路径",
+    "figure2_group_label": "本文算法组（Robot2降额）",
+    "figure2_path_label": "R=0.7m顺时针圆形路径",
+    "figure2_title": "本文算法组（Robot2降额）：R=0.7m顺时针圆形路径",
+    "has_dynamic_boundaries": true,
+    "local_upper_label": "M1局部动态上界",
+    "lower_label": "R1",
+    "method_id": "M1_R1",
+    "method_label": "M1+R1",
+    "path_label": "R=0.7 m顺时针圆形路径（平滑进出）",
+    "path_model": "circle_smooth_entry_exit",
+    "r1_velocity_lower_bound": -0.15,
+    "r1_velocity_upper_bound": 0.58,
+    "upper_label": "M1动态参考"
+  },
+  "schema_version": 2,
+  "source": "/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/experiment_data/formal_serial_unloaded/m1_r1_circle_r0p7_cw_smooth_exit_0p10_derating_0p75_tracking_v2_pilot_20260912_150027/converted/aligned_samples.csv"
+}

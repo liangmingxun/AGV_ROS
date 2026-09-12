@@ -9,6 +9,13 @@ WHEELS = tuple(
     (robot, side) for robot in range(1, 4) for side in ("left", "right"))
 
 
+def progress_tracking_actual(row, robot):
+    """Controller-aligned progress; old CSVs retain their legacy definition."""
+    field = "agv{}_s_tracking_actual".format(robot)
+    return finite_float(row.get(field) if field in row else
+                        row.get("agv{}_s_actual".format(robot)))
+
+
 def _finite(values):
     return [value for value in values if math.isfinite(value)]
 
@@ -325,7 +332,7 @@ def compute_metrics(rows, sample_period, command_epsilon=1e-6,
         actual_supports = []
         reference_supports = []
         for robot in range(1, 4):
-            actual_s = finite_float(row.get("agv{}_s_actual".format(robot)))
+            actual_s = progress_tracking_actual(row, robot)
             actual_v = finite_float(
                 row.get("agv{}_s_dot_actual".format(robot)))
             reference_s = reference_progress
@@ -605,6 +612,10 @@ def compute_metrics(rows, sample_period, command_epsilon=1e-6,
                 limiter_samples["deceleration"] * sample_period,
         },
         "path": {
+            "per_robot_progress_definition": (
+                "recorded_origin_aligned_actual_minus_public_reference"
+                if any("agv1_s_tracking_actual" in row for row in rows)
+                else "legacy_geometric_actual_minus_public_reference"),
             "progress_rmse": _rmse(path_errors),
             "progress_max_absolute": _maximum_absolute(path_errors),
             "per_robot": {

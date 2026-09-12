@@ -325,3 +325,24 @@ method-matching heartbeat and will retain command authority while repeatedly
 publishing zero without advancing its reference. The optional software
 watchdog Boolean can feed the fifth causal risk margin; stale primary state
 still causes immediate fail-zero.
+
+Formal serial M1/R1, M2a/R1 and M2b commands share a fixed, independent
+publication envelope of +/-0.16 m/s per wheel. This is not a fleet scaler and
+does not modify the upper reference or the controller equations. The original
+planar demand is assessed before clipping. For formal serial execution, finite
+demand above 0.18 m/s is a warning event, with continuous duration logged, not
+an abort. NaN/Inf demand and invalid safety-limit configuration still abort
+immediately and latch zero. Other safety gates are unchanged. The legacy
+`emergency_abort_limit` parameter now supplies the raw-demand warning threshold
+in this serial path; it is not an actual-wheel speed safety threshold.
+
+The execution-limiter stream continues to record pre-limit and fleet-scaled
+demands BEFORE publication clipping. ChassisCommand raw (and its feedback
+echo / aligned `wheel_*_raw` columns) is the published, clipped command;
+`wheel_*_applied` remains the chassis-limited command and `wheel_*_actual`
+remains measured feedback. Demand metrics use `wheel_*_pre_limit`, never the
+clipped publication. Published linear and angular velocities are reconstructed
+from the clipped wheels using each robot's calibrated wheel separation.
+The chassis still enforces its own runtime capability (e.g. 0.1088 m/s during
+Robot2 derating). A command envelope cannot guarantee measured speed never
+overshoots it. Fake transport and the engineering baseline are unchanged.

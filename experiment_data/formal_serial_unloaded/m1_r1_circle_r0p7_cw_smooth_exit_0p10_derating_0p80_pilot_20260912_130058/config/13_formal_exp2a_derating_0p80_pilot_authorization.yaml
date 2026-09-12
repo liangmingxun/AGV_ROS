@@ -1,0 +1,6 @@
+# Explicit operator request on 2026-09-12; pilot only, not formal statistics approval.
+exp2a_derating_pretest:
+  configuration_status: operator_requested_2026_09_12_0p80_paired_pilot
+  hardware_execution_authorized: true
+  authorization_basis: explicit_operator_request_for_0p80_paired_pilot
+  authorization_scope: unloaded_30cm_fixture_robot2_0p16_at_0p80_ratio

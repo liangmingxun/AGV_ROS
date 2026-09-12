@@ -6,7 +6,7 @@ from pathlib import Path
 
 from multi_agv_analysis.io_utils import (
     atomic_dump_json, finite_float, load_yaml, read_csv, write_csv)
-from multi_agv_analysis.metrics import _rigid_fit_residual
+from multi_agv_analysis.metrics import _rigid_fit_residual, progress_tracking_actual
 from multi_agv_analysis.publication_plots import (
     _apply_figure_typography, _pyplot, _save_pdf)
 
@@ -392,7 +392,14 @@ def _set_y_axis(axis, series, key, unit, metadata, overrides,
         "y_min": lower,
         "y_max": upper,
         "absolute_error_from_zero": bool(absolute),
+        "outside_axis_samples": sum(value < lower or value > upper
+                                    for value in values),
     }
+    if metadata[key]["outside_axis_samples"]:
+        import warnings
+        warnings.warn("{}: {} samples outside fixed plot range; raw data and "
+                      "metrics are unchanged".format(
+                          key, metadata[key]["outside_axis_samples"]))
 
 
 def _record_ticks(figure, axes, metadata):
@@ -467,6 +474,13 @@ def plot_run(aligned_csv, output_dir, axis_overrides=None):
     robot_styles = ("-", "--", "-.")
     emergency_threshold = _emergency_threshold_from_snapshot(aligned_csv)
     context = _run_context(aligned_csv)
+    shared_axes = load_yaml(Path(__file__).resolve().parents[2] /
+                            "config" / "paper_axis_defaults.yaml")
+    axis_overrides = dict(shared_axes, **(axis_overrides or {}))
+    # The spatial envelope is circle-specific; other paths retain their own
+    # geometric view while sharing the scalar comparison axes.
+    if not str(context.get("path_model", "")).startswith("circle"):
+        axis_overrides.pop("figure2.trajectory_y", None)
     display = (axis_overrides or {}).get("display", {})
     smoothing_window = float(display.get("smoothing_window_seconds", 0.10))
     wheel_feedback_smoothing_window = float(display.get(
@@ -767,7 +781,7 @@ def plot_run(aligned_csv, output_dir, axis_overrides=None):
     velocity_series = []
     for robot, color, style in zip(range(1, 4), colors, robot_styles):
         s_error = [a - b for a, b in zip(
-            _series(rows, "agv{}_s_actual".format(robot)), s_ref)]
+            [progress_tracking_actual(row, robot) for row in rows], s_ref)]
         v_error = [a - b for a, b in zip(
             _series(rows, "agv{}_s_dot_actual".format(robot)), v_ref)]
         _plot_measured(
@@ -782,7 +796,8 @@ def plot_run(aligned_csv, output_dir, axis_overrides=None):
         velocity_series.append(v_error)
     axes[0].set_title("{}：路径进度误差与速度误差".format(
         context["method_label"]))
-    axes[0].set_ylabel("进度误差 / m")
+    axes[0].set_ylabel("起点对齐进度误差 / m" if any(
+        "agv1_s_tracking_actual" in row for row in rows) else "进度误差 / m")
     _legend(axes[0])
     axes[1].set_ylabel("速度误差 / (m/s)")
     axes[1].set_xlabel("时间 / s")
@@ -799,6 +814,12 @@ def plot_run(aligned_csv, output_dir, axis_overrides=None):
         "schema_version": 2,
         "source": str(Path(aligned_csv).resolve()),
         "figures": 6,
+        "axis_profile_id": axis_overrides.get("profile_id"),
+        "axis_baseline_run": axis_overrides.get("baseline_run"),
+        "progress_error_definition": (
+            "recorded_origin_aligned_actual_minus_public_reference"
+            if any("agv1_s_tracking_actual" in row for row in rows)
+            else "legacy_geometric_actual_minus_public_reference"),
         "emergency_pre_limit_threshold_mps": emergency_threshold,
         "run_context": context,
         "display_processing": {

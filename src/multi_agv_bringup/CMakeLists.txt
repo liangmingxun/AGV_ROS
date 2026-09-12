@@ -22,6 +22,7 @@ catkin_install_python(PROGRAMS
 )
 
 install(PROGRAMS
+        scripts/run_circle_0p10_comparison.sh
         scripts/configure_chassis_udev.sh
         scripts/check_local_clock_sync.sh
         scripts/require_three_car_motion_gate.sh

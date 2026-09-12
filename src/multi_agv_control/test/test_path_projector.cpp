@@ -94,6 +94,32 @@ TEST(PathProjector, RejectsPointsOutsideResidualGate) {
   EXPECT_GT(result.distance, 0.9);
 }
 
+TEST(PathProjector, WideUnloadedPilotKeepsUniqueCircularProgressAndFiniteGate) {
+  constexpr double radius = 0.854400373;
+  const auto sample = [](double s) {
+    const double a = s / radius;
+    return ProjectionCurveSample{
+        {radius * std::cos(a), radius * std::sin(a)},
+        {-std::sin(a), std::cos(a)},
+        {-std::cos(a) / radius, -std::sin(a) / radius}};
+  };
+  PathProjectorConfig config;
+  config.maximum_projection_distance = .150;
+  const PathProjector projector(5.178, sample, config);
+  for (double s : {1.5, 2.5, 3.5}) {
+    const auto value = sample(s);
+    const auto radial = value.position / radius;
+    for (double distance : {-.149, -.081, .081, .149}) {
+      const auto result = projector.project(value.position + distance * radial, s - .01, .35);
+      ASSERT_TRUE(result.valid);
+      EXPECT_NEAR(result.s, s, 1e-7);
+      EXPECT_NEAR(result.distance, std::abs(distance), 1e-7);
+      EXPECT_FALSE(result.hit_window_boundary);
+    }
+    EXPECT_FALSE(projector.project(value.position + .151 * radial, s, .35).valid);
+  }
+}
+
 TEST(PathProjector, RejectsAnUnconvergedRefinement) {
   const SCurvePath path({0.12, 2.0, 20001});
   PathProjectorConfig config;

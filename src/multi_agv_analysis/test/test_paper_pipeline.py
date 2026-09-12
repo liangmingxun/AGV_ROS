@@ -245,6 +245,15 @@ class PaperPipelineTest(unittest.TestCase):
                 self.assertTrue((output / (name + ".pdf")).is_file())
             metadata = load_yaml(output / "plot_metadata.json")
             self.assertEqual(metadata["figures"], 6)
+            self.assertEqual(metadata["axis_profile_id"],
+                             "engineering_control_200716_shared_axes_v1")
+            for key, lo, hi, step in (
+                    ("figure6.position_error", 0.0, 0.06, 0.01),
+                    ("figure7.progress_error", -0.008, 0.016, 0.004),
+                    ("figure7.velocity_error", -0.12, 0.06, 0.03)):
+                axis = metadata["axes"][key]
+                self.assertEqual((axis["y_min"], axis["y_max"]), (lo, hi))
+                self.assertAlmostEqual(axis["ticks"][1]-axis["ticks"][0], step)
             self.assertEqual(
                 metadata["axes"]["figure6.position_error"]["unit"], "m")
             self.assertEqual(

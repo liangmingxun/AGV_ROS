@@ -1,0 +1,25 @@
+# Fixed-boundary ablation paired with the validated 0.10 m/s M1 pilot.
+# Only the nominal upper set is translated by +0.020 m/s from 0.08.
+# Runtime capability is recorded, never used to coordinate the upper layer.
+formal_upper:
+  schema_version: 1
+  mode: M2a
+  configuration_status: serial_vL_0p10_wheel_0p16_pilot
+  algorithm_execution_authorized: true
+  hardware_execution_authorized: false
+  golden_vectors_verified: true
+  update_rate: 25.0
+  controller_ticks_per_update: 4
+  capability_policy: log_only_never_used_by_control
+  agents:
+    physical_lower: [-0.030, -0.030, -0.030]
+    physical_upper: [0.125, 0.125, 0.125]
+    physical_margin_lower: [0.005, 0.005, 0.005]
+    physical_margin_upper: [0.005, 0.005, 0.005]
+    zero_margin: [0.005, 0.005, 0.005]
+    minimum_width: [0.065, 0.065, 0.065]
+    inner_margin: [0.005, 0.005, 0.005]
+    initial_lower: [-0.015, -0.015, -0.015]
+    initial_upper: [0.115, 0.115, 0.115]
+    nominal_lower: [-0.015, -0.015, -0.015]
+    nominal_upper: [0.115, 0.115, 0.115]
