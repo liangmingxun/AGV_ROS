@@ -29,6 +29,7 @@ MINIMUM_CAMERA_STEADY_SAMPLES = 30
 MINIMUM_CAMERA_STEADY_SPAN_SECONDS = 1.5
 MINIMUM_FEEDBACK_STEADY_SAMPLES = 100
 MAXIMUM_SAFE_COMMAND_SEQUENCE = 0xFFFFFF00
+MAXIMUM_COMMAND_ACK_LAG_SAMPLES = 25
 
 
 def parse_speed_list(value):
@@ -107,6 +108,16 @@ def synchronize_command_sequence(initial_sequence, applied_sequence):
             "restart the chassis node before calibration"
         )
     return max(initial_sequence, applied_sequence)
+
+
+def advance_command_sequence(current_sequence):
+    """Advance once for a command whose payload differs from the last command."""
+    if not 0 <= current_sequence < MAXIMUM_SAFE_COMMAND_SEQUENCE:
+        raise ValueError(
+            "command sequence is too close to uint32 exhaustion; "
+            "restart the chassis node before calibration"
+        )
+    return current_sequence + 1
 
 
 def _least_squares_time(samples, value_index):
@@ -624,6 +635,15 @@ class CalibrationRunner:
             )
         if require_stationary and actual > STOPPED_SPEED_MPS:
             raise RuntimeError("wheels are not stationary")
+        if self.phase in ("ramp_up", "steady", "ramp_down"):
+            applied_sequence = int(self.latest_feedback.command_seq_applied)
+            if self.command_sequence - applied_sequence > MAXIMUM_COMMAND_ACK_LAG_SAMPLES:
+                raise RuntimeError(
+                    "chassis command acknowledgement is stale "
+                    "(published_seq={}, applied_seq={})".format(
+                        self.command_sequence, applied_sequence
+                    )
+                )
         if self.active_origin is not None:
             pose = self.current_pose()
             excursion = math.hypot(pose[1] - self.active_origin[1],
@@ -653,7 +673,7 @@ class CalibrationRunner:
     def stop_and_confirm(self):
         self.phase = "stop"
         self.point_speed = 0.0
-        self.command_sequence += 1
+        self.command_sequence = advance_command_sequence(self.command_sequence)
         deadline = time.monotonic() + STOP_TIMEOUT_SECONDS
         stationary_since = None
         rate = self.rospy.Rate(COMMAND_RATE_HZ)
@@ -664,7 +684,11 @@ class CalibrationRunner:
                 abs(self.latest_feedback.wheel_linear_velocity_left_actual),
                 abs(self.latest_feedback.wheel_linear_velocity_right_actual),
             )
-            if actual <= STOPPED_SPEED_MPS:
+            command_acknowledged = (
+                int(self.latest_feedback.command_seq_applied)
+                == self.command_sequence
+            )
+            if actual <= STOPPED_SPEED_MPS and command_acknowledged:
                 if stationary_since is None:
                     stationary_since = time.monotonic()
                 if time.monotonic() - stationary_since >= STOP_CONFIRM_SECONDS:
@@ -672,7 +696,13 @@ class CalibrationRunner:
             else:
                 stationary_since = None
             rate.sleep()
-        raise RuntimeError("wheel stop was not confirmed within 4 seconds")
+        raise RuntimeError(
+            "wheel stop/command-sequence acknowledgement was not confirmed "
+            "within 4 seconds (published_seq={}, applied_seq={})".format(
+                self.command_sequence,
+                int(self.latest_feedback.command_seq_applied),
+            )
+        )
 
     def wait_until_ready(self):
         deadline = time.monotonic() + 12.0
@@ -732,7 +762,6 @@ class CalibrationRunner:
             "%s: physical target=%+.3f m/s, firmware excitation=[%+.3f,%+.3f] m/s",
             label, direction * target_speed, left_target, right_target,
         )
-        self.command_sequence += 1
         deadline = time.monotonic() + total
         rate = self.rospy.Rate(COMMAND_RATE_HZ)
         while time.monotonic() < deadline:
@@ -749,6 +778,12 @@ class CalibrationRunner:
                 self.phase = "ramp_down"
             self.point_speed = direction * target_speed
             self.check_state(expected_speed=target_speed)
+            # The ramp payload changes every sample.  ChassisCore only accepts
+            # an equal sequence as a heartbeat when the payload is identical,
+            # so every changing motion command must carry a newer sequence.
+            self.command_sequence = advance_command_sequence(
+                self.command_sequence
+            )
             message = self.make_command(
                 scale * left_target, scale * right_target,
                 "wheel_scale_{}".format(label),
@@ -902,7 +937,9 @@ class CalibrationRunner:
         try:
             self.phase = "emergency_stop"
             self.point_speed = 0.0
-            self.command_sequence += 1
+            self.command_sequence = advance_command_sequence(
+                self.command_sequence
+            )
             for _ in range(20):
                 self.publish_zero()
                 time.sleep(0.02)

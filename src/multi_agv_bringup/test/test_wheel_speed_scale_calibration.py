@@ -41,6 +41,19 @@ class WheelSpeedScaleCalibrationTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "uint32 exhaustion"):
             MODULE.synchronize_command_sequence(100000, 0xFFFFFF00)
 
+    def test_changing_motion_commands_receive_strictly_newer_sequences(self):
+        sequence = MODULE.synchronize_command_sequence(100000, 3100000000)
+        published = []
+        for _ in range(1000):
+            sequence = MODULE.advance_command_sequence(sequence)
+            published.append(sequence)
+        self.assertEqual(len(published), len(set(published)))
+        self.assertTrue(all(
+            newer > older for older, newer in zip(published, published[1:])
+        ))
+        with self.assertRaisesRegex(ValueError, "uint32 exhaustion"):
+            MODULE.advance_command_sequence(0xFFFFFF00)
+
     def test_camera_wheel_velocity_uses_body_and_yaw_fit(self):
         track = 0.14
         body = 0.10
