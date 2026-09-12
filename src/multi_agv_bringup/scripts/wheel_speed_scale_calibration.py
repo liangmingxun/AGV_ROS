@@ -28,6 +28,7 @@ SUSTAINED_OVERSPEED_SAMPLES = 5
 MINIMUM_CAMERA_STEADY_SAMPLES = 30
 MINIMUM_CAMERA_STEADY_SPAN_SECONDS = 1.5
 MINIMUM_FEEDBACK_STEADY_SAMPLES = 100
+MAXIMUM_SAFE_COMMAND_SEQUENCE = 0xFFFFFF00
 
 
 def parse_speed_list(value):
@@ -94,6 +95,18 @@ def parse_args(argv=None):
 def smoothstep5(value):
     bounded = min(1.0, max(0.0, value))
     return bounded ** 3 * (10.0 + bounded * (-15.0 + 6.0 * bounded))
+
+
+def synchronize_command_sequence(initial_sequence, applied_sequence):
+    """Return a base whose next increment is newer than the chassis state."""
+    if not 1 <= initial_sequence < MAXIMUM_SAFE_COMMAND_SEQUENCE:
+        raise ValueError("initial command sequence is outside the safe uint32 range")
+    if not 0 <= applied_sequence < MAXIMUM_SAFE_COMMAND_SEQUENCE:
+        raise ValueError(
+            "applied command sequence is too close to uint32 exhaustion; "
+            "restart the chassis node before calibration"
+        )
+    return max(initial_sequence, applied_sequence)
 
 
 def _least_squares_time(samples, value_index):
@@ -681,6 +694,17 @@ class CalibrationRunner:
                     "command topic does not have chassis and rosbag subscribers"
                 )
             time.sleep(0.05)
+        applied_sequence = int(self.latest_feedback.command_seq_applied)
+        synchronized = synchronize_command_sequence(
+            self.command_sequence, applied_sequence
+        )
+        if synchronized != self.command_sequence:
+            self.rospy.logwarn(
+                "Advanced calibration command sequence from %u to %u to follow "
+                "chassis command_seq_applied=%u",
+                self.command_sequence, synchronized, applied_sequence,
+            )
+        self.command_sequence = synchronized
         self.stop_and_confirm()
         self.check_state(require_stationary=True)
 

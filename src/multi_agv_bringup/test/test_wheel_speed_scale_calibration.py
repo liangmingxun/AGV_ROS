@@ -29,6 +29,18 @@ class WheelSpeedScaleCalibrationTest(unittest.TestCase):
         with self.assertRaises(Exception):
             MODULE.parse_speed_list("0.17")
 
+    def test_command_sequence_handoff_follows_running_chassis(self):
+        self.assertEqual(
+            MODULE.synchronize_command_sequence(100000, 3100000000),
+            3100000000,
+        )
+        self.assertEqual(
+            MODULE.synchronize_command_sequence(3100000000, 100000),
+            3100000000,
+        )
+        with self.assertRaisesRegex(ValueError, "uint32 exhaustion"):
+            MODULE.synchronize_command_sequence(100000, 0xFFFFFF00)
+
     def test_camera_wheel_velocity_uses_body_and_yaw_fit(self):
         track = 0.14
         body = 0.10
