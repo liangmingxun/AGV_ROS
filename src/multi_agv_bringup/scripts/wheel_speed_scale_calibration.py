@@ -25,7 +25,9 @@ STOP_CONFIRM_SECONDS = 0.30
 STOP_TIMEOUT_SECONDS = 4.0
 ABSOLUTE_ACTUAL_ABORT_MPS = 0.20
 SUSTAINED_OVERSPEED_SAMPLES = 5
-MINIMUM_STEADY_SAMPLES = 100
+MINIMUM_CAMERA_STEADY_SAMPLES = 30
+MINIMUM_CAMERA_STEADY_SPAN_SECONDS = 1.5
+MINIMUM_FEEDBACK_STEADY_SAMPLES = 100
 
 
 def parse_speed_list(value):
@@ -129,9 +131,19 @@ def unwrap_angles(values):
 
 def camera_wheel_velocity(pose_samples, wheel_separation):
     """Return body, yaw, left and right velocities from a fixed fit window."""
-    if len(pose_samples) < MINIMUM_STEADY_SAMPLES:
-        raise ValueError("insufficient camera samples in the steady fit window")
     ordered = sorted(pose_samples)
+    span = ordered[-1][0] - ordered[0][0] if len(ordered) >= 2 else 0.0
+    if (
+        len(ordered) < MINIMUM_CAMERA_STEADY_SAMPLES
+        or span < MINIMUM_CAMERA_STEADY_SPAN_SECONDS
+    ):
+        raise ValueError(
+            "insufficient camera coverage in the steady fit window "
+            "(samples={}, span={:.3f} s; require samples>={} and span>={:.3f} s)".format(
+                len(ordered), span, MINIMUM_CAMERA_STEADY_SAMPLES,
+                MINIMUM_CAMERA_STEADY_SPAN_SECONDS,
+            )
+        )
     unwrapped = unwrap_angles([row[3] for row in ordered])
     fitted = [
         (row[0], row[1], row[2], yaw)
@@ -727,7 +739,7 @@ class CalibrationRunner:
             row for row in self.feedback if steady_start <= row["stamp"] <= steady_end
         ]
         camera = camera_wheel_velocity(pose_window, self.wheel_separation)
-        if len(feedback_window) < MINIMUM_STEADY_SAMPLES:
+        if len(feedback_window) < MINIMUM_FEEDBACK_STEADY_SAMPLES:
             raise RuntimeError("insufficient chassis feedback in steady fit window")
         confidence = [row["camera_confidence"] for row in feedback_window]
         result = {

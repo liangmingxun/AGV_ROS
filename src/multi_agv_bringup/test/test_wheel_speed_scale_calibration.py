@@ -51,6 +51,16 @@ class WheelSpeedScaleCalibrationTest(unittest.TestCase):
             delta=0.003,
         )
 
+    def test_camera_fit_accepts_normal_low_rate_coverage(self):
+        samples = [
+            (index * 0.05, index * 0.05 * 0.08, 0.0, 0.0)
+            for index in range(41)
+        ]
+        result = MODULE.camera_wheel_velocity(samples, 0.14)
+        self.assertAlmostEqual(result["body_velocity_mps"], 0.08, places=9)
+        with self.assertRaisesRegex(ValueError, "insufficient camera coverage"):
+            MODULE.camera_wheel_velocity(samples[:20], 0.14)
+
     def test_fit_separates_feedback_and_command_mapping(self):
         segments = []
         feedback_gain = {"left": 1.10, "right": 1.12}
