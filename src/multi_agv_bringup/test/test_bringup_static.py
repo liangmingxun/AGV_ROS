@@ -22,29 +22,34 @@ class BringupStaticTest(unittest.TestCase):
         expected["formal_fake_runtime"]["execution"]["consistent_reference_acceleration"] = True
         expected["formal_fake_runtime"]["execution"]["reconciliation"] = {"enabled": False}
         self.assertEqual(yaml.safe_load((configs / new_name).read_text()), expected)
-        for method in ("M1", "M2a"):
-            name = "formal_circle_0p10_{}_derating_0p75".format(method)
-            old = yaml.safe_load((configs / (name + "_authorization.yaml")).read_text())
-            new = yaml.safe_load((configs / (name + "_reference_v1_authorization.yaml")).read_text())
-            old["authorization_scope"]["runtime_config"] = "src/multi_agv_bringup/config/" + new_name
-            self.assertEqual(old, new)
+        for ratio in ("0p75", "0p80"):
+            for method in ("M1", "M2a"):
+                name = "formal_circle_0p10_{}_derating_{}".format(method, ratio)
+                old = yaml.safe_load((configs / (name + "_authorization.yaml")).read_text())
+                new = yaml.safe_load((configs / (name + "_reference_v1_authorization.yaml")).read_text())
+                old["authorization_scope"]["runtime_config"] = "src/multi_agv_bringup/config/" + new_name
+                self.assertEqual(old, new)
         script = PACKAGE / "scripts" / "run_circle_0p10_comparison.sh"
         for args in (["--method", "M1", "--no-derating"],
+                     ["--method", "M1", "--derating"],
                      ["--method", "M2b", "--derating-0p75"],
                      ["--method", "M1", "--derating-0p75", "--tracking-v2"],
                      ["--method", "M1", "--derating-0p75", "--reconciliation-v1"]):
             result = subprocess.run(["bash", str(script), "--reference-v1"] + args,
                                     capture_output=True, text=True)
             self.assertEqual(result.returncode, 2)
-        for method in ("M1", "M2a"):
-            # No physical confirmations: downstream refuses before ROS motion.
-            result = subprocess.run(["bash", "-x", str(script), "--method", method,
-                                     "--derating-0p75", "--reference-v1"],
-                                    capture_output=True, text=True)
-            self.assertNotEqual(result.returncode, 0)
-            self.assertIn(new_name, result.stderr)
-            self.assertIn("derating_0p75_reference_v1_pilot", result.stderr)
-            self.assertIn("derating_0p75_reference_v1_authorization.yaml", result.stderr)
+        for ratio in ("0p75", "0p80"):
+            for method in ("M1", "M2a"):
+                # No physical confirmations: downstream refuses before ROS motion.
+                result = subprocess.run(["bash", "-x", str(script), "--method", method,
+                                         "--derating-" + ratio, "--reference-v1"],
+                                        capture_output=True, text=True)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn(new_name, result.stderr)
+                self.assertIn("derating_{}_reference_v1_pilot".format(ratio), result.stderr)
+                self.assertIn("derating_{}_reference_v1_authorization.yaml".format(ratio), result.stderr)
+                self.assertIn("formal_evaluation_circle_r0p7_smooth_exit_derating_{}_pilot.yaml".format(ratio), result.stderr)
+                self.assertIn("formal_exp2a_derating_{}_pilot_authorization.yaml".format(ratio), result.stderr)
 
     def test_reconciliation_v1_is_separate_shared_and_locked(self):
         import copy

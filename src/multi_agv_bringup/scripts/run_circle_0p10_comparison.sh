@@ -9,7 +9,7 @@ usage() {
   echo "--derating-0p75 selects the separate M1/M2a paired pilot, ratio=0.75."
   echo "--tracking-v2: separate 0.75 paired pilot with shared longitudinal gain 1.3; original configs unchanged."
   echo "--reconciliation-v1: separate 0.75 M1/M2a candidate with slow bounded shared-R1 execution reconciliation."
-  echo "--reference-v1: separate 0.75 M1/M2a pilot; acceleration follows final public velocity; tracker gain 1.0, reconciliation off."
+  echo "--reference-v1: separate 0.75/0.80 M1/M2a pilot; acceleration follows final public velocity; tracker gain 1.0, reconciliation off."
 }
 method=""; condition=""; tracking_v2=false; reconciliation_v1=false; reference_v1=false; forwarded=()
 while [[ $# -gt 0 ]]; do
@@ -46,8 +46,8 @@ if [[ "$tracking_v2" == true && "$reconciliation_v1" == true ]]; then
   exit 2
 fi
 config_dir=src/multi_agv_bringup/config
-if [[ "$reference_v1" == true && ( "$condition" != derating-0p75 || "$method" == M2b || "$tracking_v2" == true || "$reconciliation_v1" == true ) ]]; then
-  echo "ERROR: --reference-v1 requires M1/M2a derating-0p75 and excludes other candidates" >&2
+if [[ "$reference_v1" == true && ( ( "$condition" != derating-0p75 && "$condition" != derating-0p80 ) || "$method" == M2b || "$tracking_v2" == true || "$reconciliation_v1" == true ) ]]; then
+  echo "ERROR: --reference-v1 requires M1/M2a derating-0p75 or derating-0p80 and excludes other candidates" >&2
   exit 2
 fi
 export FORMAL_UPPER_MODE="$method"
@@ -90,9 +90,9 @@ fi
 export FORMAL_RUN_PREFIX="$FORMAL_EXPERIMENT_ID"
 if [[ "$reference_v1" == true ]]; then
   export FORMAL_RUNTIME_CONFIG="$config_dir/formal_serial_circle_r0p7_smooth_exit_0p10_reference_v1_pilot_runtime.yaml"
-  export FORMAL_EXECUTION_AUTHORIZATION_CONFIG="$config_dir/formal_circle_0p10_${method}_derating_0p75_reference_v1_authorization.yaml"
+  export FORMAL_EXECUTION_AUTHORIZATION_CONFIG="$config_dir/formal_circle_0p10_${method}_${scope}_reference_v1_authorization.yaml"
   export FORMAL_EXPERIMENT_ID="${prefix}_circle_r0p7_cw_smooth_exit_0p10_${scope}_reference_v1_pilot"
   export FORMAL_RUN_PREFIX="$FORMAL_EXPERIMENT_ID"
 fi
 export FORMAL_RUN_TIMEOUT_SECONDS=140
-exec "$script_dir/run_m1_r1_serial_unloaded_circle_r0p7_smooth_exit.sh" "${forwarded[@]}"
+exec bash "$script_dir/run_m1_r1_serial_unloaded_circle_r0p7_smooth_exit.sh" "${forwarded[@]}"
