@@ -54,6 +54,14 @@ class WheelSpeedScaleCalibrationTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "uint32 exhaustion"):
             MODULE.advance_command_sequence(0xFFFFFF00)
 
+    def test_actual_anomaly_gate_does_not_reuse_prelimit_threshold(self):
+        self.assertAlmostEqual(
+            MODULE.sustained_actual_abort_threshold(0.16), 0.19, places=12
+        )
+        self.assertAlmostEqual(
+            MODULE.sustained_actual_abort_threshold(-0.14), 0.17, places=12
+        )
+
     def test_camera_wheel_velocity_uses_body_and_yaw_fit(self):
         track = 0.14
         body = 0.10

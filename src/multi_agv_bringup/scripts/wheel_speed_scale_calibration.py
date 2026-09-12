@@ -120,6 +120,14 @@ def advance_command_sequence(current_sequence):
     return current_sequence + 1
 
 
+def sustained_actual_abort_threshold(expected_speed):
+    """Calibration-only actual anomaly gate; 0.18 is a pre-limit diagnostic."""
+    expected = abs(float(expected_speed))
+    if not math.isfinite(expected):
+        raise ValueError("expected speed must be finite")
+    return expected + 0.030
+
+
 def _least_squares_time(samples, value_index):
     if len(samples) < 2:
         raise ValueError("at least two samples are required")
@@ -438,6 +446,7 @@ class CalibrationRunner:
         self.active_origin = None
         self.overspeed_count = 0
         self.last_safety_feedback_seq = None
+        self.overspeed_violation = None
         self.stop_requested = False
         self.command_sequence = args.command_seq
 
@@ -545,6 +554,28 @@ class CalibrationRunner:
         self.samples.append(row)
         self.latest_feedback = message
         self.latest_feedback_received = now
+        feedback_seq = int(message.feedback_seq)
+        if (
+            self.phase in ("ramp_up", "steady", "ramp_down")
+            and feedback_seq != self.last_safety_feedback_seq
+        ):
+            self.last_safety_feedback_seq = feedback_seq
+            actual = max(abs(left_actual), abs(right_actual))
+            threshold = sustained_actual_abort_threshold(self.point_speed)
+            if actual > ABSOLUTE_ACTUAL_ABORT_MPS:
+                self.overspeed_violation = (
+                    "actual wheel speed exceeded the 0.20 m/s absolute "
+                    "calibration stop threshold"
+                )
+            elif actual > threshold:
+                self.overspeed_count += 1
+            else:
+                self.overspeed_count = 0
+            if self.overspeed_count >= SUSTAINED_OVERSPEED_SAMPLES:
+                self.overspeed_violation = (
+                    "actual wheel speed exceeded target+0.03 m/s for {} "
+                    "consecutive feedback samples"
+                ).format(SUSTAINED_OVERSPEED_SAMPLES)
 
     def pose_callback(self, message):
         now = self.rospy.Time.now().to_sec()
@@ -618,21 +649,8 @@ class CalibrationRunner:
             abs(self.latest_feedback.wheel_linear_velocity_left_actual),
             abs(self.latest_feedback.wheel_linear_velocity_right_actual),
         )
-        if actual > ABSOLUTE_ACTUAL_ABORT_MPS:
-            raise RuntimeError("actual wheel speed exceeded 0.20 m/s")
-        expected = max(0.0, expected_speed or 0.0)
-        threshold = min(0.18, expected + 0.030)
-        feedback_seq = int(self.latest_feedback.feedback_seq)
-        if feedback_seq != self.last_safety_feedback_seq:
-            self.last_safety_feedback_seq = feedback_seq
-            if actual > threshold:
-                self.overspeed_count += 1
-            else:
-                self.overspeed_count = 0
-        if self.overspeed_count >= SUSTAINED_OVERSPEED_SAMPLES:
-            raise RuntimeError(
-                "actual wheel speed exceeded the bounded calibration envelope"
-            )
+        if self.overspeed_violation is not None:
+            raise RuntimeError(self.overspeed_violation)
         if require_stationary and actual > STOPPED_SPEED_MPS:
             raise RuntimeError("wheels are not stationary")
         if self.phase in ("ramp_up", "steady", "ramp_down"):
@@ -747,6 +765,9 @@ class CalibrationRunner:
         return left, right
 
     def run_leg(self, repetition, target_speed, direction):
+        self.overspeed_count = 0
+        self.last_safety_feedback_seq = None
+        self.overspeed_violation = None
         left_target, right_target = self.command_pair(target_speed, direction)
         total = 2.0 * self.args.ramp_seconds + self.args.steady_seconds
         start = self.rospy.Time.now().to_sec()
@@ -955,8 +976,8 @@ class CalibrationRunner:
                 self.robot, ",".join("{:.2f}".format(x) for x in self.args.speeds),
                 self.args.repetitions,
             )
-            for repetition in range(1, self.args.repetitions + 1):
-                for speed in self.args.speeds:
+            for speed in self.args.speeds:
+                for repetition in range(1, self.args.repetitions + 1):
                     origin = self.current_pose()
                     self.active_origin = origin
                     self.run_leg(repetition, speed, 1.0)

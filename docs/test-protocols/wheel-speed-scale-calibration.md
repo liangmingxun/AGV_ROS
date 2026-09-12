@@ -38,6 +38,10 @@ cd ~/AGV_ROS/.worktrees/platform-foundation-linux
 这个倒数只属于本次激励策略，不会被写入正式配置；最终command候选由相机
 真值相对于实际firmware target重新拟合。
 
+正式系统中的`0.18 m/s`保持为pre-limit需求诊断阈值，不作为actual中止线。
+标定工具独立使用逐反馈样本的`目标速度+0.03 m/s`持续异常门，并保留
+`0.20 m/s`单帧绝对停止门；这些门只保护标定过程，不改变正式运行语义。
+
 ## 自动输出
 
 结果保存在：
