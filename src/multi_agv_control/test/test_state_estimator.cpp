@@ -157,6 +157,25 @@ TEST(StateEstimator, RejectsNonIncreasingStampWithoutChangingHistory) {
   EXPECT_NEAR(next.progress, 0.11, 2e-6);
 }
 
+TEST(StateEstimator, ReusesLastEstimateForNearDuplicateIncreasingStamp) {
+  const SCurvePath path({0.12, 2.0, 20001});
+  StateEstimator estimator(makeProjector(path), estimatorConfig());
+  const auto first = estimator.update(path.sample(0.10).position, 5.0);
+  ASSERT_TRUE(first.valid);
+
+  const auto duplicate = estimator.update(
+      path.sample(0.100001).position, 5.0 + 1.0e-6);
+  ASSERT_TRUE(duplicate.valid);
+  EXPECT_DOUBLE_EQ(duplicate.measurement_stamp, first.measurement_stamp);
+  EXPECT_NEAR(duplicate.progress, first.progress, 1e-12);
+  EXPECT_FALSE(duplicate.speed_initialized);
+
+  const auto next = estimator.update(path.sample(0.11).position, 5.1);
+  ASSERT_TRUE(next.valid);
+  EXPECT_NEAR(next.progress, 0.11, 2e-6);
+  EXPECT_TRUE(next.speed_initialized);
+}
+
 TEST(StateEstimator, InvalidProjectionDoesNotUseReferenceOrMutateHistory) {
   const SCurvePath path({0.12, 2.0, 20001});
   StateEstimator estimator(makeProjector(path), estimatorConfig());

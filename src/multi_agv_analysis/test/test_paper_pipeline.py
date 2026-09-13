@@ -10,7 +10,8 @@ from pathlib import Path
 from multi_agv_analysis.io_utils import (
     atomic_dump_json, load_yaml, write_csv)
 from multi_agv_analysis.paper_pipeline import (
-    _display_smooth, _run_context, export_views, plot_run)
+    _algorithm_rows, _display_smooth, _geometry_rows, _run_context,
+    export_views, plot_run)
 from multi_agv_analysis.publication_plots import (
     plot_experiment1, plot_experiment2a, plot_experiment2b,
     plot_experiment3, write_statistics)
@@ -22,6 +23,26 @@ PROCESS_RUN_SCRIPT = (
 
 
 class PaperPipelineTest(unittest.TestCase):
+    def test_plot_row_scopes_separate_algorithm_and_geometry_validity(self):
+        base = {
+            "evaluation_active": True, "localization_valid": True,
+            "algorithm_valid": True,
+            "agv1_support_reference_x": 1.0,
+            "agv1_support_reference_y": 0.0,
+            "agv2_support_reference_x": 0.0,
+            "agv2_support_reference_y": 1.0,
+            "agv3_support_reference_x": -1.0,
+            "agv3_support_reference_y": 0.0,
+        }
+        startup = dict(base, algorithm_valid=False)
+        collapsed = dict(base)
+        for robot in range(1, 4):
+            collapsed["agv{}_support_reference_x".format(robot)] = 0.0
+            collapsed["agv{}_support_reference_y".format(robot)] = 0.0
+        algorithm_rows = _algorithm_rows([startup, collapsed, base])
+        self.assertEqual(algorithm_rows, [collapsed, base])
+        self.assertEqual(_geometry_rows(algorithm_rows), [base])
+
     def test_shared_display_changes_only_measured_curve_and_keeps_gaps(self):
         from multi_agv_analysis.publication_plots import _pyplot, _save
         plt = _pyplot()

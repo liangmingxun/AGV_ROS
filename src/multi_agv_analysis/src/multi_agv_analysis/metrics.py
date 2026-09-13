@@ -44,14 +44,24 @@ def _distance(point_a, point_b):
                       point_a[1] - point_b[1])
 
 
+def _reference_geometry_valid(points, minimum_separation=1.0e-6):
+    """Whether three support references describe a non-collapsed formation."""
+    if len(points) != 3 or not all(
+            math.isfinite(value) for point in points for value in point):
+        return False
+    return all(
+        _distance(points[first], points[second]) > minimum_separation
+        for first, second in ((0, 1), (0, 2), (1, 2)))
+
+
 def _endpoint_geometry(all_rows, evaluation_target):
     """Measure geometry at the final commanded sample before stop.
 
-    The formal node's synchronized fail-zero message clears per-robot support
-    references at the exact terminal tick. Therefore use the latest preceding
-    valid, nondegenerate support-reference sample. This is outside the
-    0.1--0.9 m formal statistics window and represents the last commanded
-    vehicle poses without interpreting cleared message fields as references.
+    Historical runs may clear per-robot support references at the exact
+    terminal tick. Therefore use the latest preceding valid, nondegenerate
+    support-reference sample. This is outside the formal statistics window and
+    represents the last commanded vehicle poses without interpreting cleared
+    message fields as references.
     """
     valid_rows = [row for row in all_rows
                   if bool_value(row.get("localization_valid", True))]
@@ -264,6 +274,7 @@ def compute_metrics(rows, sample_period, command_epsilon=1e-6,
     load_consistency_errors = []
     load_consistency_yaw_errors = []
     rigid_residuals = []
+    invalid_reference_geometry_samples = 0
     link_margins = []
     demand_margins = []
     limiter_samples = {"speed": 0, "acceleration": 0, "deceleration": 0}
@@ -337,7 +348,17 @@ def compute_metrics(rows, sample_period, command_epsilon=1e-6,
                 math.isfinite(reference_progress)):
             path_errors.append(actual_progress - reference_progress)
         actual_supports = []
-        reference_supports = []
+        reference_supports = [(
+            finite_float(row.get(
+                "agv{}_support_reference_x".format(robot))),
+            finite_float(row.get(
+                "agv{}_support_reference_y".format(robot))))
+            for robot in range(1, 4)]
+        reference_geometry_valid = _reference_geometry_valid(
+            reference_supports)
+        if (localization_valid and algorithm_valid and
+                not reference_geometry_valid):
+            invalid_reference_geometry_samples += 1
         for robot in range(1, 4):
             prefix = "agv{}".format(robot)
             origin_actual = finite_float(row.get(prefix + "_s_origin_aligned_actual"))
@@ -372,7 +393,8 @@ def compute_metrics(rows, sample_period, command_epsilon=1e-6,
             if not math.isfinite(heading_reference):
                 heading_reference = finite_float(
                     row.get("load_yaw_reference"))
-            if (localization_valid and math.isfinite(robot_yaw) and
+            if (localization_valid and algorithm_valid and
+                    reference_geometry_valid and math.isfinite(robot_yaw) and
                     math.isfinite(heading_reference)):
                 vehicle_heading_errors[robot].append(
                     _wrap_angle(robot_yaw - heading_reference))
@@ -381,21 +403,8 @@ def compute_metrics(rows, sample_period, command_epsilon=1e-6,
                     "agv{}_support_pose_x".format(robot))),
                 finite_float(row.get(
                     "agv{}_support_pose_y".format(robot))))
-            reference = (
-                finite_float(row.get(
-                    "agv{}_support_reference_x".format(robot))),
-                finite_float(row.get(
-                    "agv{}_support_reference_y".format(robot))))
+            reference = reference_supports[robot - 1]
             actual_supports.append(actual)
-            reference_supports.append(reference)
-            # A fail-zero publication leaves support references at their ROS
-            # message defaults.  They are not geometric references and must
-            # not contaminate support or rigid-fit paper metrics.
-            if (localization_valid and algorithm_valid and
-                    all(math.isfinite(value)
-                        for value in actual + reference)):
-                support_errors[robot].append(math.hypot(
-                    actual[0] - reference[0], actual[1] - reference[1]))
             for name in ("psi", "composite_error", "disturbance_estimate"):
                 value = finite_float(row.get(
                     "agv{}_{}".format(robot, name)))
@@ -410,8 +419,16 @@ def compute_metrics(rows, sample_period, command_epsilon=1e-6,
                     "agv{}_theta_hat_{}".format(robot, index)))
                 if math.isfinite(value):
                     internal["theta_hat"].append(value)
+        if localization_valid and algorithm_valid and reference_geometry_valid:
+            for robot, (actual, reference) in enumerate(
+                    zip(actual_supports, reference_supports), start=1):
+                if all(math.isfinite(value) for value in actual + reference):
+                    support_errors[robot].append(math.hypot(
+                        actual[0] - reference[0],
+                        actual[1] - reference[1]))
         rigid = (_rigid_fit_residual(actual_supports, reference_supports)
-                 if localization_valid and algorithm_valid else math.nan)
+                 if localization_valid and algorithm_valid and
+                 reference_geometry_valid else math.nan)
         if math.isfinite(rigid):
             rigid_residuals.append(rigid)
         selected_load = (payload_pose(row, payload_context)
@@ -615,6 +632,8 @@ def compute_metrics(rows, sample_period, command_epsilon=1e-6,
             "path_errors": len(path_errors),
             "invalid_localization": invalid_samples,
             "invalid_algorithm": invalid_algorithm_samples,
+            "invalid_reference_geometry":
+                invalid_reference_geometry_samples,
             "experiment_state": experiment_state_samples,
         },
         "evaluation_window": {
@@ -708,6 +727,9 @@ def compute_metrics(rows, sample_period, command_epsilon=1e-6,
                 _maximum_absolute(load_consistency_yaw_errors),
             "rigid_fit_residual_rmse": _rmse(rigid_residuals),
             "rigid_fit_residual_max": _maximum_absolute(rigid_residuals),
+            "reference_geometry_scope": (
+                "evaluation_active_and_localization_and_algorithm_valid_and_"
+                "noncollapsed_support_reference"),
             "vehicle_heading": {
                 "agv{}".format(robot): {
                     "rmse": _rmse(vehicle_heading_errors[robot]),

@@ -179,8 +179,18 @@ StateEstimate StateEstimator::updateImpl(const Eigen::Vector2d& measured_positio
   }
 
   const double dt = measurement_stamp - last_estimate_.measurement_stamp;
-  if (!std::isfinite(dt) || dt < config_.minimum_measurement_interval) {
+  if (!std::isfinite(dt) || dt <= 0.0) {
     return invalidEstimate(measurement_stamp, projection);
+  }
+  // A synchronized camera snapshot can legitimately select a source stamp
+  // only a few microseconds newer than the preceding one.  It contains no
+  // useful new time baseline for differentiation, so retain the last accepted
+  // estimate without declaring a temporal resynchronization.  Once the source
+  // stamp has advanced by the configured interval, the normal update below
+  // consumes the accumulated displacement.  Do not lower the interval: doing
+  // so would turn camera position noise into very large velocity derivatives.
+  if (dt < config_.minimum_measurement_interval) {
+    return last_estimate_;
   }
   if (measured_velocity && dt <= config_.maximum_measurement_interval &&
       std::abs(projection.s-last_estimate_.progress) >

@@ -793,6 +793,28 @@ class MetricsTest(unittest.TestCase):
             self.assertAlmostEqual(result["geometry"]["support"][
                 "agv{}".format(robot)]["position_rmse"], 0.0)
 
+    def test_valid_flag_cannot_admit_collapsed_support_reference(self):
+        rows = self.fixture()[:2]
+        points = ((1.0, 0.0), (0.0, 1.0), (-1.0, 0.0))
+        for row in rows:
+            row["algorithm_valid"] = True
+            for robot, point in enumerate(points, start=1):
+                row["agv{}_support_pose_x".format(robot)] = point[0]
+                row["agv{}_support_pose_y".format(robot)] = point[1]
+                row["agv{}_support_reference_x".format(robot)] = point[0]
+                row["agv{}_support_reference_y".format(robot)] = point[1]
+        for robot in range(1, 4):
+            rows[0]["agv{}_support_reference_x".format(robot)] = 0.0
+            rows[0]["agv{}_support_reference_y".format(robot)] = 0.0
+        result = compute_metrics(rows, sample_period=0.1)
+        self.assertEqual(
+            result["sample_counts"]["invalid_reference_geometry"], 1)
+        self.assertAlmostEqual(
+            result["geometry"]["rigid_fit_residual_max"], 0.0)
+        for robot in range(1, 4):
+            self.assertAlmostEqual(result["geometry"]["support"][
+                "agv{}".format(robot)]["position_max"], 0.0)
+
     def test_experiment_state_window_is_reported(self):
         rows = self.fixture()
         for index, row in enumerate(rows):

@@ -1616,6 +1616,15 @@ class FormalFakeAlgorithmNode {
             tracking[index].linear_velocity_feedforward;
         reference.chassis_angular_velocity_feedforward[index] =
             tracking[index].angular_velocity_feedforward;
+      } else {
+        // Fail-zero and the synchronized terminal transition still describe a
+        // valid geometric reference.  Leaving these fields at their ROS
+        // default (0,0,0) collapses the 30 cm formation and can be paired with
+        // the preceding valid algorithm sample by offline topic alignment.
+        // Preserve the path geometry while keeping every velocity field zero.
+        const auto support = geometry_.sample(index, reference_progress_);
+        reference.support_pose_reference[index] =
+            poseMessage({support.position, support.heading});
       }
     }
     reference_publisher_.publish(reference);

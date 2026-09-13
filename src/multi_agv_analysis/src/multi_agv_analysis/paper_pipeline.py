@@ -297,8 +297,20 @@ def _save(fig, output, name):
     _save_pdf(fig, output / (name + ".pdf"))
 
 
-def _command_rows(rows):
-    """Drop terminal fail-zero rows whose support references are cleared."""
+def _algorithm_rows(rows):
+    """Select the active samples for algorithm/control paper figures."""
+    selected = [row for row in rows
+                if str(row.get("evaluation_active", "true")).lower()
+                in ("1", "true", "yes")
+                and str(row.get("localization_valid", "true")).lower()
+                in ("1", "true", "yes")
+                and str(row.get("algorithm_valid", "true")).lower()
+                in ("1", "true", "yes")]
+    return selected
+
+
+def _geometry_rows(rows):
+    """Select samples carrying a complete, non-collapsed support reference."""
     selected = []
     for row in rows:
         reference = [
@@ -316,7 +328,7 @@ def _command_rows(rows):
                 str(row.get("localization_valid", "true")).lower()
                 in ("1", "true", "yes")):
             selected.append(row)
-    return selected or rows
+    return selected
 
 
 def _nice_wide_limits(values, absolute):
@@ -477,8 +489,15 @@ def plot_run(aligned_csv, output_dir, axis_overrides=None,
         run_dir and (run_dir / "run_meta.json").is_file()) else {}
     payload_context = resolve_payload_context(
         run_meta, rows, publication_mode=publication_mode, run_dir=run_dir)
-    rows = materialize_paper_load_fields(rows, payload_context)
-    rows = _command_rows(rows)
+    all_rows = materialize_paper_load_fields(rows, payload_context)
+    rows = _algorithm_rows(all_rows)
+    if not rows:
+        raise RuntimeError(
+            "aligned input has no active localization/algorithm-valid samples")
+    geometry_rows = _geometry_rows(rows)
+    if not geometry_rows:
+        raise RuntimeError(
+            "aligned input has no non-collapsed support-reference samples")
     output = Path(output_dir)
     output.mkdir(parents=True, exist_ok=True)
     stamps = _series(rows, "stamp")
@@ -746,8 +765,10 @@ def plot_run(aligned_csv, output_dir, axis_overrides=None,
     plt.close(fig)
 
     fig, ax = plt.subplots(figsize=(8.0, 4.5))
+    geometry_stamps = _series(geometry_rows, "stamp")
+    geometry_time = [value - origin for value in geometry_stamps]
     load_error = []
-    for row in rows:
+    for row in geometry_rows:
         dx = (finite_float(row.get("paper_load_actual_x")) -
               finite_float(row.get("load_x_reference")))
         dy = (finite_float(row.get("paper_load_actual_y")) -
@@ -755,14 +776,14 @@ def plot_run(aligned_csv, output_dir, axis_overrides=None,
         load_error.append(math.hypot(dx, dy) if math.isfinite(dx + dy)
                           else math.nan)
     _plot_measured(
-        ax, time, load_error, "#222222",
+        ax, geometry_time, load_error, "#222222",
         payload_context["payload_error_label"],
         window_seconds=smoothing_window, show_raw=show_raw,
         maximum_plot_rate_hz=maximum_plot_rate)
     error_series = [load_error]
     for robot, color, style in zip(range(1, 4), colors, robot_styles):
         errors = []
-        for row in rows:
+        for row in geometry_rows:
             dx = (finite_float(row.get(
                 "agv{}_support_pose_x".format(robot))) -
                 finite_float(row.get(
@@ -774,14 +795,14 @@ def plot_run(aligned_csv, output_dir, axis_overrides=None,
             errors.append(math.hypot(dx, dy) if math.isfinite(dx + dy)
                           else math.nan)
         _plot_measured(
-            ax, time, errors, color,
+            ax, geometry_time, errors, color,
             "Robot{}支撑点误差".format(robot), style=style,
             window_seconds=smoothing_window, show_raw=show_raw,
             maximum_plot_rate_hz=maximum_plot_rate)
         error_series.append(errors)
-    formation_error = _formation_errors(rows)
+    formation_error = _formation_errors(geometry_rows)
     _plot_measured(
-        ax, time, formation_error, "#7f3c8d", "构型残差", style="--",
+        ax, geometry_time, formation_error, "#7f3c8d", "构型残差", style="--",
         window_seconds=smoothing_window, show_raw=show_raw,
         maximum_plot_rate_hz=maximum_plot_rate)
     error_series.append(formation_error)
@@ -848,6 +869,11 @@ def plot_run(aligned_csv, output_dir, axis_overrides=None,
             "raw_samples_preserved": True,
             "metrics_use_raw_samples": True,
             "outliers_removed": False,
+            "semantic_invalid_samples_excluded": {
+                "algorithm_or_localization": len(all_rows) - len(rows),
+                "collapsed_support_reference":
+                    len(rows) - len(geometry_rows),
+            },
             "show_raw_samples": show_raw,
             "robust_centered_trend_window_seconds": smoothing_window,
             "wheel_feedback_trend_window_seconds": (
