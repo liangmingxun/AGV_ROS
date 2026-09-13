@@ -44,8 +44,20 @@ class ChassisNodeTest(unittest.TestCase):
             capability[-1].max_wheel_linear_velocity_left)
         self.assertLessEqual(abs(feedback[-1].wheel_linear_velocity_left_applied),
                              capability[-1].max_wheel_linear_velocity_left)
+        self.assertAlmostEqual(
+            feedback[-1].wheel_linear_velocity_left_applied * 0.91,
+            feedback[-1].wheel_firmware_target_left_nominal_mps,
+            delta=1e-12)
+        self.assertAlmostEqual(
+            feedback[-1].wheel_linear_velocity_right_applied * 0.92,
+            feedback[-1].wheel_firmware_target_right_nominal_mps,
+            delta=1e-12)
         self.assertTrue(math.isfinite(
             feedback[-1].wheel_linear_velocity_left_actual))
+        self.assertAlmostEqual(
+            feedback[-1].wheel_linear_velocity_left_actual / 1.10,
+            feedback[-1].wheel_firmware_feedback_left_nominal_mps,
+            delta=1e-12)
         self.assertLessEqual(
             abs(feedback[-1].wheel_linear_velocity_left_actual),
             abs(feedback[-1].wheel_linear_velocity_left_applied) + 1e-12)

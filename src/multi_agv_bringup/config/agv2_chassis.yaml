@@ -8,8 +8,12 @@ wheel_radius: 0.0325
 # calibration 20260810_195509 and three completed S validations.
 # These values are Robot2-specific and must not be copied to Robot1/Robot3.
 wheel_separation: 0.139284482
-wheel_feedback_scale_left: 1.091612663
-wheel_feedback_scale_right: 1.102973507
+# Accepted proportional Stage-D mapping from
+# agv2_wheel_speed_scale_20260912_222410. Physical limits remain physical.
+wheel_command_scale_left: 0.907894004
+wheel_command_scale_right: 0.902080277
+wheel_feedback_scale_left: 1.099449201
+wheel_feedback_scale_right: 1.101910817
 base_link_z: 0.05969
 control_loop_overrun_seconds: 0.008
 command_timeout_seconds: 0.20

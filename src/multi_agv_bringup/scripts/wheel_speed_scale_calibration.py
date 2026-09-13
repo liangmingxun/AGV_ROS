@@ -468,6 +468,16 @@ class CalibrationRunner:
         self.feedback_scale_right = float(
             rospy.get_param(root + "/wheel_feedback_scale_right")
         )
+        self.command_scale_left = float(
+            rospy.get_param(root + "/wheel_command_scale_left", 1.0)
+        )
+        self.command_scale_right = float(
+            rospy.get_param(root + "/wheel_command_scale_right", 1.0)
+        )
+        self.production_command_mapping_active = any(
+            abs(value - 1.0) > 1.0e-9 for value in
+            (self.command_scale_left, self.command_scale_right)
+        )
         self.wheel_separation = float(rospy.get_param(root + "/wheel_separation"))
         formal_limit = float(rospy.get_param(root + "/formal_available_wheel_limit"))
         transport = str(rospy.get_param(root + "/transport_type"))
@@ -480,6 +490,8 @@ class CalibrationRunner:
         for name, value in (
             ("left feedback scale", self.feedback_scale_left),
             ("right feedback scale", self.feedback_scale_right),
+            ("left command scale", self.command_scale_left),
+            ("right command scale", self.command_scale_right),
         ):
             if not math.isfinite(value) or not 0.8 <= value <= 1.25:
                 raise RuntimeError("{} is outside [0.8, 1.25]".format(name))
@@ -515,6 +527,24 @@ class CalibrationRunner:
         stamp = message.header.stamp.to_sec() or now
         left_actual = float(message.wheel_linear_velocity_left_actual)
         right_actual = float(message.wheel_linear_velocity_right_actual)
+        firmware_feedback_left = getattr(
+            message, "wheel_firmware_feedback_left_nominal_mps", math.nan)
+        firmware_feedback_right = getattr(
+            message, "wheel_firmware_feedback_right_nominal_mps", math.nan)
+        firmware_target_left = getattr(
+            message, "wheel_firmware_target_left_nominal_mps", math.nan)
+        firmware_target_right = getattr(
+            message, "wheel_firmware_target_right_nominal_mps", math.nan)
+        if not math.isfinite(firmware_feedback_left):
+            firmware_feedback_left = left_actual / self.feedback_scale_left
+        if not math.isfinite(firmware_feedback_right):
+            firmware_feedback_right = right_actual / self.feedback_scale_right
+        if not math.isfinite(firmware_target_left):
+            firmware_target_left = float(
+                message.wheel_linear_velocity_left_applied)
+        if not math.isfinite(firmware_target_right):
+            firmware_target_right = float(
+                message.wheel_linear_velocity_right_applied)
         row = {
             "stamp": stamp,
             "receive_stamp": now,
@@ -531,17 +561,16 @@ class CalibrationRunner:
             "wheel_left_actual_physical": left_actual,
             "wheel_right_actual_physical": right_actual,
             "stm32_wheel_left_measured_nominal_mmps": (
-                1000.0 * left_actual / self.feedback_scale_left
+                1000.0 * firmware_feedback_left
             ),
             "stm32_wheel_right_measured_nominal_mmps": (
-                1000.0 * right_actual / self.feedback_scale_right
+                1000.0 * firmware_feedback_right
             ),
-            # This equality describes the audited pre-remediation ROS code.
             "firmware_wheel_left_target_nominal_mmps": (
-                1000.0 * float(message.wheel_linear_velocity_left_applied)
+                1000.0 * firmware_target_left
             ),
             "firmware_wheel_right_target_nominal_mmps": (
-                1000.0 * float(message.wheel_linear_velocity_right_applied)
+                1000.0 * firmware_target_right
             ),
             "battery_voltage": float(message.battery_voltage),
             "camera_pose_stamp": self.poses[-1][0] if self.poses else math.nan,
@@ -757,9 +786,15 @@ class CalibrationRunner:
         self.check_state(require_stationary=True)
 
     def command_pair(self, target_speed, direction):
-        # REVIEW-ONLY excitation: these are not production command scales.
-        left = direction * target_speed / self.feedback_scale_left
-        right = direction * target_speed / self.feedback_scale_right
+        if self.production_command_mapping_active:
+            # Validate the installed physical-domain interface itself. The
+            # chassis node performs the only physical-to-firmware conversion.
+            left = direction * target_speed
+            right = direction * target_speed
+        else:
+            # Legacy Stage-B excitation used before command mapping existed.
+            left = direction * target_speed / self.feedback_scale_left
+            right = direction * target_speed / self.feedback_scale_right
         if max(abs(left), abs(right)) > 0.16 + 1.0e-12:
             raise RuntimeError("candidate excitation exceeds the 0.16 command limit")
         return left, right
@@ -780,7 +815,7 @@ class CalibrationRunner:
             repetition, "forward" if direction > 0 else "reverse", target_speed
         )
         self.rospy.logwarn(
-            "%s: physical target=%+.3f m/s, firmware excitation=[%+.3f,%+.3f] m/s",
+            "%s: physical target=%+.3f m/s, ROS physical command=[%+.3f,%+.3f] m/s",
             label, direction * target_speed, left_target, right_target,
         )
         deadline = time.monotonic() + total
@@ -863,6 +898,8 @@ class CalibrationRunner:
             ),
             "active_feedback_scale_left": self.feedback_scale_left,
             "active_feedback_scale_right": self.feedback_scale_right,
+            "active_command_scale_left": self.command_scale_left,
+            "active_command_scale_right": self.command_scale_right,
         }
         self.segments.append(result)
         self.rospy.loginfo(
@@ -914,9 +951,14 @@ class CalibrationRunner:
                 "left": self.feedback_scale_left,
                 "right": self.feedback_scale_right,
             },
+            "active_command_scale": {
+                "left": self.command_scale_left,
+                "right": self.command_scale_right,
+            },
             "excitation_policy": (
-                "firmware nominal target initialized as physical target divided "
-                "by active feedback scale; calibration-only, not production mapping"
+                "production physical command through active chassis mapping"
+                if self.production_command_mapping_active else
+                "legacy Stage-B physical target divided by feedback scale"
             ),
             "fit": fit,
             "segments": self.segments,

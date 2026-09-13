@@ -9,8 +9,12 @@ wheel_radius: 0.0325
 # Frozen as robot3_camera_s_frozen_v1 after the accepted three-cycle camera
 # calibration 20260811_114743 and three STOP_CONFIRMED S validations.
 wheel_separation: 0.136802843
-wheel_feedback_scale_left: 1.134911374
-wheel_feedback_scale_right: 1.137011300
+# Accepted proportional Stage-D mapping from
+# agv3_wheel_speed_scale_20260912_222935. Physical limits remain physical.
+wheel_command_scale_left: 0.912910288
+wheel_command_scale_right: 0.908267917
+wheel_feedback_scale_left: 1.091549715
+wheel_feedback_scale_right: 1.099654555
 base_link_z: 0.05969
 control_loop_overrun_seconds: 0.008
 command_timeout_seconds: 0.20

@@ -11,6 +11,10 @@ namespace chassis_controller {
 struct ChassisConfig {
   std::uint8_t robot_index{0};
   double wheel_separation{0.114};
+  // Multipliers that convert physical-domain wheel commands to the nominal
+  // speed domain accepted by the STM32 firmware.
+  double wheel_command_scale_left{1.0};
+  double wheel_command_scale_right{1.0};
   // Multipliers that convert STM32-reported wheel speed to measured physical
   // wheel speed. Keep them at 1.0 until a camera/IMU calibration is accepted.
   double wheel_feedback_scale_left{1.0};
@@ -53,6 +57,7 @@ struct FeedbackState {
   std::uint32_t packet_sequence{0};
   WheelCommand raw{};
   WheelCommand applied{};
+  WheelCommand firmware_feedback_nominal{};
   WheelCommand actual{};
   double linear_velocity{0.0};
   double angular_velocity{0.0};
@@ -86,6 +91,8 @@ class ChassisCore {
   bool acceptCommand(const CommandInput& command);
   bool acceptDerating(const DeratingInput& command);
   WheelCommand step(double dt_seconds);
+  WheelCommand physicalToFirmwareCommand(
+      const WheelCommand& physical_command) const;
   void updateSensors(const SensorInput& sensor);
   void resetOdometry(const Pose2DState& pose = {});
   const FeedbackState& feedback() const noexcept { return feedback_; }

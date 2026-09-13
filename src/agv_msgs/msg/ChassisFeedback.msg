@@ -8,6 +8,12 @@ float64 wheel_linear_velocity_left_raw
 float64 wheel_linear_velocity_right_raw
 float64 wheel_linear_velocity_left_applied
 float64 wheel_linear_velocity_right_applied
+# Command sent to, and feedback reported by, the STM32 nominal speed domain.
+# These diagnostic values are represented in m/s but are not physical speed.
+float64 wheel_firmware_target_left_nominal_mps
+float64 wheel_firmware_target_right_nominal_mps
+float64 wheel_firmware_feedback_left_nominal_mps
+float64 wheel_firmware_feedback_right_nominal_mps
 float64 wheel_linear_velocity_left_actual
 float64 wheel_linear_velocity_right_actual
 float64 linear_velocity_actual

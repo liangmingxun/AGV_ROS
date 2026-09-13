@@ -124,6 +124,10 @@ class ChassisControllerNode {
     }
     config_.robot_index = static_cast<std::uint8_t>(robot_index);
     config_.wheel_separation = private_.param("wheel_separation", 0.114);
+    config_.wheel_command_scale_left =
+        private_.param("wheel_command_scale_left", 1.0);
+    config_.wheel_command_scale_right =
+        private_.param("wheel_command_scale_right", 1.0);
     config_.wheel_feedback_scale_left =
         private_.param("wheel_feedback_scale_left", 1.0);
     config_.wheel_feedback_scale_right =
@@ -146,23 +150,33 @@ class ChassisControllerNode {
         private_.param("nominal/max_wheel_linear_deceleration_right", 2.0)};
     const double serial_velocity_limit =
         ChassisDevice::kMaxWheelLinearVelocityMetersPerSecond;
+    const double serial_physical_limit_left =
+        serial_velocity_limit / config_.wheel_command_scale_left;
+    const double serial_physical_limit_right =
+        serial_velocity_limit / config_.wheel_command_scale_right;
     const double formal_available_wheel_limit =
         private_.param("formal_available_wheel_limit", serial_velocity_limit);
     if (!std::isfinite(formal_available_wheel_limit) ||
         formal_available_wheel_limit <= 0.0 ||
-        formal_available_wheel_limit > serial_velocity_limit) {
+        formal_available_wheel_limit > serial_physical_limit_left ||
+        formal_available_wheel_limit > serial_physical_limit_right) {
       throw std::runtime_error(
           "formal_available_wheel_limit must be finite, positive and no "
-          "greater than the serial hardware limit");
+          "greater than the command-scale-adjusted serial hardware limit");
     }
-    if (config_.nominal_limits.max_velocity_left > serial_velocity_limit ||
-        config_.nominal_limits.max_velocity_right > serial_velocity_limit) {
-      ROS_WARN("Configured wheel velocity exceeds the serial safety limit; "
-               "capability is clamped to %.3f m/s", serial_velocity_limit);
-      config_.nominal_limits.max_velocity_left =
-          std::min(config_.nominal_limits.max_velocity_left, serial_velocity_limit);
-      config_.nominal_limits.max_velocity_right =
-          std::min(config_.nominal_limits.max_velocity_right, serial_velocity_limit);
+    if (config_.nominal_limits.max_velocity_left >
+            serial_physical_limit_left ||
+        config_.nominal_limits.max_velocity_right >
+            serial_physical_limit_right) {
+      ROS_WARN("Configured physical wheel velocity exceeds the adjusted "
+               "serial limits; capability is clamped to [%.3f, %.3f] m/s",
+               serial_physical_limit_left, serial_physical_limit_right);
+      config_.nominal_limits.max_velocity_left = std::min(
+          config_.nominal_limits.max_velocity_left,
+          serial_physical_limit_left);
+      config_.nominal_limits.max_velocity_right = std::min(
+          config_.nominal_limits.max_velocity_right,
+          serial_physical_limit_right);
     }
     config_.nominal_limits.max_velocity_left = std::min(
         config_.nominal_limits.max_velocity_left,
@@ -200,8 +214,11 @@ class ChassisControllerNode {
           "base_link_z, capability publish rate or serial startup timeout is "
           "invalid");
     }
-    ROS_INFO("%s wheel feedback calibration: left=%.6f right=%.6f",
-             robot_id_.c_str(), config_.wheel_feedback_scale_left,
+    ROS_INFO("%s wheel calibration: command left=%.9f right=%.9f; "
+             "feedback left=%.9f right=%.9f",
+             robot_id_.c_str(), config_.wheel_command_scale_left,
+             config_.wheel_command_scale_right,
+             config_.wheel_feedback_scale_left,
              config_.wheel_feedback_scale_right);
 
     acc_bias_ = vectorParam(private_, "imu/acc_bias", Eigen::Vector3f::Zero());
@@ -340,8 +357,12 @@ class ChassisControllerNode {
         last_serial_receive_stamp_ = ros::Time::now();
       }
     } else {
-      input.wheel_left_mm_per_second = last_applied_.left * 1000.0;
-      input.wheel_right_mm_per_second = last_applied_.right * 1000.0;
+      // Fake transport models ideal physical tracking. Feed the inverse
+      // feedback calibration into the same physical-domain reporting path.
+      input.wheel_left_mm_per_second =
+          last_applied_.left / config_.wheel_feedback_scale_left * 1000.0;
+      input.wheel_right_mm_per_second =
+          last_applied_.right / config_.wheel_feedback_scale_right * 1000.0;
       input.imu_yaw_rate =
           (last_applied_.right - last_applied_.left) /
           config_.wheel_separation;
@@ -356,10 +377,13 @@ class ChassisControllerNode {
 
   void sendAppliedCommand(const chassis_controller::WheelCommand& applied) {
     last_applied_ = applied;
+    last_firmware_target_nominal_ =
+        core_->physicalToFirmwareCommand(applied);
     if (device_) {
       if (!device_->sendMotorSpeed(
-              {static_cast<float>(applied.left * 1000.0),
-               static_cast<float>(applied.right * 1000.0), 0.0F},
+              {static_cast<float>(last_firmware_target_nominal_.left * 1000.0),
+               static_cast<float>(last_firmware_target_nominal_.right * 1000.0),
+               0.0F},
               core_->feedback().packet_sequence)) {
         throw std::runtime_error("failed to send chassis serial command");
       }
@@ -468,6 +492,14 @@ class ChassisControllerNode {
     feedback.wheel_linear_velocity_right_raw = state.raw.right;
     feedback.wheel_linear_velocity_left_applied = state.applied.left;
     feedback.wheel_linear_velocity_right_applied = state.applied.right;
+    feedback.wheel_firmware_target_left_nominal_mps =
+        last_firmware_target_nominal_.left;
+    feedback.wheel_firmware_target_right_nominal_mps =
+        last_firmware_target_nominal_.right;
+    feedback.wheel_firmware_feedback_left_nominal_mps =
+        state.firmware_feedback_nominal.left;
+    feedback.wheel_firmware_feedback_right_nominal_mps =
+        state.firmware_feedback_nominal.right;
     feedback.wheel_linear_velocity_left_actual = state.actual.left;
     feedback.wheel_linear_velocity_right_actual = state.actual.right;
     feedback.linear_velocity_actual = state.linear_velocity;
@@ -592,6 +624,7 @@ class ChassisControllerNode {
   std::unique_ptr<ChassisDevice> device_;
   std::unique_ptr<VofaFrame> vofa_;
   chassis_controller::WheelCommand last_applied_{};
+  chassis_controller::WheelCommand last_firmware_target_nominal_{};
   std::uint32_t fake_packet_sequence_{0};
   std::uint32_t last_serial_packet_sequence_{0};
   bool has_serial_packet_{false};

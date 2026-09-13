@@ -31,6 +31,12 @@ bool validConfig(const ChassisConfig& config) {
   const auto& limits = config.nominal_limits;
   return config.robot_index >= 1 && config.robot_index <= 3 &&
          validPositive(config.wheel_separation) &&
+         std::isfinite(config.wheel_command_scale_left) &&
+         std::isfinite(config.wheel_command_scale_right) &&
+         config.wheel_command_scale_left >= 0.5 &&
+         config.wheel_command_scale_left <= 1.5 &&
+         config.wheel_command_scale_right >= 0.5 &&
+         config.wheel_command_scale_right <= 1.5 &&
          std::isfinite(config.wheel_feedback_scale_left) &&
          std::isfinite(config.wheel_feedback_scale_right) &&
          config.wheel_feedback_scale_left >= 0.5 &&
@@ -195,18 +201,32 @@ WheelCommand ChassisCore::step(double dt_seconds) {
   return feedback_.applied;
 }
 
+WheelCommand ChassisCore::physicalToFirmwareCommand(
+    const WheelCommand& physical_command) const {
+  if (!std::isfinite(physical_command.left) ||
+      !std::isfinite(physical_command.right)) {
+    throw std::invalid_argument("physical wheel command must be finite");
+  }
+  return {config_.wheel_command_scale_left * physical_command.left,
+          config_.wheel_command_scale_right * physical_command.right};
+}
+
 void ChassisCore::updateSensors(const SensorInput& sensor) {
   if (sensor.packet_fresh) {
     sensor_age_seconds_ = 0.0;
   }
   has_sensor_ = true;
   sensor_ = sensor;
+  feedback_.firmware_feedback_nominal.left =
+      sensor.wheel_left_mm_per_second / 1000.0;
+  feedback_.firmware_feedback_nominal.right =
+      sensor.wheel_right_mm_per_second / 1000.0;
   feedback_.actual.left =
       config_.wheel_feedback_scale_left *
-      sensor.wheel_left_mm_per_second / 1000.0;
+      feedback_.firmware_feedback_nominal.left;
   feedback_.actual.right =
       config_.wheel_feedback_scale_right *
-      sensor.wheel_right_mm_per_second / 1000.0;
+      feedback_.firmware_feedback_nominal.right;
   feedback_.battery_voltage = sensor.battery_voltage;
   feedback_.packet_sequence = sensor.packet_sequence;
 }

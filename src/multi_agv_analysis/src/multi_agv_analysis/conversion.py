@@ -22,7 +22,11 @@ RAW_SCHEMAS = {
         "topic", "bag_stamp", "header_stamp", "serial_receive_stamp",
         "robot_id", "feedback_seq", "command_seq_applied", "packet_seq",
         "wheel_left_raw", "wheel_right_raw", "wheel_left_applied",
-        "wheel_right_applied", "wheel_left_actual", "wheel_right_actual",
+        "wheel_right_applied", "wheel_left_firmware_target_nominal",
+        "wheel_right_firmware_target_nominal",
+        "wheel_left_firmware_feedback_nominal",
+        "wheel_right_firmware_feedback_nominal",
+        "wheel_left_actual", "wheel_right_actual",
         "linear_velocity_actual", "angular_velocity_actual",
         "battery_voltage", "control_loop_overrun",
         "speed_limit_active_left", "speed_limit_active_right",
@@ -189,6 +193,16 @@ def _extract(topic, bag_stamp, message):
             "wheel_right_raw": message.wheel_linear_velocity_right_raw,
             "wheel_left_applied": message.wheel_linear_velocity_left_applied,
             "wheel_right_applied": message.wheel_linear_velocity_right_applied,
+            # getattr keeps conversion compatible with bags recorded before
+            # the Stage-D diagnostics were added to ChassisFeedback.
+            "wheel_left_firmware_target_nominal": getattr(
+                message, "wheel_firmware_target_left_nominal_mps", math.nan),
+            "wheel_right_firmware_target_nominal": getattr(
+                message, "wheel_firmware_target_right_nominal_mps", math.nan),
+            "wheel_left_firmware_feedback_nominal": getattr(
+                message, "wheel_firmware_feedback_left_nominal_mps", math.nan),
+            "wheel_right_firmware_feedback_nominal": getattr(
+                message, "wheel_firmware_feedback_right_nominal_mps", math.nan),
             "wheel_left_actual": message.wheel_linear_velocity_left_actual,
             "wheel_right_actual": message.wheel_linear_velocity_right_actual,
             "linear_velocity_actual": message.linear_velocity_actual,
@@ -652,6 +666,14 @@ def _aligned_rows(raw, maximum_age):
                     row[prefix + "_" + stage] = (
                         current_feedback.get(
                             "wheel_{}_{}".format(source_side, stage), math.nan)
+                        if current_feedback else math.nan)
+                for diagnostic in (
+                        "firmware_target_nominal",
+                        "firmware_feedback_nominal"):
+                    row[prefix + "_" + diagnostic] = (
+                        current_feedback.get(
+                            "wheel_{}_{}".format(side, diagnostic),
+                            math.nan)
                         if current_feedback else math.nan)
                 row[prefix + "_reported_limit"] = (
                     current_capability.get(

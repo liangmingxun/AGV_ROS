@@ -134,8 +134,10 @@ for index in 1 2 3; do
 done
 
 expected_track=(0.135484339 0.139284482 0.136802843)
-expected_left_scale=(1.129384768 1.091612663 1.134911374)
-expected_right_scale=(1.115373526 1.102973507 1.137011300)
+expected_command_left_scale=(0.927513947 0.907894004 0.912910288)
+expected_command_right_scale=(0.921275775 0.902080277 0.908267917)
+expected_feedback_left_scale=(1.075628349 1.099449201 1.091549715)
+expected_feedback_right_scale=(1.082319540 1.101910817 1.099654555)
 numeric_equal() {
   awk -v actual="$1" -v expected="$2" \
     'BEGIN {difference=actual-expected; if (difference<0) difference=-difference;
@@ -143,12 +145,15 @@ numeric_equal() {
 }
 for index in 1 2 3; do
   array_index=$((index - 1))
-  for parameter in wheel_separation wheel_feedback_scale_left \
+  for parameter in wheel_separation wheel_command_scale_left \
+                   wheel_command_scale_right wheel_feedback_scale_left \
                    wheel_feedback_scale_right; do
     case "$parameter" in
       wheel_separation) expected="${expected_track[$array_index]}" ;;
-      wheel_feedback_scale_left) expected="${expected_left_scale[$array_index]}" ;;
-      wheel_feedback_scale_right) expected="${expected_right_scale[$array_index]}" ;;
+      wheel_command_scale_left) expected="${expected_command_left_scale[$array_index]}" ;;
+      wheel_command_scale_right) expected="${expected_command_right_scale[$array_index]}" ;;
+      wheel_feedback_scale_left) expected="${expected_feedback_left_scale[$array_index]}" ;;
+      wheel_feedback_scale_right) expected="${expected_feedback_right_scale[$array_index]}" ;;
     esac
     actual="$(rosparam get "/agv${index}/chassis_controller/${parameter}" 2>/dev/null || true)"
     if [[ -z "$actual" ]] || ! numeric_equal "$actual" "$expected"; then

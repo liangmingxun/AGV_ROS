@@ -11,6 +11,10 @@
       <param name="nominal/max_wheel_linear_velocity_left" value="0.9"/>
       <param name="nominal/max_wheel_linear_velocity_right" value="0.9"/>
       <param name="formal_available_wheel_limit" value="0.08"/>
+      <param name="wheel_command_scale_left" value="0.91"/>
+      <param name="wheel_command_scale_right" value="0.92"/>
+      <param name="wheel_feedback_scale_left" value="1.10"/>
+      <param name="wheel_feedback_scale_right" value="1.11"/>
       <param name="nominal/max_wheel_linear_acceleration_left" value="1.0"/>
       <param name="nominal/max_wheel_linear_acceleration_right" value="1.0"/>
       <param name="nominal/max_wheel_linear_deceleration_left" value="2.0"/>

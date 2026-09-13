@@ -1,7 +1,8 @@
 # 单车多速度物理轮速尺度标定
 
 该工具只用于闭合“ROS physical m/s ↔ STM32 nominal mm/s”的速度尺度，不属于
-M1/M2a正式实验入口，不修改控制器参数，也不会自动应用候选scale。
+M1/M2a正式实验入口。阶段D映射接入后，工具会发送物理域目标并经过正式公共
+映射，可用于逐车复验；没有command scale的旧配置仍保留阶段B逆尺度激励方式。
 
 ## 前置条件
 
@@ -26,14 +27,14 @@ cd ~/AGV_ROS/.worktrees/platform-foundation-linux
   --confirm-wheels-on-floor \
   --confirm-emergency-stop-ready \
   --confirm-camera-physical-truth \
-  --confirm-calibration-only-inverse-scale-excitation
+  --confirm-bounded-scale-excitation
 ```
 
 默认依次测试`0.06/0.08/0.10/0.12/0.14/0.16 m/s`，每个速度执行正向和
 反向，重复三轮。每段使用`1.5 s`五次平滑加速、`3.0 s`稳态和`1.5 s`
 平滑停车。正反向完成后必须回到该速度点的起点附近，否则停止后续动作。
 
-当前正式command mapping尚未建立。为避免把`0.16`直接发送成可能约
+阶段B采集时正式command mapping尚未建立。为避免把`0.16`直接发送成可能约
 `0.18 m/s`的物理速度，本工具仅用现有feedback scale的倒数选择保守激励值。
 这个倒数只属于本次激励策略，不会被写入正式配置；最终command候选由相机
 真值相对于实际firmware target重新拟合。
@@ -77,3 +78,37 @@ physical→firmware command mapping实施阶段。
 rosrun multi_agv_bringup analyze_wheel_speed_scale_calibration.py \
   /完整路径/agvN_wheel_speed_scale_YYYYMMDD_HHMMSS
 ```
+
+## 阶段D已接受映射（待逐车物理复验）
+
+2026-09-12审核并接入公共底盘层的比例映射如下：
+
+| 车辆 | 采集run | physical→firmware L/R | firmware feedback→physical L/R |
+|---|---|---|---|
+| Robot1 | `221354` | `0.927513947 / 0.921275775` | `1.075628349 / 1.082319540` |
+| Robot2 | `222410` | `0.907894004 / 0.902080277` | `1.099449201 / 1.101910817` |
+| Robot3 | `222935` | `0.912910288 / 0.908267917` | `1.091549715 / 1.099654555` |
+
+映射只作用于底盘串口命令和反馈的单位域转换。`ChassisCommand.raw`、
+`ChassisFeedback.applied/actual`及`CapabilityReport`仍使用物理`m/s`；M1、M2a
+和其他方法共享同一底盘映射。软件测试通过不代表逐车物理复验完成，在复验前
+不得据此扩大已授权轮速包络。
+
+三车分别在自己的主机上复验，每次只运行一辆车：
+
+```bash
+./src/multi_agv_bringup/scripts/run_wheel_speed_scale_stage_d_revalidation.sh \
+  --robot-id 1 \
+  --operator ETLAB \
+  --confirm-area-clear \
+  --confirm-wheels-on-floor \
+  --confirm-emergency-stop-ready \
+  --confirm-camera-physical-truth \
+  --confirm-stage-d-production-mapping
+```
+
+脚本自动执行`0.06/0.08/0.10 m/s`正反向各两轮并录包，随后生成
+`stage_d_revalidation.json`。稳态相机物理轮速相对目标误差默认不得超过
+`0.010 m/s`，ROS物理反馈相对相机误差不得超过`0.008 m/s`，STM32名义目标
+相对`command_scale × physical target`误差不得超过`0.002 m/s`。任一段失败时
+返回非零状态并保留全部数据，不会修改正式参数。

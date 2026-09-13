@@ -131,6 +131,33 @@ TEST(ChassisCore, DeratingChangesReportedAndExecutedCapability) {
   EXPECT_FALSE(core.acceptDerating(input));
 }
 
+TEST(ChassisCore, ReportsPhysicalCapabilitiesAtFormalDeratingRatios) {
+  auto config = testConfig();
+  config.nominal_limits.max_velocity_left = 0.16;
+  config.nominal_limits.max_velocity_right = 0.16;
+  config.wheel_command_scale_left = 0.91;
+  config.wheel_command_scale_right = 0.90;
+  ChassisCore core(config);
+
+  DeratingInput input;
+  input.robot_id = 2;
+  input.sequence = 1;
+  input.active = true;
+  input.ratios = {0.85, 0.85, 1.0, 1.0, 1.0, 1.0};
+  ASSERT_TRUE(core.acceptDerating(input));
+  core.step(0.004);
+  EXPECT_NEAR(core.capability().limits.max_velocity_left, 0.136, 1e-12);
+  EXPECT_NEAR(core.capability().limits.max_velocity_right, 0.136, 1e-12);
+
+  input.sequence = 2;
+  input.ratios.speed_left = 0.80;
+  input.ratios.speed_right = 0.80;
+  ASSERT_TRUE(core.acceptDerating(input));
+  core.step(0.004);
+  EXPECT_NEAR(core.capability().limits.max_velocity_left, 0.128, 1e-12);
+  EXPECT_NEAR(core.capability().limits.max_velocity_right, 0.128, 1e-12);
+}
+
 TEST(ChassisCore, ConvertsMillimetresPerSecondAndReportsOverrun) {
   ChassisCore core(testConfig());
   SensorInput sensor;
@@ -153,8 +180,39 @@ TEST(ChassisCore, AppliesIndependentWheelFeedbackCalibration) {
   sensor.wheel_right_mm_per_second = 400.0;
   core.updateSensors(sensor);
   core.step(0.02);
+  EXPECT_NEAR(core.feedback().firmware_feedback_nominal.left, 0.2, 1e-12);
+  EXPECT_NEAR(core.feedback().firmware_feedback_nominal.right, 0.4, 1e-12);
   EXPECT_NEAR(core.feedback().actual.left, 0.22, 1e-12);
   EXPECT_NEAR(core.feedback().actual.right, 0.38, 1e-12);
+}
+
+TEST(ChassisCore, MapsPhysicalCommandToIndependentFirmwareNominalDomain) {
+  auto config = testConfig();
+  config.wheel_command_scale_left = 0.91;
+  config.wheel_command_scale_right = 0.93;
+  config.nominal_limits.max_velocity_left = 0.16;
+  config.nominal_limits.max_velocity_right = 0.16;
+  config.nominal_limits.max_acceleration_left = 10.0;
+  config.nominal_limits.max_acceleration_right = 10.0;
+  config.nominal_limits.max_deceleration_left = 10.0;
+  config.nominal_limits.max_deceleration_right = 10.0;
+  ChassisCore core(config);
+
+  EXPECT_TRUE(core.acceptCommand({2, 1, {0.20, -0.20}}));
+  const WheelCommand applied = core.step(0.1);
+  EXPECT_DOUBLE_EQ(applied.left, 0.16);
+  EXPECT_DOUBLE_EQ(applied.right, -0.16);
+  const WheelCommand firmware = core.physicalToFirmwareCommand(applied);
+  EXPECT_NEAR(firmware.left, 0.1456, 1e-12);
+  EXPECT_NEAR(firmware.right, -0.1488, 1e-12);
+  EXPECT_DOUBLE_EQ(core.capability().limits.max_velocity_left, 0.16);
+  EXPECT_DOUBLE_EQ(core.capability().limits.max_velocity_right, 0.16);
+
+  const WheelCommand zero = core.physicalToFirmwareCommand({0.0, 0.0});
+  EXPECT_DOUBLE_EQ(zero.left, 0.0);
+  EXPECT_DOUBLE_EQ(zero.right, 0.0);
+  EXPECT_THROW(core.physicalToFirmwareCommand({NAN, 0.0}),
+               std::invalid_argument);
 }
 
 TEST(ChassisCore, ResetOdometryClearsPoseAndVelocity) {
@@ -187,5 +245,8 @@ TEST(ChassisCore, RejectsUnsafeConfiguration) {
   EXPECT_THROW(ChassisCore core(config), std::invalid_argument);
   config = testConfig();
   config.wheel_feedback_scale_left = 1.51;
+  EXPECT_THROW(ChassisCore core(config), std::invalid_argument);
+  config = testConfig();
+  config.wheel_command_scale_right = 0.49;
   EXPECT_THROW(ChassisCore core(config), std::invalid_argument);
 }

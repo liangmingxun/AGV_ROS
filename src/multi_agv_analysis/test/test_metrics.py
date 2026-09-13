@@ -8,7 +8,8 @@ import unittest
 from pathlib import Path
 
 import genpy
-from agv_msgs.msg import ControllerState, CooperativeState, PathReference
+from agv_msgs.msg import (
+    ChassisFeedback, ControllerState, CooperativeState, PathReference)
 from geometry_msgs.msg import PoseStamped
 from nav_msgs.msg import Odometry
 from std_msgs.msg import Float64, Float64MultiArray, UInt64
@@ -64,6 +65,25 @@ class ConfigurationApprovalTest(unittest.TestCase):
 
 
 class CameraConversionTest(unittest.TestCase):
+    def test_chassis_feedback_exports_stage_d_firmware_diagnostics(self):
+        message = ChassisFeedback()
+        message.header.stamp = genpy.Time.from_sec(12.0)
+        message.serial_receive_stamp = genpy.Time.from_sec(11.99)
+        message.robot_id = 2
+        message.wheel_linear_velocity_left_applied = 0.08
+        message.wheel_firmware_target_left_nominal_mps = 0.07263152032
+        message.wheel_firmware_feedback_left_nominal_mps = 0.0728
+        message.wheel_linear_velocity_left_actual = 0.08004
+        filename, row = _extract(
+            "/agv2/chassis_feedback", message.header.stamp, message)
+        self.assertEqual(filename, "chassis_feedback.csv")
+        self.assertEqual(row["wheel_left_applied"], 0.08)
+        self.assertEqual(
+            row["wheel_left_firmware_target_nominal"], 0.07263152032)
+        self.assertEqual(
+            row["wheel_left_firmware_feedback_nominal"], 0.0728)
+        self.assertEqual(row["wheel_left_actual"], 0.08004)
+
     def test_atomic_fused_motion_is_lossless_and_separate_from_raw_odom(self):
         message = Odometry()
         message.header.stamp = genpy.Time.from_sec(12.)

@@ -14,6 +14,7 @@ catkin_install_python(PROGRAMS
   scripts/initialize_three_car_camera_formation.py
   scripts/robot3_single_wheel_check.py
   scripts/run_timed_straight_test.py
+  scripts/validate_wheel_speed_scale_revalidation.py
   scripts/wheel_speed_scale_calibration.py
   scripts/wait_three_car_wheel_stop.py
   test/test_namespace_isolation.py
@@ -50,6 +51,7 @@ install(PROGRAMS
         scripts/run_three_car_unloaded_pretest.sh
         scripts/run_three_car_unloaded_straight_pretest.sh
         scripts/run_wheel_speed_scale_calibration.sh
+        scripts/run_wheel_speed_scale_stage_d_revalidation.sh
         scripts/start_three_car_chassis.sh
         scripts/setup_local_ros.sh
         scripts/setup_ros_network.sh

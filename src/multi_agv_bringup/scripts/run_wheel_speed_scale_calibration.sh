@@ -11,7 +11,7 @@ Usage:
     --confirm-wheels-on-floor \
     --confirm-emergency-stop-ready \
     --confirm-camera-physical-truth \
-    --confirm-calibration-only-inverse-scale-excitation
+    --confirm-bounded-scale-excitation
 
 Optional:
   --output-root PATH       Override experiment_data/wheel_speed_scale_calibration.
@@ -55,6 +55,8 @@ while [[ $# -gt 0 ]]; do
     --confirm-wheels-on-floor) confirm_floor=1; shift ;;
     --confirm-emergency-stop-ready) confirm_estop=1; shift ;;
     --confirm-camera-physical-truth) confirm_camera=1; shift ;;
+    --confirm-bounded-scale-excitation) confirm_excitation=1; shift ;;
+    # Compatibility for commands recorded before the Stage-D mapping existed.
     --confirm-calibration-only-inverse-scale-excitation) confirm_excitation=1; shift ;;
     -h|--help) usage; exit 0 ;;
     *) echo "ERROR: unknown argument: $1" >&2; usage >&2; exit 2 ;;
@@ -163,7 +165,7 @@ hostname=$(hostname)
 ros_master_uri=${ROS_MASTER_URI}
 ros_ip=${ROS_IP}
 production_parameters_modified=false
-excitation_mapping=physical_target_divided_by_active_feedback_scale_calibration_only
+excitation_mapping=selected_by_active_chassis_command_mapping
 EOF
 
 bag_pid=""
