@@ -32,7 +32,6 @@ class BringupStaticTest(unittest.TestCase):
         script = PACKAGE / "scripts" / "run_circle_0p10_comparison.sh"
         for args in (["--method", "M1", "--no-derating"],
                      ["--method", "M1", "--derating"],
-                     ["--method", "M2b", "--derating-0p75"],
                      ["--method", "M1", "--derating-0p75", "--tracking-v2"],
                      ["--method", "M1", "--derating-0p75", "--reconciliation-v1"]):
             result = subprocess.run(["bash", str(script), "--reference-v1"] + args,
@@ -50,6 +49,20 @@ class BringupStaticTest(unittest.TestCase):
                 self.assertIn("derating_{}_reference_v1_authorization.yaml".format(ratio), result.stderr)
                 self.assertIn("formal_evaluation_circle_r0p7_smooth_exit_derating_{}_pilot.yaml".format(ratio), result.stderr)
                 self.assertIn("formal_exp2a_derating_{}_pilot_authorization.yaml".format(ratio), result.stderr)
+            # M2b shares the calibrated platform and startup ramp, but its
+            # complete literature lower controller must not consume the
+            # shared-R1-only reference acceleration switch.
+            result = subprocess.run(
+                ["bash", "-x", str(script), "--method", "M2b",
+                 "--derating-" + ratio, "--reference-v1"],
+                capture_output=True, text=True)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn(old_name, result.stderr)
+            self.assertIn("derating_{}_reference_v1_platform_pilot".format(ratio),
+                          result.stderr)
+            self.assertIn("M2b_derating_{}_authorization.yaml".format(ratio),
+                          result.stderr)
+            self.assertNotIn(new_name, result.stderr)
 
     def test_reconciliation_v1_is_separate_shared_and_locked(self):
         import copy
@@ -162,6 +175,44 @@ class BringupStaticTest(unittest.TestCase):
         generic = (PACKAGE / "scripts" / "run_m1_r1_serial_unloaded.sh").read_text()
         self.assertIn('localization_config:="${workspace}/src/multi_agv_bringup/config/localization_camera_three_car_closed_loop.yaml"', generic)
 
+    def test_current_comparison_matrix_uses_shared_calibrated_platform(self):
+        import yaml
+        configs = PACKAGE / "config"
+        expected_scales = {
+            1: (.927513947, .921275775, 1.075628349, 1.082319540),
+            2: (.907894004, .902080277, 1.099449201, 1.101910817),
+            3: (.912910288, .908267917, 1.091549715, 1.099654555),
+        }
+        for robot_id, expected in expected_scales.items():
+            chassis = yaml.safe_load(
+                (configs / "agv{}_chassis.yaml".format(robot_id)).read_text())
+            actual = tuple(chassis[key] for key in (
+                "wheel_command_scale_left", "wheel_command_scale_right",
+                "wheel_feedback_scale_left", "wheel_feedback_scale_right"))
+            self.assertEqual(actual, expected)
+            launch = (PACKAGE / "launch" / (
+                "car1_master.launch" if robot_id == 1 else
+                "car{}_client.launch".format(robot_id))).read_text()
+            self.assertIn("agv{}_chassis.yaml".format(robot_id), launch)
+
+        shared_runtime = yaml.safe_load((
+            configs / "formal_serial_m1_r1_circle_r0p7_smooth_exit_0p10_pilot_runtime.yaml"
+        ).read_text())["formal_fake_runtime"]["execution"]
+        reference_runtime = yaml.safe_load((
+            configs / "formal_serial_circle_r0p7_smooth_exit_0p10_reference_v1_pilot_runtime.yaml"
+        ).read_text())["formal_fake_runtime"]["execution"]
+        for key in ("startup_ramp_seconds", "startup_catchup_margin_mps",
+                    "startup_feedback_ramp_seconds", "startup_early_rise",
+                    "align_progress_to_initial_pose"):
+            self.assertEqual(reference_runtime[key], shared_runtime[key])
+        self.assertTrue(reference_runtime["consistent_reference_acceleration"])
+
+        common = (PACKAGE / "scripts" / "run_m1_r1_serial_unloaded.sh").read_text()
+        self.assertIn("wheel_speed_scale_stage_d_frozen_v1", common)
+        self.assertIn("localization_camera_three_car_closed_loop.yaml", common)
+        robot1 = (PACKAGE / "launch" / "robot1_chassis_vision.launch").read_text()
+        self.assertIn("localization_fusion.yaml", robot1)
+
     def test_0p75_paired_pilot_preserves_other_conditions(self):
         import subprocess
         import yaml
@@ -177,7 +228,7 @@ class BringupStaticTest(unittest.TestCase):
         self.assertEqual(pilot["target_speed_ratio_right"], .75)
         self.assertAlmostEqual(.16 * pilot["target_speed_ratio_left"], .120)
         entry = PACKAGE / "scripts" / "run_circle_0p10_comparison.sh"
-        for method in ("M1", "M2a"):
+        for method in ("M1", "M2a", "M2b"):
             auth_name = "formal_circle_0p10_{}_derating_0p75_authorization.yaml".format(method)
             auth = yaml.safe_load((configs / auth_name).read_text())["authorization_scope"]
             old_auth = yaml.safe_load((configs / "formal_circle_0p10_{}_derating_authorization.yaml".format(method)).read_text())["authorization_scope"]
@@ -191,11 +242,9 @@ class BringupStaticTest(unittest.TestCase):
             self.assertIn(auth_name, result.stderr)
             self.assertIn(name, result.stderr)
             self.assertIn("formal_exp2a_derating_0p75_pilot_authorization.yaml", result.stderr)
-            self.assertIn("{}_circle_r0p7_cw_smooth_exit_0p10_derating_0p75_pilot".format("m1_r1" if method == "M1" else "m2a_r1"), result.stderr)
+            prefix = {"M1": "m1_r1", "M2a": "m2a_r1", "M2b": "m2b"}[method]
+            self.assertIn("{}_circle_r0p7_cw_smooth_exit_0p10_derating_0p75_pilot".format(prefix), result.stderr)
             self.assertIn("--confirm-r0p7-smooth-exit-footprint-clear is required", result.stderr)
-        result = subprocess.run(["bash", str(entry), "--method", "M2b", "--derating-0p75"], capture_output=True, text=True)
-        self.assertEqual(result.returncode, 2)
-        self.assertIn("scoped to M1 and M2a only", result.stderr)
 
     def test_0p80_paired_pilot_preserves_other_conditions(self):
         import subprocess
@@ -212,7 +261,7 @@ class BringupStaticTest(unittest.TestCase):
         self.assertEqual(pilot["target_speed_ratio_right"], .80)
         self.assertAlmostEqual(.16 * pilot["target_speed_ratio_left"], .128)
         entry = PACKAGE / "scripts" / "run_circle_0p10_comparison.sh"
-        for method in ("M1", "M2a"):
+        for method in ("M1", "M2a", "M2b"):
             auth_name = "formal_circle_0p10_{}_derating_0p80_authorization.yaml".format(method)
             auth = yaml.safe_load((configs / auth_name).read_text())["authorization_scope"]
             old_auth = yaml.safe_load((configs / "formal_circle_0p10_{}_derating_authorization.yaml".format(method)).read_text())["authorization_scope"]
@@ -226,11 +275,9 @@ class BringupStaticTest(unittest.TestCase):
             self.assertIn(auth_name, result.stderr)
             self.assertIn(name, result.stderr)
             self.assertIn("formal_exp2a_derating_0p80_pilot_authorization.yaml", result.stderr)
-            self.assertIn("{}_circle_r0p7_cw_smooth_exit_0p10_derating_0p80_pilot".format("m1_r1" if method == "M1" else "m2a_r1"), result.stderr)
+            prefix = {"M1": "m1_r1", "M2a": "m2a_r1", "M2b": "m2b"}[method]
+            self.assertIn("{}_circle_r0p7_cw_smooth_exit_0p10_derating_0p80_pilot".format(prefix), result.stderr)
             self.assertIn("--confirm-r0p7-smooth-exit-footprint-clear is required", result.stderr)
-        result = subprocess.run(["bash", str(entry), "--method", "M2b", "--derating-0p80"], capture_output=True, text=True)
-        self.assertEqual(result.returncode, 2)
-        self.assertIn("scoped to M1 and M2a only", result.stderr)
 
     def test_0p10_comparison_entry_scopes_all_methods_and_conditions(self):
         import subprocess

@@ -5,11 +5,11 @@ usage() {
   echo "usage: $0 --method M1|M2a|M2b --derating|--derating-0p80|--derating-0p75|--no-derating [experiment confirmations]"
   echo "Shared 0.10 m/s reference, 0.16 m/s wheel capability, R0.7 CW smooth circle."
   echo "Robot2 derating: ratio=0.68, actual progress=1.50..3.50 m, ramps=1 s."
-  echo "--derating-0p80 selects the separate M1/M2a paired pilot, ratio=0.80."
-  echo "--derating-0p75 selects the separate M1/M2a paired pilot, ratio=0.75."
+  echo "--derating-0p80 selects the shared three-method condition, ratio=0.80."
+  echo "--derating-0p75 selects the shared three-method condition, ratio=0.75."
   echo "--tracking-v2: separate 0.75 paired pilot with shared longitudinal gain 1.3; original configs unchanged."
   echo "--reconciliation-v1: separate 0.75 M1/M2a candidate with slow bounded shared-R1 execution reconciliation."
-  echo "--reference-v1: separate 0.75/0.80 M1/M2a pilot; acceleration follows final public velocity; tracker gain 1.0, reconciliation off."
+  echo "--reference-v1: current 0.75/0.80 comparison baseline. M1/M2a use the corrected shared-R1 acceleration; M2b retains its complete lower controller."
 }
 method=""; condition=""; tracking_v2=false; reconciliation_v1=false; reference_v1=false; forwarded=()
 while [[ $# -gt 0 ]]; do
@@ -28,10 +28,6 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 [[ "$method" =~ ^(M1|M2a|M2b)$ && -n "$condition" ]] || { usage; exit 2; }
-if [[ ( "$condition" == derating-0p80 || "$condition" == derating-0p75 ) && "$method" == M2b ]]; then
-  echo "ERROR: this paired pilot is scoped to M1 and M2a only" >&2
-  exit 2
-fi
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 if [[ "$tracking_v2" == true && ( "$condition" != derating-0p75 || "$method" == M2b ) ]]; then
   echo "ERROR: --tracking-v2 is scoped to the M1/M2a derating-0p75 paired pilot" >&2
@@ -46,8 +42,8 @@ if [[ "$tracking_v2" == true && "$reconciliation_v1" == true ]]; then
   exit 2
 fi
 config_dir=src/multi_agv_bringup/config
-if [[ "$reference_v1" == true && ( ( "$condition" != derating-0p75 && "$condition" != derating-0p80 ) || "$method" == M2b || "$tracking_v2" == true || "$reconciliation_v1" == true ) ]]; then
-  echo "ERROR: --reference-v1 requires M1/M2a derating-0p75 or derating-0p80 and excludes other candidates" >&2
+if [[ "$reference_v1" == true && ( ( "$condition" != derating-0p75 && "$condition" != derating-0p80 ) || "$tracking_v2" == true || "$reconciliation_v1" == true ) ]]; then
+  echo "ERROR: --reference-v1 requires derating-0p75 or derating-0p80 and excludes other candidates" >&2
   exit 2
 fi
 export FORMAL_UPPER_MODE="$method"
@@ -89,9 +85,19 @@ if [[ "$reconciliation_v1" == true ]]; then
 fi
 export FORMAL_RUN_PREFIX="$FORMAL_EXPERIMENT_ID"
 if [[ "$reference_v1" == true ]]; then
-  export FORMAL_RUNTIME_CONFIG="$config_dir/formal_serial_circle_r0p7_smooth_exit_0p10_reference_v1_pilot_runtime.yaml"
-  export FORMAL_EXECUTION_AUTHORIZATION_CONFIG="$config_dir/formal_circle_0p10_${method}_${scope}_reference_v1_authorization.yaml"
-  export FORMAL_EXPERIMENT_ID="${prefix}_circle_r0p7_cw_smooth_exit_0p10_${scope}_reference_v1_pilot"
+  if [[ "$method" == M2b ]]; then
+    # reference-v1 corrects the acceleration interface consumed by shared R1.
+    # M2b is a complete upper/lower literature method, so it shares the same
+    # calibrated platform, startup ramp and sensing chain but must not enable
+    # the R1-only consistent_reference_acceleration switch.
+    export FORMAL_RUNTIME_CONFIG="$config_dir/formal_serial_m1_r1_circle_r0p7_smooth_exit_0p10_pilot_runtime.yaml"
+    export FORMAL_EXECUTION_AUTHORIZATION_CONFIG="$config_dir/formal_circle_0p10_${method}_${scope}_authorization.yaml"
+    export FORMAL_EXPERIMENT_ID="${prefix}_circle_r0p7_cw_smooth_exit_0p10_${scope}_reference_v1_platform_pilot"
+  else
+    export FORMAL_RUNTIME_CONFIG="$config_dir/formal_serial_circle_r0p7_smooth_exit_0p10_reference_v1_pilot_runtime.yaml"
+    export FORMAL_EXECUTION_AUTHORIZATION_CONFIG="$config_dir/formal_circle_0p10_${method}_${scope}_reference_v1_authorization.yaml"
+    export FORMAL_EXPERIMENT_ID="${prefix}_circle_r0p7_cw_smooth_exit_0p10_${scope}_reference_v1_pilot"
+  fi
   export FORMAL_RUN_PREFIX="$FORMAL_EXPERIMENT_ID"
 fi
 export FORMAL_RUN_TIMEOUT_SECONDS=140

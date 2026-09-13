@@ -1,4 +1,4 @@
-# 公共参考加速度一致性：独立 0.75/0.80 pilot
+# 公共参考加速度一致性：0.75/0.80 对比基线
 
 ## 问题证据
 
@@ -21,13 +21,26 @@ fail-zero 把差分历史重置到实际零参考；恢复仍经过原有软启�
 
 独立 reference_v1 runtime 保留纵向增益1.0，显式关闭 reconciliation。
 速度.10、轮速发布上限.16、Robot2比例.75或.80、降额1.5..3.5m、
-起步3.2s、降/恢复1s、定位/电压/录包门槛均不更改。
+降/恢复1s、定位/电压/录包门槛均不更改。当前起步配置与正常
+0.10 m/s基线一致：4.0s坡度、0.008m/s有界追赶裕量、1.2s纵向
+反馈接入和0.6 early-rise。
 默认接口及原 tracking_v2/reconciliation_v1 配置保持旧行为，
 历史实验文件不改写。上层 M1/M2a 各自授权精确绑定新 runtime。
-只支持 --method M1|M2a 与 --derating-0p75|--derating-0p80
-配合 --reference-v1；拒绝混用其他候选、一般降额、无降额、M2b。
+当前降额比较使用 --derating-0p75|--derating-0p80 配合
+--reference-v1；拒绝混用其他候选、一般降额和无降额。
 两种比例共用 reference-v1 运行配置，但分别绑定对应比例的评估配置、
 降额授权和执行授权，结果名同时包含降额比例与 reference_v1。
+
+M2b也可进入相同0.75/0.80场景，但它是完整的英文论文上下层方法，
+不使用共享R1，因此不能开启R1专属的consistent_reference_acceleration。
+入口中的--reference-v1对M2b表示“同一平台对比基线”：相同Stage-D
+轮速尺度、4.0s启动坡度、状态估计、融合链路、路径和降额时窗；运行名
+标记reference_v1_platform，M2b公式与下层保持不变。
+
+轮速尺度由三车agv*_chassis.yaml加载，状态估计由
+localization_camera_three_car_closed_loop.yaml加载，Robot1相机/里程计融合
+由localization_fusion.yaml加载。这些是公共平台配置，节点重启后作用于
+M1、M2a、M2b及正常/一般降额/0.75/0.80场景。历史bag不会被改写。
 
 ## 验证与边界
 
