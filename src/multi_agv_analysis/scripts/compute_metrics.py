@@ -2,6 +2,7 @@
 
 import argparse
 import sys
+from pathlib import Path
 
 from multi_agv_analysis.io_utils import (
     atomic_dump_json,
@@ -36,7 +37,8 @@ def main():
     metrics_config = manifest.get("metrics", {})
     rows = read_csv(arguments.aligned_csv)
     payload_context = resolve_payload_context(
-        manifest, rows, publication_mode=arguments.publication_mode)
+        manifest, rows, publication_mode=arguments.publication_mode,
+        run_dir=Path(arguments.manifest).resolve().parent)
     result = compute_metrics(
         rows,
         sample_period=arguments.sample_period,

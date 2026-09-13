@@ -1,13 +1,17 @@
 <launch>
   <arg name="run_id" default="$(anon task17_recording)"/>
 
-  <include file="$(find multi_agv_bringup)/launch/formal_fake_algorithm.launch"/>
+  <include file="$(find multi_agv_bringup)/launch/formal_fake_algorithm.launch">
+    <arg name="require_recorder_armed" value="true"/>
+  </include>
   <include file="$(find multi_agv_bringup)/launch/experiment.launch">
     <arg name="arming_authorized" value="true"/>
     <arg name="output_root" value="/tmp"/>
     <arg name="run_id" value="$(arg run_id)"/>
     <arg name="experiment_id" value="formal_algorithm_fake_integration"/>
     <arg name="method_id" value="M1_R1"/>
+    <!-- This is a short recorder capture, not the one-metre controller test. -->
+    <arg name="evaluation_target" value="0.02"/>
   </include>
 
   <test pkg="multi_agv_bringup" type="test_experiment_recording.py"

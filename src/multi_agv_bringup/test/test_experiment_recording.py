@@ -12,6 +12,7 @@ import rostest
 import yaml
 from std_srvs.srv import Trigger
 from std_msgs.msg import Bool, String
+from agv_msgs.msg import ExperimentState
 
 from multi_agv_analysis.conversion import convert_bag
 from multi_agv_analysis.io_utils import load_yaml, read_csv
@@ -24,6 +25,22 @@ class ExperimentRecordingTest(unittest.TestCase):
         if not rospy.core.is_initialized():
             self.skipTest("rostest-only end-to-end case")
         run_dir = Path(rospy.get_param("~run_dir"))
+        # This fake fixture has no physical evaluation supervisor. Supply its
+        # required stream explicitly; keep motion gated on recorder readiness.
+        publisher = rospy.Publisher("/multi_agv/experiment_state", ExperimentState,
+                                    queue_size=10)
+        evaluation_active = [False]
+        def publish_state(event):
+            state = ExperimentState()
+            state.header.stamp = rospy.Time.now()
+            state.experiment_id = "formal_algorithm_fake_integration"
+            state.method_id = "M1_R1"
+            state.run_id = run_dir.name
+            state.run_active = True
+            state.evaluation_active = evaluation_active[0]
+            publisher.publish(state)
+        timer = rospy.Timer(rospy.Duration(.01), publish_state)
+        self.addCleanup(timer.shutdown)
         manifest_path = run_dir / "manifest.yaml"
         deadline = time.monotonic() + 25.0
         manifest = {}
@@ -53,13 +70,18 @@ class ExperimentRecordingTest(unittest.TestCase):
             self.assertEqual(manifest["command_authority"][topic],
                              ["/formal_fake_algorithm"])
         self.assertTrue(manifest["config_hashes"])
+        self.assertEqual(manifest["payload"]["world_to_reference"], {})
         for entry in manifest["config_hashes"]:
             self.assertTrue((run_dir / entry["archived_path"]).is_file())
 
         # Subscription readiness guarantees that commands published after the
         # armed transition cannot be missed. Keep the fake graph alive briefly
         # so every required periodic stream contributes at least one message.
-        rospy.sleep(0.5)
+        rospy.sleep(0.1)
+        evaluation_active[0] = True
+        rospy.sleep(0.4)
+        evaluation_active[0] = False
+        rospy.sleep(0.1)
         rospy.wait_for_service("/experiment_recorder/stop", timeout=5.0)
         stop = rospy.ServiceProxy("/experiment_recorder/stop", Trigger)
         stop_result = stop()
@@ -91,7 +113,7 @@ class ExperimentRecordingTest(unittest.TestCase):
             read_csv(converted / "aligned_samples.csv"),
             sample_period=rules["sample_period"],
             nominal_common_velocity=0.08,
-            evaluation_target=1.0)
+            evaluation_target=manifest["metrics"]["evaluation_target"])
         self.assertGreater(metrics["sample_counts"]["aligned"], 0)
         self.assertTrue(metrics["causal_unfiltered"])
         shutil.rmtree(run_dir)

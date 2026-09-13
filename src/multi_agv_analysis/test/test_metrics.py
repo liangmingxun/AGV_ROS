@@ -29,6 +29,28 @@ from multi_agv_analysis.payload import (
 from multi_agv_analysis.validation import validate_converted_run
 
 
+def stage_d_metadata(test, mode="unloaded"):
+    temporary = tempfile.TemporaryDirectory()
+    test.addCleanup(temporary.cleanup)
+    root = Path(temporary.name)
+    hashes = []
+    scales = dict.fromkeys(("wheel_command_scale_left", "wheel_command_scale_right",
+                           "wheel_feedback_scale_left", "wheel_feedback_scale_right"), 1.0)
+    robots = {robot: dict(scales, revalidation_status="passed")
+              for robot in ("agv1", "agv2", "agv3")}
+    documents = {"config/05_wheel_speed_scale_stage_d_freeze_v1.yaml": {
+        "freeze_id": STAGE_D_FREEZE_ID, "status": "frozen", "robots": robots,
+        "acceptance": {"all_three_robots_passed": True}},
+        "rosparams.yaml": {robot: {"chassis_controller": scales} for robot in robots}}
+    for robot in robots:
+        documents["config/" + robot + "_chassis.yaml"] = dict(scales)
+    for name, document in documents.items():
+        atomic_dump_yaml(root / name, document)
+        hashes.append({"archived_path": name, "sha256": sha256_file(root / name)})
+    return {"payload": {"mode": mode}, "wheel_speed_scale_freeze_id": STAGE_D_FREEZE_ID,
+            "config_hashes": hashes}, root
+
+
 class ConfigurationApprovalTest(unittest.TestCase):
     def test_progress_alignment_preserves_geometry_and_missing_evidence(self):
         row = {"agv3_s_actual": 0.106, "agv3_s_tracking_actual": 0.101}
@@ -81,12 +103,8 @@ class PayloadContextTest(unittest.TestCase):
         self.assertEqual(context["payload_label"], "虚拟等效载荷")
         self.assertEqual(paper[0]["paper_load_actual_x"], 0.1)
 
-        formal = resolve_payload_context({
-            "payload": {"mode": "unloaded"},
-            "wheel_speed_scale_freeze_id": STAGE_D_FREEZE_ID,
-            "config_hashes": [{"archived_path":
-                "config/05_wheel_speed_scale_stage_d_freeze_v1.yaml"}],
-        }, rows, publication_mode=True)
+        metadata, root = stage_d_metadata(self)
+        formal = resolve_payload_context(metadata, rows, publication_mode=True, run_dir=root)
         self.assertEqual(formal["payload_actual_source"], "equivalent")
         self.assertFalse(formal["measured_payload_available"])
 
@@ -98,13 +116,10 @@ class PayloadContextTest(unittest.TestCase):
             "measured_load_pose_x": 0.1,
             "measured_load_pose_y": 0.2,
             "measured_load_pose_yaw": 0.3,
+            "measured_load_pose_valid": True,
         }]
-        context = resolve_payload_context({
-            "payload": {"mode": "loaded"},
-            "wheel_speed_scale_freeze_id": STAGE_D_FREEZE_ID,
-            "config_hashes": [{"archived_path":
-                "config/05_wheel_speed_scale_stage_d_freeze_v1.yaml"}],
-        }, rows, publication_mode=True)
+        metadata, root = stage_d_metadata(self, "loaded")
+        context = resolve_payload_context(metadata, rows, publication_mode=True, run_dir=root)
         paper = materialize_paper_load_fields(rows, context)
         self.assertEqual(
             context["payload_actual_source"], "measured_payload")
@@ -140,12 +155,37 @@ class PayloadContextTest(unittest.TestCase):
                 {"payload": {"mode": "unloaded"}}, rows,
                 publication_mode=True)
 
+    def test_publication_checks_files_hashes_and_active_scales(self):
+        rows = [{"load_pose_x": 0, "load_pose_y": 0}]
+        metadata, root = stage_d_metadata(self)
+        self.assertTrue(resolve_payload_context(metadata, rows, True, root)[
+            "wheel_speed_scale_freeze_verified"])
+        missing = copy.deepcopy(metadata)
+        missing["config_hashes"][0]["archived_path"] = "missing/wheel_speed_scale_stage_d_freeze_v1.yaml"
+        with self.assertRaises(RuntimeError):
+            resolve_payload_context(missing, rows, True, root)
+        atomic_dump_yaml(root / "rosparams.yaml", {"agv1": {"chassis_controller": {
+            "wheel_command_scale_left": 1.1}}})
+        with self.assertRaisesRegex(RuntimeError, "hash mismatch"):
+            resolve_payload_context(metadata, rows, True, root)
+        metadata["config_hashes"][1]["sha256"] = sha256_file(root / "rosparams.yaml")
+        with self.assertRaisesRegex(RuntimeError, "scale mismatch"):
+            resolve_payload_context(metadata, rows, True, root)
+
+    def test_invalid_measured_pose_is_not_selected(self):
+        rows = [{"load_pose_x": 0, "load_pose_y": 0,
+                 "measured_load_pose_x": 1, "measured_load_pose_y": 2,
+                 "measured_load_pose_yaw": 0, "measured_load_pose_valid": False}]
+        context = resolve_payload_context({"payload_mode": "loaded"}, rows)
+        self.assertEqual(context["payload_actual_source"], "equivalent")
+
 
 class CameraConversionTest(unittest.TestCase):
     def test_alignment_preserves_equivalent_and_independent_payload_pose(self):
         raw = {name: [] for name in RAW_SCHEMAS}
         state = {
             "header_stamp": 1.0,
+            "frame_id": "three_car_path",
             "load_pose_valid": True,
             "load_path_state_valid": True,
         }
@@ -171,6 +211,7 @@ class CameraConversionTest(unittest.TestCase):
         raw["camera_pose.csv"] = [{
             "topic": "/pose_provider/load/pose_filtered",
             "header_stamp": 1.0,
+            "frame_id": "three_car_path",
             "position_x": 0.5,
             "position_y": 0.6,
             "orientation_x": 0.0,
@@ -184,6 +225,18 @@ class CameraConversionTest(unittest.TestCase):
         self.assertAlmostEqual(row["measured_load_pose_x"], 0.5)
         self.assertAlmostEqual(row["measured_load_pose_y"], 0.6)
         self.assertTrue(row["measured_load_pose_valid"])
+        raw["camera_pose.csv"][0]["frame_id"] = "world@0000007b"
+        row = _aligned_rows(raw, 0.1)[0]
+        self.assertFalse(row["measured_load_pose_valid"])
+        transform = {"source_frame": "world@0000007b", "target_frame": "three_car_path",
+                     "x": 1, "y": 2, "yaw": math.pi/2}
+        row = _aligned_rows(raw, 0.1, measured_payload_transform=transform)[0]
+        self.assertAlmostEqual(row["measured_load_pose_x"], .4)
+        self.assertAlmostEqual(row["measured_load_pose_y"], 2.5)
+        self.assertTrue(row["measured_load_pose_valid"])
+        raw["camera_pose.csv"][0]["frame_id"] = "world@0000007c"
+        self.assertFalse(_aligned_rows(raw, 0.1, measured_payload_transform=transform)[0][
+            "measured_load_pose_valid"])
 
     def test_chassis_feedback_exports_stage_d_firmware_diagnostics(self):
         message = ChassisFeedback()
@@ -706,16 +759,13 @@ class MetricsTest(unittest.TestCase):
             "measured_load_pose_x": 0.1,
             "measured_load_pose_y": 0.0,
             "measured_load_pose_yaw": 0.1,
+            "measured_load_pose_valid": True,
             "load_x_reference": 0.0,
             "load_y_reference": 0.0,
             "load_yaw_reference": 0.0,
         })
-        context = resolve_payload_context({
-            "payload": {"mode": "loaded"},
-            "wheel_speed_scale_freeze_id": STAGE_D_FREEZE_ID,
-            "config_hashes": [{"archived_path":
-                "config/05_wheel_speed_scale_stage_d_freeze_v1.yaml"}],
-        }, [row], publication_mode=True)
+        metadata, root = stage_d_metadata(self, "loaded")
+        context = resolve_payload_context(metadata, [row], publication_mode=True, run_dir=root)
         result = compute_metrics(
             [row], sample_period=0.1, payload_context=context)
         self.assertAlmostEqual(

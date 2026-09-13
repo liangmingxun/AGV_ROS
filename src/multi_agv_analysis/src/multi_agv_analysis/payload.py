@@ -1,8 +1,9 @@
 """Central payload data-source and paper-label resolution."""
 
 import math
+from pathlib import Path
 
-from .io_utils import finite_float
+from .io_utils import bool_value, finite_float, load_yaml, sha256_file
 
 
 STAGE_D_FREEZE_ID = "wheel_speed_scale_stage_d_frozen_v1"
@@ -26,7 +27,54 @@ def _has_pose(rows, prefix, require_yaw=True):
                    for field in fields) for row in rows)
 
 
-def resolve_payload_context(metadata, rows, publication_mode=False):
+def verify_stage_d_snapshot(metadata, run_dir):
+    """Verify archived evidence, never the current checkout or file names alone."""
+    if run_dir is None:
+        raise RuntimeError("publication mode requires the recorded run directory")
+    root = Path(run_dir).resolve()
+    records = metadata.get("config_hashes", [])
+
+    def archived(name):
+        matches = [item for item in records if isinstance(item, dict) and
+                   Path(str(item.get("archived_path", ""))).name.endswith(name)]
+        if len(matches) != 1:
+            raise RuntimeError("publication mode requires one archived {}".format(name))
+        item = matches[0]
+        path = (root / item["archived_path"]).resolve()
+        if root not in path.parents or not path.is_file():
+            raise RuntimeError("missing or unsafe archived config: {}".format(name))
+        if not item.get("sha256") or sha256_file(path) != item["sha256"]:
+            raise RuntimeError("archived config hash mismatch: {}".format(name))
+        return load_yaml(path)
+
+    freeze = archived(STAGE_D_FREEZE_CONFIG)
+    if (freeze.get("freeze_id") != STAGE_D_FREEZE_ID or
+            freeze.get("status") != "frozen" or
+            freeze.get("acceptance", {}).get("all_three_robots_passed") is not True):
+        raise RuntimeError("Stage-D freeze is not an accepted frozen configuration")
+    runtime = archived("rosparams.yaml")
+    payload = metadata.get("payload", {})
+    declared_transform = payload.get("world_to_reference") if isinstance(payload, dict) else None
+    if declared_transform and declared_transform != runtime.get("experiment_recorder", {}).get(
+            "measured_payload_world_to_reference"):
+        raise RuntimeError("measured payload transform differs from archived runtime")
+    for robot in ("agv1", "agv2", "agv3"):
+        expected = freeze.get("robots", {}).get(robot, {})
+        config = archived(robot + "_chassis.yaml")
+        active = runtime.get(robot, {}).get("chassis_controller", {})
+        if expected.get("revalidation_status") != "passed":
+            raise RuntimeError("Stage-D revalidation missing for {}".format(robot))
+        for key in ("wheel_command_scale_left", "wheel_command_scale_right",
+                    "wheel_feedback_scale_left", "wheel_feedback_scale_right"):
+            values = [finite_float(source.get(key)) for source in (expected, config, active)]
+            if not all(math.isfinite(value) and 0.5 <= value <= 1.5 for value in values) or any(
+                    not math.isclose(value, values[0], rel_tol=0.0, abs_tol=1e-9)
+                    for value in values[1:]):
+                raise RuntimeError("Stage-D scale mismatch: {} {}".format(robot, key))
+    return True
+
+
+def resolve_payload_context(metadata, rows, publication_mode=False, run_dir=None):
     """Resolve one traceable source and its load-only display vocabulary.
 
     Historical runs without payload metadata remain readable in diagnostic
@@ -56,13 +104,21 @@ def resolve_payload_context(metadata, rows, publication_mode=False):
     if publication_mode and not freeze_snapshot_present:
         raise RuntimeError(
             "publication mode requires archived Stage-D freeze config")
+    freeze_verified = verify_stage_d_snapshot(metadata, run_dir) if publication_mode else False
 
     equivalent_available = _has_pose(
         rows, "equivalent_load_pose_", require_yaw=False)
-    measured_available = _has_pose(rows, "measured_load_pose_")
+    measured_available = _has_pose(
+        [row for row in rows if bool_value(row.get("measured_load_pose_valid", False))],
+        "measured_load_pose_")
     legacy_available = _has_pose(rows, "load_pose_", require_yaw=False)
     diagnostic_fallback = False
     if mode == "loaded" and measured_available:
+        active = [row for row in rows if bool_value(row.get("evaluation_active", True))
+                  and bool_value(row.get("localization_valid", True))]
+        if publication_mode and any(not bool_value(row.get("measured_load_pose_valid", False)) or
+                not _has_pose([row], "measured_load_pose_") for row in active):
+            raise RuntimeError("loaded publication has missing or unaligned measured payload samples")
         source = "measured_payload"
         prefix = "measured_load_pose_"
         label = "实际载荷"
@@ -94,11 +150,14 @@ def resolve_payload_context(metadata, rows, publication_mode=False):
         "wheel_speed_scale_freeze_id": freeze_id,
         "wheel_speed_scale_freeze_snapshot_present":
             freeze_snapshot_present,
+        "wheel_speed_scale_freeze_verified": freeze_verified,
     }
 
 
 def payload_pose(row, context):
     prefix = context["payload_pose_prefix"]
+    if prefix == "measured_load_pose_" and not bool_value(row.get("measured_load_pose_valid", False)):
+        return (math.nan, math.nan, math.nan)
     return tuple(finite_float(row.get(prefix + axis))
                  for axis in ("x", "y", "yaw"))
 

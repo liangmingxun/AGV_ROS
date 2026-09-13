@@ -107,7 +107,8 @@ def main():
                              "experiment3")
         if not written and not args.experiment2a_stat and not args.experiment3_stat:
             raise RuntimeError("至少指定一个实验run或统计项")
-        print("论文出图完成：{}组图片（每组PNG+PDF）".format(written))
+        print("论文出图完成：{}组图片，每组含原始与优化两版PNG+PDF".format(written))
+        print("各实验目录分别保存 plots_raw 和 plots_smoothed_0p8s")
         print("output_dir={}".format(root.resolve()))
         return 0
     except Exception as error:

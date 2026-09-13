@@ -42,7 +42,7 @@ RAW_SCHEMAS = {
         "battery_voltage",
     ],
     "cooperative_state.csv": [
-        "topic", "bag_stamp", "header_stamp",
+        "topic", "bag_stamp", "header_stamp", "frame_id",
         "robot_localization_source_1", "robot_localization_source_2",
         "robot_localization_source_3",
         "robot_pose_valid_1", "robot_pose_valid_2", "robot_pose_valid_3",
@@ -64,7 +64,7 @@ RAW_SCHEMAS = {
         "load_path_state_valid", "load_s_actual", "load_s_dot_actual",
     ],
     "path_reference.csv": [
-        "topic", "bag_stamp", "header_stamp", "path_id", "path_version",
+        "topic", "bag_stamp", "header_stamp", "frame_id", "path_id", "path_version",
         "load_s_reference", "load_velocity_reference",
         "load_acceleration_reference", "load_x_reference",
         "load_y_reference", "load_yaw_reference",
@@ -240,6 +240,7 @@ def _extract(topic, bag_stamp, message):
         })
         return "capability_report.csv", row
     if message_type == "agv_msgs/CooperativeState":
+        row["frame_id"] = message.header.frame_id
         _array_fields(row, "robot_localization_source",
                       message.robot_localization_source)
         _array_fields(row, "robot_pose_valid", message.robot_pose_valid)
@@ -275,6 +276,7 @@ def _extract(topic, bag_stamp, message):
         })
         return "cooperative_state.csv", row
     if message_type == "agv_msgs/PathReference":
+        row["frame_id"] = message.header.frame_id
         row.update({
             "path_id": message.path_id,
             "path_version": message.path_version,
@@ -484,6 +486,10 @@ def _yaw_from_quaternion(row):
     w = finite_float(row.get("orientation_w"))
     if not all(math.isfinite(value) for value in (x, y, z, w)):
         return math.nan
+    norm = math.sqrt(x*x+y*y+z*z+w*w)
+    if norm < 1e-12:
+        return math.nan
+    x, y, z, w = (value/norm for value in (x, y, z, w))
     return math.atan2(2.0 * (w * z + x * y),
                       1.0 - 2.0 * (y * y + z * z))
 
@@ -528,9 +534,34 @@ def _equivalent_load_pose(state, path):
             load_reference[2] + yaw)
 
 
+def _measured_payload_in_reference(measured, state, path, transform):
+    """Require an exact frame match or an explicit, frame-bound SE(2) transform."""
+    source = str(measured.get("frame_id", "")) if measured else ""
+    target = str(path.get("frame_id", "")) if path else ""
+    state_frame = str(state.get("frame_id", ""))
+    target = target or state_frame
+    invalid = (math.nan, math.nan, math.nan)
+    if not measured or not source or not target or (state_frame and state_frame != target):
+        return invalid, "missing_or_inconsistent_frame"
+    pose = (finite_float(measured.get("position_x")),
+            finite_float(measured.get("position_y")), _yaw_from_quaternion(measured))
+    if not all(math.isfinite(value) for value in pose):
+        return invalid, "invalid_pose"
+    if source == target:
+        return pose, "same_frame"
+    if not isinstance(transform, dict) or transform.get("source_frame") != source or transform.get("target_frame") != target:
+        return invalid, "frame_mismatch"
+    tx, ty, yaw = (finite_float(transform.get(key)) for key in ("x", "y", "yaw"))
+    if not all(math.isfinite(value) for value in (tx, ty, yaw)):
+        return invalid, "invalid_transform"
+    c, s = math.cos(yaw), math.sin(yaw)
+    return (tx+c*pose[0]-s*pose[1], ty+s*pose[0]+c*pose[1],
+            math.atan2(math.sin(pose[2]+yaw), math.cos(pose[2]+yaw))), "explicit_transform"
+
+
 def _aligned_rows(raw, maximum_age,
                   measured_payload_pose_topic=
-                  "/pose_provider/load/pose_filtered"):
+                  "/pose_provider/load/pose_filtered", measured_payload_transform=None):
     anchors = raw["cooperative_state.csv"]
     feedback = defaultdict(list)
     capability = defaultdict(list)
@@ -577,6 +608,8 @@ def _aligned_rows(raw, maximum_age,
         engineering_baseline = (
             controller_method == "CAMERA_IMU_WHEEL_FUSED_CLOSED_LOOP")
         equivalent_load = _equivalent_load_pose(state, path)
+        measured_pose, measured_status = _measured_payload_in_reference(
+            measured_load, state, path, measured_payload_transform)
         row = {
             "stamp": stamp,
             "localization_valid": _valid_cooperative(state),
@@ -588,16 +621,13 @@ def _aligned_rows(raw, maximum_age,
             "equivalent_load_pose_x": equivalent_load[0],
             "equivalent_load_pose_y": equivalent_load[1],
             "equivalent_load_pose_yaw": equivalent_load[2],
-            "measured_load_pose_x": (
-                measured_load.get("position_x", math.nan)
-                if measured_load else math.nan),
-            "measured_load_pose_y": (
-                measured_load.get("position_y", math.nan)
-                if measured_load else math.nan),
-            "measured_load_pose_yaw": (
-                _yaw_from_quaternion(measured_load)
-                if measured_load else math.nan),
-            "measured_load_pose_valid": measured_load is not None,
+            "reference_frame": (path.get("frame_id", "") if path else "") or state.get("frame_id", ""),
+            "measured_load_source_frame": measured_load.get("frame_id", "") if measured_load else "",
+            "measured_load_alignment_status": measured_status,
+            "measured_load_pose_x": measured_pose[0],
+            "measured_load_pose_y": measured_pose[1],
+            "measured_load_pose_yaw": measured_pose[2],
+            "measured_load_pose_valid": all(math.isfinite(value) for value in measured_pose),
             "load_x_reference": (
                 path.get("load_x_reference", math.nan)
                 if path else math.nan),
@@ -861,7 +891,7 @@ def _aligned_rows(raw, maximum_age,
 def convert_bag(bag_path, output_dir, maximum_alignment_age=0.2,
                 parquet=False,
                 measured_payload_pose_topic=
-                "/pose_provider/load/pose_filtered"):
+                "/pose_provider/load/pose_filtered", measured_payload_transform=None):
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     raw = {filename: [] for filename in RAW_SCHEMAS}
@@ -888,7 +918,7 @@ def convert_bag(bag_path, output_dir, maximum_alignment_age=0.2,
     for filename, rows in raw.items():
         write_csv(output_dir / filename, rows, RAW_SCHEMAS[filename])
     aligned = _aligned_rows(
-        raw, maximum_alignment_age, measured_payload_pose_topic)
+        raw, maximum_alignment_age, measured_payload_pose_topic, measured_payload_transform)
     write_csv(output_dir / "aligned_samples.csv", aligned)
     atomic_dump_yaml(output_dir / "topic_inventory.yaml", {
         "schema_version": 1,
@@ -896,6 +926,7 @@ def convert_bag(bag_path, output_dir, maximum_alignment_age=0.2,
         "causal_alignment": True,
         "maximum_alignment_age": maximum_alignment_age,
         "measured_payload_pose_topic": measured_payload_pose_topic,
+        "measured_payload_transform": measured_payload_transform,
         "topics": inventory,
     })
 

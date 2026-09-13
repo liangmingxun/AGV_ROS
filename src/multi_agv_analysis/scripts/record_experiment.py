@@ -87,6 +87,10 @@ class ExperimentRecorder:
         self.measured_payload_pose_topic = rospy.get_param(
             "~measured_payload_pose_topic",
             "/pose_provider/load/pose_filtered")
+        self.measured_payload_transform = rospy.get_param(
+            "~measured_payload_world_to_reference", {})
+        if not isinstance(self.measured_payload_transform, dict):
+            raise RuntimeError("measured_payload_world_to_reference must be a mapping")
         self.wheel_speed_scale_freeze_id = rospy.get_param(
             "~wheel_speed_scale_freeze_id", "")
         self.localization_source = rospy.get_param(
@@ -257,6 +261,7 @@ class ExperimentRecorder:
                 "mode": self.payload_state,
                 "pose_source": self.payload_pose_source,
                 "measured_pose_topic": self.measured_payload_pose_topic,
+                "world_to_reference": self.measured_payload_transform,
             },
             "wheel_speed_scale_freeze_id":
                 self.wheel_speed_scale_freeze_id,
@@ -320,6 +325,7 @@ class ExperimentRecorder:
                 "mode": self.payload_state,
                 "pose_source": self.payload_pose_source,
                 "measured_pose_topic": self.measured_payload_pose_topic,
+                "world_to_reference": self.measured_payload_transform,
             },
             "wheel_speed_scale_freeze_id":
                 self.wheel_speed_scale_freeze_id,

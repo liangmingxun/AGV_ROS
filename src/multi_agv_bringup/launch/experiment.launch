@@ -10,6 +10,7 @@
   <arg name="payload_pose_source" default="equivalent_load"/>
   <arg name="measured_payload_pose_topic"
        default="/pose_provider/load/pose_filtered"/>
+  <arg name="measured_payload_world_to_reference" default="{}"/>
   <arg name="wheel_speed_scale_freeze_id" default=""/>
   <arg name="wheel_speed_scale_freeze_config"
        default="$(find multi_agv_bringup)/config/wheel_speed_scale_stage_d_freeze_v1.yaml"/>
@@ -64,6 +65,7 @@
     <param name="payload_pose_source" value="$(arg payload_pose_source)"/>
     <param name="measured_payload_pose_topic"
            value="$(arg measured_payload_pose_topic)"/>
+    <rosparam param="measured_payload_world_to_reference" subst_value="true">$(arg measured_payload_world_to_reference)</rosparam>
     <param name="wheel_speed_scale_freeze_id"
            value="$(arg wheel_speed_scale_freeze_id)"/>
     <param name="localization_source" value="$(arg localization_source)"/>

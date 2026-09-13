@@ -15,3 +15,8 @@ figure5.right: {y_min: -0.20, y_max: 0.20, y_tick_step: 0.05}
 figure6.position_error: {y_min: 0.0, y_max: 0.06, y_tick_step: 0.01}
 figure7.progress_error: {y_min: -0.008, y_max: 0.016, y_tick_step: 0.004}
 figure7.velocity_error: {y_min: -0.12, y_max: 0.06, y_tick_step: 0.03}
+# Additional lower-controller diagnostics use fixed, method-independent
+# display envelopes; these are not metres or baseline geometric error axes.
+publication.composite_error: {y_min: 0.0, y_max: 0.06, y_tick_step: 0.01}
+publication.disturbance_estimate: {y_min: 0.0, y_max: 0.20, y_tick_step: 0.04}
+publication.control_input: {y_min: 0.0, y_max: 0.20, y_tick_step: 0.04}

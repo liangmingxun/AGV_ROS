@@ -3,8 +3,9 @@
 import math
 from pathlib import Path
 
-from .io_utils import finite_float, load_yaml, read_csv, write_csv
+from .io_utils import atomic_dump_json, finite_float, load_yaml, read_csv, write_csv
 from .payload import materialize_paper_load_fields, resolve_payload_context
+from .display_profiles import RAW_DISPLAY_PROFILE, SMOOTHED_DISPLAY_PROFILE, shared_axes
 
 
 ROBOT_COLORS = ("#1f77b4", "#d62728", "#2ca02c")
@@ -141,17 +142,21 @@ def _load_rows(source, publication_mode=False):
               if str(row.get("evaluation_active", "true")).lower()
               in ("1", "true", "yes")]
     rows = active or rows
-    run_dir = source if source.is_dir() else None
+    run_dir = source if source.is_dir() else path.parent
     if run_dir and run_dir.name == "converted":
         run_dir = run_dir.parent
     metadata = load_yaml(run_dir / "run_meta.json") if (
         run_dir and (run_dir / "run_meta.json").is_file()) else {}
     payload_context = resolve_payload_context(
-        metadata, rows, publication_mode=publication_mode)
+        metadata, rows, publication_mode=publication_mode, run_dir=run_dir)
     rows = materialize_paper_load_fields(rows, payload_context)
+    from .paper_pipeline import _run_context
+    path_context = _run_context(path)
     for row in rows:
         row["_payload_label"] = payload_context["payload_label"]
         row["_payload_error_label"] = payload_context["payload_error_label"]
+        row["_path_model"] = path_context["path_model"]
+        row["_path_label"] = path_context["path_label"]
     stamps = [finite_float(row.get("stamp")) for row in rows]
     origin = next((value for value in stamps if math.isfinite(value)), None)
     if origin is None:
@@ -286,13 +291,77 @@ def _legend(axis, columns=3):
 
 
 def _save(figure, directory, name):
+    # Import at call time: paper_pipeline uses our font/PDF helpers.
+    from .paper_pipeline import _display_indices, _display_smooth, _set_y_axis
     directory = Path(directory)
-    directory.mkdir(parents=True, exist_ok=True)
-    _apply_figure_typography(figure)
-    figure.tight_layout()
-    figure.savefig(directory / (name + ".png"), dpi=320,
-                   bbox_inches="tight")
-    _save_pdf(figure, directory / (name + ".pdf"))
+    defaults = shared_axes()
+    keys = {
+        "experiment1_boundary_velocity": ("figure3.path_capability",)*2,
+        "experiment1_tracking_error": ("figure6.position_error",)*2,
+        "experiment1_wheel_execution": ("figure3.wheel_capability",)*3,
+        "experiment2a_boundary_comparison": ("figure3.path_capability",)*2,
+        "experiment2b_boundary_comparison": ("figure3.path_capability",)*2,
+        "experiment2a_robot2_wheel": ("figure3.wheel_capability",)*2,
+        "experiment2a_formation_error": ("figure6.position_error",)*2,
+        "experiment2b_execution_error": ("figure3.wheel_capability", "figure6.position_error"),
+        "experiment3_tracking_error": ("figure6.position_error", "publication.composite_error"),
+        "experiment3_disturbance_response": ("publication.disturbance_estimate", "publication.control_input"),
+    }.get(name, ())
+    original = [(line, list(line.get_xdata()), list(line.get_ydata()))
+                for axis in figure.axes for line in axis.lines]
+    for folder, profile in (("plots_raw", RAW_DISPLAY_PROFILE),
+                            ("plots_smoothed_0p8s", SMOOTHED_DISPLAY_PROFILE)):
+        window = profile["display"]["smoothing_window_seconds"]
+        for line, x, y in original:
+            label = line.get_label()
+            measured = ("error" in name or "disturbance_response" in name or
+                        "实际轮速" in label or "trajectory" in name)
+            if label.startswith("_") or any(word in label for word in
+                    ("参考", "限制", "需求", "执行命令", "能力", "边界")):
+                measured = False
+            if measured and window > 0 and len(x) > 2:
+                temporal = getattr(line, "_measurement_time", x)
+                smooth_y = _display_smooth(temporal, y, window)
+                indices = _display_indices(temporal, profile["display"]["maximum_plot_rate_hz"], smooth_y)
+                smooth_x = _display_smooth(temporal, x, window) if hasattr(line, "_measurement_time") else x
+                line.set_data([smooth_x[i] for i in indices], [smooth_y[i] for i in indices])
+            else:
+                line.set_data(x, y)
+        axes_meta = {}
+        for index, (axis, key) in enumerate(zip(figure.axes, keys)):
+            series = [y for line, x, y in original if line.axes is axis and
+                      not line.get_label().startswith("_") and len(y) > 2]
+            entry = {}
+            unit = "controller_units" if key.startswith("publication.") else (
+                "m" if "error" in key else "m/s")
+            _set_y_axis(axis, series, key, unit, entry, defaults, absolute=True)
+            axes_meta["axis_{}".format(index)] = dict(entry.get(key, {}), profile_key=key)
+        if name == "experiment1_trajectory" and getattr(figure.axes[0], "_path_model", "").startswith("circle"):
+            axis = figure.axes[0]
+            _set_y_axis(axis, [y for line, x, y in original if len(y) > 2],
+                        "figure2.trajectory_y", "m", axes_meta, defaults)
+        _apply_figure_typography(figure)
+        figure.tight_layout()
+        target = directory / folder
+        target.mkdir(parents=True, exist_ok=True)
+        figure.savefig(target / (name + ".png"), dpi=320, bbox_inches="tight")
+        _save_pdf(figure, target / (name + ".pdf"))
+        atomic_dump_json(target / (name + "_metadata.json"), {
+            "axis_profile_id": defaults["profile_id"], "axes": axes_meta,
+            "display_processing": profile["display"],
+            "raw_samples_preserved": True, "metrics_use_raw_samples": True,
+            "titles": [axis.get_title() for axis in figure.axes],
+        })
+    for line, x, y in original:
+        line.set_data(x, y)
+
+
+def _trajectory(axis, x, y, time, **style):
+    points = [(a, b, t) if math.isfinite(a) and math.isfinite(b) else (math.nan, math.nan, t)
+              for a, b, t in zip(x, y, time) if math.isfinite(t)]
+    if any(math.isfinite(p[0]) for p in points):
+        line, = axis.plot([p[0] for p in points], [p[1] for p in points], **style)
+        line._measurement_time = [p[2] for p in points]
 
 
 def _plot_boundary_method(axis, rows, time, method, event=None):
@@ -331,19 +400,18 @@ def plot_experiment1(source, output_dir, publication_mode=False):
     output = Path(output_dir)
 
     fig, axis = plt.subplots(figsize=(7.2, 5.4))
+    axis._path_model = rows[0]["_path_model"]
     for xfield, yfield, style, label, color in (
-            ("load_x_reference", "load_y_reference", "--", "载荷参考S路径", "#111111"),
+            ("load_x_reference", "load_y_reference", "--",
+             "载荷参考路径：" + rows[0]["_path_label"], "#111111"),
             ("paper_load_actual_x", "paper_load_actual_y", "-",
              rows[0]["_payload_label"], "#555555")):
-        values = _finite_xy(_series(rows, xfield), _series(rows, yfield))
-        if values:
-            axis.plot(*zip(*values), ls=style, color=color, label=label)
+        _trajectory(axis, _series(rows, xfield), _series(rows, yfield), time,
+                    ls=style, color=color, label=label)
     for robot, color in zip(range(1, 4), ROBOT_COLORS):
-        values = _finite_xy(_series(rows, "agv{}_support_pose_x".format(robot)),
-                            _series(rows, "agv{}_support_pose_y".format(robot)))
-        if values:
-            axis.plot(*zip(*values), color=color,
-                      label="Robot{} support".format(robot))
+        _trajectory(axis, _series(rows, "agv{}_support_pose_x".format(robot)),
+                    _series(rows, "agv{}_support_pose_y".format(robot)), time,
+                    color=color, label="Robot{} support".format(robot))
     axis.set_aspect("equal", adjustable="box")
     axis.set_xlabel("x / m"); axis.set_ylabel("y / m")
     _legend(axis, 3)
@@ -422,9 +490,9 @@ def _local_trajectory(plt, loaded, output, name, window):
                   if math.isfinite(x[i]) and math.isfinite(y[i])]
         if points:
             all_points.extend(points)
-            axis.plot(*zip(*points), ls=METHOD_STYLES[method],
-                      label="{} {}".format(
-                          method, rows[0]["_payload_label"]))
+            _trajectory(axis, [x[i] for i in indices], [y[i] for i in indices],
+                        [time[i] for i in indices], ls=METHOD_STYLES[method],
+                        label="{} {}".format(method, rows[0]["_payload_label"]))
     first_rows, first_time = next(iter(loaded.values()))
     reference_indices = range(len(first_rows)) if window is None else [
         i for i, value in enumerate(first_time)

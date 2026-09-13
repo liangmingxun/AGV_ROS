@@ -3,6 +3,8 @@
 import csv
 import tempfile
 import unittest
+import math
+from unittest.mock import patch
 from pathlib import Path
 
 from multi_agv_analysis.io_utils import (
@@ -20,6 +22,33 @@ PROCESS_RUN_SCRIPT = (
 
 
 class PaperPipelineTest(unittest.TestCase):
+    def test_shared_display_changes_only_measured_curve_and_keeps_gaps(self):
+        from multi_agv_analysis.publication_plots import _pyplot, _save
+        plt = _pyplot()
+        fig, axis = plt.subplots()
+        time = [i*.01 for i in range(100)]
+        measured = [.1+.005*math.sin(2*math.pi*30*t) for t in time]
+        commanded = [.11+.005*math.sin(2*math.pi*30*t) for t in time]
+        axis.plot(time, measured, label="实际轮速")
+        axis.plot(time, commanded, label="执行命令")
+        snapshots = []
+        def capture(*args, **kwargs):
+            snapshots.append(([list(line.get_ydata()) for line in axis.lines], axis.get_ylim()))
+        with tempfile.TemporaryDirectory() as temporary:
+            with patch.object(fig, "savefig", side_effect=capture), patch(
+                    "multi_agv_analysis.publication_plots._save_pdf"):
+                _save(fig, temporary, "experiment2a_robot2_wheel")
+            self.assertEqual(snapshots[0][0][0], measured)
+            self.assertEqual(snapshots[0][0][1], snapshots[1][0][1])
+            self.assertEqual(snapshots[0][1], snapshots[1][1])
+            self.assertEqual(snapshots[0][1], (0, .2))
+            self.assertLess(max(snapshots[1][0][0])-min(snapshots[1][0][0]), .005)
+            self.assertEqual(list(axis.lines[0].get_ydata()), measured)
+        plt.close(fig)
+        gapped = [.1]*100
+        gapped[50] = math.nan
+        self.assertTrue(math.isnan(_display_smooth(time, gapped, .8)[50]))
+
     def test_run_context_uses_recorded_method_and_circle_snapshot(self):
         with tempfile.TemporaryDirectory() as temporary:
             run = Path(temporary) / "m2b_run"
@@ -193,8 +222,15 @@ class PaperPipelineTest(unittest.TestCase):
             }
             for directory, names in expected.items():
                 for name in names:
-                    self.assertTrue((output / directory / (name + ".png")).is_file())
-                    self.assertTrue((output / directory / (name + ".pdf")).is_file())
+                    for version in ("plots_raw", "plots_smoothed_0p8s"):
+                        self.assertTrue((output / directory / version / (name + ".png")).is_file())
+                        self.assertTrue((output / directory / version / (name + ".pdf")).is_file())
+                raw = load_yaml(output / directory / "plots_raw" / (names[0] + "_metadata.json"))
+                smooth = load_yaml(output / directory / "plots_smoothed_0p8s" / (names[0] + "_metadata.json"))
+                self.assertEqual(raw["axes"], smooth["axes"])
+                self.assertEqual(raw["titles"], smooth["titles"])
+                self.assertEqual(raw["display_processing"]["smoothing_window_seconds"], 0)
+                self.assertEqual(smooth["display_processing"]["smoothing_window_seconds"], .8)
             metrics = root / "summary_metrics.json"
             atomic_dump_json(metrics, {
                 "task": {"completion_time": 12.0},
@@ -329,14 +365,13 @@ class PaperPipelineTest(unittest.TestCase):
 
     def test_automatic_pipeline_writes_raw_and_smoothed_plot_sets(self):
         source = PROCESS_RUN_SCRIPT.read_text(encoding="utf-8")
+        from multi_agv_analysis.display_profiles import RAW_DISPLAY_PROFILE, SMOOTHED_DISPLAY_PROFILE
         self.assertIn('run_dir / "plots_raw"', source)
         self.assertIn('run_dir / "plots_smoothed_0p8s"', source)
-        self.assertIn('"smoothing_window_seconds": 0.0', source)
-        self.assertIn('"wheel_feedback_smoothing_window_seconds": 0.0',
-                      source)
-        self.assertIn('"smoothing_window_seconds": 0.80', source)
-        self.assertIn('"wheel_feedback_smoothing_window_seconds": 0.80',
-                      source)
+        self.assertEqual(RAW_DISPLAY_PROFILE["display"]["smoothing_window_seconds"], 0)
+        self.assertEqual(RAW_DISPLAY_PROFILE["display"]["wheel_feedback_smoothing_window_seconds"], 0)
+        self.assertEqual(SMOOTHED_DISPLAY_PROFILE["display"]["smoothing_window_seconds"], .8)
+        self.assertEqual(SMOOTHED_DISPLAY_PROFILE["display"]["wheel_feedback_smoothing_window_seconds"], .8)
         self.assertLess(source.index('run_dir / "plots_raw"'),
                         source.index('run_dir / "plots_smoothed_0p8s"'))
 

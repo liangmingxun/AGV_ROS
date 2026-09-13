@@ -5,6 +5,7 @@ import json
 import sys
 
 from multi_agv_analysis.conversion import convert_bag
+from multi_agv_analysis.io_utils import load_yaml
 
 
 def main():
@@ -17,6 +18,8 @@ def main():
     parser.add_argument(
         "--measured-payload-pose-topic",
         default="/pose_provider/load/pose_filtered")
+    parser.add_argument("--measured-payload-transform",
+                        help="Recorded SE(2) YAML: source_frame, target_frame, x, y, yaw")
     arguments = parser.parse_args()
     try:
         result = convert_bag(
@@ -24,7 +27,9 @@ def main():
             maximum_alignment_age=arguments.maximum_alignment_age,
             parquet=arguments.parquet,
             measured_payload_pose_topic=
-                arguments.measured_payload_pose_topic)
+                arguments.measured_payload_pose_topic,
+            measured_payload_transform=(load_yaml(arguments.measured_payload_transform)
+                if arguments.measured_payload_transform else None))
     except Exception as error:  # CLI boundary: preserve a useful nonzero exit.
         print("ERROR: {}".format(error), file=sys.stderr)
         return 2

@@ -10,6 +10,8 @@ import sys
 
 
 SIDES = ("left", "right")
+EXPECTED_SPEEDS = (0.06, 0.08, 0.10)
+EXPECTED_REPETITIONS = (1, 2)
 
 
 def parse_args(argv=None):
@@ -39,14 +41,27 @@ def finite(row, name):
 
 
 def validate_rows(rows, physical_limit, feedback_limit, firmware_limit):
+    if not all(math.isfinite(value) and value > 0.0 for value in
+               (physical_limit, feedback_limit, firmware_limit)):
+        raise ValueError("revalidation thresholds must be finite and positive")
     failures = []
     results = []
     observed = set()
     for row in rows:
         target = finite(row, "physical_target_point_mps")
-        repetition = int(float(row["repetition"]))
+        repetition_value = finite(row, "repetition")
+        if not repetition_value.is_integer():
+            raise ValueError("repetition must be an integer")
+        repetition = int(repetition_value)
         direction = row["direction"]
-        observed.add((round(abs(target), 6), direction, repetition))
+        key = (round(abs(target), 6), direction, repetition)
+        if key in observed:
+            failures.append("duplicate segment: {}".format(key))
+        observed.add(key)
+        if direction not in ("forward", "reverse") or (
+                direction == "forward" and target <= 0) or (
+                direction == "reverse" and target >= 0):
+            failures.append("direction/target sign mismatch: {}".format(row["label"]))
         segment = {"label": row["label"], "target_mps": target}
         for side in SIDES:
             camera = finite(row, "camera_wheel_{}_physical_mps".format(side))
@@ -54,6 +69,8 @@ def validate_rows(rows, physical_limit, feedback_limit, firmware_limit):
             firmware_target = finite(
                 row, "firmware_wheel_{}_target_nominal_mps".format(side))
             command_scale = finite(row, "active_command_scale_{}".format(side))
+            if not 0.5 <= command_scale <= 1.5:
+                failures.append("invalid command scale: {} {}".format(row["label"], side))
             physical_error = camera - target
             feedback_error = actual - camera
             firmware_error = firmware_target - command_scale * target
@@ -79,14 +96,17 @@ def validate_rows(rows, physical_limit, feedback_limit, firmware_limit):
     repetitions = sorted({item[2] for item in observed})
     expected = {
         (speed, direction, repetition)
-        for speed in speeds
+        for speed in EXPECTED_SPEEDS
         for direction in ("forward", "reverse")
-        for repetition in repetitions
+        for repetition in EXPECTED_REPETITIONS
     }
     missing = sorted(expected - observed)
     if missing:
         failures.append("missing speed/direction/repetition segments: {}".format(
             missing))
+    unexpected = sorted(observed - expected)
+    if unexpected:
+        failures.append("unexpected segments: {}".format(unexpected))
     return {
         "schema_version": 1,
         "status": "PASSED" if not failures else "FAILED",

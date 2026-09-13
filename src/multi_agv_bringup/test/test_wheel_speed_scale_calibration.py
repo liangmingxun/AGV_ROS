@@ -107,6 +107,17 @@ class WheelSpeedScaleCalibrationTest(unittest.TestCase):
                     rows.append(row)
         result = REVALIDATION.validate_rows(rows, 0.010, 0.008, 0.002)
         self.assertEqual(result["status"], "PASSED")
+        for incomplete in (rows[:2], rows[:6], rows[4:]):
+            self.assertEqual(REVALIDATION.validate_rows(incomplete, .010, .008, .002)[
+                "status"], "FAILED")
+        self.assertEqual(REVALIDATION.validate_rows(rows + [rows[0]], .010, .008, .002)[
+            "status"], "FAILED")
+        wrong_sign = [dict(row) for row in rows]
+        wrong_sign[0]["direction"] = "reverse"
+        self.assertEqual(REVALIDATION.validate_rows(wrong_sign, .010, .008, .002)[
+            "status"], "FAILED")
+        with self.assertRaises(ValueError):
+            REVALIDATION.validate_rows(rows, math.nan, .008, .002)
         rows[0]["camera_wheel_left_physical_mps"] = "0.09"
         result = REVALIDATION.validate_rows(rows, 0.010, 0.008, 0.002)
         self.assertEqual(result["status"], "FAILED")

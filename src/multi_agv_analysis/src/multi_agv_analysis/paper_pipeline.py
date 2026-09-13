@@ -9,6 +9,7 @@ from multi_agv_analysis.io_utils import (
 from multi_agv_analysis.metrics import _rigid_fit_residual, progress_tracking_actual
 from multi_agv_analysis.payload import (
     materialize_paper_load_fields, resolve_payload_context)
+from multi_agv_analysis.display_profiles import shared_axes
 from multi_agv_analysis.publication_plots import (
     _apply_figure_typography, _pyplot, _save_pdf)
 
@@ -235,11 +236,11 @@ def _display_smooth(time, values, window_seconds=0.10):
         local = [value for value in medians[
             max(0, index - radius):index + radius + 1]
                  if math.isfinite(value)]
-        trend.append(sum(local) / len(local) if local else math.nan)
+        trend.append(sum(local) / len(local) if local and math.isfinite(values[index]) else math.nan)
     return trend
 
 
-def _display_indices(time, maximum_rate_hz=25.0):
+def _display_indices(time, maximum_rate_hz=25.0, values=None):
     """Return plot-only indices; acquisition and metric samples are untouched."""
     if len(time) <= 2 or maximum_rate_hz <= 0.0:
         return list(range(len(time)))
@@ -253,6 +254,10 @@ def _display_indices(time, maximum_rate_hz=25.0):
     indices = list(range(0, len(time), stride))
     if indices[-1] != len(time) - 1:
         indices.append(len(time) - 1)
+    if values is not None:
+        # A display decimator must not skip a NaN and join two valid segments.
+        indices = sorted(set(indices).union(
+            index for index, value in enumerate(values) if not math.isfinite(value)))
     return indices
 
 
@@ -263,7 +268,7 @@ def _plot_measured(axis, time, values, color, label, style="-",
         axis.plot(time, values, color=color, ls=style, lw=0.55,
                   alpha=0.16, label="_nolegend_")
     trend = _display_smooth(time, values, window_seconds)
-    indices = _display_indices(time, maximum_plot_rate_hz)
+    indices = _display_indices(time, maximum_plot_rate_hz, trend)
     plot_time = [time[index] for index in indices]
     plot_trend = [trend[index] for index in indices]
     axis.plot(plot_time, plot_trend, color=color, ls=style, lw=linewidth,
@@ -395,8 +400,8 @@ def _set_y_axis(axis, series, key, unit, metadata, overrides,
         "y_min": lower,
         "y_max": upper,
         "absolute_error_from_zero": bool(absolute),
-        "outside_axis_samples": sum(value < lower or value > upper
-                                    for value in values),
+        "outside_axis_samples": int(sum(value < lower or value > upper
+                                        for value in values)),
     }
     if metadata[key]["outside_axis_samples"]:
         import warnings
@@ -471,7 +476,7 @@ def plot_run(aligned_csv, output_dir, axis_overrides=None,
     run_meta = load_yaml(run_dir / "run_meta.json") if (
         run_dir and (run_dir / "run_meta.json").is_file()) else {}
     payload_context = resolve_payload_context(
-        run_meta, rows, publication_mode=publication_mode)
+        run_meta, rows, publication_mode=publication_mode, run_dir=run_dir)
     rows = materialize_paper_load_fields(rows, payload_context)
     rows = _command_rows(rows)
     output = Path(output_dir)
@@ -486,9 +491,7 @@ def plot_run(aligned_csv, output_dir, axis_overrides=None,
     robot_styles = ("-", "--", "-.")
     emergency_threshold = _emergency_threshold_from_snapshot(aligned_csv)
     context = _run_context(aligned_csv)
-    shared_axes = load_yaml(Path(__file__).resolve().parents[2] /
-                            "config" / "paper_axis_defaults.yaml")
-    axis_overrides = dict(shared_axes, **(axis_overrides or {}))
+    axis_overrides = dict(shared_axes(), **(axis_overrides or {}))
     # The spatial envelope is circle-specific; other paths retain their own
     # geometric view while sharing the scalar comparison axes.
     if not str(context.get("path_model", "")).startswith("circle"):

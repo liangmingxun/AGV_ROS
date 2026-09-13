@@ -12,29 +12,12 @@ from multi_agv_analysis.io_utils import (
 from multi_agv_analysis.metrics import compute_metrics
 from multi_agv_analysis.paper_pipeline import export_views, plot_run
 from multi_agv_analysis.payload import resolve_payload_context
+from multi_agv_analysis.display_profiles import (
+    RAW_DISPLAY_PROFILE, SMOOTHED_DISPLAY_PROFILE)
 from multi_agv_analysis.validation import validate_converted_run
 
 
-PROCESSING_VERSION = "paper_run_pipeline_v11_stage_d_payload_context"
-
-RAW_DISPLAY_PROFILE = {
-    "display": {
-        "smoothing_window_seconds": 0.0,
-        "wheel_feedback_smoothing_window_seconds": 0.0,
-        "show_raw_samples": False,
-        "maximum_plot_rate_hz": 1000.0,
-    },
-}
-
-SMOOTHED_DISPLAY_PROFILE = {
-    "display": {
-        "smoothing_window_seconds": 0.80,
-        "wheel_feedback_smoothing_window_seconds": 0.80,
-        "show_raw_samples": False,
-        "maximum_plot_rate_hz": 25.0,
-    },
-}
-
+PROCESSING_VERSION = "paper_run_pipeline_v12_verified_provenance_shared_display"
 
 def battery_edges(converted):
     rows = read_csv(converted / "chassis_feedback.csv")
@@ -83,6 +66,8 @@ def publication_provenance(run_meta, manifest, aligned, payload_context):
             "wheel_speed_scale_freeze_id", ""),
         "wheel_speed_scale_freeze_snapshot_present": payload_context.get(
             "wheel_speed_scale_freeze_snapshot_present", False),
+        "wheel_speed_scale_freeze_verified": payload_context.get(
+            "wheel_speed_scale_freeze_verified", False),
         "method_id": run_meta.get(
             "method_id", manifest.get("method_id", "")),
         "experiment_id": run_meta.get(
@@ -137,7 +122,9 @@ def main():
             bag_path, converted,
             measured_payload_pose_topic=(
                 measured_payload_pose_topic or
-                "/pose_provider/load/pose_filtered"))
+                "/pose_provider/load/pose_filtered"),
+            measured_payload_transform=(payload_metadata.get("world_to_reference")
+                if isinstance(payload_metadata, dict) else None))
         status["conversion"] = "passed"
         rules = load_yaml(args.validation_rules).get(
             "experiment_recording", {})
@@ -159,7 +146,7 @@ def main():
         run_meta_path = run_dir / "run_meta.json"
         run_meta = load_yaml(run_meta_path) if run_meta_path.exists() else {}
         payload_context = resolve_payload_context(
-            run_meta, aligned, publication_mode=args.publication_mode)
+            run_meta, aligned, publication_mode=args.publication_mode, run_dir=run_dir)
         metrics_cfg = manifest.get("metrics", {})
         metrics = compute_metrics(
             aligned,
