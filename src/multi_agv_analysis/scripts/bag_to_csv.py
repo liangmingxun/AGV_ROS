@@ -14,12 +14,17 @@ def main():
     parser.add_argument("output_dir")
     parser.add_argument("--maximum-alignment-age", type=float, default=0.2)
     parser.add_argument("--parquet", action="store_true")
+    parser.add_argument(
+        "--measured-payload-pose-topic",
+        default="/pose_provider/load/pose_filtered")
     arguments = parser.parse_args()
     try:
         result = convert_bag(
             arguments.bag, arguments.output_dir,
             maximum_alignment_age=arguments.maximum_alignment_age,
-            parquet=arguments.parquet)
+            parquet=arguments.parquet,
+            measured_payload_pose_topic=
+                arguments.measured_payload_pose_topic)
     except Exception as error:  # CLI boundary: preserve a useful nonzero exit.
         print("ERROR: {}".format(error), file=sys.stderr)
         return 2

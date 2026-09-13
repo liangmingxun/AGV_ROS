@@ -7,6 +7,12 @@
   <arg name="method_id" default="M1_R1"/>
   <arg name="pair_block_id" default=""/>
   <arg name="payload_state" default="unloaded"/>
+  <arg name="payload_pose_source" default="equivalent_load"/>
+  <arg name="measured_payload_pose_topic"
+       default="/pose_provider/load/pose_filtered"/>
+  <arg name="wheel_speed_scale_freeze_id" default=""/>
+  <arg name="wheel_speed_scale_freeze_config"
+       default="$(find multi_agv_bringup)/config/wheel_speed_scale_stage_d_freeze_v1.yaml"/>
   <arg name="localization_source" default="unknown"/>
   <arg name="operator" default=""/>
   <arg name="interface_version" default="agv_ros_interfaces_v1"/>
@@ -55,6 +61,11 @@
     <param name="method_id" value="$(arg method_id)"/>
     <param name="pair_block_id" value="$(arg pair_block_id)"/>
     <param name="payload_state" value="$(arg payload_state)"/>
+    <param name="payload_pose_source" value="$(arg payload_pose_source)"/>
+    <param name="measured_payload_pose_topic"
+           value="$(arg measured_payload_pose_topic)"/>
+    <param name="wheel_speed_scale_freeze_id"
+           value="$(arg wheel_speed_scale_freeze_id)"/>
     <param name="localization_source" value="$(arg localization_source)"/>
     <param name="path_version" value="$(arg path_version)"/>
     <param name="operator" value="$(arg operator)"/>
@@ -81,6 +92,7 @@
        "$(find multi_agv_bringup)/config/agv2_chassis.yaml",
        "$(find multi_agv_bringup)/config/agv3_chassis.yaml",
        "$(find multi_agv_bringup)/config/capability_mapping.yaml",
+       "$(arg wheel_speed_scale_freeze_config)",
        "$(arg path_config)",
        "$(arg support_config)",
        "$(arg localization_config)",

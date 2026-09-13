@@ -477,7 +477,60 @@ def _valid_cooperative(row):
                for field in fields)
 
 
-def _aligned_rows(raw, maximum_age):
+def _yaw_from_quaternion(row):
+    x = finite_float(row.get("orientation_x"))
+    y = finite_float(row.get("orientation_y"))
+    z = finite_float(row.get("orientation_z"))
+    w = finite_float(row.get("orientation_w"))
+    if not all(math.isfinite(value) for value in (x, y, z, w)):
+        return math.nan
+    return math.atan2(2.0 * (w * z + x * y),
+                      1.0 - 2.0 * (y * y + z * z))
+
+
+def _equivalent_load_pose(state, path):
+    """Rigidly map the reference load through the measured support fit."""
+    if not path:
+        return (math.nan, math.nan, math.nan)
+    actual = [(finite_float(state.get("support_pose_x_{}".format(index))),
+               finite_float(state.get("support_pose_y_{}".format(index))))
+              for index in range(1, 4)]
+    reference = [(finite_float(path.get(
+                    "support_x_reference_{}".format(index))),
+                  finite_float(path.get(
+                    "support_y_reference_{}".format(index))))
+                 for index in range(1, 4)]
+    load_reference = (finite_float(path.get("load_x_reference")),
+                      finite_float(path.get("load_y_reference")),
+                      finite_float(path.get("load_yaw_reference")))
+    if not all(math.isfinite(value) for point in actual + reference
+               for value in point) or not all(
+                   math.isfinite(value) for value in load_reference):
+        return (math.nan, math.nan, math.nan)
+    actual_center = tuple(sum(point[axis] for point in actual) / 3.0
+                          for axis in range(2))
+    reference_center = tuple(sum(point[axis] for point in reference) / 3.0
+                             for axis in range(2))
+    dot = sum((reference[index][0] - reference_center[0]) *
+              (actual[index][0] - actual_center[0]) +
+              (reference[index][1] - reference_center[1]) *
+              (actual[index][1] - actual_center[1]) for index in range(3))
+    cross = sum((reference[index][0] - reference_center[0]) *
+                (actual[index][1] - actual_center[1]) -
+                (reference[index][1] - reference_center[1]) *
+                (actual[index][0] - actual_center[0]) for index in range(3))
+    yaw = math.atan2(cross, dot)
+    dx = load_reference[0] - reference_center[0]
+    dy = load_reference[1] - reference_center[1]
+    cosine, sine = math.cos(yaw), math.sin(yaw)
+    return (actual_center[0] + cosine * dx - sine * dy,
+            actual_center[1] + sine * dx + cosine * dy,
+            load_reference[2] + yaw)
+
+
+def _aligned_rows(raw, maximum_age,
+                  measured_payload_pose_topic=
+                  "/pose_provider/load/pose_filtered"):
     anchors = raw["cooperative_state.csv"]
     feedback = defaultdict(list)
     capability = defaultdict(list)
@@ -499,6 +552,9 @@ def _aligned_rows(raw, maximum_age):
         raw["formal_execution_limiter_state.csv"])
     m2b_debug = _series(raw["m2b_algorithm_state.csv"])
     experiment_states = _series(raw["experiment_state.csv"])
+    measured_load_poses = _series([
+        value for value in raw["camera_pose.csv"]
+        if value.get("topic") == measured_payload_pose_topic])
     robot2_derating = _series([
         value for value in raw["derating_command.csv"]
         if int(value.get("robot_id", 0)) == 2])
@@ -514,11 +570,13 @@ def _aligned_rows(raw, maximum_age):
         m2b = _latest(m2b_debug, stamp, maximum_age)
         experiment_state = _latest(
             experiment_states, stamp, maximum_age)
+        measured_load = _latest(measured_load_poses, stamp, maximum_age)
         derating = _latest(robot2_derating, stamp, maximum_age)
         controller_method = (
             str(controller.get("method_id", "")) if controller else "")
         engineering_baseline = (
             controller_method == "CAMERA_IMU_WHEEL_FUSED_CLOSED_LOOP")
+        equivalent_load = _equivalent_load_pose(state, path)
         row = {
             "stamp": stamp,
             "localization_valid": _valid_cooperative(state),
@@ -527,6 +585,19 @@ def _aligned_rows(raw, maximum_age):
             "load_pose_x": state.get("load_pose_x", math.nan),
             "load_pose_y": state.get("load_pose_y", math.nan),
             "load_pose_yaw": state.get("load_pose_yaw", math.nan),
+            "equivalent_load_pose_x": equivalent_load[0],
+            "equivalent_load_pose_y": equivalent_load[1],
+            "equivalent_load_pose_yaw": equivalent_load[2],
+            "measured_load_pose_x": (
+                measured_load.get("position_x", math.nan)
+                if measured_load else math.nan),
+            "measured_load_pose_y": (
+                measured_load.get("position_y", math.nan)
+                if measured_load else math.nan),
+            "measured_load_pose_yaw": (
+                _yaw_from_quaternion(measured_load)
+                if measured_load else math.nan),
+            "measured_load_pose_valid": measured_load is not None,
             "load_x_reference": (
                 path.get("load_x_reference", math.nan)
                 if path else math.nan),
@@ -788,7 +859,9 @@ def _aligned_rows(raw, maximum_age):
 
 
 def convert_bag(bag_path, output_dir, maximum_alignment_age=0.2,
-                parquet=False):
+                parquet=False,
+                measured_payload_pose_topic=
+                "/pose_provider/load/pose_filtered"):
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     raw = {filename: [] for filename in RAW_SCHEMAS}
@@ -814,13 +887,15 @@ def convert_bag(bag_path, output_dir, maximum_alignment_age=0.2,
 
     for filename, rows in raw.items():
         write_csv(output_dir / filename, rows, RAW_SCHEMAS[filename])
-    aligned = _aligned_rows(raw, maximum_alignment_age)
+    aligned = _aligned_rows(
+        raw, maximum_alignment_age, measured_payload_pose_topic)
     write_csv(output_dir / "aligned_samples.csv", aligned)
     atomic_dump_yaml(output_dir / "topic_inventory.yaml", {
         "schema_version": 1,
         "bag": str(Path(bag_path).resolve()),
         "causal_alignment": True,
         "maximum_alignment_age": maximum_alignment_age,
+        "measured_payload_pose_topic": measured_payload_pose_topic,
         "topics": inventory,
     })
 

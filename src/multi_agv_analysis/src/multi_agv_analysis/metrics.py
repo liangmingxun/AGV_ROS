@@ -3,6 +3,7 @@
 import math
 
 from .io_utils import bool_value, finite_float
+from .payload import payload_pose
 
 
 WHEELS = tuple(
@@ -202,7 +203,7 @@ def _mapped_path_capability(row, robot):
 def compute_metrics(rows, sample_period, command_epsilon=1e-6,
                     nominal_agv2_capability=None,
                     nominal_common_velocity=None,
-                    evaluation_target=None):
+                    evaluation_target=None, payload_context=None):
     """Compute frozen Task-17 metrics without acausal filtering.
 
     Each input row is one aligned causal sample.  A duration indicator counts
@@ -256,6 +257,8 @@ def compute_metrics(rows, sample_period, command_epsilon=1e-6,
     vehicle_heading_errors = {robot: [] for robot in range(1, 4)}
     load_position_errors = []
     load_yaw_errors = []
+    load_consistency_errors = []
+    load_consistency_yaw_errors = []
     rigid_residuals = []
     link_margins = []
     demand_margins = []
@@ -392,9 +395,12 @@ def compute_metrics(rows, sample_period, command_epsilon=1e-6,
                  if localization_valid and algorithm_valid else math.nan)
         if math.isfinite(rigid):
             rigid_residuals.append(rigid)
-        load_actual = (
-            finite_float(row.get("load_pose_x")),
-            finite_float(row.get("load_pose_y")))
+        selected_load = (payload_pose(row, payload_context)
+                         if payload_context else (
+                             finite_float(row.get("load_pose_x")),
+                             finite_float(row.get("load_pose_y")),
+                             finite_float(row.get("load_pose_yaw"))))
+        load_actual = selected_load[:2]
         load_reference = (
             finite_float(row.get("load_x_reference")),
             finite_float(row.get("load_y_reference")))
@@ -404,12 +410,24 @@ def compute_metrics(rows, sample_period, command_epsilon=1e-6,
             load_position_errors.append(math.hypot(
                 load_actual[0] - load_reference[0],
                 load_actual[1] - load_reference[1]))
-        load_yaw = finite_float(row.get("load_pose_yaw"))
+        load_yaw = selected_load[2]
         load_yaw_reference = finite_float(row.get("load_yaw_reference"))
         if (localization_valid and math.isfinite(load_yaw) and
                 math.isfinite(load_yaw_reference)):
             load_yaw_errors.append(
                 _wrap_angle(load_yaw - load_yaw_reference))
+        equivalent = tuple(finite_float(row.get(
+            "equivalent_load_pose_{}".format(axis)))
+                           for axis in ("x", "y", "yaw"))
+        measured = tuple(finite_float(row.get(
+            "measured_load_pose_{}".format(axis)))
+                         for axis in ("x", "y", "yaw"))
+        if all(math.isfinite(value) for value in equivalent + measured):
+            load_consistency_errors.append(math.hypot(
+                measured[0] - equivalent[0],
+                measured[1] - equivalent[1]))
+            load_consistency_yaw_errors.append(_wrap_angle(
+                measured[2] - equivalent[2]))
         mapped = [
             _mapped_path_capability(row, robot)
             for robot in range(1, 4)]
@@ -629,6 +647,9 @@ def compute_metrics(rows, sample_period, command_epsilon=1e-6,
                 } for robot in range(1, 4)},
         },
         "geometry": {
+            "load_metric_source": (
+                payload_context.get("load_metric_source")
+                if payload_context else "legacy_load_pose"),
             "support": {
                 "agv{}".format(robot): {
                     "position_rmse": _rmse(support_errors[robot]),
@@ -639,6 +660,14 @@ def compute_metrics(rows, sample_period, command_epsilon=1e-6,
             "load_position_max": _maximum_absolute(load_position_errors),
             "load_yaw_rmse": _rmse(load_yaw_errors),
             "load_yaw_max_absolute": _maximum_absolute(load_yaw_errors),
+            "load_equivalent_consistency_position_rmse":
+                _rmse(load_consistency_errors),
+            "load_equivalent_consistency_position_max":
+                _maximum_absolute(load_consistency_errors),
+            "load_equivalent_consistency_yaw_rmse":
+                _rmse(load_consistency_yaw_errors),
+            "load_equivalent_consistency_yaw_max_absolute":
+                _maximum_absolute(load_consistency_yaw_errors),
             "rigid_fit_residual_rmse": _rmse(rigid_residuals),
             "rigid_fit_residual_max": _maximum_absolute(rigid_residuals),
             "vehicle_heading": {

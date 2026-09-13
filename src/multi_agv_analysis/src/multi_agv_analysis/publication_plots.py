@@ -4,6 +4,7 @@ import math
 from pathlib import Path
 
 from .io_utils import finite_float, load_yaml, read_csv, write_csv
+from .payload import materialize_paper_load_fields, resolve_payload_context
 
 
 ROBOT_COLORS = ("#1f77b4", "#d62728", "#2ca02c")
@@ -125,7 +126,7 @@ def _save_pdf(figure, path):
         figure.set_canvas(original_canvas)
 
 
-def _load_rows(source):
+def _load_rows(source, publication_mode=False):
     source = Path(source)
     candidates = (
         source / "converted" / "aligned_samples.csv",
@@ -140,6 +141,17 @@ def _load_rows(source):
               if str(row.get("evaluation_active", "true")).lower()
               in ("1", "true", "yes")]
     rows = active or rows
+    run_dir = source if source.is_dir() else None
+    if run_dir and run_dir.name == "converted":
+        run_dir = run_dir.parent
+    metadata = load_yaml(run_dir / "run_meta.json") if (
+        run_dir and (run_dir / "run_meta.json").is_file()) else {}
+    payload_context = resolve_payload_context(
+        metadata, rows, publication_mode=publication_mode)
+    rows = materialize_paper_load_fields(rows, payload_context)
+    for row in rows:
+        row["_payload_label"] = payload_context["payload_label"]
+        row["_payload_error_label"] = payload_context["payload_error_label"]
     stamps = [finite_float(row.get("stamp")) for row in rows]
     origin = next((value for value in stamps if math.isfinite(value)), None)
     if origin is None:
@@ -312,16 +324,17 @@ def _plot_robot2_wheel(axis, rows, time, title, event=None):
     _legend(axis, 4)
 
 
-def plot_experiment1(source, output_dir):
+def plot_experiment1(source, output_dir, publication_mode=False):
     """Write the four principal M1+R1 physical-experiment figures."""
     plt = _pyplot()
-    rows, time = _load_rows(source)
+    rows, time = _load_rows(source, publication_mode)
     output = Path(output_dir)
 
     fig, axis = plt.subplots(figsize=(7.2, 5.4))
     for xfield, yfield, style, label, color in (
             ("load_x_reference", "load_y_reference", "--", "载荷参考S路径", "#111111"),
-            ("load_pose_x", "load_pose_y", "-", "实际等效载荷", "#555555")):
+            ("paper_load_actual_x", "paper_load_actual_y", "-",
+             rows[0]["_payload_label"], "#555555")):
         values = _finite_xy(_series(rows, xfield), _series(rows, yfield))
         if values:
             axis.plot(*zip(*values), ls=style, color=color, label=label)
@@ -351,9 +364,11 @@ def plot_experiment1(source, output_dir):
     _save(fig, output, "experiment1_boundary_velocity"); plt.close(fig)
 
     fig, axes = plt.subplots(2, 1, figsize=(8.2, 6.2), sharex=True)
-    load_error = _difference_norm(rows, "load_pose_x", "load_pose_y",
+    load_error = _difference_norm(rows, "paper_load_actual_x",
+                                  "paper_load_actual_y",
                                   "load_x_reference", "load_y_reference")
-    axes[0].plot(time, load_error, color="#111111", label="载荷跟踪误差")
+    axes[0].plot(time, load_error, color="#111111",
+                 label=rows[0]["_payload_error_label"])
     for robot, color, values in zip(range(1, 4), ROBOT_COLORS, _support_errors(rows)):
         axes[0].plot(time, values, color=color, label="Robot{} support误差".format(robot))
     axes[1].plot(time, _formation_error(rows), color="#7f3c8d", label="构型误差")
@@ -377,10 +392,10 @@ def plot_experiment1(source, output_dir):
     return 4
 
 
-def _comparison_inputs(sources, event):
+def _comparison_inputs(sources, event, publication_mode=False):
     loaded = {}
     for method, source in sources.items():
-        rows, time = _load_rows(source)
+        rows, time = _load_rows(source, publication_mode)
         loaded[method] = (rows, time)
     if event is None:
         spans = [_automatic_derating_span(rows, time)
@@ -401,13 +416,15 @@ def _local_trajectory(plt, loaded, output, name, window):
     for method, (rows, time) in loaded.items():
         indices = range(len(rows)) if window is None else [
             i for i, value in enumerate(time) if window[0] <= value <= window[1]]
-        x = _series(rows, "load_pose_x"); y = _series(rows, "load_pose_y")
+        x = _series(rows, "paper_load_actual_x")
+        y = _series(rows, "paper_load_actual_y")
         points = [(x[i], y[i]) for i in indices
                   if math.isfinite(x[i]) and math.isfinite(y[i])]
         if points:
             all_points.extend(points)
             axis.plot(*zip(*points), ls=METHOD_STYLES[method],
-                      label="{} 实际载荷".format(method))
+                      label="{} {}".format(
+                          method, rows[0]["_payload_label"]))
     first_rows, first_time = next(iter(loaded.values()))
     reference_indices = range(len(first_rows)) if window is None else [
         i for i, value in enumerate(first_time)
@@ -425,10 +442,10 @@ def _local_trajectory(plt, loaded, output, name, window):
 
 
 def plot_experiment2a(m1_source, m2a_source, output_dir,
-                      event=None, local_window=None):
+                      event=None, local_window=None, publication_mode=False):
     plt = _pyplot(); output = Path(output_dir)
     loaded, event = _comparison_inputs(
-        {"M1": m1_source, "M2a": m2a_source}, event)
+        {"M1": m1_source, "M2a": m2a_source}, event, publication_mode)
     fig, axes = plt.subplots(2, 1, figsize=(8.2, 6.5), sharex=False)
     for axis, method in zip(axes, ("M1", "M2a")):
         rows, time = loaded[method]
@@ -463,10 +480,10 @@ def plot_experiment2a(m1_source, m2a_source, output_dir,
 
 
 def plot_experiment2b(m1_source, m2b_source, output_dir,
-                      event=None, local_window=None):
+                      event=None, local_window=None, publication_mode=False):
     plt = _pyplot(); output = Path(output_dir)
     loaded, event = _comparison_inputs(
-        {"M1": m1_source, "M2b": m2b_source}, event)
+        {"M1": m1_source, "M2b": m2b_source}, event, publication_mode)
     fig, axes = plt.subplots(2, 1, figsize=(8.2, 6.5), sharex=False)
     for axis, method in zip(axes, ("M1", "M2b")):
         rows, time = loaded[method]; _plot_boundary_method(axis, rows, time, method, event)
@@ -496,14 +513,16 @@ def plot_experiment2b(m1_source, m2b_source, output_dir,
 
 
 def plot_experiment3(r1_source, r2_source, r3_source, output_dir,
-                     disturbance=None):
+                     disturbance=None, publication_mode=False):
     plt = _pyplot(); output = Path(output_dir)
-    loaded = {method: _load_rows(source) for method, source in (
+    loaded = {method: _load_rows(source, publication_mode)
+              for method, source in (
         ("R1", r1_source), ("R2", r2_source), ("R3", r3_source))}
     fig, axes = plt.subplots(2, 1, figsize=(8.2, 6.2), sharex=False)
     for method, (rows, time) in loaded.items():
         style = METHOD_STYLES[method]
-        load_error = _difference_norm(rows, "load_pose_x", "load_pose_y",
+        load_error = _difference_norm(rows, "paper_load_actual_x",
+                                      "paper_load_actual_y",
                                       "load_x_reference", "load_y_reference")
         composite = []
         for row in rows:
@@ -514,7 +533,9 @@ def plot_experiment3(r1_source, r2_source, r3_source, output_dir,
     for axis in axes:
         _mark_event(axis, disturbance, "扰动区间"); _legend(axis)
         axis.set_xlim(0.0, _shared_time_limit(loaded))
-    axes[0].set_ylabel("载荷位置误差 / m"); axes[1].set_ylabel("最大复合误差")
+    axes[0].set_ylabel("{} / m".format(
+        next(iter(loaded.values()))[0][0]["_payload_error_label"]))
+    axes[1].set_ylabel("最大复合误差")
     axes[1].set_xlabel("时间 / s")
     _save(fig, output, "experiment3_tracking_error"); plt.close(fig)
     fig, axes = plt.subplots(2, 1, figsize=(8.2, 6.2), sharex=False)
@@ -557,6 +578,7 @@ def write_statistics(entries, output_path, experiment):
             "method": method,
             "task_completion_time_s": metrics.get("task", {}).get("completion_time"),
             "load_position_rmse_m": geometry.get("load_position_rmse"),
+            "load_metric_source": geometry.get("load_metric_source"),
             "formation_error_max_m": geometry.get("rigid_fit_residual_max"),
             "support_error_max_m": support_max,
             "peak_wheel_demand_mps": metrics.get("wheel", {}).get("maximum_pre_limit_demand"),

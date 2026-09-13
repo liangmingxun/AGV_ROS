@@ -7,6 +7,8 @@ from pathlib import Path
 from multi_agv_analysis.io_utils import (
     atomic_dump_json, finite_float, load_yaml, read_csv, write_csv)
 from multi_agv_analysis.metrics import _rigid_fit_residual, progress_tracking_actual
+from multi_agv_analysis.payload import (
+    materialize_paper_load_fields, resolve_payload_context)
 from multi_agv_analysis.publication_plots import (
     _apply_figure_typography, _pyplot, _save_pdf)
 
@@ -14,6 +16,7 @@ from multi_agv_analysis.publication_plots import (
 GROUPS = {
     "state.csv": (
         "stamp", "localization_valid", "evaluation_active", "load_",
+        "equivalent_load_", "measured_load_", "paper_load_",
         "agv1_robot_pose_", "agv2_robot_pose_", "agv3_robot_pose_",
         "agv1_support_pose_", "agv2_support_pose_", "agv3_support_pose_",
         "agv1_support_reference_", "agv2_support_reference_",
@@ -455,12 +458,21 @@ def _emergency_threshold_from_snapshot(aligned_csv):
     return None
 
 
-def plot_run(aligned_csv, output_dir, axis_overrides=None):
+def plot_run(aligned_csv, output_dir, axis_overrides=None,
+             publication_mode=False):
     plt = _pyplot()
 
     rows = read_csv(aligned_csv)
     if not rows:
         raise RuntimeError("aligned input contains no samples")
+    aligned_path = Path(aligned_csv).resolve()
+    run_dir = (aligned_path.parent.parent
+               if aligned_path.parent.name == "converted" else None)
+    run_meta = load_yaml(run_dir / "run_meta.json") if (
+        run_dir and (run_dir / "run_meta.json").is_file()) else {}
+    payload_context = resolve_payload_context(
+        run_meta, rows, publication_mode=publication_mode)
+    rows = materialize_paper_load_fields(rows, payload_context)
     rows = _command_rows(rows)
     output = Path(output_dir)
     output.mkdir(parents=True, exist_ok=True)
@@ -500,7 +512,13 @@ def plot_run(aligned_csv, output_dir, axis_overrides=None):
     reference = _finite_xy(_series(rows, "load_x_reference"),
                            _series(rows, "load_y_reference"))
     if reference:
-        ax.plot(*zip(*reference), "k--", label="等效载荷参考路径")
+        ax.plot(*zip(*reference), "k--",
+                label=payload_context["payload_reference_label"])
+    actual_load = _finite_xy(_series(rows, "paper_load_actual_x"),
+                             _series(rows, "paper_load_actual_y"))
+    if actual_load:
+        ax.plot(*zip(*actual_load), color="#555555", lw=1.5,
+                label=payload_context["payload_trajectory_label"])
     for robot, color, style in zip(range(1, 4), colors, robot_styles):
         raw_x = _series(rows, "agv{}_support_pose_x".format(robot))
         raw_y = _series(rows, "agv{}_support_pose_y".format(robot))
@@ -727,14 +745,15 @@ def plot_run(aligned_csv, output_dir, axis_overrides=None):
     fig, ax = plt.subplots(figsize=(8.0, 4.5))
     load_error = []
     for row in rows:
-        dx = (finite_float(row.get("load_pose_x")) -
+        dx = (finite_float(row.get("paper_load_actual_x")) -
               finite_float(row.get("load_x_reference")))
-        dy = (finite_float(row.get("load_pose_y")) -
+        dy = (finite_float(row.get("paper_load_actual_y")) -
               finite_float(row.get("load_y_reference")))
         load_error.append(math.hypot(dx, dy) if math.isfinite(dx + dy)
                           else math.nan)
     _plot_measured(
-        ax, time, load_error, "#222222", "虚拟等效载荷位置误差",
+        ax, time, load_error, "#222222",
+        payload_context["payload_error_label"],
         window_seconds=smoothing_window, show_raw=show_raw,
         maximum_plot_rate_hz=maximum_plot_rate)
     error_series = [load_error]
@@ -763,8 +782,8 @@ def plot_run(aligned_csv, output_dir, axis_overrides=None):
         window_seconds=smoothing_window, show_raw=show_raw,
         maximum_plot_rate_hz=maximum_plot_rate)
     error_series.append(formation_error)
-    ax.set_title("{}：等效载荷、支撑点及构型误差".format(
-        context["method_label"]))
+    ax.set_title("{}：{}、支撑点及构型误差".format(
+        context["method_label"], payload_context["payload_label"]))
     ax.set_xlabel("时间 / s")
     ax.set_ylabel("绝对误差 / m")
     _legend(ax, 3)
@@ -822,6 +841,7 @@ def plot_run(aligned_csv, output_dir, axis_overrides=None):
             else "legacy_geometric_actual_minus_public_reference"),
         "emergency_pre_limit_threshold_mps": emergency_threshold,
         "run_context": context,
+        "payload_context": payload_context,
         "display_processing": {
             "raw_samples_preserved": True,
             "metrics_use_raw_samples": True,

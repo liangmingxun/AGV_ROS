@@ -78,6 +78,17 @@ class ExperimentRecorder:
                 "method_id is not preregistered: {}".format(self.method_id))
         self.pair_block_id = rospy.get_param("~pair_block_id", "")
         self.payload_state = rospy.get_param("~payload_state", "unloaded")
+        if self.payload_state not in ("unloaded", "loaded"):
+            raise RuntimeError("payload_state must be unloaded or loaded")
+        self.payload_pose_source = rospy.get_param(
+            "~payload_pose_source",
+            "equivalent_load" if self.payload_state == "unloaded"
+            else "camera_marker")
+        self.measured_payload_pose_topic = rospy.get_param(
+            "~measured_payload_pose_topic",
+            "/pose_provider/load/pose_filtered")
+        self.wheel_speed_scale_freeze_id = rospy.get_param(
+            "~wheel_speed_scale_freeze_id", "")
         self.localization_source = rospy.get_param(
             "~localization_source", "unknown")
         self.operator = rospy.get_param("~operator", "")
@@ -86,11 +97,17 @@ class ExperimentRecorder:
         self.topics = list(self.recording.get("topics", []))
         self.required_topics = list(
             self.recording.get("required_topics", []))
+        if self.payload_state == "loaded":
+            self.topics.append(self.measured_payload_pose_topic)
+            self.required_topics.append(self.measured_payload_pose_topic)
         self.camera_mode = rospy.get_param("~camera_mode", False)
         self.require_windows_sender_manifest = rospy.get_param(
             "~require_windows_sender_manifest", True)
         self.virtual_load_from_robots = rospy.get_param(
             "~virtual_load_from_robots", False)
+        if self.payload_state == "loaded" and self.virtual_load_from_robots:
+            raise RuntimeError(
+                "loaded payload cannot use virtual_load_from_robots")
         if self.camera_mode:
             self.required_topics.extend(
                 self.recording.get(
@@ -236,6 +253,13 @@ class ExperimentRecorder:
             "interface_version": self.interface_version,
             "camera_mode": self.camera_mode,
             "virtual_load_from_robots": self.virtual_load_from_robots,
+            "payload": {
+                "mode": self.payload_state,
+                "pose_source": self.payload_pose_source,
+                "measured_pose_topic": self.measured_payload_pose_topic,
+            },
+            "wheel_speed_scale_freeze_id":
+                self.wheel_speed_scale_freeze_id,
             "windows_sender_manifest_required":
                 self.require_windows_sender_manifest,
             "windows_sender_manifest_present":
@@ -292,6 +316,13 @@ class ExperimentRecorder:
             "path_version": rospy.get_param(
                 "~path_version", "s_curve_v1"),
             "payload_state": self.payload_state,
+            "payload": {
+                "mode": self.payload_state,
+                "pose_source": self.payload_pose_source,
+                "measured_pose_topic": self.measured_payload_pose_topic,
+            },
+            "wheel_speed_scale_freeze_id":
+                self.wheel_speed_scale_freeze_id,
             "localization_source": self.localization_source,
             "battery_voltage_start": None,
             "battery_voltage_end": None,

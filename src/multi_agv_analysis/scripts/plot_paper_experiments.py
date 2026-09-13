@@ -33,6 +33,9 @@ def main():
     parser.add_argument(
         "--numbered-folders", action="store_true",
         help="按实验编号和标题命名输出子目录")
+    parser.add_argument(
+        "--publication-mode", action="store_true",
+        help="要求Stage-D冻结及明确的有载/无载数据源追溯")
     parser.add_argument("--experiment1")
     parser.add_argument("--experiment2a-m1")
     parser.add_argument("--experiment2a-m2a")
@@ -63,7 +66,8 @@ def main():
     try:
         if args.experiment1:
             written += plot_experiment1(
-                args.experiment1, root / folders["experiment1"])
+                args.experiment1, root / folders["experiment1"],
+                publication_mode=args.publication_mode)
         exp2a = (args.experiment2a_m1, args.experiment2a_m2a)
         if any(exp2a):
             if not all(exp2a):
@@ -71,7 +75,8 @@ def main():
             written += plot_experiment2a(
                 *exp2a, root / folders["experiment2a"],
                 tuple(args.experiment2a_event) if args.experiment2a_event else None,
-                tuple(args.experiment2a_zoom) if args.experiment2a_zoom else None)
+                tuple(args.experiment2a_zoom) if args.experiment2a_zoom else None,
+                publication_mode=args.publication_mode)
         exp2b = (args.experiment2b_m1, args.experiment2b_m2b)
         if any(exp2b):
             if not all(exp2b):
@@ -79,7 +84,8 @@ def main():
             written += plot_experiment2b(
                 *exp2b, root / folders["experiment2b"],
                 tuple(args.experiment2b_event) if args.experiment2b_event else None,
-                tuple(args.experiment2b_zoom) if args.experiment2b_zoom else None)
+                tuple(args.experiment2b_zoom) if args.experiment2b_zoom else None,
+                publication_mode=args.publication_mode)
         exp3 = (args.experiment3_r1, args.experiment3_r2, args.experiment3_r3)
         if any(exp3):
             if not all(exp3):
@@ -87,7 +93,8 @@ def main():
             written += plot_experiment3(
                 *exp3, root / folders["experiment3"],
                 tuple(args.experiment3_disturbance)
-                if args.experiment3_disturbance else None)
+                if args.experiment3_disturbance else None,
+                publication_mode=args.publication_mode)
         if args.experiment2a_stat:
             write_statistics(args.experiment2a_stat,
                              root / folders["experiment2a"] /

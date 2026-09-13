@@ -330,6 +330,8 @@ class BringupStaticTest(unittest.TestCase):
 
         self.assertIn('name="arming_authorized" default="false"', launch)
         self.assertIn('name="connection_wait_seconds" value="5.0"', launch)
+        self.assertIn('name="payload_pose_source"', launch)
+        self.assertIn('name="wheel_speed_scale_freeze_id"', launch)
         self.assertIn("/multi_agv/formal_algorithm_state", topics)
         self.assertIn("/agv1/imu", topics)
         self.assertIn("/agv1/odom", topics)
@@ -339,6 +341,8 @@ class BringupStaticTest(unittest.TestCase):
         self.assertIn("/multi_agv/experiment_state", topics)
         self.assertIn("rosbag did not subscribe to required topics", recorder)
         self.assertIn('"recording_armed_at": None', recorder)
+        self.assertIn('"payload": {', recorder)
+        self.assertIn('"wheel_speed_scale_freeze_id"', recorder)
         self.assertIn("/experiment_recorder/armed", recorder)
         self.assertIn("Bool(data=True)", recorder)
         self.assertIn("command authority changed while recording", recorder)

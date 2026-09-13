@@ -11,10 +11,11 @@ from multi_agv_analysis.io_utils import (
     atomic_dump_json, load_yaml, read_csv)
 from multi_agv_analysis.metrics import compute_metrics
 from multi_agv_analysis.paper_pipeline import export_views, plot_run
+from multi_agv_analysis.payload import resolve_payload_context
 from multi_agv_analysis.validation import validate_converted_run
 
 
-PROCESSING_VERSION = "paper_run_pipeline_v10_atomic_fused_motion_routing"
+PROCESSING_VERSION = "paper_run_pipeline_v11_stage_d_payload_context"
 
 RAW_DISPLAY_PROFILE = {
     "display": {
@@ -64,12 +65,47 @@ def update_meta(run_dir, valid, abort_reason=""):
     atomic_dump_json(path, meta)
 
 
+def publication_provenance(run_meta, manifest, aligned, payload_context):
+    ratios = []
+    for row in aligned:
+        try:
+            value = float(row.get("agv2_derating_speed_ratio"))
+            if value > 0.0:
+                ratios.append(value)
+        except (TypeError, ValueError):
+            pass
+    metrics = manifest.get("metrics", {})
+    return {
+        "git_commit": run_meta.get("git_sha", manifest.get("git_sha", "")),
+        "config_hashes": run_meta.get(
+            "config_hashes", manifest.get("config_hashes", [])),
+        "wheel_speed_scale_freeze_id": payload_context.get(
+            "wheel_speed_scale_freeze_id", ""),
+        "wheel_speed_scale_freeze_snapshot_present": payload_context.get(
+            "wheel_speed_scale_freeze_snapshot_present", False),
+        "method_id": run_meta.get(
+            "method_id", manifest.get("method_id", "")),
+        "experiment_id": run_meta.get(
+            "experiment_id", manifest.get("experiment_id", "")),
+        "agv2_derating_ratio_observed": min(ratios) if ratios else 1.0,
+        "nominal_reference_speed_mps": metrics.get(
+            "nominal_common_velocity"),
+        "run_timestamp": run_meta.get(
+            "start_timestamp", manifest.get("started_at")),
+        "payload_mode": payload_context.get("payload_mode"),
+        "load_metric_source": payload_context.get("load_metric_source"),
+    }
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Rebuild all paper data products from one raw bag.")
     parser.add_argument("run_dir")
     parser.add_argument("validation_rules")
     parser.add_argument("--skip-plots", action="store_true")
+    parser.add_argument(
+        "--publication-mode", action="store_true",
+        help="Require explicit Stage-D and payload source provenance.")
     args = parser.parse_args()
     run_dir = Path(args.run_dir).resolve()
     status_path = run_dir / "postprocess_status.json"
@@ -93,7 +129,15 @@ def main():
                 raise RuntimeError("run must contain exactly one raw bag")
             bag_path = bags[0]
         converted = run_dir / "converted"
-        convert_bag(bag_path, converted)
+        payload_metadata = manifest.get("payload", {})
+        measured_payload_pose_topic = (
+            payload_metadata.get("measured_pose_topic")
+            if isinstance(payload_metadata, dict) else None)
+        convert_bag(
+            bag_path, converted,
+            measured_payload_pose_topic=(
+                measured_payload_pose_topic or
+                "/pose_provider/load/pose_filtered"))
         status["conversion"] = "passed"
         rules = load_yaml(args.validation_rules).get(
             "experiment_recording", {})
@@ -112,6 +156,10 @@ def main():
             return 4
         status["validation"] = "passed"
         aligned = read_csv(converted / "aligned_samples.csv")
+        run_meta_path = run_dir / "run_meta.json"
+        run_meta = load_yaml(run_meta_path) if run_meta_path.exists() else {}
+        payload_context = resolve_payload_context(
+            run_meta, aligned, publication_mode=args.publication_mode)
         metrics_cfg = manifest.get("metrics", {})
         metrics = compute_metrics(
             aligned,
@@ -120,12 +168,16 @@ def main():
                 "nominal_agv2_capability"),
             nominal_common_velocity=metrics_cfg.get(
                 "nominal_common_velocity"),
-            evaluation_target=metrics_cfg.get("evaluation_target"))
+            evaluation_target=metrics_cfg.get("evaluation_target"),
+            payload_context=payload_context)
         metrics.update({
             "run_id": manifest.get("run_id", ""),
             "experiment_id": manifest.get("experiment_id", ""),
             "method_id": manifest.get("method_id", ""),
             "processing_version": PROCESSING_VERSION,
+            "payload_context": payload_context,
+            "publication_provenance": publication_provenance(
+                run_meta, manifest, aligned, payload_context),
         })
         atomic_dump_json(run_dir / "summary_metrics.json", metrics)
         export_views(converted, run_dir)
@@ -136,13 +188,15 @@ def main():
             try:
                 plot_run(
                     converted / "aligned_samples.csv", run_dir / "plots_raw",
-                    RAW_DISPLAY_PROFILE)
+                    RAW_DISPLAY_PROFILE,
+                    publication_mode=args.publication_mode)
                 status["plots_raw"] = "passed"
                 atomic_dump_json(status_path, status)
                 plot_run(
                     converted / "aligned_samples.csv",
                     run_dir / "plots_smoothed_0p8s",
-                    SMOOTHED_DISPLAY_PROFILE)
+                    SMOOTHED_DISPLAY_PROFILE,
+                    publication_mode=args.publication_mode)
                 status["plots_smoothed_0p8s"] = "passed"
                 status["plots"] = "passed"
             except Exception as error:

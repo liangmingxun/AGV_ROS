@@ -23,6 +23,9 @@ from multi_agv_analysis.io_utils import (
     write_csv,
 )
 from multi_agv_analysis.metrics import compute_metrics, progress_tracking_actual
+from multi_agv_analysis.payload import (
+    STAGE_D_FREEZE_ID, materialize_paper_load_fields,
+    resolve_payload_context)
 from multi_agv_analysis.validation import validate_converted_run
 
 
@@ -64,7 +67,124 @@ class ConfigurationApprovalTest(unittest.TestCase):
                     registry, "rehearsal", [config])
 
 
+class PayloadContextTest(unittest.TestCase):
+    def test_unloaded_uses_equivalent_without_measured_payload(self):
+        rows = [{
+            "equivalent_load_pose_x": 0.1,
+            "equivalent_load_pose_y": 0.2,
+            "equivalent_load_pose_yaw": 0.3,
+        }]
+        context = resolve_payload_context(
+            {"payload": {"mode": "unloaded"}}, rows)
+        paper = materialize_paper_load_fields(rows, context)
+        self.assertEqual(context["payload_actual_source"], "equivalent")
+        self.assertEqual(context["payload_label"], "虚拟等效载荷")
+        self.assertEqual(paper[0]["paper_load_actual_x"], 0.1)
+
+        formal = resolve_payload_context({
+            "payload": {"mode": "unloaded"},
+            "wheel_speed_scale_freeze_id": STAGE_D_FREEZE_ID,
+            "config_hashes": [{"archived_path":
+                "config/05_wheel_speed_scale_stage_d_freeze_v1.yaml"}],
+        }, rows, publication_mode=True)
+        self.assertEqual(formal["payload_actual_source"], "equivalent")
+        self.assertFalse(formal["measured_payload_available"])
+
+    def test_loaded_prefers_independent_measured_payload(self):
+        rows = [{
+            "equivalent_load_pose_x": 9.0,
+            "equivalent_load_pose_y": 9.0,
+            "equivalent_load_pose_yaw": 9.0,
+            "measured_load_pose_x": 0.1,
+            "measured_load_pose_y": 0.2,
+            "measured_load_pose_yaw": 0.3,
+        }]
+        context = resolve_payload_context({
+            "payload": {"mode": "loaded"},
+            "wheel_speed_scale_freeze_id": STAGE_D_FREEZE_ID,
+            "config_hashes": [{"archived_path":
+                "config/05_wheel_speed_scale_stage_d_freeze_v1.yaml"}],
+        }, rows, publication_mode=True)
+        paper = materialize_paper_load_fields(rows, context)
+        self.assertEqual(
+            context["payload_actual_source"], "measured_payload")
+        self.assertEqual(context["payload_label"], "实际载荷")
+        self.assertEqual(paper[0]["paper_load_actual_x"], 0.1)
+
+    def test_loaded_publication_refuses_missing_measured_payload(self):
+        rows = [{
+            "equivalent_load_pose_x": 0.1,
+            "equivalent_load_pose_y": 0.2,
+            "equivalent_load_pose_yaw": 0.3,
+        }]
+        metadata = {
+            "payload": {"mode": "loaded"},
+            "wheel_speed_scale_freeze_id": STAGE_D_FREEZE_ID,
+            "config_hashes": [{"archived_path":
+                "config/05_wheel_speed_scale_stage_d_freeze_v1.yaml"}],
+        }
+        with self.assertRaises(RuntimeError):
+            resolve_payload_context(metadata, rows, publication_mode=True)
+        diagnostic = resolve_payload_context(metadata, rows)
+        self.assertTrue(diagnostic["diagnostic_equivalent_fallback"])
+        self.assertEqual(diagnostic["payload_label"], "虚拟等效载荷")
+
+    def test_publication_requires_stage_d_freeze(self):
+        rows = [{
+            "equivalent_load_pose_x": 0.1,
+            "equivalent_load_pose_y": 0.2,
+            "equivalent_load_pose_yaw": 0.3,
+        }]
+        with self.assertRaises(RuntimeError):
+            resolve_payload_context(
+                {"payload": {"mode": "unloaded"}}, rows,
+                publication_mode=True)
+
+
 class CameraConversionTest(unittest.TestCase):
+    def test_alignment_preserves_equivalent_and_independent_payload_pose(self):
+        raw = {name: [] for name in RAW_SCHEMAS}
+        state = {
+            "header_stamp": 1.0,
+            "load_pose_valid": True,
+            "load_path_state_valid": True,
+        }
+        reference_points = ((1.0, 0.0), (0.0, 1.0), (-1.0, 0.0))
+        for robot, point in enumerate(reference_points, start=1):
+            for prefix in (
+                    "robot_pose_valid", "support_pose_valid",
+                    "path_state_valid"):
+                state["{}_{}".format(prefix, robot)] = True
+            state["support_pose_x_{}".format(robot)] = point[0] + 0.1
+            state["support_pose_y_{}".format(robot)] = point[1] + 0.2
+        raw["cooperative_state.csv"] = [state]
+        path = {
+            "header_stamp": 1.0,
+            "load_x_reference": 0.0,
+            "load_y_reference": 0.0,
+            "load_yaw_reference": 0.0,
+        }
+        for robot, point in enumerate(reference_points, start=1):
+            path["support_x_reference_{}".format(robot)] = point[0]
+            path["support_y_reference_{}".format(robot)] = point[1]
+        raw["path_reference.csv"] = [path]
+        raw["camera_pose.csv"] = [{
+            "topic": "/pose_provider/load/pose_filtered",
+            "header_stamp": 1.0,
+            "position_x": 0.5,
+            "position_y": 0.6,
+            "orientation_x": 0.0,
+            "orientation_y": 0.0,
+            "orientation_z": 0.0,
+            "orientation_w": 1.0,
+        }]
+        row = _aligned_rows(raw, 0.1)[0]
+        self.assertAlmostEqual(row["equivalent_load_pose_x"], 0.1)
+        self.assertAlmostEqual(row["equivalent_load_pose_y"], 0.2)
+        self.assertAlmostEqual(row["measured_load_pose_x"], 0.5)
+        self.assertAlmostEqual(row["measured_load_pose_y"], 0.6)
+        self.assertTrue(row["measured_load_pose_valid"])
+
     def test_chassis_feedback_exports_stage_d_firmware_diagnostics(self):
         message = ChassisFeedback()
         message.header.stamp = genpy.Time.from_sec(12.0)
@@ -576,6 +696,36 @@ class MetricsTest(unittest.TestCase):
             result["capability"]["link_margin_minimum"], 0.1)
         self.assertAlmostEqual(
             result["internal"]["m2b_delta_z_max"], 0.02)
+
+    def test_loaded_metrics_use_raw_measured_payload_not_equivalent(self):
+        row = self.fixture()[0]
+        row.update({
+            "equivalent_load_pose_x": 1.0,
+            "equivalent_load_pose_y": 0.0,
+            "equivalent_load_pose_yaw": 0.5,
+            "measured_load_pose_x": 0.1,
+            "measured_load_pose_y": 0.0,
+            "measured_load_pose_yaw": 0.1,
+            "load_x_reference": 0.0,
+            "load_y_reference": 0.0,
+            "load_yaw_reference": 0.0,
+        })
+        context = resolve_payload_context({
+            "payload": {"mode": "loaded"},
+            "wheel_speed_scale_freeze_id": STAGE_D_FREEZE_ID,
+            "config_hashes": [{"archived_path":
+                "config/05_wheel_speed_scale_stage_d_freeze_v1.yaml"}],
+        }, [row], publication_mode=True)
+        result = compute_metrics(
+            [row], sample_period=0.1, payload_context=context)
+        self.assertAlmostEqual(
+            result["geometry"]["load_position_rmse"], 0.1)
+        self.assertAlmostEqual(result["geometry"]["load_yaw_rmse"], 0.1)
+        self.assertEqual(
+            result["geometry"]["load_metric_source"], "measured_payload")
+        self.assertAlmostEqual(
+            result["geometry"][
+                "load_equivalent_consistency_position_rmse"], 0.9)
 
     def test_invalid_metric_parameters_are_rejected(self):
         with self.assertRaises(ValueError):

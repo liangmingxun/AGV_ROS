@@ -320,7 +320,7 @@ class PaperPipelineTest(unittest.TestCase):
                     'context["local_upper_label"]',
                     'color="#7A3E9D", ls="--"',
                     "Robot2轮速需求、执行与反馈",
-                    "等效载荷、支撑点及构型误差",
+                    'payload_context["payload_label"]',
                     "路径进度误差与速度误差",
                     "_display_smooth",
                     "metrics_use_raw_samples",

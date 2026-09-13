@@ -435,6 +435,8 @@ roslaunch multi_agv_bringup experiment.launch \
   output_root:="$output_root" run_id:="$run_id" \
   experiment_id:="$experiment_id" method_id:="$method_id" \
   pair_block_id:="$pair_block" payload_state:=unloaded \
+  payload_pose_source:=equivalent_load \
+  wheel_speed_scale_freeze_id:=wheel_speed_scale_stage_d_frozen_v1 \
   localization_source:=camera_imu_wheel_fused operator:="$operator" \
   camera_mode:=true virtual_load_from_robots:=true \
   require_windows_sender_manifest:=false \
@@ -484,7 +486,8 @@ run_dir="${output_root}/${run_id}"
 stop_runtime_nodes
 echo "PHYSICAL_TASK_STATUS=PASSED run_dir=${run_dir}"
 if rosrun multi_agv_analysis process_experiment_run.py "$run_dir" \
-    "$(rospack find multi_agv_analysis)/config/validation_defaults.yaml"; then
+    "$(rospack find multi_agv_analysis)/config/validation_defaults.yaml" \
+    --publication-mode; then
   echo "POSTPROCESS_STATUS=PASSED"
   echo "SUMMARY: ${run_dir}/summary_metrics.json"
   echo "VALIDATION: ${run_dir}/validation.json"
@@ -496,7 +499,7 @@ else
   echo "The physical task passed. Its bag and run directory are retained:" >&2
   echo "${run_dir}" >&2
   echo "Offline retry:" >&2
-  echo "rosrun multi_agv_analysis process_experiment_run.py '${run_dir}' '$(rospack find multi_agv_analysis)/config/validation_defaults.yaml'" >&2
+  echo "rosrun multi_agv_analysis process_experiment_run.py '${run_dir}' '$(rospack find multi_agv_analysis)/config/validation_defaults.yaml' --publication-mode" >&2
   exit $((20 + postprocess_result))
 fi
 echo "${method_id} SERIAL RUN AND AUTOMATIC FIGURES COMPLETE: ${run_dir}"
