@@ -1,6 +1,7 @@
 #include <cmath>
-#include <deque>
 #include <cstdint>
+#include <deque>
+#include <limits>
 #include <memory>
 #include <stdexcept>
 #include <string>
@@ -8,10 +9,12 @@
 
 #include <XmlRpcValue.h>
 #include <geometry_msgs/PoseStamped.h>
+#include <geometry_msgs/Twist.h>
 #include <nav_msgs/Odometry.h>
 #include <ros/ros.h>
 #include <std_msgs/Float64.h>
 #include <std_msgs/Float64MultiArray.h>
+#include <std_msgs/Header.h>
 #include "multi_agv_control/temporal_pose.hpp"
 #include <std_msgs/UInt64.h>
 #include <tf2/LinearMath/Matrix3x3.h>
@@ -66,8 +69,17 @@ class CameraOdomFusionNode {
     private_.param("position_measurement_weight", position_weight_, 0.8);
     private_.param("heading_measurement_weight", heading_weight_, 0.8);
     private_.param("maximum_fused_publication_age", maximum_publication_age_, 0.05);
+    private_.param("maximum_camera_fallback_age", maximum_camera_fallback_age_, 0.12);
+    private_.param("maximum_camera_only_duration", maximum_camera_only_duration_, 0.30);
+    private_.param("maximum_fallback_twist_age", maximum_fallback_twist_age_, 0.12);
     if (!(maximum_publication_age_ > 0.0 && maximum_publication_age_ <= 0.15) ||
         !(maximum_camera_age_ > 0.0) ||
+        !(maximum_camera_fallback_age_ > 0.0 &&
+          maximum_camera_fallback_age_ <= maximum_camera_age_) ||
+        !(maximum_camera_only_duration_ > 0.0 &&
+          maximum_camera_only_duration_ <= maximum_camera_age_) ||
+        !(maximum_fallback_twist_age_ >= 0.0 &&
+          maximum_fallback_twist_age_ <= maximum_camera_only_duration_) ||
         !(maximum_odometry_interval_ > 0.0) ||
         !(minimum_confidence_ >= 0.0) ||
         !(position_weight_ > 0.0 && position_weight_ <= 1.0) ||
@@ -121,6 +133,15 @@ class CameraOdomFusionNode {
     bool has_previous_odometry{false};
     bool initialized{false};
     std::string frame_id;
+    geometry_msgs::Twist last_odometry_twist;
+    ros::Time last_odometry_twist_stamp;
+    ros::Time last_odometry_source_stamp;
+    ros::Time camera_fallback_stamp;
+    ros::Time last_publication_stamp;
+    ros::WallTime camera_fallback_start;
+    bool has_odometry_twist{false};
+    bool has_seen_odometry{false};
+    bool camera_fallback_active{false};
   };
 
   void addStream(const XmlRpc::XmlRpcValue& config, std::size_t index) {
@@ -171,6 +192,13 @@ class CameraOdomFusionNode {
       state->last_camera_stamp = ros::Time();
       state->frame_id.clear();
       state->previous_odometry_stamp = ros::Time();
+      state->last_odometry_twist_stamp = ros::Time();
+      state->last_odometry_source_stamp = ros::Time();
+      state->camera_fallback_stamp = ros::Time();
+      state->last_publication_stamp = ros::Time();
+      state->has_odometry_twist = false;
+      state->has_seen_odometry = false;
+      state->camera_fallback_active = false;
     }
     ROS_WARN("Reset all camera/odometry fusion streams: %s", reason);
   }
@@ -245,9 +273,55 @@ class CameraOdomFusionNode {
     state.camera_receive_time = now;
     state.has_camera = true;
     applyPendingCamera(state);
-    // Camera updates correct the absolute state, but publication is driven by
-    // odometry so downstream control receives one regular chassis-rate stream
-    // instead of a bursty camera-rate + odometry-rate mixture.
+
+    // Normally odometry drives the regular 100 Hz output.  If that subscriber
+    // briefly stalls while the independently received, calibrated camera pose
+    // remains live, publish the camera pose as the bounded absolute fallback.
+    // This is deliberately not an unlimited camera-only operating mode: loss
+    // of chassis feedback must still reach the downstream freshness gate.
+    const ros::Time ros_now = ros::Time::now();
+    const double odometry_age = state.last_odometry_source_stamp.isZero()
+        ? std::numeric_limits<double>::infinity()
+        : (ros_now - state.last_odometry_source_stamp).toSec();
+    const double camera_age = (ros_now - message->header.stamp).toSec();
+    if (state.has_seen_odometry &&
+        std::isfinite(odometry_age) && odometry_age > maximum_publication_age_ &&
+        std::isfinite(camera_age) && camera_age >= 0.0 &&
+        camera_age <= maximum_camera_fallback_age_) {
+      if (!state.camera_fallback_active) {
+        state.camera_fallback_active = true;
+        state.camera_fallback_start = now;
+        ROS_WARN("%s fusion entered bounded camera fallback after odometry age %.3f s",
+                 state.entity_id.c_str(), odometry_age);
+      }
+      const double fallback_duration =
+          (now - state.camera_fallback_start).toSec();
+      if (fallback_duration <= maximum_camera_only_duration_) {
+        // Camera is the absolute pose authority.  Rebase odometry on recovery
+        // so delayed packets cannot be integrated on top of this pose.
+        state.fused = camera;
+        state.initialized = true;
+        state.camera_pending = false;
+        state.odometry_history.clear();
+        state.has_previous_odometry = false;
+        state.camera_fallback_stamp = message->header.stamp;
+
+        geometry_msgs::Twist fallback_twist;
+        const double twist_age = state.has_odometry_twist
+            ? (message->header.stamp - state.last_odometry_twist_stamp).toSec()
+            : std::numeric_limits<double>::infinity();
+        if (std::isfinite(twist_age) && twist_age >= 0.0 &&
+            twist_age <= maximum_fallback_twist_age_) {
+          fallback_twist = state.last_odometry_twist;
+        }
+        publishPoseAndMotion(state, message->header, fallback_twist);
+      } else {
+        ROS_ERROR_THROTTLE(
+            1.0,
+            "Stopped camera fallback for %s: odometry unavailable for %.3f s",
+            state.entity_id.c_str(), fallback_duration);
+      }
+    }
   }
 
   void receiveOdometry(
@@ -257,7 +331,9 @@ class CameraOdomFusionNode {
     const ros::Time callback_time = ros::Time::now();
     if (message->header.stamp.isZero() ||
         (message->header.stamp - callback_time).toSec() > 0.02 ||
-        (state.has_previous_odometry && message->header.stamp <= state.previous_odometry_stamp)) return;
+        (state.has_previous_odometry && message->header.stamp <= state.previous_odometry_stamp) ||
+        (!state.camera_fallback_stamp.isZero() &&
+         message->header.stamp <= state.camera_fallback_stamp)) return;
     Pose2 odometry;
     try {
       odometry = {message->pose.pose.position.x,
@@ -269,6 +345,16 @@ class CameraOdomFusionNode {
       return;
     }
     if (!std::isfinite(odometry.x) || !std::isfinite(odometry.y) || !std::isfinite(odometry.yaw)) return;
+    state.last_odometry_source_stamp = message->header.stamp;
+    state.last_odometry_twist = message->twist.twist;
+    state.last_odometry_twist_stamp = message->header.stamp;
+    state.has_odometry_twist = true;
+    state.has_seen_odometry = true;
+    if (state.camera_fallback_active) {
+      state.camera_fallback_active = false;
+      ROS_INFO("%s fusion left camera fallback on fresh odometry",
+               state.entity_id.c_str());
+    }
     if (state.has_previous_odometry) {
       const double dt =
           (message->header.stamp - state.previous_odometry_stamp).toSec();
@@ -315,18 +401,9 @@ class CameraOdomFusionNode {
       }
       return;
     }
-    publish(state, message->header.stamp);
-    nav_msgs::Odometry motion;
-    motion.header = message->header;
-    motion.header.frame_id = state.frame_id;
-    motion.child_frame_id = state.entity_id + "/base_link";
-    motion.pose.pose.position.x = state.fused.x;
-    motion.pose.pose.position.y = state.fused.y;
-    motion.pose.pose.orientation = quaternionFromYaw(state.fused.yaw);
     // Body-frame measured twist remains independent of camera corrections.
     // Do not differentiate the corrected absolute pose or use commands here.
-    motion.twist = message->twist;
-    state.motion_publisher.publish(motion);
+    publishPoseAndMotion(state, message->header, message->twist.twist);
   }
 
   void applyPendingCamera(StreamState& state) {
@@ -357,14 +434,28 @@ class CameraOdomFusionNode {
     state.camera_pending=false;
   }
 
-  void publish(const StreamState& state, const ros::Time& stamp) const {
+  void publishPoseAndMotion(StreamState& state,
+                            const std_msgs::Header& source_header,
+                            const geometry_msgs::Twist& twist) {
+    if (!state.last_publication_stamp.isZero() &&
+        source_header.stamp <= state.last_publication_stamp) {
+      return;
+    }
     geometry_msgs::PoseStamped message;
-    message.header.stamp = stamp;
+    message.header = source_header;
     message.header.frame_id = state.frame_id;
     message.pose.position.x = state.fused.x;
     message.pose.position.y = state.fused.y;
     message.pose.orientation = quaternionFromYaw(state.fused.yaw);
     state.publisher.publish(message);
+
+    nav_msgs::Odometry motion;
+    motion.header = message.header;
+    motion.child_frame_id = state.entity_id + "/base_link";
+    motion.pose.pose = message.pose;
+    motion.twist.twist = twist;
+    state.motion_publisher.publish(motion);
+    state.last_publication_stamp = source_header.stamp;
   }
 
   ros::NodeHandle node_;
@@ -373,6 +464,9 @@ class CameraOdomFusionNode {
   ros::Subscriber epoch_subscriber_;
   double maximum_camera_age_{0.15};
   double maximum_publication_age_{0.05};
+  double maximum_camera_fallback_age_{0.12};
+  double maximum_camera_only_duration_{0.30};
+  double maximum_fallback_twist_age_{0.12};
   double maximum_odometry_interval_{0.05};
   double minimum_confidence_{0.5};
   double position_weight_{0.8};

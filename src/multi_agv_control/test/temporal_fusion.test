@@ -3,6 +3,9 @@
     <rosparam>
       maximum_camera_age: 0.30
       maximum_fused_publication_age: 0.05
+      maximum_camera_fallback_age: 0.12
+      maximum_camera_only_duration: 0.30
+      maximum_fallback_twist_age: 0.12
       streams:
         - {entity_id: agv1, camera_pose_topic: /test/agv1/camera, confidence_topic: /test/agv1/confidence, odometry_topic: /test/agv1/odom, output_topic: /test/agv1/fused}
         - {entity_id: agv2, camera_pose_topic: /test/agv2/camera, confidence_topic: /test/agv2/confidence, odometry_topic: /test/agv2/odom, output_topic: /test/agv2/fused}

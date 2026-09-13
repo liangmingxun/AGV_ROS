@@ -11,6 +11,16 @@ maximum_odometry_interval: 0.05
 # Source-time live publication gate, separate from bounded camera loss hold.
 # Cumulative old odometry is still processed; stale fused outputs are withheld.
 maximum_fused_publication_age: 0.05
+# If one odometry subscriber briefly backlogs while the independently received
+# calibrated camera stream remains fresh, let camera pose drive a bounded
+# fallback.  It bridges the observed sub-0.35 s transport stalls but cannot
+# hide a persistent chassis-feedback failure.
+maximum_camera_fallback_age: 0.12
+maximum_camera_only_duration: 0.30
+# Reuse the last measured body twist only while it is still recent.  Beyond
+# this age the fallback publishes camera position with zero measured twist;
+# it never differentiates camera pose or substitutes a command as measurement.
+maximum_fallback_twist_age: 0.12
 minimum_confidence: 0.5
 position_measurement_weight: 0.8
 heading_measurement_weight: 0.8

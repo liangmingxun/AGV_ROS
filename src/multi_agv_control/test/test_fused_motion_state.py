@@ -97,7 +97,17 @@ class FusedMotionStateTest(unittest.TestCase):
         # Coordinates advance to control time, while evidence keeps its old stamp.
         expected = before_robot_x + .1 * (state.header.stamp.to_sec() - before_control_stamp) - .006
         self.assertAlmostEqual(state.robot_pose[0].x, expected, delta=.002)
+        # Exceeding the shorter projection horizon is not localization loss:
+        # retain the still-fresh synchronized camera truth without extrapolation.
         time.sleep(.09)
+        self.assertTrue(all(states[-1].path_state_valid))
+        source_age = (states[-1].header.stamp -
+                      states[-1].robot_pose_stamp[0]).to_sec()
+        self.assertGreater(source_age, .12)
+        self.assertLess(source_age, .22)
+        # The independent freshness gate remains final and must invalidate a
+        # genuinely stale camera snapshot.
+        time.sleep(.07)
         self.assertFalse(all(states[-1].path_state_valid))
         for _ in range(40):
             send(-.006, invalid=True)

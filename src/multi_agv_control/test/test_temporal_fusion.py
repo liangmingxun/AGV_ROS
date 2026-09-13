@@ -10,6 +10,81 @@ from std_msgs.msg import Float64, Float64MultiArray, UInt64
 
 
 class TemporalFusionTest(unittest.TestCase):
+    def test_fresh_camera_bridges_a_bounded_odometry_stall(self):
+        outputs, motions = [], []
+        subscriptions = [
+            rospy.Subscriber('/test/agv1/fused', PoseStamped, outputs.append),
+            rospy.Subscriber('/pose_provider/agv1/base_motion_fused', Odometry, motions.append)]
+        odom = rospy.Publisher('/test/agv1/odom', Odometry, queue_size=20)
+        camera = rospy.Publisher('/test/agv1/camera', PoseStamped, queue_size=20)
+        confidence = rospy.Publisher('/test/agv1/confidence', Float64, queue_size=10)
+        epoch = rospy.Publisher('/vision/aruco/calibration_epoch', UInt64,
+                                queue_size=1, latch=True)
+        deadline = time.monotonic()+5
+        while (not odom.get_num_connections() or not camera.get_num_connections()) and time.monotonic()<deadline:
+            time.sleep(.01)
+        self.assertTrue(odom.get_num_connections())
+        epoch.publish(UInt64(123))
+        confidence.publish(Float64(1))
+        time.sleep(.1)
+        origin = rospy.Time.now().to_sec()
+
+        def send_camera(stamp):
+            confidence.publish(Float64(1))
+            message = PoseStamped()
+            message.header.stamp = rospy.Time.from_sec(stamp)
+            message.header.frame_id = 'world@123'
+            message.pose.orientation.w = 1
+            message.pose.position.x = .1*(stamp-origin)
+            camera.publish(message)
+
+        def send_odom(stamp):
+            message = Odometry()
+            message.header.stamp = rospy.Time.from_sec(stamp)
+            message.pose.pose.orientation.w = 1
+            message.pose.pose.position.x = .1*(stamp-origin)
+            message.twist.twist.linear.x = .1
+            odom.publish(message)
+
+        for _ in range(15):
+            stamp = rospy.Time.now().to_sec()
+            send_camera(stamp-.003)
+            send_odom(stamp)
+            time.sleep(.01)
+        self.assertGreater(len(outputs), 5)
+
+        # Keep only the independently delivered camera input alive.  After the
+        # 50 ms odometry-live threshold it must continue the fused pose stream.
+        time.sleep(.06)
+        before = len(outputs)
+        for _ in range(6):
+            send_camera(rospy.Time.now().to_sec())
+            time.sleep(.025)
+        self.assertGreater(len(outputs), before)
+        self.assertAlmostEqual(outputs[-1].pose.position.x,
+                               .1*(outputs[-1].header.stamp.to_sec()-origin),
+                               delta=.003)
+
+        # The fallback is bounded.  Fresh camera alone must stop producing
+        # control observations after the configured camera-only duration.
+        time.sleep(.18)
+        before = len(outputs)
+        for _ in range(4):
+            send_camera(rospy.Time.now().to_sec())
+            time.sleep(.025)
+        self.assertEqual(len(outputs), before)
+
+        # A genuinely fresh odometry sample rebases at the camera pose and
+        # resumes publication without replaying delayed deltas.
+        stamp = rospy.Time.now().to_sec()
+        send_odom(stamp)
+        time.sleep(.03)
+        self.assertGreater(len(outputs), before)
+        self.assertAlmostEqual(outputs[-1].pose.position.x,
+                               .1*(outputs[-2].header.stamp.to_sec()-origin),
+                               delta=.01)
+        self.assertEqual(len(subscriptions), 2)
+
     def test_backlog_is_not_live_feedback(self):
         outputs, timings, motions = [], [], []
         subscriptions = [

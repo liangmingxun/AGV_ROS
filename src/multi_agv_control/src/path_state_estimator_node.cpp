@@ -898,34 +898,59 @@ class PathStateEstimatorNode {
     }
     const auto measured_samples = synchronized_samples;
     std::array<OdometrySample, kRobotCount> projected;
-    const bool projection_enabled = maximum_motion_projection_seconds_ > 0.0 &&
+    const bool projection_requested = maximum_motion_projection_seconds_ > 0.0 &&
         path_anchor_initialized_ && synchronized;
-    if (projection_enabled) {
+    bool projection_applied = false;
+    if (projection_requested) {
+      bool projection_inputs_valid = true;
+      bool projection_within_horizon = true;
       for (std::size_t i=0; i<kRobotCount; ++i) {
         const auto& source=*measured_samples[i];
         const double age=(now-source.stamp).toSec();
         if (!source.has_motion_velocity || !source.path_state.valid ||
             !source.body_velocity.allFinite() || !std::isfinite(source.angular_velocity) ||
-            !std::isfinite(age) || age < 0.0 || age > maximum_motion_projection_seconds_) {
-          ROS_WARN_THROTTLE(1.0, "Rejected agv%zu measured-motion projection: source age %.6f s, horizon %.6f s; original source stamp retained",
-                            i+1, age, maximum_motion_projection_seconds_);
-          synchronized=false; break;
+            !std::isfinite(age) || age < 0.0) {
+          ROS_WARN_THROTTLE(
+              1.0,
+              "Rejected agv%zu measured-motion projection input; cooperative state is invalid",
+              i+1);
+          projection_inputs_valid = false;
+          break;
         }
-        projected[i]=source;
-        const auto pose=propagateMeasuredTwist(
-            {source.robot_pose.position.x(), source.robot_pose.position.y(), source.robot_pose.yaw},
-            source.body_velocity.x(), source.body_velocity.y(), source.angular_velocity, age);
-        if (!std::isfinite(pose.x) || !std::isfinite(pose.y) || !std::isfinite(pose.yaw)) {
-          synchronized=false; break;
+        if (age > maximum_motion_projection_seconds_) {
+          projection_within_horizon = false;
         }
-        projected[i].robot_pose.position=Eigen::Vector2d(pose.x,pose.y);
-        projected[i].robot_pose.yaw=pose.yaw;
-        projected[i].support_pose=composePose(projected[i].robot_pose,robots_[i].base_to_support);
-        projected[i].support_velocity=supportPointVelocity(projected[i].robot_pose,
-            robots_[i].base_to_support,source.body_velocity,source.angular_velocity);
-        projected[i].path_state.progress+=source.path_state.speed*age;
       }
-      if (synchronized) for (std::size_t i=0;i<kRobotCount;++i)
+      if (!projection_inputs_valid) {
+        synchronized = false;
+      } else if (!projection_within_horizon) {
+        // Projection is optional latency compensation.  A fresh, synchronized
+        // camera snapshot remains valid physical truth when its age exceeds
+        // the shorter extrapolation horizon; use it without extrapolating.
+        ROS_WARN_THROTTLE(
+            1.0,
+            "Measured-motion projection horizon exceeded; using the fresh synchronized camera snapshot without extrapolation");
+      } else {
+        for (std::size_t i=0; i<kRobotCount; ++i) {
+          const auto& source=*measured_samples[i];
+          const double age=(now-source.stamp).toSec();
+          projected[i]=source;
+          const auto pose=propagateMeasuredTwist(
+              {source.robot_pose.position.x(), source.robot_pose.position.y(), source.robot_pose.yaw},
+              source.body_velocity.x(), source.body_velocity.y(), source.angular_velocity, age);
+          if (!std::isfinite(pose.x) || !std::isfinite(pose.y) || !std::isfinite(pose.yaw)) {
+            synchronized=false; break;
+          }
+          projected[i].robot_pose.position=Eigen::Vector2d(pose.x,pose.y);
+          projected[i].robot_pose.yaw=pose.yaw;
+          projected[i].support_pose=composePose(projected[i].robot_pose,robots_[i].base_to_support);
+          projected[i].support_velocity=supportPointVelocity(projected[i].robot_pose,
+              robots_[i].base_to_support,source.body_velocity,source.angular_velocity);
+          projected[i].path_state.progress+=source.path_state.speed*age;
+        }
+        projection_applied = synchronized;
+      }
+      if (projection_applied) for (std::size_t i=0;i<kRobotCount;++i)
         synchronized_samples[i]=&projected[i];
     }
     std_msgs::Float64MultiArray projection_timing;
@@ -937,7 +962,7 @@ class PathStateEstimatorNode {
       const auto* source=measured_samples[i];
       projection_timing.data.push_back(source?source->stamp.toSec():0.0);
       projection_timing.data.push_back(source?(now-source->stamp).toSec():-1.0);
-      projection_timing.data.push_back(projection_enabled&&synchronized?1.0:0.0);
+      projection_timing.data.push_back(projection_applied?1.0:0.0);
       projection_timing.data.push_back(source?source->path_state.progress:std::numeric_limits<double>::quiet_NaN());
       projection_timing.data.push_back(source?source->path_state.speed:std::numeric_limits<double>::quiet_NaN());
     }
@@ -992,7 +1017,7 @@ class PathStateEstimatorNode {
       state->load_pose_valid = true;
       state->load_pose_stamp = (*minmax.first)->stamp;
       state->load_pose = toMessage(fit.pose);
-      if (projection_enabled) {
+      if (projection_applied) {
         std::array<Eigen::Vector2d,kRobotCount> measured_supports;
         for (std::size_t i=0;i<kRobotCount;++i)
           measured_supports[i]=measured_samples[i]->support_pose.position;
@@ -1003,7 +1028,7 @@ class PathStateEstimatorNode {
       state->load_path_state_valid = last_load_path_state_.valid;
       if (last_load_path_state_.valid) {
         state->load_s_actual = last_load_path_state_.progress;
-        if (projection_enabled) state->load_s_actual+=last_load_path_state_.speed*
+        if (projection_applied) state->load_s_actual+=last_load_path_state_.speed*
             (now-last_valid_load_path_stamp_).toSec();
         state->load_s_dot_actual = last_load_path_state_.speed;
       }

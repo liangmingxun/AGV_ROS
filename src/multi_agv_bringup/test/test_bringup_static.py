@@ -1664,6 +1664,9 @@ class BringupStaticTest(unittest.TestCase):
             PACKAGE / "config" / "record_topics.yaml"
         ).read_text(encoding="utf-8")
         self.assertIn("maximum_camera_age: 0.30", fusion)
+        self.assertIn("maximum_camera_fallback_age: 0.12", fusion)
+        self.assertIn("maximum_camera_only_duration: 0.30", fusion)
+        self.assertIn("maximum_fallback_twist_age: 0.12", fusion)
         for robot in range(1, 4):
             self.assertIn(
                 "camera_pose_topic: /pose_provider/agv{}/base_pose_filtered".
