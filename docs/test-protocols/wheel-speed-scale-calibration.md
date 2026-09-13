@@ -79,9 +79,9 @@ rosrun multi_agv_bringup analyze_wheel_speed_scale_calibration.py \
   /完整路径/agvN_wheel_speed_scale_YYYYMMDD_HHMMSS
 ```
 
-## 阶段D已接受映射（待逐车物理复验）
+## 阶段D冻结映射
 
-2026-09-12审核并接入公共底盘层的比例映射如下：
+2026-09-12审核并接入公共底盘层、2026-09-13经三车物理复验后冻结的比例映射如下：
 
 | 车辆 | 采集run | physical→firmware L/R | firmware feedback→physical L/R |
 |---|---|---|---|
@@ -91,8 +91,11 @@ rosrun multi_agv_bringup analyze_wheel_speed_scale_calibration.py \
 
 映射只作用于底盘串口命令和反馈的单位域转换。`ChassisCommand.raw`、
 `ChassisFeedback.applied/actual`及`CapabilityReport`仍使用物理`m/s`；M1、M2a
-和其他方法共享同一底盘映射。软件测试通过不代表逐车物理复验完成，在复验前
-不得据此扩大已授权轮速包络。
+和其他方法共享同一底盘映射。本次尺度冻结不自动扩大任何既有轮速授权包络。
+
+三车复验均为`PASSED`，机器可读冻结清单为
+`config/wheel_speed_scale_stage_d_freeze_v1.yaml`。后续方法比较不得单独修改
+任一车辆的command/feedback scale；如需修改，必须建立新的具名冻结版本。
 
 三车分别在自己的主机上复验，每次只运行一辆车：
 
