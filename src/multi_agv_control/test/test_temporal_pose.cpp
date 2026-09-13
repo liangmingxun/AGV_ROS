@@ -2,7 +2,24 @@
 #include <limits>
 #include "multi_agv_control/temporal_pose.hpp"
 #include "multi_agv_control/recovery_slew.hpp"
+#include "multi_agv_control/startup_tracking.hpp"
 namespace m = multi_agv_control;
+TEST(StartupTracking, CandidateIsContinuousAndKeepsLegacyDefault) {
+  EXPECT_DOUBLE_EQ(m::startupVelocityEnvelope(.04,.12,.4,.4,0),.04);
+  EXPECT_DOUBLE_EQ(m::startupVelocityEnvelope(0,.12,0,0,.008),0);
+  EXPECT_DOUBLE_EQ(m::startupFeedbackWeight(0,1.6,0),0);
+  EXPECT_DOUBLE_EQ(m::startupFeedbackWeight(1.6,1.6,.5),1);
+  EXPECT_DOUBLE_EQ(m::startupFeedbackWeight(1,0,.25),.25);
+  EXPECT_NEAR(m::startupVelocityEnvelope(.05,.12,.5,.5,.008),.058,1e-12);
+  double previous=0;
+  for(int i=0;i<=320;++i) {
+    const double tau=i/320.0, scale=m::startupSmoothStep(tau);
+    const double v=m::startupVelocityEnvelope(.1*scale,.12,scale,tau,.008);
+    EXPECT_GE(v,.1*scale); EXPECT_LE(v,.12);
+    EXPECT_LT(std::abs(v-previous),.003); previous=v;
+  }
+  EXPECT_NEAR(previous,.12,1e-12);
+}
 TEST(TemporalPose, RecoverySlewIsSignedAndPreservesHardEnvelope) {
   EXPECT_NEAR(m::recoveryWheelSlew(.0855,.1234,.01),.1204,1e-12);
   EXPECT_NEAR(m::recoveryWheelSlew(.16,.1,.01),.103,1e-12);

@@ -26,6 +26,7 @@
 #include "multi_agv_control/execution_channel_reconciler.hpp"
 #include "multi_agv_control/execution_reference_derivative.hpp"
 #include "multi_agv_control/recovery_slew.hpp"
+#include "multi_agv_control/startup_tracking.hpp"
 #include "multi_agv_control/formal_execution_gate.hpp"
 #include "multi_agv_control/lower_channel_controller.hpp"
 #include "multi_agv_control/m2b_controller.hpp"
@@ -407,6 +408,10 @@ class FormalFakeAlgorithmNode {
     private_node_.param(
         root + "execution/startup_ramp_seconds",
         startup_ramp_seconds_, 1.0);
+    private_node_.param(root + "execution/startup_catchup_margin_mps",
+                        startup_catchup_margin_mps_, 0.0);
+    private_node_.param(root + "execution/startup_feedback_ramp_seconds",
+                        startup_feedback_ramp_seconds_, 0.0);
     private_node_.param(
         root + "execution/emergency_abort_persistence_seconds",
         emergency_abort_persistence_seconds_, 0.10);
@@ -546,6 +551,12 @@ class FormalFakeAlgorithmNode {
         !(minimum_battery_voltage_duration_ > 0.0) ||
         !(emergency_abort_limit_ > 0.0) ||
         startup_ramp_seconds_ < 0.0 ||
+        !std::isfinite(startup_ramp_seconds_) ||
+        !std::isfinite(startup_catchup_margin_mps_) ||
+        startup_catchup_margin_mps_ < 0.0 || startup_catchup_margin_mps_ > 0.01 ||
+        !std::isfinite(startup_feedback_ramp_seconds_) ||
+        startup_feedback_ramp_seconds_ < 0.0 ||
+        startup_feedback_ramp_seconds_ > startup_ramp_seconds_ ||
         !(emergency_abort_persistence_seconds_ > 0.0) ||
         transient_state_hold_seconds_ < 0.0 ||
         transient_state_hold_seconds_ > maximum_state_age_ ||
@@ -1309,12 +1320,13 @@ class FormalFakeAlgorithmNode {
           std::min(execution_upper_bound, reserved_dynamic_upper);
     }
     if (startup_scale_ < 1.0) {
-      // Make the shared serial soft-start an actual execution envelope. R1
-      // still computes and records its unchanged control action, while the
-      // actuator adapter prevents that correction from running ahead of the
-      // public ramp. The envelope disappears continuously at ramp completion.
+      // Keep R1 unchanged; allow a small smoothly introduced catch-up margin
+      // during startup, then continuously release into existing capability.
       const double startup_velocity_envelope =
-          std::abs(current_velocity_reference_);
+          startupVelocityEnvelope(current_velocity_reference_,
+              std::max(std::abs(execution_lower_bound), std::abs(execution_upper_bound)),
+              startup_scale_, startup_elapsed_seconds_ / startup_ramp_seconds_,
+              startup_catchup_margin_mps_);
       execution_lower_bound =
           std::max(execution_lower_bound, -startup_velocity_envelope);
       execution_upper_bound =
@@ -1394,8 +1406,10 @@ class FormalFakeAlgorithmNode {
   void blendStartupTrackingFeedback(
       std::size_t index, PlanarTrackingResult* value) const {
     if (transport_type_ != "serial" || startup_scale_ >= 1.0) return;
+    const double linear_feedback_weight = startupFeedbackWeight(
+        startup_elapsed_seconds_, startup_feedback_ramp_seconds_, startup_scale_);
     value->linear_velocity_raw = value->linear_velocity_feedforward +
-        startup_scale_ *
+        linear_feedback_weight *
             (value->linear_velocity_raw - value->linear_velocity_feedforward);
     value->angular_velocity_raw = value->angular_velocity_feedforward +
         startup_scale_ *
@@ -2278,6 +2292,8 @@ class FormalFakeAlgorithmNode {
   double minimum_battery_voltage_duration_{0.5};
   double emergency_abort_limit_{0.12};
   double startup_ramp_seconds_{1.0};
+  double startup_catchup_margin_mps_{0.0};
+  double startup_feedback_ramp_seconds_{0.0};
   double emergency_abort_persistence_seconds_{0.10};
   double transient_state_hold_seconds_{0.03};
   double initialization_hold_seconds_{0.30};

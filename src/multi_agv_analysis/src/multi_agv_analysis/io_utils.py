@@ -1,6 +1,7 @@
 """Small dependency-free helpers shared by the command-line tools."""
 
 import csv
+import datetime
 import hashlib
 import json
 import math
@@ -58,9 +59,30 @@ def write_csv(path, rows, fieldnames=None):
         writer.writerows(rows)
 
 
+class _SnapshotSafeLoader(yaml.SafeLoader):
+    """Allow only the inert DateTime representation produced by rosparam dump."""
+
+
+def _xmlrpc_datetime(loader, node):
+    value = loader.construct_mapping(node, deep=True)
+    if set(value) != {"value"} or not isinstance(value["value"], str):
+        raise yaml.constructor.ConstructorError(
+            None, None, "invalid XML-RPC DateTime snapshot", node.start_mark)
+    try:
+        datetime.datetime.strptime(value["value"], "%Y%m%dT%H:%M:%S")
+    except ValueError as error:
+        raise yaml.constructor.ConstructorError(
+            None, None, "invalid XML-RPC DateTime value", node.start_mark) from error
+    return value["value"]
+
+
+_SnapshotSafeLoader.add_constructor(
+    "tag:yaml.org,2002:python/object:xmlrpc.client.DateTime", _xmlrpc_datetime)
+
+
 def load_yaml(path):
     with open(path, encoding="utf-8") as stream:
-        return yaml.safe_load(stream) or {}
+        return yaml.load(stream, Loader=_SnapshotSafeLoader) or {}
 
 
 def atomic_dump_yaml(path, value):

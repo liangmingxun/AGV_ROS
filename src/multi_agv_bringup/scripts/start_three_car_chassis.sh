@@ -138,7 +138,7 @@ rosparam set "/${agv_name}/deployment/clock_sync_source" \
 rosparam set "/${agv_name}/deployment/clock_system_offset_seconds" \
   "$CLOCK_SYSTEM_OFFSET_SECONDS"
 rosparam set "/${agv_name}/deployment/clock_checked_at" \
-  "$(date --iso-8601=seconds)"
+  "\"$(date --iso-8601=seconds)\""
 
 echo
 echo "${agv_name} READY"

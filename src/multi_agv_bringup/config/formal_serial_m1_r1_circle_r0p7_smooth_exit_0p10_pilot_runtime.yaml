@@ -19,6 +19,8 @@ formal_fake_runtime:
     # Preserve approximately the same peak reference acceleration as the
     # frozen 0.08 m/s / 2.5 s quintic start while testing 0.10 m/s.
     startup_ramp_seconds: 3.2
+    startup_catchup_margin_mps: 0.008
+    startup_feedback_ramp_seconds: 1.6
     emergency_abort_persistence_seconds: 0.10
     transient_state_hold_seconds: 0.08
     transient_capability_hold_seconds: 0.40

@@ -62,6 +62,9 @@ class BringupStaticTest(unittest.TestCase):
         candidate = yaml.safe_load((configs / new_name).read_text())
         expected = copy.deepcopy(original)
         runtime = expected["formal_fake_runtime"]
+        # Historical candidates retain their pre-startup-tuning configuration.
+        runtime["execution"].pop("startup_catchup_margin_mps", None)
+        runtime["execution"].pop("startup_feedback_ramp_seconds", None)
         runtime["configuration_status"] = "PILOT_SHARED_CIRCLE_0P10_RECONCILIATION_V1"
         runtime["experiment_id"] = "shared_r1_circle_r0p7_cw_smooth_exit_0p10_reconciliation_v1"
         runtime["execution"]["reconciliation"] = {
@@ -111,6 +114,8 @@ class BringupStaticTest(unittest.TestCase):
         candidate = yaml.safe_load((configs / new_name).read_text())
         expected = copy.deepcopy(original)
         runtime = expected["formal_fake_runtime"]
+        runtime["execution"].pop("startup_catchup_margin_mps", None)
+        runtime["execution"].pop("startup_feedback_ramp_seconds", None)
         runtime["configuration_status"] = "PILOT_SHARED_CIRCLE_0P10_TRACKING_V2"
         runtime["tracker"]["longitudinal_gain"] = 1.3
         runtime["tracker"]["longitudinal_gain_per_robot"] = [1.3] * 3
