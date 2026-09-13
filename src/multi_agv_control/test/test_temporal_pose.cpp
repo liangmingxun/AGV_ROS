@@ -4,6 +4,34 @@
 #include "multi_agv_control/recovery_slew.hpp"
 #include "multi_agv_control/startup_tracking.hpp"
 namespace m = multi_agv_control;
+TEST(StartupTracking, EarlyRiseIsMonotoneSmoothAndHasConsistentDerivative) {
+  EXPECT_DOUBLE_EQ(m::startupRampScale(0,.6),0);
+  EXPECT_DOUBLE_EQ(m::startupRampScale(1,.6),1);
+  EXPECT_DOUBLE_EQ(m::startupRampRate(0,.6,4),0);
+  EXPECT_DOUBLE_EQ(m::startupRampRate(1,.6,4),0);
+  EXPECT_GT(m::startupRampScale(.125,.6),m::startupSmoothStep(.125));
+  double previous=0, peak=0;
+  for(int i=1;i<1000;++i) {
+    const double tau=i/1000.0, eps=1e-6;
+    const double scale=m::startupRampScale(tau,.6);
+    EXPECT_GE(scale,previous); EXPECT_LE(scale,1); previous=scale;
+    EXPECT_DOUBLE_EQ(m::startupRampScale(tau,0),m::startupSmoothStep(tau));
+    const double derivative=(m::startupRampScale(tau+eps,.6)-m::startupRampScale(tau-eps,.6))/(2*eps*4);
+    EXPECT_NEAR(m::startupRampRate(tau,.6,4),derivative,1e-8);
+    peak=std::max(peak,m::startupRampRate(tau,.6,4)*.1);
+  }
+  EXPECT_LT(peak,.034);
+  EXPECT_NEAR(-.1*m::startupRampScale(.5,.6),-.05,1e-12);
+}
+TEST(TemporalPose, MeasuredTwistPropagationKeepsCurvedAndSignedMotion) {
+  auto p=m::propagateMeasuredTwist({1,2,0},.1,0,0,.12);
+  EXPECT_NEAR(p.x,1.012,1e-12); EXPECT_DOUBLE_EQ(p.y,2);
+  p=m::propagateMeasuredTwist({0,0,0},.1,0,1,.1);
+  EXPECT_NEAR(p.x,.1*std::sin(.1),1e-12);
+  EXPECT_NEAR(p.y,.1*(1-std::cos(.1)),1e-12);
+  p=m::propagateMeasuredTwist({0,0,0},-.1,0,0,.1);
+  EXPECT_NEAR(p.x,-.01,1e-12);
+}
 TEST(StartupTracking, CandidateIsContinuousAndKeepsLegacyDefault) {
   EXPECT_DOUBLE_EQ(m::startupVelocityEnvelope(.04,.12,.4,.4,0),.04);
   EXPECT_DOUBLE_EQ(m::startupVelocityEnvelope(0,.12,0,0,.008),0);

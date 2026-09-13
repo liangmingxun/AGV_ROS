@@ -65,6 +65,9 @@ class BringupStaticTest(unittest.TestCase):
         # Historical candidates retain their pre-startup-tuning configuration.
         runtime["execution"].pop("startup_catchup_margin_mps", None)
         runtime["execution"].pop("startup_feedback_ramp_seconds", None)
+        runtime["execution"].pop("startup_early_rise", None)
+        runtime["execution"].pop("align_progress_to_initial_pose", None)
+        runtime["execution"]["startup_ramp_seconds"] = 3.2
         runtime["configuration_status"] = "PILOT_SHARED_CIRCLE_0P10_RECONCILIATION_V1"
         runtime["experiment_id"] = "shared_r1_circle_r0p7_cw_smooth_exit_0p10_reconciliation_v1"
         runtime["execution"]["reconciliation"] = {
@@ -116,6 +119,9 @@ class BringupStaticTest(unittest.TestCase):
         runtime = expected["formal_fake_runtime"]
         runtime["execution"].pop("startup_catchup_margin_mps", None)
         runtime["execution"].pop("startup_feedback_ramp_seconds", None)
+        runtime["execution"].pop("startup_early_rise", None)
+        runtime["execution"].pop("align_progress_to_initial_pose", None)
+        runtime["execution"]["startup_ramp_seconds"] = 3.2
         runtime["configuration_status"] = "PILOT_SHARED_CIRCLE_0P10_TRACKING_V2"
         runtime["tracker"]["longitudinal_gain"] = 1.3
         runtime["tracker"]["longitudinal_gain_per_robot"] = [1.3] * 3
@@ -150,6 +156,8 @@ class BringupStaticTest(unittest.TestCase):
         self.assertEqual(localization["projector"]["maximum_projection_distance"], .150)
         self.assertEqual(localization["maximum_state_age"], .22)
         self.assertEqual(localization["maximum_sync_slop"], .02)
+        self.assertEqual(localization["maximum_motion_projection_seconds"], .12)
+        self.assertEqual(localization["signed_start_extension"], .025)
         self.assertTrue(localization["require_calibration_epoch"])
         generic = (PACKAGE / "scripts" / "run_m1_r1_serial_unloaded.sh").read_text()
         self.assertIn('localization_config:="${workspace}/src/multi_agv_bringup/config/localization_camera_three_car_closed_loop.yaml"', generic)
@@ -234,7 +242,11 @@ class BringupStaticTest(unittest.TestCase):
         self.assertEqual(runtime["leader"]["velocity"], 0.10)
         self.assertEqual(runtime["distributed_initial"]["velocity"], [0.10]*3)
         self.assertEqual(runtime["emergency_abort_limit"], 0.18)
-        self.assertEqual(runtime["execution"]["startup_ramp_seconds"], 3.2)
+        self.assertEqual(runtime["execution"]["startup_ramp_seconds"], 4.0)
+        self.assertEqual(runtime["execution"]["startup_catchup_margin_mps"], 0.008)
+        self.assertEqual(runtime["execution"]["startup_feedback_ramp_seconds"], 1.2)
+        self.assertEqual(runtime["execution"]["startup_early_rise"], .6)
+        self.assertFalse(runtime["execution"]["align_progress_to_initial_pose"])
         m1 = yaml.safe_load((configs / "exp2a_M1_serial_0p10_pilot.yaml").read_text())["formal_upper"]
         m2a = yaml.safe_load((configs / "exp2a_M2a_serial_0p10_pilot.yaml").read_text())["formal_upper"]
         self.assertEqual(m1["agents"]["nominal_upper"], [0.115]*3)
@@ -893,7 +905,7 @@ class BringupStaticTest(unittest.TestCase):
         self.assertEqual(runtime["leader"]["velocity"], 0.10)
         self.assertEqual(runtime["distributed_initial"]["velocity"],
                          [0.10, 0.10, 0.10])
-        self.assertEqual(runtime["execution"]["startup_ramp_seconds"], 3.2)
+        self.assertEqual(runtime["execution"]["startup_ramp_seconds"], 4.0)
         self.assertEqual(runtime["emergency_abort_limit"], 0.18)
         self.assertEqual(upper["agents"]["initial_upper"],
                          [0.115, 0.115, 0.115])

@@ -818,8 +818,7 @@ def plot_run(aligned_csv, output_dir, axis_overrides=None,
         velocity_series.append(v_error)
     axes[0].set_title("{}：路径进度误差与速度误差".format(
         context["method_label"]))
-    axes[0].set_ylabel("起点对齐进度误差 / m" if any(
-        "agv1_s_tracking_actual" in row for row in rows) else "进度误差 / m")
+    axes[0].set_ylabel("进度跟踪误差 / m")
     _legend(axes[0])
     axes[1].set_ylabel("速度误差 / (m/s)")
     axes[1].set_xlabel("时间 / s")
@@ -839,7 +838,7 @@ def plot_run(aligned_csv, output_dir, axis_overrides=None,
         "axis_profile_id": axis_overrides.get("profile_id"),
         "axis_baseline_run": axis_overrides.get("baseline_run"),
         "progress_error_definition": (
-            "recorded_origin_aligned_actual_minus_public_reference"
+            "recorded_controller_coordinate_or_legacy_origin_alignment_minus_public_reference"
             if any("agv1_s_tracking_actual" in row for row in rows)
             else "legacy_geometric_actual_minus_public_reference"),
         "emergency_pre_limit_threshold_mps": emergency_threshold,

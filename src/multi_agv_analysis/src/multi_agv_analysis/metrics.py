@@ -253,6 +253,10 @@ def compute_metrics(rows, sample_period, command_epsilon=1e-6,
     path_errors = []
     path_velocity_errors = {robot: [] for robot in range(1, 4)}
     path_progress_errors = {robot: [] for robot in range(1, 4)}
+    origin_diagnostic_errors = {robot: [] for robot in range(1, 4)}
+    measurement_errors = {robot: [] for robot in range(1, 4)}
+    measurement_stamps = {robot: set() for robot in range(1, 4)}
+    source_ages = {robot: [] for robot in range(1, 4)}
     support_errors = {robot: [] for robot in range(1, 4)}
     vehicle_heading_errors = {robot: [] for robot in range(1, 4)}
     load_position_errors = []
@@ -335,6 +339,21 @@ def compute_metrics(rows, sample_period, command_epsilon=1e-6,
         actual_supports = []
         reference_supports = []
         for robot in range(1, 4):
+            prefix = "agv{}".format(robot)
+            origin_actual = finite_float(row.get(prefix + "_s_origin_aligned_actual"))
+            if (localization_valid and algorithm_valid and
+                    math.isfinite(origin_actual) and math.isfinite(reference_progress)):
+                origin_diagnostic_errors[robot].append(origin_actual-reference_progress)
+            source_stamp = finite_float(row.get(prefix + "_pose_source_stamp"))
+            source_age = finite_float(row.get(prefix + "_pose_source_age"))
+            measured_error = finite_float(row.get(prefix + "_measurement_time_progress_error"))
+            if localization_valid and algorithm_valid:
+                if math.isfinite(source_age) and source_age >= 0:
+                    source_ages[robot].append(source_age)
+                if (math.isfinite(source_stamp) and source_stamp > 0 and
+                        math.isfinite(measured_error) and source_stamp not in measurement_stamps[robot]):
+                    measurement_stamps[robot].add(source_stamp)
+                    measurement_errors[robot].append(measured_error)
             actual_s = progress_tracking_actual(row, robot)
             actual_v = finite_float(
                 row.get("agv{}_s_dot_actual".format(robot)))
@@ -404,7 +423,7 @@ def compute_metrics(rows, sample_period, command_epsilon=1e-6,
         load_reference = (
             finite_float(row.get("load_x_reference")),
             finite_float(row.get("load_y_reference")))
-        if (localization_valid and all(
+        if (localization_valid and algorithm_valid and all(
                 math.isfinite(value)
                 for value in load_actual + load_reference)):
             load_position_errors.append(math.hypot(
@@ -412,7 +431,7 @@ def compute_metrics(rows, sample_period, command_epsilon=1e-6,
                 load_actual[1] - load_reference[1]))
         load_yaw = selected_load[2]
         load_yaw_reference = finite_float(row.get("load_yaw_reference"))
-        if (localization_valid and math.isfinite(load_yaw) and
+        if (localization_valid and algorithm_valid and math.isfinite(load_yaw) and
                 math.isfinite(load_yaw_reference)):
             load_yaw_errors.append(
                 _wrap_angle(load_yaw - load_yaw_reference))
@@ -422,7 +441,8 @@ def compute_metrics(rows, sample_period, command_epsilon=1e-6,
         measured = tuple(finite_float(row.get(
             "measured_load_pose_{}".format(axis)))
                          for axis in ("x", "y", "yaw"))
-        if all(math.isfinite(value) for value in equivalent + measured):
+        if (localization_valid and algorithm_valid and
+                all(math.isfinite(value) for value in equivalent + measured)):
             load_consistency_errors.append(math.hypot(
                 measured[0] - equivalent[0],
                 measured[1] - equivalent[1]))
@@ -576,6 +596,15 @@ def compute_metrics(rows, sample_period, command_epsilon=1e-6,
             active_indices == list(range(
                 active_indices[0], active_indices[-1] + 1)))
     return {
+        "state_timing_diagnostics": {
+            "definition": "origin_aligned_measurement_progress_minus_causal_reference_at_source_time; unique_valid_source_samples; not_geometric_task_tracking_error",
+            "robots": {"agv{}".format(robot): {
+                "measurement_time_progress_rms": _rmse(measurement_errors[robot]),
+                "measurement_time_progress_max_absolute": _maximum_absolute(measurement_errors[robot]),
+                "unique_source_samples": len(measurement_errors[robot]),
+                "maximum_source_age": max(source_ages[robot], default=None),
+            } for robot in range(1, 4)},
+        },
         "schema_version": 3,
         "causal_unfiltered": True,
         "sample_period": sample_period,
@@ -630,8 +659,15 @@ def compute_metrics(rows, sample_period, command_epsilon=1e-6,
                 limiter_samples["deceleration"] * sample_period,
         },
         "path": {
+            "origin_aligned_diagnostic": {
+                "definition": "actual_minus_initial_offset_minus_public_reference; not_geometric_formation_tracking",
+                "per_robot": {"agv{}".format(robot): {
+                    "progress_rmse": _rmse(origin_diagnostic_errors[robot]),
+                    "progress_max_absolute": _maximum_absolute(origin_diagnostic_errors[robot]),
+                } for robot in range(1,4)},
+            },
             "per_robot_progress_definition": (
-                "recorded_origin_aligned_actual_minus_public_reference"
+                "recorded_controller_coordinate_or_legacy_origin_alignment_minus_public_reference"
                 if any("agv1_s_tracking_actual" in row for row in rows)
                 else "legacy_geometric_actual_minus_public_reference"),
             "progress_rmse": _rmse(path_errors),
@@ -657,6 +693,8 @@ def compute_metrics(rows, sample_period, command_epsilon=1e-6,
                         support_errors[robot]),
                 } for robot in range(1, 4)},
             "load_position_rmse": _rmse(load_position_errors),
+            "load_tracking_scope": "evaluation_active_and_localization_and_algorithm_valid",
+            "load_position_samples": len(load_position_errors),
             "load_position_max": _maximum_absolute(load_position_errors),
             "load_yaw_rmse": _rmse(load_yaw_errors),
             "load_yaw_max_absolute": _maximum_absolute(load_yaw_errors),

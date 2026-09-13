@@ -17,7 +17,7 @@ from multi_agv_analysis.display_profiles import (
 from multi_agv_analysis.validation import validate_converted_run
 
 
-PROCESSING_VERSION = "paper_run_pipeline_v12_verified_provenance_shared_display"
+PROCESSING_VERSION = "paper_run_pipeline_v15_recorded_controller_progress_coordinate"
 
 def battery_edges(converted):
     rows = read_csv(converted / "chassis_feedback.csv")

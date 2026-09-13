@@ -20,11 +20,12 @@ formal_fake_runtime:
       enabled: false
     initialization_hold_seconds: 0.30
     initialization_max_wheel_speed: 0.015
-    # Preserve approximately the same peak reference acceleration as the
-    # frozen 0.08 m/s / 2.5 s quintic start while testing 0.10 m/s.
-    startup_ramp_seconds: 3.2
+    # Same calibrated startup candidate for paired M1/M2a comparisons.
+    startup_ramp_seconds: 4.0
     startup_catchup_margin_mps: 0.008
-    startup_feedback_ramp_seconds: 1.6
+    startup_feedback_ramp_seconds: 1.2
+    startup_early_rise: 0.6
+    align_progress_to_initial_pose: false
     emergency_abort_persistence_seconds: 0.10
     transient_state_hold_seconds: 0.08
     transient_capability_hold_seconds: 0.40

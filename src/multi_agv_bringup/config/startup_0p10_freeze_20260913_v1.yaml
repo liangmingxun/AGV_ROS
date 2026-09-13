@@ -1,0 +1,31 @@
+# Archival parameter freeze only; not a launch overlay or execution permission.
+schema_version: 1
+freeze_id: startup_0p10_early_rise_20260913_v1
+status: frozen_for_followup_pilots
+qualification: single_no_derating_pilot_passed_repeat_pending
+scope: startup_adapter_only
+baseline_git_commit: d0f79df61fe10f31417801123b6272768cbfd8f0
+working_tree_changes_present: true
+execution:
+  startup_ramp_seconds: 4.0
+  startup_early_rise: 0.6
+  startup_feedback_ramp_seconds: 1.2
+  startup_catchup_margin_mps: 0.008
+evidence:
+  run_id: m1_r1_circle_r0p7_cw_smooth_exit_0p10_normal_pilot_20260913_151208
+  validation_passed: true
+  algorithm_invalid_samples: 0
+  localization_invalid_samples: 0
+  startup_window_definition: first_5_seconds_after_public_velocity_exceeds_0p001_mps
+  progress_rmse_m: [0.000679, 0.000851, 0.001552]
+  robot1_startup_max_absolute_progress_error_m: 0.001502
+  robot1_startup_peak_path_velocity_mps: 0.10499
+limitations:
+  - Not a full controller or chassis qualification freeze.
+  - Robot2 steady RMS increased and Robot3 had a late speed spike; repeat required.
+  - Does not authorize motion or bypass per-run safety and provenance gates.
+source_hashes:
+  src/multi_agv_control/include/multi_agv_control/startup_tracking.hpp: f7aa8905e89d1839caeb02be18b272b6715abd2f37bb9195420f90d5e17036d8
+  src/multi_agv_control/src/formal_fake_algorithm_node.cpp: 23b072baf4455ec7ed81af9a8620f92a1ccd4dc2e84920f51a18561750ae0ec5
+  src/multi_agv_bringup/config/formal_serial_m1_r1_circle_r0p7_smooth_exit_0p10_pilot_runtime.yaml: 9c3dee7d16171df52d203f90b221874fbcdbbc31b91eeef5469cc2c158b2c385
+  src/multi_agv_bringup/config/formal_serial_circle_r0p7_smooth_exit_0p10_reference_v1_pilot_runtime.yaml: 7f078fce5b067218db5da7c0891a2d55831a147e8ac65f5e65add334f622e891

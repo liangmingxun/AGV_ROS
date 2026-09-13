@@ -23,6 +23,7 @@
 #include "multi_agv_control/s_curve_path.hpp"
 #include "multi_agv_control/state_estimator.hpp"
 #include "multi_agv_control/support_geometry.hpp"
+#include "multi_agv_control/temporal_pose.hpp"
 
 namespace multi_agv_control {
 namespace {
@@ -97,6 +98,14 @@ class PathStateEstimatorNode {
     private_node_.param("maximum_state_age", maximum_state_age_, 0.15);
     private_node_.param("maximum_live_fused_pose_age", maximum_live_fused_pose_age_, 0.05);
     private_node_.param("use_fused_motion_velocity", use_fused_motion_velocity_, false);
+    private_node_.param("maximum_motion_projection_seconds", maximum_motion_projection_seconds_, 0.0);
+    if (!std::isfinite(maximum_motion_projection_seconds_) ||
+        maximum_motion_projection_seconds_ < 0.0 || maximum_motion_projection_seconds_ > 0.12 ||
+        maximum_motion_projection_seconds_ > maximum_state_age_ ||
+        (maximum_motion_projection_seconds_ > 0.0 && !use_fused_motion_velocity_))
+      throw std::runtime_error("invalid measured-motion projection horizon");
+    projection_timing_publisher_ = node_.advertise<std_msgs::Float64MultiArray>(
+        "/multi_agv/state_projection_timing", 10, false);
     if (use_fused_motion_velocity_ && localization_mode_ != "fused")
       throw std::runtime_error("fused motion velocity requires fused localization");
     private_node_.param("maximum_sync_slop", maximum_sync_slop_, 0.02);
@@ -147,6 +156,12 @@ class PathStateEstimatorNode {
 
     const auto projector_config = loadProjectorConfig();
     const auto estimator_config = loadEstimatorConfig();
+    private_node_.param("signed_start_extension", signed_start_extension_, 0.0);
+    if (!std::isfinite(signed_start_extension_) || signed_start_extension_ < 0.0 ||
+        signed_start_extension_ > 0.025 ||
+        (signed_start_extension_ > 0.0 &&
+         (!use_fused_motion_velocity_ || !auto_anchor_from_robot_poses_)))
+      throw std::runtime_error("invalid signed start extension");
     XmlRpc::XmlRpcValue robots;
     if (!private_node_.getParam("robots", robots) ||
         robots.getType() != XmlRpc::XmlRpcValue::TypeArray ||
@@ -222,6 +237,8 @@ class PathStateEstimatorNode {
     StateEstimate path_state;
     Eigen::Vector2d support_velocity{Eigen::Vector2d::Zero()};
     bool has_motion_velocity{false};
+    Eigen::Vector2d body_velocity{Eigen::Vector2d::Zero()};
+    double angular_velocity{0.0};
   };
 
   struct RobotState {
@@ -362,15 +379,19 @@ class PathStateEstimatorNode {
     robot.base_frame = xmlString(value, "base_frame");
     robot.base_to_support = xmlPose(value, "base_to_support");
     PathProjector projector(
-        path_.length(),
+        path_.length() + signed_start_extension_,
         [this, index](double s) {
-          const auto sample = geometry_.sample(index, s);
-          return ProjectionCurveSample{sample.position, sample.first_derivative,
-                                       sample.second_derivative};
+          return startExtendedCurveSample([this,index](double native_s) {
+            const auto sample = geometry_.sample(index, native_s);
+            return ProjectionCurveSample{sample.position, sample.first_derivative,
+                                         sample.second_derivative};
+          }, s, signed_start_extension_);
         },
         projector_config);
+    auto robot_estimator_config = estimator_config;
+    robot_estimator_config.initial_progress += signed_start_extension_;
     robot.estimator =
-        std::make_unique<StateEstimator>(std::move(projector), estimator_config);
+        std::make_unique<StateEstimator>(std::move(projector), robot_estimator_config);
     if (camera_mode_) {
       robot.reception_timing = node_.advertise<std_msgs::Float64MultiArray>(
           "/pose_provider/" + robot.robot_id + "/estimator_timing", 10, false);
@@ -569,6 +590,8 @@ class PathStateEstimatorNode {
       sample.support_velocity=supportPointVelocity(sample.robot_pose,
           robot.base_to_support,*body_velocity,angular_velocity);
       sample.has_motion_velocity=true;
+      sample.body_velocity=*body_velocity;
+      sample.angular_velocity=angular_velocity;
     }
     if (!auto_anchor_from_robot_poses_ || path_anchor_initialized_) {
       sample.path_state = updateRobotPathState(
@@ -690,6 +713,7 @@ class PathStateEstimatorNode {
   bool selectSynchronizedSamples(
       const ros::Time& now,
       std::array<const OdometrySample*, kRobotCount>* selected) {
+    selected_cached_snapshot_ = false;
     const auto use_last_snapshot = [&]() {
       if (!has_last_synchronized_samples_) {
         return false;
@@ -709,6 +733,7 @@ class PathStateEstimatorNode {
       for (std::size_t index = 0U; index < kRobotCount; ++index) {
         (*selected)[index] = &last_synchronized_samples_[index];
       }
+      selected_cached_snapshot_ = true;
       ROS_WARN_THROTTLE(
           1.0,
           "Holding the last synchronized three-robot snapshot for %.6f s while fused streams re-align",
@@ -754,9 +779,21 @@ class PathStateEstimatorNode {
   StateEstimate updateRobotPathState(
       RobotState* robot, const Eigen::Vector2d& position,
       const ros::Time& measurement_stamp, const Eigen::Vector2d* velocity=nullptr) {
-    const StateEstimate candidate = velocity ? robot->estimator->updateWithVelocity(
+    StateEstimate candidate = velocity ? robot->estimator->updateWithVelocity(
         position, measurement_stamp.toSec(), *velocity) : robot->estimator->update(
         position, measurement_stamp.toSec());
+    if (signed_start_extension_ > 0.0 && candidate.projection.valid &&
+        candidate.projection.s <= 1e-9) {
+      const auto start = geometry_.sample(robot->robot_id == "agv1" ? 0 :
+                                          robot->robot_id == "agv2" ? 1 : 2, 0.0);
+      if ((position-start.position).dot(start.first_derivative) <
+          -signed_start_extension_*start.first_derivative.squaredNorm()-1e-9) {
+        candidate.valid = false;
+        candidate.projection.valid = false;  // Never hold outside the extension.
+      }
+    }
+    candidate.progress -= signed_start_extension_;
+    candidate.projection.s -= signed_start_extension_;
     if (candidate.valid) {
       robot->last_valid_path_state = candidate;
       robot->last_valid_path_stamp = measurement_stamp;
@@ -811,7 +848,7 @@ class PathStateEstimatorNode {
     path_anchor_initialized_ = true;
 
     for (auto& robot : robots_) {
-      robot.estimator->reset(0.0);
+      robot.estimator->reset(signed_start_extension_);
       robot.last_valid_path_state = StateEstimate{};
       robot.last_valid_path_stamp = ros::Time();
       for (auto& sample : robot.samples) {
@@ -859,6 +896,52 @@ class PathStateEstimatorNode {
           "No synchronized camera-fused three-robot snapshot (slop=%.6f s)",
           maximum_sync_slop_);
     }
+    const auto measured_samples = synchronized_samples;
+    std::array<OdometrySample, kRobotCount> projected;
+    const bool projection_enabled = maximum_motion_projection_seconds_ > 0.0 &&
+        path_anchor_initialized_ && synchronized;
+    if (projection_enabled) {
+      for (std::size_t i=0; i<kRobotCount; ++i) {
+        const auto& source=*measured_samples[i];
+        const double age=(now-source.stamp).toSec();
+        if (!source.has_motion_velocity || !source.path_state.valid ||
+            !source.body_velocity.allFinite() || !std::isfinite(source.angular_velocity) ||
+            !std::isfinite(age) || age < 0.0 || age > maximum_motion_projection_seconds_) {
+          ROS_WARN_THROTTLE(1.0, "Rejected agv%zu measured-motion projection: source age %.6f s, horizon %.6f s; original source stamp retained",
+                            i+1, age, maximum_motion_projection_seconds_);
+          synchronized=false; break;
+        }
+        projected[i]=source;
+        const auto pose=propagateMeasuredTwist(
+            {source.robot_pose.position.x(), source.robot_pose.position.y(), source.robot_pose.yaw},
+            source.body_velocity.x(), source.body_velocity.y(), source.angular_velocity, age);
+        if (!std::isfinite(pose.x) || !std::isfinite(pose.y) || !std::isfinite(pose.yaw)) {
+          synchronized=false; break;
+        }
+        projected[i].robot_pose.position=Eigen::Vector2d(pose.x,pose.y);
+        projected[i].robot_pose.yaw=pose.yaw;
+        projected[i].support_pose=composePose(projected[i].robot_pose,robots_[i].base_to_support);
+        projected[i].support_velocity=supportPointVelocity(projected[i].robot_pose,
+            robots_[i].base_to_support,source.body_velocity,source.angular_velocity);
+        projected[i].path_state.progress+=source.path_state.speed*age;
+      }
+      if (synchronized) for (std::size_t i=0;i<kRobotCount;++i)
+        synchronized_samples[i]=&projected[i];
+    }
+    std_msgs::Float64MultiArray projection_timing;
+    projection_timing.layout.dim.resize(1);
+    projection_timing.layout.dim[0].label="state_projection_v1:stamp,enabled,held,3x(source_stamp,age,projected,measured_s,measured_speed)";
+    projection_timing.data={now.toSec(),maximum_motion_projection_seconds_>0.0?1.0:0.0,
+                            selected_cached_snapshot_?1.0:0.0};
+    for (std::size_t i=0;i<kRobotCount;++i) {
+      const auto* source=measured_samples[i];
+      projection_timing.data.push_back(source?source->stamp.toSec():0.0);
+      projection_timing.data.push_back(source?(now-source->stamp).toSec():-1.0);
+      projection_timing.data.push_back(projection_enabled&&synchronized?1.0:0.0);
+      projection_timing.data.push_back(source?source->path_state.progress:std::numeric_limits<double>::quiet_NaN());
+      projection_timing.data.push_back(source?source->path_state.speed:std::numeric_limits<double>::quiet_NaN());
+    }
+    projection_timing_publisher_.publish(projection_timing);
     for (std::size_t index = 0U; index < kRobotCount; ++index) {
       const auto* sample = synchronized
           ? synchronized_samples[index] : latestSample(robots_[index]);
@@ -909,10 +992,19 @@ class PathStateEstimatorNode {
       state->load_pose_valid = true;
       state->load_pose_stamp = (*minmax.first)->stamp;
       state->load_pose = toMessage(fit.pose);
-      updateDerivedLoadPath(fit.pose.position, synchronized_samples);
+      if (projection_enabled) {
+        std::array<Eigen::Vector2d,kRobotCount> measured_supports;
+        for (std::size_t i=0;i<kRobotCount;++i)
+          measured_supports[i]=measured_samples[i]->support_pose.position;
+        const auto measured_fit=fitRigidLoadPose(measured_supports,offsets);
+        if (!measured_fit.valid) return;
+        updateDerivedLoadPath(measured_fit.pose.position, measured_samples);
+      } else updateDerivedLoadPath(fit.pose.position, synchronized_samples);
       state->load_path_state_valid = last_load_path_state_.valid;
       if (last_load_path_state_.valid) {
         state->load_s_actual = last_load_path_state_.progress;
+        if (projection_enabled) state->load_s_actual+=last_load_path_state_.speed*
+            (now-last_valid_load_path_stamp_).toSec();
         state->load_s_dot_actual = last_load_path_state_.speed;
       }
       return;
@@ -1116,6 +1208,10 @@ class PathStateEstimatorNode {
   bool use_fused_motion_velocity_{false};
   double maximum_sync_slop_{0.02};
   double maximum_synchronized_snapshot_hold_{0.05};
+  double maximum_motion_projection_seconds_{0.0};
+  double signed_start_extension_{0.0};
+  bool selected_cached_snapshot_{false};
+  ros::Publisher projection_timing_publisher_;
   std::size_t synchronization_queue_size_{64U};
   double maximum_rigid_fit_residual_{0.05};
   double maximum_runtime_rigid_fit_residual_{0.05};

@@ -13,6 +13,19 @@ struct ProjectionCurveSample {
   Eigen::Vector2d second_derivative{Eigen::Vector2d::Zero()};
 };
 
+// Positive internal coordinate for a bounded tangent extension before s=0.
+// Native path samples and endpoint geometry are otherwise unchanged.
+inline ProjectionCurveSample startExtendedCurveSample(
+    const std::function<ProjectionCurveSample(double)>& sample,
+    double shifted_s, double extension) {
+  const double s = shifted_s - extension;
+  if (s >= 0.0) return sample(s);
+  auto start = sample(0.0);
+  start.position += s * start.first_derivative;
+  start.second_derivative.setZero();
+  return start;
+}
+
 struct PathProjectorConfig {
   std::size_t coarse_samples{81};
   std::size_t maximum_refinement_iterations{48};

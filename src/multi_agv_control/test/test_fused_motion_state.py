@@ -26,15 +26,18 @@ class FusedMotionStateTest(unittest.TestCase):
         self.assertTrue(all(p.get_num_connections() for p in publishers))
         epoch.publish(UInt64(123))
         time.sleep(.1)
-        offsets = ((.1732050807568877, 0), (-.0866025403784439, .15),
-                   (-.0866025403784439, -.15))
+        # Small initial deformation, including one robot behind its s=0 pose.
+        offsets = ((.1632050807568877, 0), (-.0866025403784439, .15),
+                   (-.0766025403784439, -.15))
         levers = (-.01783, .09908, .09908)
         origin = rospy.Time.now().to_sec()
 
-        def send(correction=0, invalid=False):
+        def send(correction=0, invalid=False, skip_robot2=False, speed=.1):
             stamp = rospy.Time.now()
-            progress = .1 * (stamp.to_sec() - origin) + correction
+            progress = speed * (stamp.to_sec() - origin) + correction
             for i, publisher in enumerate(publishers):
+                if skip_robot2 and i == 1:
+                    continue
                 message = Odometry()
                 message.header.stamp = stamp
                 message.header.frame_id = 'world@0000007b'
@@ -44,16 +47,24 @@ class FusedMotionStateTest(unittest.TestCase):
                 message.pose.pose.position.y = 2 + progress + offsets[i][0] - levers[i]
                 message.pose.pose.orientation.z = math.sin(math.pi / 4)
                 message.pose.pose.orientation.w = math.cos(math.pi / 4)
-                message.twist.twist.linear.x = float('nan') if invalid and i == 0 else .1
+                message.twist.twist.linear.x = float('nan') if invalid and i == 0 else speed
                 publisher.publish(message)
             time.sleep(.01)
 
+        for _ in range(25):
+            send(speed=0)
+        self.assertTrue(all(states[-1].path_state_valid))
+        self.assertLess(states[-1].s_actual[0], -.005)
+        initial_signed_progress = states[-1].s_actual[0]
+        origin = rospy.Time.now().to_sec()
         for _ in range(100):
             send()
+        self.assertGreater(states[-1].s_actual[0] - initial_signed_progress, .08)
         self.assertTrue(states[-1].load_path_state_valid)
         self.assertTrue(all(states[-1].path_state_valid))
         before = states[-1].load_s_actual
-        before_stamp = states[-1].load_pose_stamp.to_sec()
+        before_control_stamp = states[-1].header.stamp.to_sec()
+        before_robot_x = states[-1].robot_pose[0].x
         start = len(states)
         for _ in range(25):
             send(-.006)
@@ -64,9 +75,30 @@ class FusedMotionStateTest(unittest.TestCase):
             for speed in list(state.s_dot_actual) + [state.load_s_dot_actual]:
                 self.assertAlmostEqual(speed, .1, delta=.001)
         # Absolute correction remains observable in progress, not hidden.
-        elapsed = states[-1].load_pose_stamp.to_sec() - before_stamp
+        # Compare at control time: both endpoints are projected estimates.
+        elapsed = states[-1].header.stamp.to_sec() - before_control_stamp
         self.assertAlmostEqual(states[-1].load_s_actual - before,
                                .1 * elapsed - .006, delta=.0005)
+        robot2_stamp = states[-1].robot_pose_stamp[1].to_sec()
+        for _ in range(6):
+            send(-.006, skip_robot2=True)
+        self.assertTrue(all(states[-1].path_state_valid))
+        self.assertLessEqual(states[-1].robot_pose_stamp[1].to_sec(), robot2_stamp + .015)
+        for _ in range(10):
+            send(-.006)
+        # Only previously accepted live samples may be propagated: packets
+        # arriving already older than 50 ms remain rejected at ingress.
+        time.sleep(.08)
+        state = states[-1]
+        self.assertTrue(all(state.path_state_valid))
+        source_age = (state.header.stamp - state.robot_pose_stamp[0]).to_sec()
+        self.assertGreater(source_age, .075)
+        self.assertLess(source_age, .12)
+        # Coordinates advance to control time, while evidence keeps its old stamp.
+        expected = before_robot_x + .1 * (state.header.stamp.to_sec() - before_control_stamp) - .006
+        self.assertAlmostEqual(state.robot_pose[0].x, expected, delta=.002)
+        time.sleep(.09)
+        self.assertFalse(all(states[-1].path_state_valid))
         for _ in range(40):
             send(-.006, invalid=True)
         self.assertFalse(all(states[-1].path_state_valid))

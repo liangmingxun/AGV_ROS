@@ -12,6 +12,13 @@ inline Pose2 compose(const Pose2& a, const Pose2& b) {
   const double c=std::cos(a.yaw), s=std::sin(a.yaw);
   return {a.x+c*b.x-s*b.y, a.y+s*b.x+c*b.y, wrapAngle(a.yaw+b.yaw)};
 }
+inline Pose2 propagateMeasuredTwist(const Pose2& pose, double vx, double vy,
+                                    double omega, double dt) {
+  const double angle = omega * dt;
+  const double a = std::abs(omega) < 1e-9 ? dt : std::sin(angle) / omega;
+  const double b = std::abs(omega) < 1e-9 ? 0.0 : (1.0 - std::cos(angle)) / omega;
+  return compose(pose, {a * vx - b * vy, b * vx + a * vy, angle});
+}
 inline Pose2 interpolatePose(const Pose2& a, const Pose2& b, double q) {
   return {a.x+q*(b.x-a.x), a.y+q*(b.y-a.y), wrapAngle(a.yaw+q*wrapAngle(b.yaw-a.yaw))};
 }

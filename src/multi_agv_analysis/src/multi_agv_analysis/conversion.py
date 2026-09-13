@@ -438,6 +438,11 @@ def _extract(topic, bag_stamp, message):
             return "formal_execution_limiter_state.csv", row
         if topic == "/multi_agv/formal_algorithm_state":
             return "formal_algorithm_state.csv", row
+        if topic == "/multi_agv/state_projection_timing":
+            values = list(message.data)
+            if values and math.isfinite(values[0]):
+                row["header_stamp"] = values[0]
+            return "state_chain_timing.csv", row
         if topic in {
                 "/pose_provider/agv{}/{}".format(robot, suffix)
                 for robot in range(1, 4)
@@ -517,6 +522,13 @@ def _equivalent_load_pose(state, path):
                           for axis in range(2))
     reference_center = tuple(sum(point[axis] for point in reference) / 3.0
                              for axis in range(2))
+    # Invalid/terminal PathReference messages may contain three default zero
+    # support poses. Their rigid transform is undefined, not a measured pose.
+    if any(sum((point[axis] - center[axis]) ** 2
+               for point in points for axis in range(2)) <= 1e-12
+           for points, center in ((reference, reference_center),
+                                  (actual, actual_center))):
+        return (math.nan, math.nan, math.nan)
     dot = sum((reference[index][0] - reference_center[0]) *
               (actual[index][0] - actual_center[0]) +
               (reference[index][1] - reference_center[1]) *
@@ -525,6 +537,8 @@ def _equivalent_load_pose(state, path):
                 (actual[index][1] - actual_center[1]) -
                 (reference[index][1] - reference_center[1]) *
                 (actual[index][0] - actual_center[0]) for index in range(3))
+    if math.hypot(dot, cross) <= 1e-12:
+        return (math.nan, math.nan, math.nan)
     yaw = math.atan2(cross, dot)
     dx = load_reference[0] - reference_center[0]
     dy = load_reference[1] - reference_center[1]
@@ -590,6 +604,9 @@ def _aligned_rows(raw, maximum_age,
         value for value in raw["derating_command.csv"]
         if int(value.get("robot_id", 0)) == 2])
     has_experiment_state_stream = bool(experiment_states[0])
+    projections = _series([
+        value for value in raw["state_chain_timing.csv"]
+        if value.get("topic") == "/multi_agv/state_projection_timing"])
 
     output = []
     for state in anchors:
@@ -603,6 +620,11 @@ def _aligned_rows(raw, maximum_age,
             experiment_states, stamp, maximum_age)
         measured_load = _latest(measured_load_poses, stamp, maximum_age)
         derating = _latest(robot2_derating, stamp, maximum_age)
+        projection = _latest(projections, stamp, maximum_age)
+        projection_values = json.loads(projection["data_json"]) if projection else []
+        # Never associate a previous estimator tick with a new state.
+        if len(projection_values) != 18 or abs(projection_values[0] - stamp) > 1e-6:
+            projection_values = []
         controller_method = (
             str(controller.get("method_id", "")) if controller else "")
         engineering_baseline = (
@@ -741,6 +763,39 @@ def _aligned_rows(raw, maximum_age,
             row["agv{}_s_tracking_actual".format(robot)] = (
                 finite_float(row["agv{}_s_actual".format(robot)]) -
                 finite_float(origin))
+            prefix = "agv{}".format(robot)
+            row[prefix + "_s_origin_aligned_actual"] = row[prefix + "_s_tracking_actual"]
+            # Follow the recorded controller coordinate, never infer a newer
+            # controller definition for a historical bag.
+            recorded_actual = finite_float(controller.get(
+                "path_progress_actual_{}".format(robot))) if controller else math.nan
+            if math.isfinite(recorded_actual):
+                row[prefix + "_s_tracking_actual"] = recorded_actual
+            row[prefix + "_progress_tracking_definition"] = (
+                "controller_recorded_actual_minus_public_reference"
+                if math.isfinite(recorded_actual) else
+                "recorded_origin_aligned_actual_minus_public_reference")
+            source_stamp = finite_float(state.get("robot_pose_stamp_{}".format(robot)))
+            measured_s = finite_float(row[prefix + "_s_actual"])
+            projected_flag = False
+            held_flag = False
+            if projection_values:
+                index = 3 + (robot - 1) * 5
+                source_stamp = projection_values[index]
+                projected_flag = bool(projection_values[index + 2])
+                measured_s = projection_values[index + 3]
+                held_flag = bool(projection_values[2])
+            measured_reference = (_latest(paths, source_stamp, maximum_age)
+                                  if math.isfinite(source_stamp) and source_stamp > 0 else None)
+            row[prefix + "_pose_source_stamp"] = source_stamp
+            row[prefix + "_pose_source_age"] = stamp - source_stamp if source_stamp > 0 else math.nan
+            row[prefix + "_motion_projected"] = projected_flag
+            row[prefix + "_snapshot_held"] = held_flag
+            row[prefix + "_measured_s_tracking_actual"] = measured_s - finite_float(origin)
+            row[prefix + "_measurement_time_progress_error"] = (
+                measured_s - finite_float(origin) - finite_float(
+                    measured_reference.get("load_s_reference"))
+                if measured_reference else math.nan)
             row["agv{}_s_dot_actual".format(robot)] = state.get(
                 "s_dot_actual_{}".format(robot), math.nan)
             row["agv{}_s_execute_reference".format(robot)] = (

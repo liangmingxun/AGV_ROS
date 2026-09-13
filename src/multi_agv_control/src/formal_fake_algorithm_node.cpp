@@ -412,6 +412,10 @@ class FormalFakeAlgorithmNode {
                         startup_catchup_margin_mps_, 0.0);
     private_node_.param(root + "execution/startup_feedback_ramp_seconds",
                         startup_feedback_ramp_seconds_, 0.0);
+    private_node_.param(root + "execution/startup_early_rise",
+                        startup_early_rise_, 0.0);
+    private_node_.param(root + "execution/align_progress_to_initial_pose",
+                        align_progress_to_initial_pose_, true);
     private_node_.param(
         root + "execution/emergency_abort_persistence_seconds",
         emergency_abort_persistence_seconds_, 0.10);
@@ -557,6 +561,8 @@ class FormalFakeAlgorithmNode {
         !std::isfinite(startup_feedback_ramp_seconds_) ||
         startup_feedback_ramp_seconds_ < 0.0 ||
         startup_feedback_ramp_seconds_ > startup_ramp_seconds_ ||
+        !std::isfinite(startup_early_rise_) ||
+        startup_early_rise_ < 0.0 || startup_early_rise_ > 1.0 ||
         !(emergency_abort_persistence_seconds_ > 0.0) ||
         transient_state_hold_seconds_ < 0.0 ||
         transient_state_hold_seconds_ > maximum_state_age_ ||
@@ -1187,12 +1193,9 @@ class FormalFakeAlgorithmNode {
     // Quintic smoothstep: both scale rate and its derivative are zero at
     // rest and at the end of the ramp. R1 therefore sees no acceleration
     // discontinuity when the configured steady execution begins.
-    const double tau2 = tau * tau;
-    const double tau3 = tau2 * tau;
-    startup_scale_ = tau3 * (10.0 + tau * (-15.0 + 6.0 * tau));
+    startup_scale_ = startupRampScale(tau, startup_early_rise_);
     const double scale_rate =
-        30.0 * tau2 * (1.0 - tau) * (1.0 - tau) /
-        startup_ramp_seconds_;
+        startupRampRate(tau, startup_early_rise_, startup_ramp_seconds_);
     current_velocity_reference_ =
         unramped_velocity_reference_ * startup_scale_;
     current_acceleration_reference_ =
@@ -1262,7 +1265,8 @@ class FormalFakeAlgorithmNode {
 
   double algorithmPositionActual(std::size_t index) const {
     return state_.s_actual[index] -
-        (execution_initialized_ ? initial_progress_offset_[index] : 0.0);
+        (execution_initialized_ && align_progress_to_initial_pose_
+             ? initial_progress_offset_[index] : 0.0);
   }
 
   double algorithmVelocityActual(std::size_t index) const {
@@ -2294,6 +2298,8 @@ class FormalFakeAlgorithmNode {
   double startup_ramp_seconds_{1.0};
   double startup_catchup_margin_mps_{0.0};
   double startup_feedback_ramp_seconds_{0.0};
+  double startup_early_rise_{0.0};
+  bool align_progress_to_initial_pose_{true};
   double emergency_abort_persistence_seconds_{0.10};
   double transient_state_hold_seconds_{0.03};
   double initialization_hold_seconds_{0.30};

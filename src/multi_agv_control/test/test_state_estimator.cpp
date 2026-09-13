@@ -20,6 +20,31 @@ using multi_agv_control::SupportOffset;
 
 namespace {
 
+TEST(SignedStart, MovementAcrossStartRetainsNegativeInitialCoordinate) {
+  const double extension=.025;
+  auto sample=[](double s) { return ProjectionCurveSample{
+      Eigen::Vector2d(s,0),Eigen::Vector2d::UnitX(),Eigen::Vector2d::Zero()}; };
+  PathProjector projector(1+extension,[&](double s) {
+    return multi_agv_control::startExtendedCurveSample(sample,s,extension);
+  });
+  StateEstimatorConfig config;
+  config.initial_progress=extension;
+  StateEstimator estimator(std::move(projector),config);
+  const auto initial=estimator.updateWithVelocity({-.010,0},1,{.1,0});
+  ASSERT_TRUE(initial.valid);
+  EXPECT_NEAR(initial.progress-extension,-.010,1e-8);
+  const auto next=estimator.updateWithVelocity({-.009,0},1.01,{.1,0});
+  ASSERT_TRUE(next.valid);
+  EXPECT_NEAR(next.progress-initial.progress,.001,1e-8);
+  const auto positive=estimator.updateWithVelocity({.001,0},1.11,{.1,0});
+  ASSERT_TRUE(positive.valid);
+  EXPECT_NEAR(positive.progress-extension,.001,1e-8);
+  EXPECT_NEAR(positive.progress-initial.progress,.011,1e-8);
+  const auto native=sample(.2);
+  const auto extended=multi_agv_control::startExtendedCurveSample(sample,.2+extension,extension);
+  EXPECT_NEAR((extended.position-native.position).norm(),0,1e-12);
+}
+
 PathProjector makeProjector(const SCurvePath& path) {
   PathProjectorConfig config;
   config.maximum_projection_distance = 0.2;

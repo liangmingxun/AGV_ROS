@@ -14,7 +14,7 @@ from geometry_msgs.msg import PoseStamped
 from nav_msgs.msg import Odometry
 from std_msgs.msg import Float64, Float64MultiArray, UInt64
 
-from multi_agv_analysis.conversion import RAW_SCHEMAS, _aligned_rows, _extract
+from multi_agv_analysis.conversion import RAW_SCHEMAS, _aligned_rows, _extract, _equivalent_load_pose
 from multi_agv_analysis.approval import verify_approved_configuration
 from multi_agv_analysis.io_utils import (
     atomic_dump_yaml,
@@ -181,6 +181,70 @@ class PayloadContextTest(unittest.TestCase):
 
 
 class CameraConversionTest(unittest.TestCase):
+    def test_recorded_geometric_controller_coordinate_does_not_erase_origin_diagnostic(self):
+        raw = {name: [] for name in RAW_SCHEMAS}
+        raw["cooperative_state.csv"] = [{"header_stamp": 1., "s_actual_1": .11}]
+        raw["controller_state.csv"] = [{"header_stamp": 1., "path_progress_actual_1": .11}]
+        limiter = [0.] * 25
+        limiter[10] = .01
+        raw["formal_execution_limiter_state.csv"] = [{"header_stamp": 1.,
+            "layout_label": "formal_execution_limiter_v1:header4+3x7",
+            "data_json": json.dumps(limiter)}]
+        row = _aligned_rows(raw, .2)[0]
+        self.assertAlmostEqual(row["agv1_s_tracking_actual"], .11)
+        self.assertAlmostEqual(row["agv1_s_origin_aligned_actual"], .10)
+        # Historical recorded alignment must not be replaced with geometry.
+        raw["controller_state.csv"][0]["path_progress_actual_1"] = .10
+        self.assertAlmostEqual(_aligned_rows(raw,.2)[0]["agv1_s_tracking_actual"], .10)
+
+    def test_signed_initial_progress_is_preserved_in_controller_alignment(self):
+        raw = {name: [] for name in RAW_SCHEMAS}
+        raw["cooperative_state.csv"] = [{"header_stamp": 1., "s_actual_1": -.009}]
+        limiter = [0.] * 25
+        limiter[10] = -.010
+        raw["formal_execution_limiter_state.csv"] = [{"header_stamp": 1.,
+            "layout_label": "formal_execution_limiter_v1:header4+3x7",
+            "data_json": json.dumps(limiter)}]
+        row = _aligned_rows(raw, .2)[0]
+        self.assertAlmostEqual(row["agv1_s_actual"], -.009)
+        self.assertAlmostEqual(row["agv1_s_initial_offset"], -.010)
+        self.assertAlmostEqual(row["agv1_s_tracking_actual"], .001)
+
+    def test_projection_keeps_measurement_time_diagnostics_separate(self):
+        raw = {name: [] for name in RAW_SCHEMAS}
+        raw["cooperative_state.csv"] = [{"header_stamp": 1., "s_actual_1": .11}]
+        raw["path_reference.csv"] = [
+            {"header_stamp": .92, "load_s_reference": .09},
+            {"header_stamp": 1., "load_s_reference": .10}]
+        limiter = [0.] * 25
+        raw["formal_execution_limiter_state.csv"] = [{
+            "header_stamp": 1., "layout_label": "formal_execution_limiter_v1:header4+3x7",
+            "data_json": json.dumps(limiter)}]
+        values = [1., 1., 1.] + [.92, .08, 1., .102, .1] * 3
+        raw["state_chain_timing.csv"] = [{
+            "topic": "/multi_agv/state_projection_timing", "header_stamp": 1.,
+            "data_json": json.dumps(values)}]
+        row = _aligned_rows(raw, .2)[0]
+        self.assertAlmostEqual(row["agv1_s_tracking_actual"], .11)
+        self.assertAlmostEqual(row["agv1_pose_source_age"], .08)
+        self.assertAlmostEqual(row["agv1_measurement_time_progress_error"], .012)
+        self.assertTrue(row["agv1_motion_projected"])
+        self.assertTrue(row["agv1_snapshot_held"])
+        message = Float64MultiArray(data=values)
+        name, extracted = _extract("/multi_agv/state_projection_timing", genpy.Time.from_sec(1.01), message)
+        self.assertEqual(name, "state_chain_timing.csv")
+        self.assertEqual(extracted["header_stamp"], 1.)
+
+    def test_zero_terminal_reference_supports_do_not_define_load_pose(self):
+        state, path = {}, {"load_x_reference": .78, "load_y_reference": 0,
+                           "load_yaw_reference": 0}
+        for i, point in enumerate(((.95, 0), (.69, .15), (.69, -.15)), 1):
+            state["support_pose_x_{}".format(i)] = point[0]
+            state["support_pose_y_{}".format(i)] = point[1]
+            path["support_x_reference_{}".format(i)] = 0
+            path["support_y_reference_{}".format(i)] = 0
+        self.assertTrue(all(math.isnan(v) for v in _equivalent_load_pose(state, path)))
+
     def test_alignment_preserves_equivalent_and_independent_payload_pose(self):
         raw = {name: [] for name in RAW_SCHEMAS}
         state = {
@@ -533,6 +597,33 @@ class CameraConversionTest(unittest.TestCase):
 
 
 class MetricsTest(unittest.TestCase):
+    def test_measurement_diagnostics_deduplicate_and_exclude_invalid_states(self):
+        base = {"stamp": 1., "localization_valid": True, "algorithm_valid": True,
+                "agv1_pose_source_stamp": .92, "agv1_pose_source_age": .08,
+                "agv1_measurement_time_progress_error": .002}
+        duplicate = dict(base, stamp=1.01, agv1_pose_source_age=.09)
+        invalid = dict(base, stamp=1.02, algorithm_valid=False,
+                       agv1_pose_source_stamp=.93, agv1_measurement_time_progress_error=.8)
+        result = compute_metrics([base, duplicate, invalid], sample_period=.01)
+        timing = result["state_timing_diagnostics"]["robots"]["agv1"]
+        self.assertEqual(timing["unique_source_samples"], 1)
+        self.assertAlmostEqual(timing["measurement_time_progress_rms"], .002)
+        self.assertAlmostEqual(timing["maximum_source_age"], .09)
+
+    def test_load_tracking_excludes_invalid_algorithm_not_large_valid_error(self):
+        base = {"stamp": 0, "evaluation_active": True,
+                "localization_valid": True, "algorithm_valid": True,
+                "load_pose_x": .025, "load_pose_y": 0, "load_pose_yaw": .1,
+                "load_x_reference": 0, "load_y_reference": 0,
+                "load_yaw_reference": 0}
+        invalid = dict(base, stamp=.1, algorithm_valid=False,
+                       load_pose_x=.787, load_pose_yaw=2)
+        valid_large = dict(base, stamp=.2, load_pose_x=.2)
+        result = compute_metrics([base, invalid, valid_large], sample_period=.1)
+        self.assertAlmostEqual(result["geometry"]["load_position_max"], .2)
+        self.assertEqual(result["geometry"]["load_position_samples"], 2)
+        self.assertAlmostEqual(result["geometry"]["load_yaw_max_absolute"], .1)
+
     @staticmethod
     def fixture():
         rows = []
