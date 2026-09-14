@@ -1486,6 +1486,20 @@ class FormalFakeAlgorithmNode {
     return result;
   }
 
+  void latchTerminalStop() {
+    reference_progress_ = target_progress_;
+    unramped_velocity_reference_ = 0.0;
+    unramped_acceleration_reference_ = 0.0;
+    current_velocity_reference_ = 0.0;
+    current_acceleration_reference_ = 0.0;
+    current_upper_.common_velocity = 0.0;
+    recovery_ramp_armed_ = false;
+    terminal_stop_latched_ = true;
+    ROS_INFO(
+        "Formal execution reached %.3f m; synchronized terminal stop "
+        "latched without endpoint pose hunting", target_progress_);
+  }
+
   void publishZero(const ros::Time& stamp) {
     // Safety and terminal zeros bypass recovery slew immediately.
     recovery_slew_until_ = ros::Time();
@@ -1760,6 +1774,14 @@ class FormalFakeAlgorithmNode {
       publishDebug(false, current_upper_, distributed, lower);
       return;
     }
+    // Completion is irreversible for this node lifetime. Recorder/state
+    // recovery must never turn a terminal zero into another startup ramp.
+    if (terminal_stop_latched_) {
+      publishZero(now);
+      publishPublicState(now, false, lower, tracking);
+      publishDebug(false, current_upper_, distributed, lower);
+      return;
+    }
     const std::string expected_method_id =
         std::string(upperModeName(upper_mode_)) + "_" +
         lowerModeName(lower_mode_);
@@ -1799,13 +1821,6 @@ class FormalFakeAlgorithmNode {
       publishDebug(false, current_upper_, distributed, lower);
       return;
     }
-    if (terminal_stop_latched_) {
-      publishZero(now);
-      publishPublicState(now, false, lower, tracking);
-      publishDebug(false, current_upper_, distributed, lower);
-      return;
-    }
-
     std::array<WheelCapability, 3> wheels;
     std::array<CapabilityGeometry, 3> geometries;
     for (std::size_t index = 0; index < kRobotCount; ++index) {
@@ -1891,12 +1906,18 @@ class FormalFakeAlgorithmNode {
       current_upper_.common_velocity = m2b.load_velocity_reference;
       reference_progress_ = std::clamp(
           m2b.load_progress_reference, 0.0, target_progress_);
+      if (reference_progress_ >= target_progress_) {
+        latchTerminalStop();
+        publishZero(now);
+        publishPublicState(now, false, lower, tracking);
+        publishDebug(false, current_upper_, distributed, lower);
+        publishM2bDebug(m2b);
+        return;
+      }
       current_velocity_reference_ =
-          reference_progress_ >= target_progress_
-              ? 0.0 : m2b.load_velocity_reference;
+          m2b.load_velocity_reference;
       current_acceleration_reference_ =
-          reference_progress_ >= target_progress_
-              ? 0.0 : m2b.load_acceleration_reference;
+          m2b.load_acceleration_reference;
       leader_position_ += dt * input.leader_velocity;
 
       for (std::size_t i = 0; i < kRobotCount; ++i) {
@@ -2108,15 +2129,7 @@ class FormalFakeAlgorithmNode {
         target_progress_,
         reference_progress_ + dt * current_velocity_reference_);
     if (reference_progress_ >= target_progress_) {
-      unramped_velocity_reference_ = 0.0;
-      unramped_acceleration_reference_ = 0.0;
-      current_velocity_reference_ = 0.0;
-      current_acceleration_reference_ = 0.0;
-      terminal_stop_latched_ = true;
-      ROS_INFO(
-          "Formal execution reached %.3f m; synchronized terminal stop "
-          "latched without endpoint pose hunting",
-          target_progress_);
+      latchTerminalStop();
       publishZero(now);
       publishPublicState(now, false, lower, tracking);
       publishDebug(false, current_upper_, distributed, lower);

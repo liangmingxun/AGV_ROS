@@ -113,6 +113,9 @@ class FormalFakeAlgorithmE2ETest(unittest.TestCase):
         return message
 
     def test_formal_chain_records_state_and_fails_to_zero(self):
+        if rospy.get_param('~exercise_terminal_stop', False):
+            self._check_terminal_stop()
+            return
         expected_method = rospy.get_param("~expected_method", "M1_R1")
         exercise_recorder_gate = rospy.get_param(
             "~exercise_recorder_gate", False)
@@ -299,6 +302,58 @@ class FormalFakeAlgorithmE2ETest(unittest.TestCase):
             topic = "/agv{}/chassis_command".format(index)
             self.assertEqual(len(publisher_map[topic]), 1)
         self.assertNotIn("/cmd_vel", publisher_map)
+
+    def _check_terminal_stop(self):
+        target = 0.20
+        rate = rospy.Rate(100)
+        deadline = rospy.Time.now() + rospy.Duration(8.0)
+        reached = None
+        while rospy.Time.now() < deadline:
+            self.recorder_method_publisher.publish(String(data='M2b_M2b'))
+            self.armed_publisher.publish(Bool(data=True))
+            self.state_publisher.publish(self._state())
+            with self._lock:
+                if self.references and self.references[-1].load_path_progress_reference >= target:
+                    reached = self.references[-1].header.stamp
+            if reached is not None:
+                break
+            rate.sleep()
+        self.assertIsNotNone(reached, 'M2b did not reach the short test target')
+        with self._lock:
+            self.assertTrue(all(any(abs(c.wheel_linear_velocity_left_raw) > 1e-4 or
+                                     abs(c.wheel_linear_velocity_right_raw) > 1e-4
+                                     for c in values) for values in self.commands))
+        # Continue with healthy inputs, lose both state and recorder, then
+        # restore them. Every post-terminal command must remain zero.
+        for phase in range(3):
+            for _ in range(65):
+                if phase != 1:
+                    self.recorder_method_publisher.publish(String(data='M2b_M2b'))
+                    self.armed_publisher.publish(Bool(data=True))
+                    self.state_publisher.publish(self._state())
+                rate.sleep()
+            with self._lock:
+                commands = [c for values in self.commands for c in values
+                            if c.header.stamp > reached + rospy.Duration(0.03)]
+                refs = [r for r in self.references
+                        if r.header.stamp > reached + rospy.Duration(0.03)]
+                states = [c for c in self.controllers
+                          if c.header.stamp > reached + rospy.Duration(0.03)]
+                debug_count = len(self.m2b_debug)
+            self.assertTrue(commands)
+            self.assertTrue(refs)
+            self.assertTrue(all(c.wheel_linear_velocity_left_raw == 0.0 and
+                                c.wheel_linear_velocity_right_raw == 0.0 and
+                                c.linear_velocity_reference == 0.0 and
+                                c.angular_velocity_reference == 0.0 for c in commands))
+            self.assertTrue(all(abs(r.load_path_progress_reference - target) < 1e-9
+                                for r in refs))
+            self.assertTrue(all(c.common_load_velocity_reference == 0.0 for c in states))
+            if phase == 0:
+                frozen_debug_count = debug_count
+            else:
+                self.assertEqual(debug_count, frozen_debug_count,
+                                 'M2b generator advanced after terminal stop')
 
 
 if __name__ == "__main__":
