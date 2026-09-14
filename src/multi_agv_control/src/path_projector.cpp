@@ -165,7 +165,8 @@ ProjectionResult PathProjector::project(const Eigen::Vector2d& point,
       (best_s <= lower + boundary_tolerance ||
        best_s >= upper - boundary_tolerance);
   result.valid = result.converged && std::isfinite(result.distance) &&
-                 result.distance <= config_.maximum_projection_distance;
+                 (!config_.enforce_projection_distance ||
+                  result.distance <= config_.maximum_projection_distance);
   return result;
 }
 

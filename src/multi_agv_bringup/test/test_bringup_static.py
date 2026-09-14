@@ -9,6 +9,59 @@ SOURCE_ROOT = PACKAGE.parent
 
 
 class BringupStaticTest(unittest.TestCase):
+    def test_m2b_normal_and_derated_observation_routes(self):
+        import subprocess
+        import yaml
+        configs = PACKAGE / 'config'
+        script = PACKAGE / 'scripts/run_circle_0p10_comparison.sh'
+        for condition, name, derated in (
+                ('--no-derating', 'formal_circle_0p10_M2b_normal_observation_authorization.yaml', False),
+                ('--derating-0p80', 'formal_circle_0p10_M2b_observation_authorization.yaml', True)):
+            auth = yaml.safe_load((configs / name).read_text())['authorization_scope']
+            self.assertEqual(auth['robot2_derating'], derated)
+            self.assertTrue(auth['runtime_config'].endswith('formal_serial_m2b_circle_0p10_observation_runtime.yaml'))
+            result = subprocess.run(['bash', '-x', str(script), '--method', 'M2b',
+                                     condition, '--reference-v1', '--formation-observation',
+                                     '--confirm-support-range-0p80-clear'],
+                                    cwd=SOURCE_ROOT.parent, capture_output=True, text=True)
+            # Missing physical footprint confirmation refuses before ROS.
+            self.assertEqual(result.returncode, 2)
+            self.assertIn(name, result.stderr)
+            self.assertIn('--confirm-r0p7-smooth-exit-footprint-clear is required', result.stderr)
+            self.assertIn(auth['evaluation_config'], result.stderr)
+
+    def test_m2b_observation_keeps_complete_controller_platform(self):
+        import yaml
+        configs = PACKAGE / 'config'
+        base = yaml.safe_load((configs / 'formal_serial_m1_r1_circle_r0p7_smooth_exit_0p10_pilot_runtime.yaml').read_text())
+        obs = yaml.safe_load((configs / 'formal_serial_m2b_circle_0p10_observation_runtime.yaml').read_text())
+        self.assertTrue(obs.pop('formation_observation_only'))
+        self.assertEqual(obs.pop('maximum_observation_support_distance'), .8)
+        obs['formal_fake_runtime']['configuration_status'] = base['formal_fake_runtime']['configuration_status']
+        self.assertEqual(obs, base)
+        self.assertFalse(obs['formal_fake_runtime']['execution'].get('consistent_reference_acceleration', False))
+        auth = yaml.safe_load((configs / 'formal_circle_0p10_M2b_observation_authorization.yaml').read_text())
+        self.assertTrue(auth['authorization_scope']['upper_config'].endswith('exp2b_M2b.yaml'))
+
+    def test_m2a_observation_is_independent_and_bounded(self):
+        import yaml
+        import subprocess
+        configs = PACKAGE / 'config'
+        base = yaml.safe_load((configs / 'formal_serial_circle_r0p7_smooth_exit_0p10_reference_v1_pilot_runtime.yaml').read_text())
+        obs = yaml.safe_load((configs / 'formal_serial_m2a_circle_0p10_observation_runtime.yaml').read_text())
+        self.assertTrue(obs.pop('formation_observation_only'))
+        self.assertEqual(obs.pop('maximum_observation_support_distance'), .8)
+        obs['formal_fake_runtime']['configuration_status'] = base['formal_fake_runtime']['configuration_status']
+        self.assertEqual(obs, base)
+        auth = yaml.safe_load((configs / 'formal_circle_0p10_M2a_observation_authorization.yaml').read_text())
+        self.assertIn('observation_runtime', auth['authorization_scope']['runtime_config'])
+        script = PACKAGE / 'scripts/run_circle_0p10_comparison.sh'
+        for method in ('M1', 'M2a'):
+            result = subprocess.run(['bash', str(script), '--method', method,
+                                     '--derating-0p80', '--reference-v1',
+                                     '--formation-observation'], capture_output=True)
+            self.assertEqual(result.returncode, 2)
+
     def test_reference_v1_only_changes_acceleration_wiring(self):
         import copy
         import subprocess

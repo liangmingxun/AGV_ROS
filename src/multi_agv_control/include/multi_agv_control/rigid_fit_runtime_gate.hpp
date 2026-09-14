@@ -29,4 +29,21 @@ class RigidFitRuntimeGate {
   double last_stamp_{-1.0};
   bool latched_{false};
 };
+// Observation mode changes only the deformation gate. The independent range
+// gate is immediate and latched, and non-finite fit/range inputs never pass.
+class FormationRuntimeGate {
+ public:
+  bool accept(double residual, double stamp, double residual_limit,
+              double duration, bool observation, double pair_distance,
+              double range_limit) {
+    if (!std::isfinite(residual) || !std::isfinite(pair_distance)) return false;
+    if (observation) {
+      return range_gate_.accept(pair_distance, stamp, range_limit, 0.0);
+    }
+    return residual_gate_.accept(residual, stamp, residual_limit, duration);
+  }
+ private:
+  RigidFitRuntimeGate residual_gate_;
+  RigidFitRuntimeGate range_gate_;
+};
 }  // namespace multi_agv_control

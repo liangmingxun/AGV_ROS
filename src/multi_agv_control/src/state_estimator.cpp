@@ -192,7 +192,8 @@ StateEstimate StateEstimator::updateImpl(const Eigen::Vector2d& measured_positio
   if (dt < config_.minimum_measurement_interval) {
     return last_estimate_;
   }
-  if (measured_velocity && dt <= config_.maximum_measurement_interval &&
+  if (measured_velocity && config_.enforce_progress_correction &&
+      dt <= config_.maximum_measurement_interval &&
       std::abs(projection.s-last_estimate_.progress) >
       config_.maximum_absolute_speed*dt+config_.maximum_position_correction)
     return invalidEstimate(measurement_stamp, projection);

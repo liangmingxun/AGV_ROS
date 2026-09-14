@@ -43,6 +43,7 @@ struct StateEstimatorConfig {
   double maximum_measurement_interval{0.2};
   double maximum_absolute_speed{0.5};
   double maximum_position_correction{0.025};
+  bool enforce_progress_correction{true};
 };
 
 struct StateEstimate {

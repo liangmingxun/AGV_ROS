@@ -9,9 +9,10 @@ usage() {
   echo "--derating-0p75 selects the shared three-method condition, ratio=0.75."
   echo "--tracking-v2: separate 0.75 paired pilot with shared longitudinal gain 1.3; original configs unchanged."
   echo "--reconciliation-v1: separate 0.75 M1/M2a candidate with slow bounded shared-R1 execution reconciliation."
-  echo "--reference-v1: current 0.75/0.80 comparison baseline. M1/M2a use the corrected shared-R1 acceleration; M2b retains its complete lower controller."
+  echo "--reference-v1: current 0.75/0.80 comparison baseline (also M2b normal). M1/M2a use the corrected shared-R1 acceleration; M2b retains its complete lower controller."
+  echo "--formation-observation: M2a 0.80 / M2b normal or 0.80 reference-v1; geometric errors diagnostic, support-pair distance <=0.80 m; requires --confirm-support-range-0p80-clear."
 }
-method=""; condition=""; tracking_v2=false; reconciliation_v1=false; reference_v1=false; forwarded=()
+method=""; condition=""; tracking_v2=false; reconciliation_v1=false; reference_v1=false; observation=false; range_clear=false; forwarded=()
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --method)
@@ -23,6 +24,8 @@ while [[ $# -gt 0 ]]; do
     --tracking-v2) tracking_v2=true; shift ;;
     --reconciliation-v1) reconciliation_v1=true; shift ;;
     --reference-v1) reference_v1=true; shift ;;
+    --formation-observation) observation=true; shift ;;
+    --confirm-support-range-0p80-clear) range_clear=true; shift ;;
     -h|--help) usage; exit 0 ;;
     *) forwarded+=("$1"); shift ;;
   esac
@@ -42,8 +45,8 @@ if [[ "$tracking_v2" == true && "$reconciliation_v1" == true ]]; then
   exit 2
 fi
 config_dir=src/multi_agv_bringup/config
-if [[ "$reference_v1" == true && ( ( "$condition" != derating-0p75 && "$condition" != derating-0p80 ) || "$tracking_v2" == true || "$reconciliation_v1" == true ) ]]; then
-  echo "ERROR: --reference-v1 requires derating-0p75 or derating-0p80 and excludes other candidates" >&2
+if [[ "$reference_v1" == true && ( ( "$condition" != derating-0p75 && "$condition" != derating-0p80 && ! ( "$method" == M2b && "$condition" == no-derating ) ) || "$tracking_v2" == true || "$reconciliation_v1" == true ) ]]; then
+  echo "ERROR: --reference-v1 requires derating-0p75/0p80 or M2b no-derating, and excludes other candidates" >&2
   exit 2
 fi
 export FORMAL_UPPER_MODE="$method"
@@ -98,6 +101,23 @@ if [[ "$reference_v1" == true ]]; then
     export FORMAL_EXECUTION_AUTHORIZATION_CONFIG="$config_dir/formal_circle_0p10_${method}_${scope}_reference_v1_authorization.yaml"
     export FORMAL_EXPERIMENT_ID="${prefix}_circle_r0p7_cw_smooth_exit_0p10_${scope}_reference_v1_pilot"
   fi
+  export FORMAL_RUN_PREFIX="$FORMAL_EXPERIMENT_ID"
+fi
+if [[ "$observation" == true ]]; then
+  if [[ ( "$method" != M2a && "$method" != M2b ) || ( "$condition" != derating-0p80 && ! ( "$method" == M2b && "$condition" == no-derating ) ) || "$reference_v1" != true || "$range_clear" != true ]]; then
+    echo "ERROR: formation observation requires M2a/M2b --derating-0p80 (or M2b --no-derating), --reference-v1 --confirm-support-range-0p80-clear" >&2
+    exit 2
+  fi
+  export FORMAL_RUNTIME_CONFIG="$config_dir/formal_serial_${method,,}_circle_0p10_observation_runtime.yaml"
+  export FORMAL_EXECUTION_AUTHORIZATION_CONFIG="$config_dir/formal_circle_0p10_${method}_observation_authorization.yaml"
+  if [[ "$condition" == no-derating ]]; then
+    export FORMAL_EXECUTION_AUTHORIZATION_CONFIG="$config_dir/formal_circle_0p10_M2b_normal_observation_authorization.yaml"
+  fi
+  export FORMAL_EXPERIMENT_ID="${prefix}_circle_r0p7_cw_smooth_exit_0p10_${scope}_observation_range0p80_startup_v2_pilot"
+  export FORMAL_RUN_PREFIX="$FORMAL_EXPERIMENT_ID"
+fi
+if [[ "$method" == M2b && "$observation" != true ]]; then
+  export FORMAL_EXPERIMENT_ID="${FORMAL_EXPERIMENT_ID}_startup_v2"
   export FORMAL_RUN_PREFIX="$FORMAL_EXPERIMENT_ID"
 fi
 export FORMAL_RUN_TIMEOUT_SECONDS=140

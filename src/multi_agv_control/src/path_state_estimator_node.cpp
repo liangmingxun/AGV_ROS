@@ -123,6 +123,9 @@ class PathStateEstimatorNode {
                         maximum_rigid_fit_residual_);
     private_node_.param("runtime_rigid_fit_confirmation_seconds",
                         runtime_rigid_fit_confirmation_seconds_, 0.0);
+    private_node_.param("formation_observation_only", formation_observation_only_, false);
+    private_node_.param("maximum_observation_support_distance",
+                        maximum_observation_support_distance_, 0.0);
     private_node_.param("maximum_load_path_transient_hold",
                         maximum_load_path_transient_hold_, 0.05);
     private_node_.param("maximum_robot_path_transient_hold",
@@ -145,6 +148,12 @@ class PathStateEstimatorNode {
         !std::isfinite(runtime_rigid_fit_confirmation_seconds_) ||
         runtime_rigid_fit_confirmation_seconds_ < 0.0 ||
         runtime_rigid_fit_confirmation_seconds_ > 0.5 ||
+        (formation_observation_only_ &&
+         (!use_fused_motion_velocity_ || !derive_virtual_load_from_robots_ ||
+          !auto_anchor_from_robot_poses_ ||
+          !std::isfinite(maximum_observation_support_distance_) ||
+          maximum_observation_support_distance_ <= 0.30 ||
+          maximum_observation_support_distance_ > 0.80)) ||
         maximum_load_path_transient_hold_ < 0.0 ||
         maximum_load_path_transient_hold_ > 0.10 ||
         maximum_robot_path_transient_hold_ < 0.0 ||
@@ -154,8 +163,17 @@ class PathStateEstimatorNode {
     synchronization_queue_size_ =
         static_cast<std::size_t>(synchronization_queue_size);
 
-    const auto projector_config = loadProjectorConfig();
-    const auto estimator_config = loadEstimatorConfig();
+    auto projector_config = loadProjectorConfig();
+    observation_off_path_warning_distance_ = projector_config.maximum_projection_distance;
+    auto estimator_config = loadEstimatorConfig();
+    // In the dedicated disconnected-fleet observation, distance from an ideal
+    // path and jumps in its scalar projection are tracking diagnostics, not
+    // loss of the measured camera pose. Keep convergence, finite motion and
+    // source timing validation; the independent support-range latch remains.
+    if (formation_observation_only_) {
+      projector_config.enforce_projection_distance = false;
+      estimator_config.enforce_progress_correction = false;
+    }
     private_node_.param("signed_start_extension", signed_start_extension_, 0.0);
     if (!std::isfinite(signed_start_extension_) || signed_start_extension_ < 0.0 ||
         signed_start_extension_ > 0.025 ||
@@ -212,12 +230,26 @@ class PathStateEstimatorNode {
   }
 
  private:
-  bool runtimeFitAccepted(bool valid, double residual, ros::Time stamp) {
+  bool runtimeFitAccepted(bool valid, double residual, ros::Time stamp,
+      const std::array<Eigen::Vector2d, kRobotCount>& supports) {
     if (!valid) return false;
+    double pair_distance = 0.0;
+    for (std::size_t i=0; i<kRobotCount; ++i) {
+      if (!supports[i].allFinite()) return false;
+      for (std::size_t j=0; j<i; ++j)
+        pair_distance = std::max(pair_distance, (supports[i]-supports[j]).norm());
+    }
     const bool accepted = runtime_rigid_fit_gate_.accept(
         residual, stamp.toSec(), maximum_runtime_rigid_fit_residual_,
-        runtime_rigid_fit_confirmation_seconds_);
+        runtime_rigid_fit_confirmation_seconds_, formation_observation_only_,
+        pair_distance, maximum_observation_support_distance_);
     if (!accepted) {
+      if (formation_observation_only_) {
+        ROS_ERROR_THROTTLE(1.0,
+            "Observation range gate rejected support distance %.6f m; limit %.6f m; range violations remain latched until estimator restart",
+            pair_distance, maximum_observation_support_distance_);
+        return false;
+      }
       ROS_ERROR_THROTTLE(1.0,
           "Runtime rigid-fit hard gate rejected residual %.6f m; limit %.6f m, confirmation %.3f s; confirmed violations remain latched until estimator restart",
           residual, maximum_runtime_rigid_fit_residual_,
@@ -782,7 +814,7 @@ class PathStateEstimatorNode {
     StateEstimate candidate = velocity ? robot->estimator->updateWithVelocity(
         position, measurement_stamp.toSec(), *velocity) : robot->estimator->update(
         position, measurement_stamp.toSec());
-    if (signed_start_extension_ > 0.0 && candidate.projection.valid &&
+    if (!formation_observation_only_ && signed_start_extension_ > 0.0 && candidate.projection.valid &&
         candidate.projection.s <= 1e-9) {
       const auto start = geometry_.sample(robot->robot_id == "agv1" ? 0 :
                                           robot->robot_id == "agv2" ? 1 : 2, 0.0);
@@ -794,11 +826,22 @@ class PathStateEstimatorNode {
     }
     candidate.progress -= signed_start_extension_;
     candidate.projection.s -= signed_start_extension_;
+    if (formation_observation_only_ && candidate.valid &&
+        candidate.projection.distance > observation_off_path_warning_distance_) {
+      ROS_WARN_THROTTLE(1.0, "Observation tracking deviation for %s: off-path distance %.6f m; measured localization retained",
+                        robot->robot_id.c_str(), candidate.projection.distance);
+    }
     if (candidate.valid) {
       robot->last_valid_path_state = candidate;
       robot->last_valid_path_stamp = measurement_stamp;
       return candidate;
     }
+
+    ROS_WARN_THROTTLE(1.0,
+        "Path estimate rejected for %s: projection_valid=%d converged=%d distance=%.6f m; observation=%d; finite-motion/timing checks remain enabled",
+        robot->robot_id.c_str(), candidate.projection.valid,
+        candidate.projection.converged, candidate.projection.distance,
+        formation_observation_only_);
 
     const double hold_age = robot->last_valid_path_stamp.isZero()
         ? std::numeric_limits<double>::infinity()
@@ -897,6 +940,19 @@ class PathStateEstimatorNode {
           maximum_sync_slop_);
     }
     const auto measured_samples = synchronized_samples;
+    // Check physical spread before path validity/projection: a large real
+    // displacement must latch the range gate even if the derivative estimator
+    // rejects that same sample. Never rely on a successful load fit to check it.
+    if (formation_observation_only_ && synchronized) {
+      std::array<Eigen::Vector2d, kRobotCount> measured_supports;
+      ros::Time range_stamp = measured_samples[0]->stamp;
+      for (std::size_t i=0; i<kRobotCount; ++i) {
+        measured_supports[i] = measured_samples[i]->support_pose.position;
+        range_stamp = std::min(range_stamp, measured_samples[i]->stamp);
+      }
+      if (!runtimeFitAccepted(true, 0.0, range_stamp, measured_supports))
+        synchronized = false;
+    }
     std::array<OdometrySample, kRobotCount> projected;
     const bool projection_requested = maximum_motion_projection_seconds_ > 0.0 &&
         path_anchor_initialized_ && synchronized;
@@ -1010,7 +1066,7 @@ class PathStateEstimatorNode {
       }
       const auto fit = fitRigidLoadPose(supports, offsets);
       if (!runtimeFitAccepted(fit.valid, fit.rms_residual,
-                              (*minmax.first)->stamp)) {
+                              (*minmax.first)->stamp, supports)) {
         return;
       }
       state->load_localization_source = robot_pose_source_;
@@ -1197,7 +1253,7 @@ class PathStateEstimatorNode {
       }
       const auto fit = fitRigidLoadPose(supports, offsets);
       if (runtimeFitAccepted(fit.valid, fit.rms_residual,
-                             (*minmax.first)->stamp)) {
+                             (*minmax.first)->stamp, supports)) {
         state.load_localization_source =
             agv_msgs::CooperativeState::SOURCE_ODOM;
         state.load_pose_valid = true;
@@ -1241,7 +1297,10 @@ class PathStateEstimatorNode {
   double maximum_rigid_fit_residual_{0.05};
   double maximum_runtime_rigid_fit_residual_{0.05};
   double runtime_rigid_fit_confirmation_seconds_{0.0};
-  RigidFitRuntimeGate runtime_rigid_fit_gate_;
+  FormationRuntimeGate runtime_rigid_fit_gate_;
+  bool formation_observation_only_{false};
+  double observation_off_path_warning_distance_{0.15};
+  double maximum_observation_support_distance_{0.0};
   double maximum_load_path_transient_hold_{0.05};
   double maximum_robot_path_transient_hold_{0.05};
   std::string localization_mode_{"odometry_pretest"};

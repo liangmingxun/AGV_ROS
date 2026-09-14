@@ -12,6 +12,20 @@ using multi_agv_control::PathProjectorConfig;
 using multi_agv_control::ProjectionCurveSample;
 using multi_agv_control::SCurvePath;
 
+TEST(PathProjector, ObservationDistanceIsDiagnosticNotValidity) {
+  auto line = [](double s) { return ProjectionCurveSample{{s,0}, {1,0}, {0,0}}; };
+  PathProjectorConfig config;
+  config.maximum_projection_distance = .15;
+  PathProjector normal(2., line, config);
+  EXPECT_FALSE(normal.project({.5,.3}, .5, .35).valid);
+  config.enforce_projection_distance = false;
+  PathProjector observation(2., line, config);
+  auto result = observation.project({.5,.3}, .5, .35);
+  EXPECT_TRUE(result.valid);
+  EXPECT_NEAR(result.distance, .3, 1e-8);
+  EXPECT_FALSE(observation.project({NAN,.3}, .5, .35).valid);
+}
+
 namespace {
 
 PathProjector centerProjector(const SCurvePath& path,

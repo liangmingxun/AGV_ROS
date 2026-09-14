@@ -1495,6 +1495,7 @@ class FormalFakeAlgorithmNode {
     last_wheel_right_.fill(0.0);
     execution_reference_derivative_.reset();
     execution_channel_velocity_command_.fill(0.0);
+    m2b_execution_reset_pending_ = true;
     robot2_derating_elapsed_seconds_ = 0.0;
     if (transport_type_ == "serial" && execution_initialized_ &&
         !terminal_stop_latched_) {
@@ -1837,9 +1838,34 @@ class FormalFakeAlgorithmNode {
 
     if (m2b_selected_) {
       M2bInput input;
+      if (transport_type_ == "serial") {
+        // Physical execution starts at rest, not at distributed_initial's
+        // steady velocity. Reset once after qualification or a safety zero;
+        // never advance the leader while localization is invalid.
+        if (m2b_execution_reset_pending_) {
+          leader_position_ = reference_progress_;
+          M2bGeneratorState initial;
+          initial.position.fill(leader_position_);
+          initial.velocity.fill(0.0);
+          initial.auxiliary.fill(0.0);
+          m2b_controller_->reset(initial);
+          m2b_execution_reset_pending_ = false;
+          ROS_INFO("M2b physical execution reset at %.6f m: generator at rest, startup ramp %.3f s",
+                   leader_position_, startup_ramp_seconds_);
+        }
+        unramped_velocity_reference_ = leader_velocity_;
+        unramped_acceleration_reference_ = leader_acceleration_;
+        if (!updateExecutionReference(dt)) {
+          publishZero(now);
+          publishPublicState(now, false, lower, tracking);
+          return;
+        }
+      }
       input.leader_position = leader_position_;
-      input.leader_velocity = leader_velocity_;
-      input.leader_acceleration = leader_acceleration_;
+      input.leader_velocity = transport_type_ == "serial"
+          ? current_velocity_reference_ : leader_velocity_;
+      input.leader_acceleration = transport_type_ == "serial"
+          ? current_acceleration_reference_ : leader_acceleration_;
       input.dt_seconds = dt;
       for (std::size_t i = 0; i < kRobotCount; ++i) {
         input.position_actual[i] = algorithmPositionActual(i);
@@ -1871,7 +1897,7 @@ class FormalFakeAlgorithmNode {
       current_acceleration_reference_ =
           reference_progress_ >= target_progress_
               ? 0.0 : m2b.load_acceleration_reference;
-      leader_position_ += dt * leader_velocity_;
+      leader_position_ += dt * input.leader_velocity;
 
       for (std::size_t i = 0; i < kRobotCount; ++i) {
         lower[i].position_error = m2b.position_error[i];
@@ -1887,6 +1913,27 @@ class FormalFakeAlgorithmNode {
         lower[i].channel_velocity_command = std::clamp(
             algorithmVelocityActual(i) + dt * m2b.input_limited[i],
             -0.15, 0.52);
+        if (transport_type_ == "serial") {
+          // Integrate the literature controller's acceleration on actuator
+          // command state. Capability remains log-only in M2b: do not use
+          // fleet/local dynamic bounds here or silently turn M2b into M1.
+          double envelope = 0.52;
+          if (startup_scale_ < 1.0 && startup_ramp_seconds_ > 0.0) {
+            envelope = startupVelocityEnvelope(
+                current_velocity_reference_, 0.52, startup_scale_,
+                startup_elapsed_seconds_ / startup_ramp_seconds_,
+                startup_catchup_margin_mps_);
+          }
+          const double unprojected = execution_channel_velocity_command_[i] +
+              dt * m2b.input_limited[i];
+          execution_channel_velocity_command_[i] = std::clamp(
+              unprojected,
+              std::max(-0.15, -envelope), envelope);
+          lower[i].channel_velocity_command =
+              execution_channel_velocity_command_[i];
+          lower[i].velocity_projection_active =
+              lower[i].channel_velocity_command != unprojected;
+        }
         lower[i].valid = true;
 
         PlanarTrackingInput tracking_input;
@@ -1917,6 +1964,9 @@ class FormalFakeAlgorithmNode {
       execution_adapter_.adapt(
           reference_progress_, channel_velocity, robot_pose, support_pose,
           &tracking);
+      for (std::size_t i = 0; i < kRobotCount; ++i) {
+        blendStartupTrackingFeedback(i, &tracking[i]);
+      }
       std::array<std::array<double, 2>, 3> wheel_demand_before_limit;
       for (std::size_t i = 0; i < kRobotCount; ++i) {
         wheel_demand_before_limit[i] = {{
@@ -2270,6 +2320,7 @@ class FormalFakeAlgorithmNode {
   bool confirm_unloaded_fixture_{false};
   bool command_outputs_ready_{false};
   bool m2b_selected_{false};
+  bool m2b_execution_reset_pending_{true};
   bool safety_abort_latched_{false};
   bool execution_initialized_{false};
   bool terminal_stop_latched_{false};

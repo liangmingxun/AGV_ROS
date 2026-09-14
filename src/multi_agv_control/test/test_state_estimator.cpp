@@ -18,6 +18,23 @@ using multi_agv_control::StateEstimator;
 using multi_agv_control::StateEstimatorConfig;
 using multi_agv_control::SupportOffset;
 
+TEST(StateEstimator, ObservationProgressJumpDoesNotHideFiniteProtection) {
+  auto line = [](double s) { return ProjectionCurveSample{{s,0}, {1,0}, {0,0}}; };
+  PathProjectorConfig pc;
+  pc.enforce_projection_distance = false;
+  StateEstimatorConfig ec;
+  ec.enforce_progress_correction = false;
+  StateEstimator observation(PathProjector(2., line, pc), ec);
+  EXPECT_TRUE(observation.updateWithVelocity({.1,0}, 1., {.1,0}).valid);
+  EXPECT_TRUE(observation.updateWithVelocity({.3,.2}, 1.01, {.1,0}).valid);
+  EXPECT_FALSE(observation.updateWithVelocity({.3,.2}, 1.02, {NAN,0}).valid);
+  EXPECT_FALSE(observation.updateWithVelocity({.3,.2}, 1.00, {.1,0}).valid);
+  ec.enforce_progress_correction = true;
+  StateEstimator normal(PathProjector(2., line, pc), ec);
+  EXPECT_TRUE(normal.updateWithVelocity({.1,0}, 1., {.1,0}).valid);
+  EXPECT_FALSE(normal.updateWithVelocity({.3,.2}, 1.01, {.1,0}).valid);
+}
+
 namespace {
 
 TEST(SignedStart, MovementAcrossStartRetainsNegativeInitialCoordinate) {

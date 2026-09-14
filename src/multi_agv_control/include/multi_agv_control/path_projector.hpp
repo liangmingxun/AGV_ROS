@@ -31,6 +31,7 @@ struct PathProjectorConfig {
   std::size_t maximum_refinement_iterations{48};
   double convergence_tolerance{1e-9};
   double maximum_projection_distance{0.25};
+  bool enforce_projection_distance{true};
 };
 
 struct ProjectionResult {

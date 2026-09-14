@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "multi_agv_control/m2b_controller.hpp"
+#include "multi_agv_control/startup_tracking.hpp"
 
 namespace mac = multi_agv_control;
 namespace {
@@ -51,6 +52,57 @@ TEST(M2bController, RejectsGeneratorBoundary) {
   mac::M2bGeneratorState state;
   state.velocity[0] = 0.52;
   EXPECT_THROW(controller.reset(state), std::invalid_argument);
+}
+
+TEST(M2bController, RestRampWithLaggedNormalAndDeratedPlant) {
+  for (const double ratio : {1.0, 0.8}) {
+    mac::M2bController controller(mac::M2bConfig{});
+    mac::M2bGeneratorState initial;
+    initial.position.fill(0.0);
+    initial.velocity.fill(0.0);
+    initial.auxiliary.fill(0.0);
+    controller.reset(initial);
+    mac::M2bInput input;
+    input.dt_seconds = 0.01;
+    std::array<double, 3> command{{0.0, 0.0, 0.0}};
+    double startup_peak = 0.0;
+    for (int tick = 0; tick < 2500; ++tick) {
+      const double elapsed = (tick + 1) * input.dt_seconds;
+      const double tau = std::min(1.0, elapsed / 4.0);
+      const double scale = mac::startupRampScale(tau, 0.6);
+      input.leader_velocity = 0.1 * scale;
+      input.leader_acceleration =
+          0.1 * mac::startupRampRate(tau, 0.6, 4.0);
+      input.reported_capability = {{0.16, 0.16 * ratio, 0.16}};
+      const auto output = controller.step(input);
+      ASSERT_TRUE(output.valid) << "ratio=" << ratio << " tick=" << tick;
+      const double envelope = scale < 1.0
+          ? mac::startupVelocityEnvelope(output.load_velocity_reference,
+                0.52, scale, tau, 0.008) : 0.52;
+      for (std::size_t i = 0; i < 3; ++i) {
+        command[i] = std::clamp(command[i] +
+            input.dt_seconds * output.input_limited[i],
+            std::max(-0.15, -envelope), envelope);
+        const double cap = i == 1 && elapsed >= 15.0
+            ? 0.16 * ratio : 0.16;
+        const double applied = std::clamp(command[i], -cap, cap);
+        // Representative first-order motor lag; not hardware qualification.
+        input.velocity_actual[i] += input.dt_seconds / 0.12 *
+            (applied - input.velocity_actual[i]);
+        input.position_actual[i] +=
+            input.dt_seconds * input.velocity_actual[i];
+        if (elapsed <= 6.0) startup_peak = std::max(
+            startup_peak, std::abs(input.velocity_actual[i]));
+        EXPECT_TRUE(std::isfinite(command[i]));
+        EXPECT_LE(std::abs(applied), cap);
+      }
+      if (tick == 0) {
+        EXPECT_LT(output.load_velocity_reference, 0.001);
+      }
+      input.leader_position += input.dt_seconds * input.leader_velocity;
+    }
+    EXPECT_LT(startup_peak, 0.13);
+  }
 }
 
 TEST(M2bController, CapabilityIsLogOnly) {
