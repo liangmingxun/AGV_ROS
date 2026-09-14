@@ -406,6 +406,21 @@ class CameraConversionTest(unittest.TestCase):
         self.assertAlmostEqual(aligned["upper_effective_common_velocity"], .099)
         self.assertAlmostEqual(aligned["agv2_mapped_path_velocity_lower"], .12)
 
+    def test_v4_transient_diagnostic_is_separate_and_lossless(self):
+        raw = {name: [] for name in RAW_SCHEMAS}
+        raw["cooperative_state.csv"] = [{"header_stamp":1.01}]
+        values = [1.,10.,9.,1.,1.,0.,1.,2.1,.024,1.5,1.,.024,
+                  .12,.10,.096,.124,0.,.048,.62]
+        raw["transient_yaw_disturbance_state.csv"] = [{
+            "header_stamp":1.,"layout_label":"transient_yaw_v4:header19",
+            "data_json":json.dumps(values)}]
+        aligned = _aligned_rows(raw,.2)[0]
+        self.assertTrue(aligned["transient_yaw_state_available"])
+        self.assertAlmostEqual(aligned["transient_yaw_causal_wheel_margin"],.62)
+        self.assertAlmostEqual(aligned["transient_yaw_left_raw"],.12)
+        self.assertAlmostEqual(aligned["transient_yaw_right_disturbed"],.124)
+        self.assertFalse(aligned["yaw_drive_disturbance_state_available"])
+
     def test_camera_and_world_pose_fields_are_losslessly_exported(self):
         stamp = genpy.Time.from_sec(12.5)
         camera = PoseStamped()

@@ -1,0 +1,30 @@
+exp2c_v4_transient_yaw_recovery:
+  hardware_execution_authorized: false
+  task_velocity_mps: 0.100
+  nominal_upper_mps: 0.112
+  initial_upper_mps: 0.112
+  inner_margin_mps: 0.005
+  physical_wheel_limit_mps: 0.160
+  trigger_robot: agv2
+  trigger_actual_progress_m: 2.0
+  trigger_clock: wall_clock_one_shot
+  pulse_envelope: quintic_rise_first_half_quintic_fall_second_half_no_plateau
+  candidates:
+    A: {amplitude_mps: 0.024, duration_seconds: 1.5}
+    B: {amplitude_mps: 0.022, duration_seconds: 2.0}
+  candidate_order: [A, B]
+  use_B_only_if_A_safety_rigidity_or_limiter_invalid: true
+  baseline_window_seconds: 3.0
+  recovery_observation_seconds: 15.0
+  recovery_required_hold_seconds: 0.5
+  recovery_envelope: median_plus_minus_max_3MAD_floor
+  recovery_floors:
+    heading_rad: 0.010
+    support_m: 0.002
+    rigid_fit_m: 0.001
+  recovery_requires_all_three_recovered_for_screen: true
+  risk_region_wheel_margin_threshold: 1.0
+  wheel_margin_source: exact_one_cycle_delayed_controller_pre_disturbance_raw
+  actual_reference_reduction: same_run_upper_candidate_minus_published_effective_common_velocity_signed
+  screening_run_reuse_for_pair: false
+  automatic_parameter_search: false

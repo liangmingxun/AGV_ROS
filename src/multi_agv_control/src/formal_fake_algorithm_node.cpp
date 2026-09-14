@@ -36,6 +36,7 @@
 #include "multi_agv_control/support_geometry.hpp"
 #include "multi_agv_control/upper_reference_generator.hpp"
 #include "multi_agv_control/yaw_drive_disturbance.hpp"
+#include "multi_agv_control/transient_yaw_disturbance.hpp"
 
 namespace multi_agv_control {
 namespace {
@@ -149,6 +150,12 @@ class FormalFakeAlgorithmNode {
       throw std::runtime_error(
           "Exp2c-v2 yaw disturbance is structurally restricted to fake transport");
     }
+    if (transient_yaw_config_.enabled &&
+        (transport_type_ != "fake" ||
+         experiment_id_ != "exp2c_v4_transient_yaw_recovery" ||
+         (upper_config.mode != UpperMode::kM1 && upper_config.mode != UpperMode::kM1b))) {
+      throw std::runtime_error("Exp2c-v4 transient yaw is restricted to isolated fake M1/M1b with no hardware grant");
+    }
     upper_mode_ = upper_config.mode;
     hard_capability_envelope_enabled_ =
         upper_config.hard_capability_envelope_enabled;
@@ -235,6 +242,10 @@ class FormalFakeAlgorithmNode {
     yaw_drive_disturbance_publisher_ =
         node_.advertise<std_msgs::Float64MultiArray>(
             "/multi_agv/yaw_drive_disturbance_state", 10, false);
+    if (transient_yaw_config_.enabled) {
+      transient_yaw_publisher_ = node_.advertise<std_msgs::Float64MultiArray>(
+          "/multi_agv/transient_yaw_disturbance_state", 10, false);
+    }
     timer_ = node_.createTimer(
         ros::Duration(1.0 / publish_rate_),
         &FormalFakeAlgorithmNode::step, this);
@@ -572,6 +583,15 @@ class FormalFakeAlgorithmNode {
                         yaw_drive_disturbance_config_.transition_length, 0.15);
     private_node_.param(root + "yaw_drive_disturbance_v2/amplitude",
                         yaw_drive_disturbance_config_.amplitude, 0.004);
+    private_node_.param(root + "transient_yaw_v4/enabled", transient_yaw_config_.enabled, false);
+    private_node_.param(root + "transient_yaw_v4/trigger_progress", transient_yaw_config_.trigger_progress, 2.0);
+    private_node_.param(root + "transient_yaw_v4/amplitude", transient_yaw_config_.amplitude, .024);
+    private_node_.param(root + "transient_yaw_v4/duration", transient_yaw_config_.duration, 1.5);
+    validateTransientYawConfig(transient_yaw_config_);
+    if (transient_yaw_config_.enabled &&
+        (yaw_drive_disturbance_config_.enabled || risk_disturbance_config_.enabled)) {
+      throw std::runtime_error("Exp2c-v4 cannot be combined with v1/v2/v3 disturbances");
+    }
     private_node_.param(
         root + "lower/velocity_lower_bound",
         velocity_lower_bound_, -0.15);
@@ -1650,7 +1670,8 @@ class FormalFakeAlgorithmNode {
     std_msgs::Float64MultiArray message;
     message.layout.dim.resize(1);
     const bool v3_diagnostics =
-        experiment_id_ == "exp2c_v3_nominal_headroom_fake";
+        experiment_id_ == "exp2c_v3_nominal_headroom_fake" ||
+        experiment_id_ == "exp2c_v4_transient_yaw_recovery";
     message.layout.dim[0].label = v3_diagnostics
         ? "formal_algorithm_state_v3:header10+3x29+reference4"
         : "formal_algorithm_state_v2:header10+3x29";
@@ -1854,6 +1875,27 @@ class FormalFakeAlgorithmNode {
         value.left_disturbed, value.right_disturbed,
         value.mean_longitudinal_delta, value.yaw_differential_delta};
     yaw_drive_disturbance_publisher_.publish(message);
+  }
+
+  void publishTransientYaw(const ros::Time& stamp) {
+    if (!transient_yaw_config_.enabled) return;
+    const auto& v = transient_yaw_output_;
+    std_msgs::Float64MultiArray message;
+    message.layout.dim.resize(1);
+    message.layout.dim[0].label = "transient_yaw_v4:header19";
+    message.layout.dim[0].size = message.layout.dim[0].stride = 19U;
+    message.data = {stamp.toSec(), v.wall_time, v.trigger_wall_time,
+        v.triggered ? 1.0 : 0.0, v.active ? 1.0 : 0.0, v.finished ? 1.0 : 0.0,
+        v.elapsed, v.progress, transient_yaw_config_.amplitude,
+        transient_yaw_config_.duration, v.envelope, v.disturbance,
+        v.left_raw, v.right_raw, v.left_disturbed, v.right_disturbed,
+        .5 * ((v.left_disturbed - v.left_raw) + (v.right_disturbed - v.right_raw)),
+        (v.right_disturbed - v.right_raw) - (v.left_disturbed - v.left_raw),
+        normalisedMargin(std::min(
+            capability_[1].max_wheel_linear_velocity_left - std::abs(previous_wheel_raw_[1][0]),
+            capability_[1].max_wheel_linear_velocity_right - std::abs(previous_wheel_raw_[1][1])),
+            wheel_safe_margin_)};
+    transient_yaw_publisher_.publish(message);
   }
 
   void publishExecutionLimiter(
@@ -2418,6 +2460,17 @@ class FormalFakeAlgorithmNode {
         yaw_drive_disturbance_output_.right_disturbed -
         yaw_drive_disturbance_output_.left_disturbed) /
         tracker_config_.wheel_separation[1];
+    if (transient_yaw_config_.enabled) {
+      transient_yaw_output_ = transient_yaw_pulse_.evaluate(
+          transient_yaw_config_, 2, state_.s_actual[1],
+          ros::WallTime::now().toSec(), wheel_demand_before_limit[1][0],
+          wheel_demand_before_limit[1][1]);
+      execution_tracking[1].wheel_linear_velocity_left_raw = transient_yaw_output_.left_disturbed;
+      execution_tracking[1].wheel_linear_velocity_right_raw = transient_yaw_output_.right_disturbed;
+      execution_tracking[1].linear_velocity_raw = .5 * (transient_yaw_output_.left_disturbed + transient_yaw_output_.right_disturbed);
+      execution_tracking[1].angular_velocity_raw = (transient_yaw_output_.right_disturbed - transient_yaw_output_.left_disturbed) / tracker_config_.wheel_separation[1];
+      publishTransientYaw(now);
+    }
     if (!trackingPassesSerialEmergencyGate(execution_tracking, dt)) {
       publishZero(now);
       publishPublicState(now, false, lower, tracking);
@@ -2502,6 +2555,7 @@ class FormalFakeAlgorithmNode {
   ros::Publisher m2b_debug_publisher_;
   ros::Publisher risk_disturbance_publisher_;
   ros::Publisher yaw_drive_disturbance_publisher_;
+  ros::Publisher transient_yaw_publisher_;
   ros::Timer timer_;
   agv_msgs::CooperativeState state_;
   agv_msgs::CooperativeState latest_received_state_;
@@ -2590,6 +2644,9 @@ class FormalFakeAlgorithmNode {
   std::array<RiskDisturbanceOutput, 3> risk_disturbance_output_{};
   YawDriveDisturbanceConfig yaw_drive_disturbance_config_;
   YawDriveDisturbanceOutput yaw_drive_disturbance_output_{};
+  TransientYawConfig transient_yaw_config_;
+  TransientYawPulse transient_yaw_pulse_;
+  TransientYawOutput transient_yaw_output_{};
   std::uint32_t reconciliation_maximum_applied_sequence_lag_{5U};
   std::size_t m1_derating_reserve_robot_index_{1U};
   double initialization_elapsed_seconds_{0.0};

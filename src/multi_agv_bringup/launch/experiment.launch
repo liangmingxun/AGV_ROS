@@ -46,6 +46,7 @@
   <!-- Must be frozen from the mapped nominal baseline before recovery metrics. -->
   <arg name="nominal_agv2_mapped_capability" default="0.0"/>
   <arg name="nominal_common_velocity" default="0.08"/>
+  <arg name="record_topics_config" default="$(find multi_agv_bringup)/config/record_topics.yaml"/>
   <arg name="evaluation_target" default="1.0"/>
   <arg name="require_approved_config" default="false"/>
   <arg name="formal_statistics_requested" default="false"/>
@@ -87,7 +88,7 @@
     <param name="connection_wait_seconds" value="5.0"/>
     <param name="preflight_wait_seconds" value="15.0"/>
     <rosparam command="load"
-              file="$(find multi_agv_bringup)/config/record_topics.yaml"/>
+              file="$(arg record_topics_config)"/>
     <rosparam param="config_files" subst_value="true">
       ["$(find multi_agv_bringup)/config/common_platform.yaml",
        "$(find multi_agv_bringup)/config/agv1_chassis.yaml",
@@ -106,7 +107,7 @@
        "$(arg evaluation_config)",
        "$(find multi_agv_bringup)/config/fleet_inventory.yaml",
        "$(find multi_agv_bringup)/config/software_watchdog.yaml",
-       "$(find multi_agv_bringup)/config/record_topics.yaml"]
+       "$(arg record_topics_config)"]
     </rosparam>
     <rosparam param="camera_config_files" subst_value="true">
       ["$(arg vision_bridge_config)", "$(arg windows_sender_manifest)"]

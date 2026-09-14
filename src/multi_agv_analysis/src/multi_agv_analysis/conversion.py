@@ -138,6 +138,9 @@ RAW_SCHEMAS = {
     "risk_disturbance_state.csv": [
         "topic", "bag_stamp", "header_stamp", "layout_label", "data_json",
     ],
+    "transient_yaw_disturbance_state.csv": [
+        "topic", "bag_stamp", "header_stamp", "layout_label", "data_json",
+    ],
     "yaw_drive_disturbance_state.csv": [
         "topic", "bag_stamp", "header_stamp", "layout_label", "data_json",
     ],
@@ -448,6 +451,8 @@ def _extract(topic, bag_stamp, message):
             return "risk_disturbance_state.csv", row
         if topic == "/multi_agv/yaw_drive_disturbance_state":
             return "yaw_drive_disturbance_state.csv", row
+        if topic == "/multi_agv/transient_yaw_disturbance_state":
+            return "transient_yaw_disturbance_state.csv", row
         if topic == "/multi_agv/state_projection_timing":
             values = list(message.data)
             if values and math.isfinite(values[0]):
@@ -608,6 +613,7 @@ def _aligned_rows(raw, maximum_age,
     m2b_debug = _series(raw["m2b_algorithm_state.csv"])
     risk_debug = _series(raw.get("risk_disturbance_state.csv", []))
     yaw_debug = _series(raw.get("yaw_drive_disturbance_state.csv", []))
+    transient_debug = _series(raw.get("transient_yaw_disturbance_state.csv", []))
     experiment_states = _series(raw["experiment_state.csv"])
     measured_load_poses = _series([
         value for value in raw["camera_pose.csv"]
@@ -630,6 +636,7 @@ def _aligned_rows(raw, maximum_age,
         m2b = _latest(m2b_debug, stamp, maximum_age)
         risk = _latest(risk_debug, stamp, maximum_age)
         yaw = _latest(yaw_debug, stamp, maximum_age)
+        transient = _latest(transient_debug, stamp, maximum_age)
         experiment_state = _latest(
             experiment_states, stamp, maximum_age)
         measured_load = _latest(measured_load_poses, stamp, maximum_age)
@@ -797,6 +804,21 @@ def _aligned_rows(raw, maximum_age,
         for offset, name in enumerate(yaw_names):
             row["yaw_drive_disturbance_{}".format(name)] = (
                 yaw_values[offset] if len(yaw_values) == 15 else math.nan)
+        transient_values = []
+        if transient and transient.get("layout_label") == "transient_yaw_v4:header19":
+            try:
+                transient_values = json.loads(transient["data_json"])
+            except (ValueError, TypeError):
+                pass
+        row["transient_yaw_state_available"] = len(transient_values) == 19
+        for offset, name in enumerate((
+                "source_stamp", "wall_time", "trigger_wall_time", "triggered",
+                "active", "finished", "elapsed", "progress", "amplitude",
+                "duration", "envelope", "disturbance", "left_raw", "right_raw",
+                "left_disturbed", "right_disturbed", "mean_longitudinal_delta",
+                "yaw_differential_delta", "causal_wheel_margin")):
+            row["transient_yaw_" + name] = (
+                transient_values[offset] if len(transient_values) == 19 else math.nan)
         m2b_values = []
         if (m2b and m2b.get("layout_label") ==
                 "m2b_algorithm_state_v1:header6+3x20"):
