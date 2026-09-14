@@ -1,0 +1,26 @@
+exp2c_v3_nominal_headroom_fake:
+  schema_version: 1
+  task_velocity_mps: 0.100
+  initial_upper_mps: 0.112
+  nominal_upper_mps: 0.112
+  inner_margin_mps: 0.005
+  nominal_inner_upper_mps: 0.107
+  yaw_disturbance_amplitude_mps: 0.020
+  yaw_disturbance_start_s: 2.0
+  yaw_disturbance_end_s: 2.8
+  yaw_disturbance_transition_length_m: 0.15
+  methods: [M1b_R1, M1_R1]
+  reuse_exp2c_v1_or_v2_runs: false
+  stage1_gate:
+    minimum_m1_mean_reference_mps: 0.0995
+    maximum_m1_reference_below_0p099_fraction: 0.05
+    maximum_m1_risk_boundary_active_fraction: 0.05
+  definitions:
+    risk_boundary_active: >-
+      M1 risk contraction is positive and effective common velocity is on the
+      recorded dynamic common upper boundary within 0.0001 m/s.
+    actual_reference_reduction: >-
+      Fresh paired M1b candidate common velocity minus M1 effective common
+      velocity after alignment; negative values are clipped to zero.
+  hardware_execution_authorized: false
+  yaw_disturbance_hardware_authorized: false
