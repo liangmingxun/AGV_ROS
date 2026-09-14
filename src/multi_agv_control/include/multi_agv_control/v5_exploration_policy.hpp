@@ -7,7 +7,8 @@
 namespace multi_agv_control {
 inline bool v5QualityPolicyAuthorized(bool requested, const std::string& id,
                                      const std::string& transport, bool hardware) {
-  return !requested || (id == "exp2c_v5_yaw_effectiveness_exploration" &&
+  return !requested || ((id == "exp2c_v5_yaw_effectiveness_exploration" ||
+                        id == "exp2c_v5b_yaw_effectiveness_hold_exploration") &&
                         transport == "fake" && !hardware);
 }
 // Numerical degeneracy, not a formation-error or gross-divergence threshold.

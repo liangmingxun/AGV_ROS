@@ -11,6 +11,10 @@ TEST(V5QualityPolicy, ExplicitFakeScopeAndComputability) {
   EXPECT_FALSE(v5QualityPolicyAuthorized(true,id,"serial",false));
   EXPECT_FALSE(v5QualityPolicyAuthorized(true,"exp2c_v4_transient_yaw_recovery","fake",false));
   EXPECT_FALSE(v5QualityPolicyAuthorized(true,id,"fake",true));
+  const std::string hold_id="exp2c_v5b_yaw_effectiveness_hold_exploration";
+  EXPECT_TRUE(v5QualityPolicyAuthorized(true,hold_id,"fake",false));
+  EXPECT_FALSE(v5QualityPolicyAuthorized(true,hold_id,"serial",false));
+  EXPECT_FALSE(v5QualityPolicyAuthorized(true,hold_id,"fake",true));
   std::array<Eigen::Vector2d,3> p{{{0.,0.},{.3,0.},{.15,.26}}};
   EXPECT_TRUE(v5FiniteQualityFit(true,.0105,1.,p));
   EXPECT_TRUE(v5FiniteQualityFit(true,.030,1.,p));

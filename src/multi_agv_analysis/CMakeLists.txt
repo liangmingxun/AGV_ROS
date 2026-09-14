@@ -25,6 +25,7 @@ catkin_install_python(PROGRAMS
   scripts/analyze_exp2c_v3_nominal_headroom.py
   scripts/analyze_exp2c_v4_transient_yaw.py
   scripts/analyze_exp2c_v5_yaw_effectiveness.py
+  scripts/analyze_exp2c_v5b_yaw_hold.py
   scripts/experiment_batch.py
   scripts/export_paper_run.py
   scripts/fleet_health_check.py
@@ -52,6 +53,7 @@ if(CATKIN_ENABLE_TESTING)
   catkin_add_nosetests(test/test_exp2c_v3_nominal_headroom.py)
   catkin_add_nosetests(test/test_exp2c_v4_transient_yaw.py)
   catkin_add_nosetests(test/test_exp2c_v5_yaw_effectiveness.py)
+  catkin_add_nosetests(test/test_exp2c_v5b_yaw_hold.py)
   catkin_add_nosetests(test/test_metrics.py)
   catkin_add_nosetests(test/test_paper_pipeline.py)
   catkin_add_nosetests(test/test_tooling.py)

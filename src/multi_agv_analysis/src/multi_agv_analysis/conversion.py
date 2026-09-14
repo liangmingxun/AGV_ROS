@@ -144,6 +144,9 @@ RAW_SCHEMAS = {
     "yaw_effectiveness_state.csv": [
         "topic", "bag_stamp", "header_stamp", "layout_label", "data_json",
     ],
+    "yaw_effectiveness_hold_state.csv": [
+        "topic", "bag_stamp", "header_stamp", "layout_label", "data_json",
+    ],
     "v5_exploration_quality_state.csv": [
         "topic", "bag_stamp", "header_stamp", "layout_label", "data_json",
     ],
@@ -461,6 +464,8 @@ def _extract(topic, bag_stamp, message):
             return "transient_yaw_disturbance_state.csv", row
         if topic == "/multi_agv/yaw_effectiveness_state":
             return "yaw_effectiveness_state.csv", row
+        if topic == "/multi_agv/yaw_effectiveness_hold_state":
+            return "yaw_effectiveness_hold_state.csv", row
         if topic == "/multi_agv/v5_exploration_quality_state":
             return "v5_exploration_quality_state.csv", row
         if topic == "/multi_agv/state_projection_timing":
@@ -625,6 +630,7 @@ def _aligned_rows(raw, maximum_age,
     yaw_debug = _series(raw.get("yaw_drive_disturbance_state.csv", []))
     transient_debug = _series(raw.get("transient_yaw_disturbance_state.csv", []))
     effectiveness_debug = _series(raw.get("yaw_effectiveness_state.csv", []))
+    hold_effectiveness_debug = _series(raw.get("yaw_effectiveness_hold_state.csv", []))
     experiment_states = _series(raw["experiment_state.csv"])
     measured_load_poses = _series([
         value for value in raw["camera_pose.csv"]
@@ -847,6 +853,22 @@ def _aligned_rows(raw, maximum_age,
         for i in range(3):
             for j, name in enumerate(("longitudinal_error", "lateral_error", "heading_error")):
                 row["agv{}_tracker_{}".format(i+1,name)] = effectiveness_values[19+3*i+j] if len(effectiveness_values)==28 else math.nan
+        effectiveness = _latest(hold_effectiveness_debug, stamp, maximum_age)
+        effectiveness_values = []
+        if effectiveness and effectiveness.get("layout_label") == "yaw_hold_v5b:header19+3x3":
+            try:
+                effectiveness_values = json.loads(effectiveness["data_json"])
+            except (ValueError, TypeError):
+                pass
+        row["yaw_effectiveness_hold_state_available"] = len(effectiveness_values) == 28
+        for offset, name in enumerate(("source_stamp", "wall_time", "trigger_wall_time", "triggered",
+                "active", "finished", "elapsed", "progress", "gamma_min", "duration", "envelope", "gamma",
+                "left_raw", "right_raw", "left_degraded", "right_degraded", "mean_longitudinal_delta",
+                "yaw_differential_delta", "causal_wheel_margin")):
+            row["yaw_effectiveness_hold_"+name] = effectiveness_values[offset] if len(effectiveness_values)==28 else math.nan
+        for i in range(3):
+            for j, name in enumerate(("longitudinal_error", "lateral_error", "heading_error")):
+                row["agv{}_hold_tracker_{}".format(i+1,name)] = effectiveness_values[19+3*i+j] if len(effectiveness_values)==28 else math.nan
         if (m2b and m2b.get("layout_label") ==
                 "m2b_algorithm_state_v1:header6+3x20"):
             try:

@@ -440,6 +440,21 @@ class CameraConversionTest(unittest.TestCase):
         self.assertAlmostEqual(aligned["agv3_tracker_heading_error"],.009)
         self.assertFalse(aligned["transient_yaw_state_available"])
 
+    def test_v5b_native_diagnostics_do_not_replace_old_bell_fields(self):
+        raw={name:[] for name in RAW_SCHEMAS}
+        raw['cooperative_state.csv']=[{'header_stamp':1.01}]
+        values=[1.,10.,9.,1.,1.,0.,1.,2.1,.20,3.7,1.,.20,
+                .10,.14,.116,.124,0.,-.032,.62,
+                .001,.002,.003,.004,.005,.006,.007,.008,.009]
+        raw['yaw_effectiveness_hold_state.csv']=[{'header_stamp':1.,
+            'layout_label':'yaw_hold_v5b:header19+3x3','data_json':json.dumps(values)}]
+        row=_aligned_rows(raw,.2)[0]
+        self.assertTrue(row['yaw_effectiveness_hold_state_available'])
+        self.assertAlmostEqual(row['yaw_effectiveness_hold_gamma'],.20)
+        self.assertAlmostEqual(row['agv2_hold_tracker_lateral_error'],.005)
+        self.assertFalse(row['yaw_effectiveness_state_available'])
+        self.assertTrue(math.isnan(row['agv2_tracker_lateral_error']))
+
     def test_camera_and_world_pose_fields_are_losslessly_exported(self):
         stamp = genpy.Time.from_sec(12.5)
         camera = PoseStamped()

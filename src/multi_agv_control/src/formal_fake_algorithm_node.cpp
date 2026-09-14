@@ -38,6 +38,7 @@
 #include "multi_agv_control/yaw_drive_disturbance.hpp"
 #include "multi_agv_control/transient_yaw_disturbance.hpp"
 #include "multi_agv_control/yaw_effectiveness_degradation.hpp"
+#include "multi_agv_control/yaw_effectiveness_hold_degradation.hpp"
 #include "multi_agv_control/v5_exploration_policy.hpp"
 
 namespace multi_agv_control {
@@ -166,13 +167,17 @@ class FormalFakeAlgorithmNode {
     private_node_.param("formal_upper/hardware_execution_authorized", v5_hardware_authorized, true);
     if (!v5QualityPolicyAuthorized(v5_quality_observation_, experiment_id_,
                                   transport_type_, v5_hardware_authorized) ||
-        (v5_quality_observation_ && !yaw_effectiveness_config_.enabled))
+        (v5_quality_observation_ && !(yaw_effectiveness_config_.enabled || yaw_hold_config_.enabled)))
       throw std::runtime_error("v5 quality policy cannot be enabled outside exact fake exploration");
     if (yaw_effectiveness_config_.enabled && (transport_type_ != "fake" ||
         experiment_id_ != "exp2c_v5_yaw_effectiveness_exploration" ||
         (upper_config.mode != UpperMode::kM1 && upper_config.mode != UpperMode::kM1b) ||
         lower_config.mode != LowerMode::kR1))
       throw std::runtime_error("yaw effectiveness is restricted to isolated fake M1/M1b+R1");
+    if (yaw_hold_config_.enabled && (transport_type_!="fake" ||
+        experiment_id_!="exp2c_v5b_yaw_effectiveness_hold_exploration" ||
+        (upper_config.mode!=UpperMode::kM1 && upper_config.mode!=UpperMode::kM1b) || lower_config.mode!=LowerMode::kR1))
+      throw std::runtime_error("v5b hold requires isolated fake M1/M1b+R1");
     hard_capability_envelope_enabled_ =
         upper_config.hard_capability_envelope_enabled;
     lower_mode_ = lower_config.mode;
@@ -265,6 +270,9 @@ class FormalFakeAlgorithmNode {
     if (yaw_effectiveness_config_.enabled)
       yaw_effectiveness_publisher_ = node_.advertise<std_msgs::Float64MultiArray>(
           "/multi_agv/yaw_effectiveness_state", 10, false);
+    if (yaw_hold_config_.enabled)
+      yaw_hold_publisher_=node_.advertise<std_msgs::Float64MultiArray>(
+          "/multi_agv/yaw_effectiveness_hold_state",10,false);
     timer_ = node_.createTimer(
         ros::Duration(1.0 / publish_rate_),
         &FormalFakeAlgorithmNode::step, this);
@@ -613,6 +621,17 @@ class FormalFakeAlgorithmNode {
     private_node_.param(root + "yaw_effectiveness_v5/gamma_min", yaw_effectiveness_config_.gamma_min, .12);
     private_node_.param(root + "yaw_effectiveness_v5/duration", yaw_effectiveness_config_.duration, 3.5);
     validateYawEffectivenessConfig(yaw_effectiveness_config_);
+    private_node_.param(root+"yaw_effectiveness_hold_v5b/enabled",yaw_hold_config_.enabled,false);
+    private_node_.param(root+"yaw_effectiveness_hold_v5b/trigger_progress",yaw_hold_config_.trigger_progress,2.);
+    private_node_.param(root+"yaw_effectiveness_hold_v5b/gamma_hold",yaw_hold_config_.gamma_min,.20);
+    private_node_.param(root+"yaw_effectiveness_hold_v5b/duration",yaw_hold_config_.duration,3.7);
+    private_node_.param(root+"yaw_effectiveness_hold_v5b/ramp_down",yaw_hold_config_.down,.6);
+    private_node_.param(root+"yaw_effectiveness_hold_v5b/hold",yaw_hold_config_.hold,2.5);
+    private_node_.param(root+"yaw_effectiveness_hold_v5b/ramp_up",yaw_hold_config_.up,.6);
+    validateYawHoldConfig(yaw_hold_config_);
+    if (yaw_hold_config_.enabled && (yaw_effectiveness_config_.enabled || transient_yaw_config_.enabled ||
+        yaw_drive_disturbance_config_.enabled || risk_disturbance_config_.enabled))
+      throw std::runtime_error("v5b hold cannot combine with legacy disturbances");
     if (yaw_effectiveness_config_.enabled && (transient_yaw_config_.enabled ||
         yaw_drive_disturbance_config_.enabled || risk_disturbance_config_.enabled))
       throw std::runtime_error("v5 yaw effectiveness cannot combine with legacy disturbances");
@@ -1707,7 +1726,8 @@ class FormalFakeAlgorithmNode {
         experiment_id_ == "exp2c_v3_nominal_headroom_fake" ||
         experiment_id_ == "exp2c_v4_transient_yaw_recovery" ||
         experiment_id_ == "exp2c_v4_effect_exploration" ||
-        experiment_id_ == "exp2c_v5_yaw_effectiveness_exploration";
+        experiment_id_ == "exp2c_v5_yaw_effectiveness_exploration" ||
+        experiment_id_ == "exp2c_v5b_yaw_effectiveness_hold_exploration";
     message.layout.dim[0].label = v3_diagnostics
         ? "formal_algorithm_state_v3:header10+3x29+reference4"
         : "formal_algorithm_state_v2:header10+3x29";
@@ -1957,6 +1977,31 @@ class FormalFakeAlgorithmNode {
       message.data.push_back(t.heading_error);
     }
     yaw_effectiveness_publisher_.publish(message);
+  }
+
+  void publishYawHold(const ros::Time& stamp,
+      const std::array<PlanarTrackingResult, 3>& tracking) {
+    const auto& v = yaw_hold_output_;
+    std_msgs::Float64MultiArray message;
+    message.layout.dim.resize(1);
+    message.layout.dim[0].label = "yaw_hold_v5b:header19+3x3";
+    message.layout.dim[0].size = message.layout.dim[0].stride = 28U;
+    message.data = {stamp.toSec(), v.wall_time, v.trigger_wall_time,
+        v.triggered ? 1. : 0., v.active ? 1. : 0., v.finished ? 1. : 0.,
+        v.elapsed, v.progress, yaw_hold_config_.gamma_min,
+        yaw_hold_config_.duration, v.envelope, v.gamma,
+        v.left_raw, v.right_raw, v.left_degraded, v.right_degraded,
+        .5*((v.left_degraded-v.left_raw)+(v.right_degraded-v.right_raw)),
+        (v.right_degraded-v.left_degraded)-(v.right_raw-v.left_raw),
+        normalisedMargin(std::min(
+            capability_[1].max_wheel_linear_velocity_left-std::abs(previous_wheel_raw_[1][0]),
+            capability_[1].max_wheel_linear_velocity_right-std::abs(previous_wheel_raw_[1][1])), wheel_safe_margin_)};
+    for (const auto& t : tracking) {
+      message.data.push_back(t.longitudinal_error);
+      message.data.push_back(t.lateral_error);
+      message.data.push_back(t.heading_error);
+    }
+    yaw_hold_publisher_.publish(message);
   }
 
   void publishExecutionLimiter(
@@ -2542,6 +2587,15 @@ class FormalFakeAlgorithmNode {
       execution_tracking[1].angular_velocity_raw = (yaw_effectiveness_output_.right_degraded-yaw_effectiveness_output_.left_degraded)/tracker_config_.wheel_separation[1];
       publishYawEffectiveness(now, tracking);
     }
+    if (yaw_hold_config_.enabled) {
+      yaw_hold_output_=yaw_hold_degradation_.evaluate(yaw_hold_config_,2,state_.s_actual[1],
+          ros::WallTime::now().toSec(),wheel_demand_before_limit[1][0],wheel_demand_before_limit[1][1]);
+      execution_tracking[1].wheel_linear_velocity_left_raw=yaw_hold_output_.left_degraded;
+      execution_tracking[1].wheel_linear_velocity_right_raw=yaw_hold_output_.right_degraded;
+      execution_tracking[1].linear_velocity_raw=.5*(yaw_hold_output_.left_degraded+yaw_hold_output_.right_degraded);
+      execution_tracking[1].angular_velocity_raw=(yaw_hold_output_.right_degraded-yaw_hold_output_.left_degraded)/tracker_config_.wheel_separation[1];
+      publishYawHold(now,tracking);
+    }
     if (!trackingPassesSerialEmergencyGate(execution_tracking, dt)) {
       publishZero(now);
       publishPublicState(now, false, lower, tracking);
@@ -2628,6 +2682,7 @@ class FormalFakeAlgorithmNode {
   ros::Publisher yaw_drive_disturbance_publisher_;
   ros::Publisher transient_yaw_publisher_;
   ros::Publisher yaw_effectiveness_publisher_;
+  ros::Publisher yaw_hold_publisher_;
   ros::Timer timer_;
   agv_msgs::CooperativeState state_;
   agv_msgs::CooperativeState latest_received_state_;
@@ -2718,6 +2773,9 @@ class FormalFakeAlgorithmNode {
   YawDriveDisturbanceOutput yaw_drive_disturbance_output_{};
   TransientYawConfig transient_yaw_config_;
   YawEffectivenessConfig yaw_effectiveness_config_;
+  YawHoldConfig yaw_hold_config_;
+  YawHoldDegradation yaw_hold_degradation_;
+  YawEffectivenessOutput yaw_hold_output_;
   bool v5_quality_observation_{false};
   YawEffectivenessDegradation yaw_effectiveness_degradation_;
   YawEffectivenessOutput yaw_effectiveness_output_{};

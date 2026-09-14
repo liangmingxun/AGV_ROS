@@ -1,0 +1,24 @@
+{
+  "baseline_reused": false,
+  "candidate_order": {
+    "S1R12_gamma0p20_down0p6_hold2p5_up0p6_R12": [
+      0.2,
+      3.7
+    ],
+    "S1_gamma0p20_down0p6_hold2p5_up0p6_R10": [
+      0.2,
+      3.7
+    ]
+  },
+  "effect_exploration_continue_on_quality_exceedance": true,
+  "experiment_id": "exp2c_v5b_yaw_effectiveness_hold_exploration",
+  "fixed_task_timeout_seconds": 95,
+  "hardware_authorization": false,
+  "limiter_policy": "EXECUTION_LIMIT_ACTIVE: observe, retain actual plant limiting",
+  "markers": [
+    "EFFECT_EXPLORATION_ONLY",
+    "NOT_FORMAL_PAPER_EVIDENCE"
+  ],
+  "rigid_fit_quality_threshold_m": 0.01,
+  "success_rule": "active mechanism, resource benefit, >=10% primary geometry IAE improvement, other primary geometry same direction, no sustained limiter dependence"
+}
