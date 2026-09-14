@@ -9,6 +9,7 @@ namespace multi_agv_control {
 
 struct TransientYawConfig {
   bool enabled{false};
+  bool effect_exploration{false};
   double trigger_progress{2.0};
   double amplitude{0.024};
   double duration{1.5};
@@ -20,10 +21,15 @@ inline void validateTransientYawConfig(const TransientYawConfig& config) {
                            std::abs(config.duration - 1.5) < 1e-12;
   const bool candidate_b = std::abs(config.amplitude - .022) < 1e-12 &&
                            std::abs(config.duration - 2.0) < 1e-12;
+  const bool exploration_candidate = config.effect_exploration && (
+      (std::abs(config.amplitude - .022) < 1e-12 &&
+       (std::abs(config.duration - 2.5) < 1e-12 || std::abs(config.duration - 3.0) < 1e-12)) ||
+      ((std::abs(config.amplitude - .024) < 1e-12 || std::abs(config.amplitude - .026) < 1e-12) &&
+       std::abs(config.duration - 2.5) < 1e-12));
   if (!std::isfinite(config.amplitude) || !std::isfinite(config.duration) ||
       !std::isfinite(config.trigger_progress) ||
       std::abs(config.trigger_progress - 2.0) > 1e-12 ||
-      !(candidate_a || candidate_b)) {
+      !(candidate_a || candidate_b || exploration_candidate)) {
     throw std::invalid_argument("Exp2c-v4 permits only A=.024/T=1.5 or A=.022/T=2.0 at s2=2.0");
   }
 }

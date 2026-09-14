@@ -20,6 +20,7 @@
 
 #include "multi_agv_control/path_projector.hpp"
 #include "multi_agv_control/rigid_fit_runtime_gate.hpp"
+#include "multi_agv_control/v5_exploration_policy.hpp"
 #include "multi_agv_control/s_curve_path.hpp"
 #include "multi_agv_control/state_estimator.hpp"
 #include "multi_agv_control/support_geometry.hpp"
@@ -89,6 +90,20 @@ class PathStateEstimatorNode {
           "localization_mode must be odometry_pretest, camera or fused");
     }
     camera_mode_ = localization_mode_ != "odometry_pretest";
+    private_node_.param("effect_exploration_continue_on_quality_exceedance",
+                        v5_quality_observation_, false);
+    std::string exploration_id, exploration_transport;
+    bool exploration_hardware = true;
+    private_node_.param("experiment_id", exploration_id, std::string());
+    private_node_.param("platform_transport_type", exploration_transport, std::string());
+    private_node_.param("hardware_execution_authorized", exploration_hardware, true);
+    if (!v5QualityPolicyAuthorized(v5_quality_observation_, exploration_id,
+                                  exploration_transport, exploration_hardware) ||
+        (v5_quality_observation_ && camera_mode_))
+      throw std::runtime_error("v5 quality observation requires exact v5 fake identity and hardware=false");
+    if (v5_quality_observation_)
+      v5_quality_publisher_ = node_.advertise<std_msgs::Float64MultiArray>(
+          "/multi_agv/v5_exploration_quality_state", 10, false);
     robot_pose_source_ = localization_mode_ == "fused"
         ? agv_msgs::CooperativeState::SOURCE_FUSED
         : agv_msgs::CooperativeState::SOURCE_CAMERA;
@@ -170,7 +185,7 @@ class PathStateEstimatorNode {
     // path and jumps in its scalar projection are tracking diagnostics, not
     // loss of the measured camera pose. Keep convergence, finite motion and
     // source timing validation; the independent support-range latch remains.
-    if (formation_observation_only_) {
+    if (formation_observation_only_ || v5_quality_observation_) {
       projector_config.enforce_projection_distance = false;
       estimator_config.enforce_progress_correction = false;
     }
@@ -232,6 +247,31 @@ class PathStateEstimatorNode {
  private:
   bool runtimeFitAccepted(bool valid, double residual, ros::Time stamp,
       const std::array<Eigen::Vector2d, kRobotCount>& supports) {
+    if (v5_quality_observation_) {
+      for (std::size_t i=1; i<=kRobotCount; ++i) {
+        std::string transport;
+        if (!node_.getParam("/agv"+std::to_string(i)+"/chassis_controller/transport_type", transport) || transport!="fake") {
+          ROS_ERROR_THROTTLE(1., "STATE_CHAIN_INVALID: v5 quality policy requires three actual fake chassis");
+          return false;
+        }
+      }
+      if (!v5FiniteQualityFit(valid, residual, stamp.toSec(), supports)) {
+        ROS_ERROR_THROTTLE(1., "STRUCTURAL_GEOMETRY_INVALID / NUMERICAL_INVALID: v5 measured fit is not computable");
+        return false;
+      }
+      const bool exceeded=residual>maximum_rigid_fit_residual_;
+      std_msgs::Float64MultiArray diagnostic;
+      diagnostic.layout.dim.resize(1);
+      diagnostic.layout.dim[0].label="EFFECT_EXPLORATION_ONLY_NOT_FORMAL_PAPER_EVIDENCE:quality_v1";
+      diagnostic.layout.dim[0].size=5;
+      diagnostic.data={stamp.toSec(), ros::WallTime::now().toSec(), residual,
+                       maximum_rigid_fit_residual_, exceeded?1.:0.};
+      v5_quality_publisher_.publish(diagnostic);
+      if (exceeded) ROS_WARN_THROTTLE(1.,
+          "QUALITY_THRESHOLD_EXCEEDED: rigid-fit %.6f m > unchanged %.6f m; v5 fake observation only, control remains valid",
+          residual, maximum_rigid_fit_residual_);
+      return true;
+    }
     if (!valid) return false;
     double pair_distance = 0.0;
     for (std::size_t i=0; i<kRobotCount; ++i) {
@@ -826,7 +866,7 @@ class PathStateEstimatorNode {
     }
     candidate.progress -= signed_start_extension_;
     candidate.projection.s -= signed_start_extension_;
-    if (formation_observation_only_ && candidate.valid &&
+    if ((formation_observation_only_ || v5_quality_observation_) && candidate.valid &&
         candidate.projection.distance > observation_off_path_warning_distance_) {
       ROS_WARN_THROTTLE(1.0, "Observation tracking deviation for %s: off-path distance %.6f m; measured localization retained",
                         robot->robot_id.c_str(), candidate.projection.distance);
@@ -1299,6 +1339,8 @@ class PathStateEstimatorNode {
   double runtime_rigid_fit_confirmation_seconds_{0.0};
   FormationRuntimeGate runtime_rigid_fit_gate_;
   bool formation_observation_only_{false};
+  bool v5_quality_observation_{false};
+  ros::Publisher v5_quality_publisher_;
   double observation_off_path_warning_distance_{0.15};
   double maximum_observation_support_distance_{0.0};
   double maximum_load_path_transient_hold_{0.05};

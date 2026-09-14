@@ -1,0 +1,20 @@
+formal_upper:
+  hardware_execution_authorized: false
+  m1b_hardware_execution_authorized: false
+formal_lower:
+  hardware_execution_authorized: false
+transient_yaw_v4:
+  hardware_execution_authorized: false
+authorization_scope:
+  upper_config: /home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/experiment_data/exp2c_v5_yaw_effectiveness_exploration/EFFECT_EXPLORATION_ONLY_NOT_FORMAL_PAPER_EVIDENCE_20260914_Y0_quality_observation_v2/configs/Y2_gamma0p08_T3p5_M1b.yaml
+  path_config: src/multi_agv_bringup/config/path_circle_r0p7_cw_smooth_exit.yaml
+  runtime_config: src/multi_agv_bringup/config/formal_serial_circle_r0p7_smooth_exit_0p10_reference_v1_pilot_runtime.yaml
+  evaluation_config: src/multi_agv_bringup/config/formal_evaluation_circle_r0p7_smooth_exit.yaml
+  target_progress: 5.17822971502571
+  robot2_derating: false
+  physical_authorization_status: prohibited_fake_only
+evidence_scope:
+- EFFECT_EXPLORATION_ONLY
+- NOT_FORMAL_PAPER_EVIDENCE
+yaw_effectiveness_v5:
+  hardware_execution_authorized: false

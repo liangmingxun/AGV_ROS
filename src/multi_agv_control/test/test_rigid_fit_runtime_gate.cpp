@@ -1,6 +1,26 @@
 #include <gtest/gtest.h>
 #include <limits>
 #include "multi_agv_control/rigid_fit_runtime_gate.hpp"
+#include "multi_agv_control/v5_exploration_policy.hpp"
+
+TEST(V5QualityPolicy, ExplicitFakeScopeAndComputability) {
+  using namespace multi_agv_control;
+  const std::string id="exp2c_v5_yaw_effectiveness_exploration";
+  EXPECT_TRUE(v5QualityPolicyAuthorized(false,"","serial",true));
+  EXPECT_TRUE(v5QualityPolicyAuthorized(true,id,"fake",false));
+  EXPECT_FALSE(v5QualityPolicyAuthorized(true,id,"serial",false));
+  EXPECT_FALSE(v5QualityPolicyAuthorized(true,"exp2c_v4_transient_yaw_recovery","fake",false));
+  EXPECT_FALSE(v5QualityPolicyAuthorized(true,id,"fake",true));
+  std::array<Eigen::Vector2d,3> p{{{0.,0.},{.3,0.},{.15,.26}}};
+  EXPECT_TRUE(v5FiniteQualityFit(true,.0105,1.,p));
+  EXPECT_TRUE(v5FiniteQualityFit(true,.030,1.,p));
+  EXPECT_FALSE(v5FiniteQualityFit(false,.0105,1.,p));
+  EXPECT_FALSE(v5FiniteQualityFit(true,std::numeric_limits<double>::infinity(),1.,p));
+  p[2]={.15,0.};
+  EXPECT_FALSE(v5FiniteQualityFit(true,.0105,1.,p));
+  RigidFitRuntimeGate normal;
+  EXPECT_FALSE(normal.accept(.0105,1.,.010,0.));
+}
 
 using multi_agv_control::RigidFitRuntimeGate;
 TEST(FormationRuntimeGate, ObservationRetainsRangeAndFiniteProtection) {

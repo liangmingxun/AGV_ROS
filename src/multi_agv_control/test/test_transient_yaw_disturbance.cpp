@@ -72,3 +72,16 @@ TEST(TransientYaw, NonfiniteOrBackwardTimeFailsClosed) {
   EXPECT_THROW(pulse.evaluate(cfg, 2, 2., 9., .1, .1), std::invalid_argument);
   EXPECT_THROW(pulse.evaluate(cfg, 2, 2., 11., std::numeric_limits<double>::quiet_NaN(), .1), std::invalid_argument);
 }
+
+TEST(TransientYaw, ExplorationCandidatesRequireExplicitOptIn) {
+  mac::TransientYawConfig cfg; cfg.enabled = true;
+  for (const auto pair : {std::pair<double,double>{.022,2.5}, {.022,3.0}, {.024,2.5}, {.026,2.5}}) {
+    cfg.amplitude = pair.first; cfg.duration = pair.second;
+    cfg.effect_exploration = false;
+    EXPECT_THROW(mac::validateTransientYawConfig(cfg), std::invalid_argument);
+    cfg.effect_exploration = true;
+    EXPECT_NO_THROW(mac::validateTransientYawConfig(cfg));
+  }
+  cfg.amplitude = .028;
+  EXPECT_THROW(mac::validateTransientYawConfig(cfg), std::invalid_argument);
+}

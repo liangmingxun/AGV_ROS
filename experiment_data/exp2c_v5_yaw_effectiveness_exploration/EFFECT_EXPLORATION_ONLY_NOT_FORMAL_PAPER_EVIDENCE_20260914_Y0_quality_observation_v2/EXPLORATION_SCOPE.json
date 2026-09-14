@@ -1,0 +1,28 @@
+{
+  "baseline_reused": false,
+  "candidate_order": {
+    "Y0_gamma0p12_T3p5": [
+      0.12,
+      3.5
+    ],
+    "Y1_gamma0p10_T3p5": [
+      0.1,
+      3.5
+    ],
+    "Y2_gamma0p08_T3p5": [
+      0.08,
+      3.5
+    ]
+  },
+  "effect_exploration_continue_on_quality_exceedance": true,
+  "experiment_id": "exp2c_v5_yaw_effectiveness_exploration",
+  "fixed_task_timeout_seconds": 95,
+  "hardware_authorization": false,
+  "limiter_policy": "EXECUTION_LIMIT_ACTIVE: observe, retain actual plant limiting",
+  "markers": [
+    "EFFECT_EXPLORATION_ONLY",
+    "NOT_FORMAL_PAPER_EVIDENCE"
+  ],
+  "rigid_fit_quality_threshold_m": 0.01,
+  "success_rule": "active risk/reference mechanism plus wheel-risk benefit and >=3% geometry IAE improvement"
+}

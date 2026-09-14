@@ -421,6 +421,25 @@ class CameraConversionTest(unittest.TestCase):
         self.assertAlmostEqual(aligned["transient_yaw_right_disturbed"],.124)
         self.assertFalse(aligned["yaw_drive_disturbance_state_available"])
 
+    def test_v5_effectiveness_and_native_tracker_errors_are_lossless(self):
+        raw = {name: [] for name in RAW_SCHEMAS}
+        raw["cooperative_state.csv"] = [{"header_stamp":1.01}]
+        values = [1.,10.,9.,1.,1.,0.,1.,2.1,.12,3.5,1.,.12,
+                  .10,.14,.1176,.1224,0.,-.0352,.62,
+                  .001,.002,.003,.004,.005,.006,.007,.008,.009]
+        raw["yaw_effectiveness_state.csv"] = [{"header_stamp":1.,
+            "layout_label":"yaw_effectiveness_v5:header19+3x3","data_json":json.dumps(values)}]
+        aligned = _aligned_rows(raw,.2)[0]
+        self.assertTrue(aligned["yaw_effectiveness_state_available"])
+        self.assertAlmostEqual(aligned["yaw_effectiveness_gamma"],.12)
+        self.assertAlmostEqual(aligned["yaw_effectiveness_left_raw"],.10)
+        self.assertAlmostEqual(aligned["yaw_effectiveness_left_degraded"],.1176)
+        self.assertAlmostEqual(aligned["agv2_tracker_longitudinal_error"],.004)
+        self.assertAlmostEqual(aligned["agv2_tracker_lateral_error"],.005)
+        self.assertAlmostEqual(aligned["agv2_tracker_heading_error"],.006)
+        self.assertAlmostEqual(aligned["agv3_tracker_heading_error"],.009)
+        self.assertFalse(aligned["transient_yaw_state_available"])
+
     def test_camera_and_world_pose_fields_are_losslessly_exported(self):
         stamp = genpy.Time.from_sec(12.5)
         camera = PoseStamped()
