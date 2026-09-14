@@ -19,6 +19,7 @@ catkin_install_python(PROGRAMS
   scripts/calibration_workspace.py
   scripts/camera_quality_report.py
   scripts/compute_metrics.py
+  scripts/diagnose_exp2c_fake_pairs.py
   scripts/aggregate_experiment.py
   scripts/experiment_batch.py
   scripts/export_paper_run.py
@@ -41,6 +42,7 @@ install(DIRECTORY config
 )
 
 if(CATKIN_ENABLE_TESTING)
+  catkin_add_nosetests(test/test_exp2c_diagnostic.py)
   catkin_add_nosetests(test/test_metrics.py)
   catkin_add_nosetests(test/test_paper_pipeline.py)
   catkin_add_nosetests(test/test_tooling.py)
