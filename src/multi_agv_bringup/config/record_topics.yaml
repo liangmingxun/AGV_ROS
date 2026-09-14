@@ -29,6 +29,7 @@ experiment_recording:
     - /multi_agv/formal_execution_limiter_state
     - /multi_agv/m2b_algorithm_state
     - /multi_agv/risk_disturbance_state
+    - /multi_agv/yaw_drive_disturbance_state
     - /multi_agv/software_watchdog_ok
     - /multi_agv/software_watchdog_diagnostics
     - /experiment_recorder/armed

@@ -138,6 +138,9 @@ RAW_SCHEMAS = {
     "risk_disturbance_state.csv": [
         "topic", "bag_stamp", "header_stamp", "layout_label", "data_json",
     ],
+    "yaw_drive_disturbance_state.csv": [
+        "topic", "bag_stamp", "header_stamp", "layout_label", "data_json",
+    ],
     "camera_pose.csv": [
         "topic", "bag_stamp", "header_stamp", "header_seq",
         "calibration_epoch_token", "frame_id", "position_x", "position_y",
@@ -443,6 +446,8 @@ def _extract(topic, bag_stamp, message):
             return "formal_algorithm_state.csv", row
         if topic == "/multi_agv/risk_disturbance_state":
             return "risk_disturbance_state.csv", row
+        if topic == "/multi_agv/yaw_drive_disturbance_state":
+            return "yaw_drive_disturbance_state.csv", row
         if topic == "/multi_agv/state_projection_timing":
             values = list(message.data)
             if values and math.isfinite(values[0]):
@@ -602,6 +607,7 @@ def _aligned_rows(raw, maximum_age,
         raw["formal_execution_limiter_state.csv"])
     m2b_debug = _series(raw["m2b_algorithm_state.csv"])
     risk_debug = _series(raw.get("risk_disturbance_state.csv", []))
+    yaw_debug = _series(raw.get("yaw_drive_disturbance_state.csv", []))
     experiment_states = _series(raw["experiment_state.csv"])
     measured_load_poses = _series([
         value for value in raw["camera_pose.csv"]
@@ -623,6 +629,7 @@ def _aligned_rows(raw, maximum_age,
         limiter = _latest(execution_limiter, stamp, maximum_age)
         m2b = _latest(m2b_debug, stamp, maximum_age)
         risk = _latest(risk_debug, stamp, maximum_age)
+        yaw = _latest(yaw_debug, stamp, maximum_age)
         experiment_state = _latest(
             experiment_states, stamp, maximum_age)
         measured_load = _latest(measured_load_poses, stamp, maximum_age)
@@ -764,6 +771,23 @@ def _aligned_rows(raw, maximum_age,
             risk_values[9] if len(risk_values) == 41 else math.nan)
         row["risk_contraction"] = (
             risk_values[10] if len(risk_values) == 41 else math.nan)
+        yaw_values = []
+        if (yaw and yaw.get("layout_label") ==
+                "yaw_drive_disturbance_v2:header15"):
+            try:
+                yaw_values = json.loads(yaw["data_json"])
+            except (TypeError, ValueError):
+                yaw_values = []
+        yaw_names = (
+            "enabled", "active", "source_stamp", "robot_id",
+            "path_progress", "window", "phase", "amplitude",
+            "signed_disturbance", "left_nominal", "right_nominal",
+            "left_disturbed", "right_disturbed",
+            "mean_longitudinal_delta", "yaw_differential_delta")
+        row["yaw_drive_disturbance_state_available"] = len(yaw_values) == 15
+        for offset, name in enumerate(yaw_names):
+            row["yaw_drive_disturbance_{}".format(name)] = (
+                yaw_values[offset] if len(yaw_values) == 15 else math.nan)
         m2b_values = []
         if (m2b and m2b.get("layout_label") ==
                 "m2b_algorithm_state_v1:header6+3x20"):

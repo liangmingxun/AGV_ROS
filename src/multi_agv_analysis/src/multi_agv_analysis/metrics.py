@@ -33,6 +33,26 @@ def _maximum_absolute(values):
     return max((abs(value) for value in values), default=None)
 
 
+def _mean(values):
+    values = _finite(values)
+    return sum(values) / len(values) if values else None
+
+
+def _percentile(values, fraction):
+    values = sorted(_finite(values))
+    if not values:
+        return None
+    if not 0.0 <= fraction <= 1.0:
+        raise ValueError("percentile fraction must be in [0, 1]")
+    position = fraction * (len(values) - 1)
+    lower = int(math.floor(position))
+    upper = int(math.ceil(position))
+    if lower == upper:
+        return values[lower]
+    weight = position - lower
+    return values[lower] * (1.0 - weight) + values[upper] * weight
+
+
 def _wrap_angle(value):
     return math.atan2(math.sin(value), math.cos(value))
 
@@ -286,6 +306,7 @@ def compute_metrics(rows, sample_period, command_epsilon=1e-6,
     effective_margins = []
     hard_margins = []
     risk_contractions = []
+    yaw_v2_samples = []
     reported_capability_values = {robot: [] for robot in range(1, 4)}
     internal = {
         "psi": [], "composite_error": [], "theta_hat": [],
@@ -293,6 +314,40 @@ def compute_metrics(rows, sample_period, command_epsilon=1e-6,
         "m2b_delta_w": []}
 
     for row in rows:
+        yaw_v2_active = bool_value(
+            row.get("yaw_drive_disturbance_active", False))
+        if yaw_v2_active:
+            left_nominal = finite_float(
+                row.get("yaw_drive_disturbance_left_nominal"))
+            right_nominal = finite_float(
+                row.get("yaw_drive_disturbance_right_nominal"))
+            reported_limit = min(
+                finite_float(row.get("agv2_wheel_left_reported_limit")),
+                finite_float(row.get("agv2_wheel_right_reported_limit")))
+            wheel_margin = math.nan
+            if all(math.isfinite(value) for value in (
+                    left_nominal, right_nominal, reported_limit)):
+                wheel_margin = max(0.0, min(1.0, (
+                    reported_limit - max(abs(left_nominal), abs(right_nominal))) /
+                    0.010))
+            yaw_v2_samples.append({
+                "window": finite_float(row.get("yaw_drive_disturbance_window")),
+                "phase": finite_float(row.get("yaw_drive_disturbance_phase")),
+                "wheel_margin": wheel_margin,
+                "risk_contraction": finite_float(row.get("risk_contraction")),
+                "reference_velocity": finite_float(
+                    row.get("common_velocity_reference")),
+                "longitudinal_delta": finite_float(
+                    row.get("yaw_drive_disturbance_mean_longitudinal_delta")),
+                "yaw_delta": finite_float(
+                    row.get("yaw_drive_disturbance_yaw_differential_delta")),
+                "left_nominal": left_nominal,
+                "right_nominal": right_nominal,
+                "left_disturbed": finite_float(
+                    row.get("yaw_drive_disturbance_left_disturbed")),
+                "right_disturbed": finite_float(
+                    row.get("yaw_drive_disturbance_right_disturbed")),
+            })
         disturbance = finite_float(row.get("agv2_disturbance_total"))
         disturbance_active = (math.isfinite(disturbance) and
                               abs(disturbance) > 1.0e-12)
@@ -822,6 +877,40 @@ def compute_metrics(rows, sample_period, command_epsilon=1e-6,
                 max(risk_contractions) if risk_contractions else None,
             "risk_contraction_integral":
                 sum(risk_contractions) * sample_period,
+        },
+        "yaw_drive_disturbance_v2": {
+            "active_samples": len(yaw_v2_samples),
+            "wheel_margin_definition": (
+                "current_controller_raw_demand_with_0p01_normalization; "
+                "the selector applies the controller's one-sample causal lag"),
+            "wheel_margin_minimum": min(
+                (value["wheel_margin"] for value in yaw_v2_samples
+                 if math.isfinite(value["wheel_margin"])), default=None),
+            "wheel_margin_5_percentile": _percentile(
+                [value["wheel_margin"] for value in yaw_v2_samples], 0.05),
+            "wheel_margin_mean": _mean(
+                [value["wheel_margin"] for value in yaw_v2_samples]),
+            "risk_contraction_peak_disturbance": max(
+                (value["risk_contraction"] for value in yaw_v2_samples
+                 if math.isfinite(value["risk_contraction"])), default=None),
+            "risk_contraction_integral_disturbance": sum(
+                value["risk_contraction"] for value in yaw_v2_samples
+                if math.isfinite(value["risk_contraction"])) * sample_period,
+            "reference_velocity_minimum_disturbance": min(
+                (value["reference_velocity"] for value in yaw_v2_samples
+                 if math.isfinite(value["reference_velocity"])), default=None),
+            "maximum_longitudinal_delta_absolute": _maximum_absolute(
+                [value["longitudinal_delta"] for value in yaw_v2_samples]),
+            "longitudinal_delta_rms": _rmse(
+                [value["longitudinal_delta"] for value in yaw_v2_samples]),
+            "maximum_yaw_differential_delta_absolute": _maximum_absolute(
+                [value["yaw_delta"] for value in yaw_v2_samples]),
+            "maximum_controller_wheel_raw": _maximum_absolute([
+                value[name] for value in yaw_v2_samples
+                for name in ("left_nominal", "right_nominal")]),
+            "maximum_post_disturbance_pre_safety_wheel": _maximum_absolute([
+                value[name] for value in yaw_v2_samples
+                for name in ("left_disturbed", "right_disturbed")]),
         },
         "internal": {
             "psi_max_absolute": _maximum_absolute(internal["psi"]),

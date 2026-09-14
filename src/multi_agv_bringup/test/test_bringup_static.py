@@ -9,6 +9,66 @@ SOURCE_ROOT = PACKAGE.parent
 
 
 class BringupStaticTest(unittest.TestCase):
+    def test_exp2c_v2_yaw_screen_is_fake_only_m1b_and_fail_closed(self):
+        import yaml
+        configs = PACKAGE / 'config'
+        runner = (PACKAGE / 'scripts' /
+                  'run_exp2c_v2_yaw_disturbance_fake_screen.sh').read_text()
+        upper = yaml.safe_load((
+            configs / 'exp2c_v2_M1b_yaw_disturbance.yaml').read_text())
+        authorization = yaml.safe_load((
+            configs /
+            'formal_exp2c_v2_M1b_yaw_disturbance_authorization.yaml').read_text())
+        candidates = yaml.safe_load((
+            configs / 'exp2c_v2_yaw_disturbance_candidates.yaml').read_text())
+        self.assertEqual(upper['formal_upper']['mode'], 'M1b')
+        self.assertFalse(upper['formal_upper']['hardware_execution_authorized'])
+        self.assertFalse(upper['formal_upper']['m1b_hardware_execution_authorized'])
+        self.assertFalse(authorization['formal_upper']['hardware_execution_authorized'])
+        self.assertFalse(authorization['formal_lower']['hardware_execution_authorized'])
+        self.assertFalse(authorization['yaw_drive_disturbance_v2'][
+            'hardware_execution_authorized'])
+        self.assertEqual(authorization['authorization_scope'][
+            'physical_authorization_status'], 'prohibited_fake_only')
+        self.assertEqual(candidates['exp2c_v2_yaw_fake_screen'][
+            'selection_source'], 'M1b_only')
+        self.assertEqual(candidates['exp2c_v2_yaw_fake_screen_round2'][
+            'candidates_mps'], [0.016, 0.020, 0.024])
+        self.assertFalse(candidates['exp2c_v2_yaw_fake_screen_round2'][
+            'hardware_execution_authorized'])
+        self.assertIn('export ROS_MASTER_URI="http://127.0.0.1:', runner)
+        self.assertIn('method_id=M1b_R1', runner)
+        self.assertNotIn('run_one M1 ', runner)
+        self.assertNotIn('run_one M1b ', runner)
+        self.assertIn('risk_disturbance_enabled:=false', runner)
+        self.assertIn('yaw_drive_disturbance_enabled:=true', runner)
+        self.assertIn('formal_available_wheel_limit:=0.16', runner)
+        self.assertIn('--candidate-set round1|round2', runner)
+        self.assertIn('levels=(0p016 0p020 0p024)', runner)
+        self.assertIn('retaining it as rejected', runner)
+        self.assertIn('screen_exp2c_v2_yaw_disturbance.py', runner)
+        self.assertIn('run_one paired_0p020 0.020 M1b', runner)
+        self.assertIn('run_one paired_0p020 0.020 M1', runner)
+        self.assertIn('analyze_exp2c_v2_yaw_paired.py', runner)
+
+    def test_exp2c_v2_insertion_preserves_controller_raw_and_v1(self):
+        source = (SOURCE_ROOT / 'multi_agv_control' / 'src' /
+                  'formal_fake_algorithm_node.cpp').read_text()
+        v1_header = (SOURCE_ROOT / 'multi_agv_control' / 'include' /
+                     'multi_agv_control' / 'risk_disturbance.hpp').read_bytes()
+        # The v2 module acts on an execution copy; M1's causal history and
+        # public controller state continue to consume nominal tracker output.
+        self.assertIn('auto execution_tracking = tracking;', source)
+        self.assertIn('previous_wheel_raw_[index] = wheel_demand_before_limit[index];', source)
+        self.assertIn('publishPublicState(now, true, lower, tracking);', source)
+        self.assertIn('trackingPassesSerialEmergencyGate(execution_tracking, dt)', source)
+        self.assertIn('applySerialExecutionLimitPolicy(&execution_tracking)', source)
+        self.assertIn('Exp2c-v1 and Exp2c-v2 disturbances cannot be enabled together', source)
+        # Stable source fingerprint pins the old v1 disturbance implementation.
+        import hashlib
+        self.assertEqual(hashlib.sha256(v1_header).hexdigest(),
+                         'a616c765a7b861d29dd0840fa5653f146d4d700718275e0fb4fd09c84e319fdc')
+
     def test_exp2c_risk_comparison_is_scoped_and_fail_closed(self):
         import subprocess
         import yaml

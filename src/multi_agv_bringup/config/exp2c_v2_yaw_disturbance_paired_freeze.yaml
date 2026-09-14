@@ -1,0 +1,11 @@
+exp2c_v2_yaw_disturbance_paired_fake:
+  schema_version: 1
+  freeze_status: SELECTED_FOR_PAIRED_FAKE_REVIEW
+  amplitude_mps: 0.020
+  start_s: 2.0
+  end_s: 2.8
+  transition_length: 0.15
+  methods: [M1b_R1, M1_R1]
+  reuse_screening_run: false
+  hardware_execution_authorized: false
+  yaw_disturbance_hardware_authorized: false

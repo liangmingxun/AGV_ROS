@@ -35,6 +35,7 @@
 #include "multi_agv_control/s_curve_path.hpp"
 #include "multi_agv_control/support_geometry.hpp"
 #include "multi_agv_control/upper_reference_generator.hpp"
+#include "multi_agv_control/yaw_drive_disturbance.hpp"
 
 namespace multi_agv_control {
 namespace {
@@ -144,6 +145,10 @@ class FormalFakeAlgorithmNode {
     const auto upper_config = loadUpperConfig();
     const auto lower_config = loadLowerConfig();
     enforceExecutionGates(upper_config, lower_config);
+    if (yaw_drive_disturbance_config_.enabled && transport_type_ != "fake") {
+      throw std::runtime_error(
+          "Exp2c-v2 yaw disturbance is structurally restricted to fake transport");
+    }
     upper_mode_ = upper_config.mode;
     hard_capability_envelope_enabled_ =
         upper_config.hard_capability_envelope_enabled;
@@ -227,6 +232,9 @@ class FormalFakeAlgorithmNode {
         "/multi_agv/m2b_algorithm_state", 10, false);
     risk_disturbance_publisher_ = node_.advertise<std_msgs::Float64MultiArray>(
         "/multi_agv/risk_disturbance_state", 10, false);
+    yaw_drive_disturbance_publisher_ =
+        node_.advertise<std_msgs::Float64MultiArray>(
+            "/multi_agv/yaw_drive_disturbance_state", 10, false);
     timer_ = node_.createTimer(
         ros::Duration(1.0 / publish_rate_),
         &FormalFakeAlgorithmNode::step, this);
@@ -554,6 +562,16 @@ class FormalFakeAlgorithmNode {
                         risk_disturbance_config_.frequency_hz, 0.30);
     private_node_.param(root + "risk_disturbance_v1/peak_fraction",
                         risk_disturbance_config_.peak_fraction, 0.30);
+    private_node_.param(root + "yaw_drive_disturbance_v2/enabled",
+                        yaw_drive_disturbance_config_.enabled, false);
+    private_node_.param(root + "yaw_drive_disturbance_v2/start_s",
+                        yaw_drive_disturbance_config_.start_s, 2.0);
+    private_node_.param(root + "yaw_drive_disturbance_v2/end_s",
+                        yaw_drive_disturbance_config_.end_s, 2.8);
+    private_node_.param(root + "yaw_drive_disturbance_v2/transition_length",
+                        yaw_drive_disturbance_config_.transition_length, 0.15);
+    private_node_.param(root + "yaw_drive_disturbance_v2/amplitude",
+                        yaw_drive_disturbance_config_.amplitude, 0.004);
     private_node_.param(
         root + "lower/velocity_lower_bound",
         velocity_lower_bound_, -0.15);
@@ -605,6 +623,15 @@ class FormalFakeAlgorithmNode {
       (void)evaluateRiskDisturbance(risk_disturbance_config_, 2,
                                     risk_disturbance_config_.start_s,
                                     0.0, 0.0, 1.0);
+    }
+    if (yaw_drive_disturbance_config_.enabled) {
+      if (risk_disturbance_config_.enabled) {
+        throw std::runtime_error(
+            "Exp2c-v1 and Exp2c-v2 disturbances cannot be enabled together");
+      }
+      (void)evaluateYawDriveDisturbance(
+          yaw_drive_disturbance_config_, 2,
+          yaw_drive_disturbance_config_.start_s, 0.0, 0.0);
     }
     bool command_authorized = false;
     private_node_.param(
@@ -1800,6 +1827,23 @@ class FormalFakeAlgorithmNode {
     risk_disturbance_publisher_.publish(message);
   }
 
+  void publishYawDriveDisturbance(const ros::Time& stamp) {
+    std_msgs::Float64MultiArray message;
+    message.layout.dim.resize(1);
+    message.layout.dim[0].label = "yaw_drive_disturbance_v2:header15";
+    message.layout.dim[0].size = 15U;
+    message.layout.dim[0].stride = 15U;
+    const auto& value = yaw_drive_disturbance_output_;
+    message.data = {
+        yaw_drive_disturbance_config_.enabled ? 1.0 : 0.0,
+        value.active ? 1.0 : 0.0, stamp.toSec(), 2.0,
+        value.path_progress, value.window, value.phase, value.amplitude,
+        value.signed_disturbance, value.left_nominal, value.right_nominal,
+        value.left_disturbed, value.right_disturbed,
+        value.mean_longitudinal_delta, value.yaw_differential_delta};
+    yaw_drive_disturbance_publisher_.publish(message);
+  }
+
   void publishExecutionLimiter(
       const ros::Time& stamp, double scale,
       const std::array<std::array<double, 2>, 3>& demand,
@@ -2343,16 +2387,36 @@ class FormalFakeAlgorithmNode {
           tracking[index].wheel_linear_velocity_left_raw,
           tracking[index].wheel_linear_velocity_right_raw}};
     }
-    if (!trackingPassesSerialEmergencyGate(tracking, dt)) {
+    // Preserve the tracker/controller demand above for M1's causal wheel
+    // margin and the existing pre-limit diagnostic.  Exp2c-v2 modifies only
+    // this execution copy, after tracking and before the chassis safety layer.
+    auto execution_tracking = tracking;
+    yaw_drive_disturbance_output_ = evaluateYawDriveDisturbance(
+        yaw_drive_disturbance_config_, 2, algorithmPositionActual(1U),
+        tracking[1].wheel_linear_velocity_left_raw,
+        tracking[1].wheel_linear_velocity_right_raw);
+    execution_tracking[1].wheel_linear_velocity_left_raw =
+        yaw_drive_disturbance_output_.left_disturbed;
+    execution_tracking[1].wheel_linear_velocity_right_raw =
+        yaw_drive_disturbance_output_.right_disturbed;
+    execution_tracking[1].linear_velocity_raw = 0.5 * (
+        yaw_drive_disturbance_output_.left_disturbed +
+        yaw_drive_disturbance_output_.right_disturbed);
+    execution_tracking[1].angular_velocity_raw = (
+        yaw_drive_disturbance_output_.right_disturbed -
+        yaw_drive_disturbance_output_.left_disturbed) /
+        tracker_config_.wheel_separation[1];
+    if (!trackingPassesSerialEmergencyGate(execution_tracking, dt)) {
       publishZero(now);
       publishPublicState(now, false, lower, tracking);
       publishDebug(false, current_upper_, distributed, lower);
       return;
     }
-    const double wheel_scale = applySerialExecutionLimitPolicy(&tracking);
+    const double wheel_scale = applySerialExecutionLimitPolicy(&execution_tracking);
     publishExecutionLimiter(
         now, wheel_scale, wheel_demand_before_limit, tracking);
     publishRiskDisturbance(now);
+    publishYawDriveDisturbance(now);
 
     for (std::size_t index = 0; index < kRobotCount; ++index) {
       agv_msgs::ChassisCommand command;
@@ -2360,7 +2424,7 @@ class FormalFakeAlgorithmNode {
       command.robot_id = static_cast<std::uint8_t>(index + 1U);
       command.command_seq = ++command_sequence_[index];
       command.control_mode = 1U;
-      if (!fillWheelPublication(index, tracking[index], &command)) {
+      if (!fillWheelPublication(index, execution_tracking[index], &command)) {
         publishZero(now);
         publishPublicState(now, false, lower, tracking);
         publishDebug(false, current_upper_, distributed, lower);
@@ -2425,6 +2489,7 @@ class FormalFakeAlgorithmNode {
   ros::Publisher execution_limiter_publisher_;
   ros::Publisher m2b_debug_publisher_;
   ros::Publisher risk_disturbance_publisher_;
+  ros::Publisher yaw_drive_disturbance_publisher_;
   ros::Timer timer_;
   agv_msgs::CooperativeState state_;
   agv_msgs::CooperativeState latest_received_state_;
@@ -2511,6 +2576,8 @@ class FormalFakeAlgorithmNode {
   double disturbance_elapsed_seconds_{0.0};
   RiskDisturbanceConfig risk_disturbance_config_;
   std::array<RiskDisturbanceOutput, 3> risk_disturbance_output_{};
+  YawDriveDisturbanceConfig yaw_drive_disturbance_config_;
+  YawDriveDisturbanceOutput yaw_drive_disturbance_output_{};
   std::uint32_t reconciliation_maximum_applied_sequence_lag_{5U};
   std::size_t m1_derating_reserve_robot_index_{1U};
   double initialization_elapsed_seconds_{0.0};

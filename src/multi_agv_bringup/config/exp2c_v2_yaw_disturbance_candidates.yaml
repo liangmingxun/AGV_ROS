@@ -1,0 +1,30 @@
+exp2c_v2_yaw_fake_screen:
+  schema_version: 1
+  selection_source: M1b_only
+  controller_results_consulted: [M1b_R1]
+  candidates_mps: [0.004, 0.007, 0.010, 0.012]
+  start_s: 2.0
+  end_s: 2.8
+  transition_length: 0.15
+  central_excitation_threshold: 0.50
+  wheel_margin_target: {minimum: 0.40, maximum: 0.70}
+  longitudinal_speed_target_mps: {minimum: 0.097, maximum: 0.103}
+  require_zero_speed_limiter_duration: true
+  hardware_execution_authorized: false
+  yaw_disturbance_hardware_authorized: false
+
+exp2c_v2_yaw_fake_screen_round2:
+  schema_version: 1
+  decision_basis: explicit_manual_followup_after_round1_selected_null
+  selection_source: M1b_only
+  controller_results_consulted: [M1b_R1]
+  candidates_mps: [0.016, 0.020, 0.024]
+  start_s: 2.0
+  end_s: 2.8
+  transition_length: 0.15
+  central_excitation_threshold: 0.50
+  wheel_margin_target: {minimum: 0.40, maximum: 0.70}
+  longitudinal_speed_target_mps: {minimum: 0.097, maximum: 0.103}
+  require_zero_speed_limiter_duration: true
+  hardware_execution_authorized: false
+  yaw_disturbance_hardware_authorized: false

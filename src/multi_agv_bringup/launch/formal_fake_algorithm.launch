@@ -18,6 +18,10 @@
   <arg name="risk_disturbance_experiment_id"
        default="exp2c_risk_disturbance_v1_fake"/>
   <arg name="risk_disturbance_target_progress" default="5.178229715025710"/>
+  <arg name="yaw_drive_disturbance_enabled" default="false"/>
+  <arg name="yaw_drive_disturbance_amplitude" default="0.004"/>
+  <arg name="yaw_drive_disturbance_experiment_id"
+       default="exp2c_v2_yaw_disturbance_fake"/>
 
   <include file="$(find multi_agv_bringup)/launch/three_fake_chassis.launch">
     <arg name="formal_available_wheel_limit"
@@ -52,5 +56,12 @@
     <param if="$(arg risk_disturbance_enabled)"
            name="formal_fake_runtime/target_progress"
            value="$(arg risk_disturbance_target_progress)"/>
+    <param name="formal_fake_runtime/yaw_drive_disturbance_v2/enabled"
+           value="$(arg yaw_drive_disturbance_enabled)"/>
+    <param name="formal_fake_runtime/yaw_drive_disturbance_v2/amplitude"
+           value="$(arg yaw_drive_disturbance_amplitude)"/>
+    <param if="$(arg yaw_drive_disturbance_enabled)"
+           name="formal_fake_runtime/experiment_id"
+           value="$(arg yaw_drive_disturbance_experiment_id)"/>
   </node>
 </launch>
