@@ -1,0 +1,54 @@
+{
+  "acceptance": {
+    "maximum_m1_reference_below_0p099_fraction": 0.05,
+    "maximum_m1_risk_boundary_active_fraction": 0.05,
+    "minimum_m1_mean_reference_mps": 0.0995
+  },
+  "analysis_window_m": [
+    0.4,
+    5.17
+  ],
+  "experiment": "Exp2c-v3 nominal headroom no-disturbance precheck",
+  "methods": {
+    "M1_R1": {
+      "actual_reference_reduction_definition": "same_run_candidate_common_velocity_minus_published_common_velocity",
+      "actual_reference_reduction_mean_mps": 6.258601898850557e-08,
+      "actual_reference_reduction_peak_mps": 7.071346293935354e-06,
+      "actual_reference_reduction_positive_fraction": 0.08074664429530201,
+      "analysis_samples": 4768,
+      "common_reference_velocity_mean_mps": 0.10003293029408618,
+      "common_reference_velocity_minimum_mps": 0.09993179861139993,
+      "manifest_nominal_common_velocity_mps": 0.1,
+      "reference_below_0p099_fraction": 0.0,
+      "risk_boundary_active_duration_seconds": 0.0,
+      "risk_boundary_active_fraction": 0.0,
+      "task_completion_time_seconds": 51.68989872932434,
+      "upper_clipping_reduction_mean_mps": 0.0,
+      "upper_clipping_reduction_peak_mps": 0.0,
+      "validation_issue_codes": [],
+      "validation_valid": true
+    },
+    "M1b_R1": {
+      "actual_reference_reduction_definition": "same_run_candidate_common_velocity_minus_published_common_velocity",
+      "actual_reference_reduction_mean_mps": 9.194006400081305e-09,
+      "actual_reference_reduction_peak_mps": 5.84037659244474e-06,
+      "actual_reference_reduction_positive_fraction": 0.06120310207503668,
+      "analysis_samples": 4771,
+      "common_reference_velocity_mean_mps": 0.09997823560843436,
+      "common_reference_velocity_minimum_mps": 0.09991746932358714,
+      "manifest_nominal_common_velocity_mps": 0.1,
+      "reference_below_0p099_fraction": 0.0,
+      "risk_boundary_active_duration_seconds": 0.0,
+      "risk_boundary_active_fraction": 0.0,
+      "task_completion_time_seconds": 51.680091857910156,
+      "upper_clipping_reduction_mean_mps": 0.0,
+      "upper_clipping_reduction_peak_mps": 0.0,
+      "validation_issue_codes": [],
+      "validation_valid": true
+    }
+  },
+  "nominal_inner_upper_mps": 0.107,
+  "schema_version": 1,
+  "stage1_passed": true,
+  "task_velocity_mps": 0.1
+}

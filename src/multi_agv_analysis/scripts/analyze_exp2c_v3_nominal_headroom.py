@@ -43,28 +43,87 @@ def active_window_rows(rows, disturbance):
 
 def boundary_active(row):
     contraction = _V2.num(row, "risk_contraction")
-    reference = _V2.num(row, "common_velocity_reference")
+    reference = _V2.num(row, "upper_effective_common_velocity")
+    published = _V2.num(row, "common_velocity_reference")
+    candidate = _V2.num(row, "candidate_common_velocity")
     upper = _V2.num(row, "common_boundary_upper")
-    return (math.isfinite(contraction + reference + upper) and
+    return (math.isfinite(contraction + reference + upper + candidate + published) and
             contraction > 1.0e-9 and
-            abs(reference - upper) <= BOUNDARY_TOLERANCE)
+            candidate > upper + 1.0e-9 and
+            abs(reference - upper) <= BOUNDARY_TOLERANCE and
+            abs(published - upper) <= BOUNDARY_TOLERANCE)
+
+
+def reference_reduction_metrics(rows):
+    """Same-run upper candidate minus published effective reference.
+
+    Keep the signed difference: negative differences are not reductions.
+    Also expose the direct upper clipping separately from downstream dynamics.
+    """
+    differences = []
+    clipping = []
+    for row in rows:
+        candidate = _V2.num(row, "candidate_common_velocity")
+        effective = _V2.num(row, "common_velocity_reference")
+        upper_effective = _V2.num(row, "upper_effective_common_velocity")
+        if not math.isfinite(candidate + effective + upper_effective):
+            raise ValueError("missing/nonfinite same-run v3 reference diagnostics")
+        differences.append(candidate - effective)
+        clipping.append(max(0.0, candidate - upper_effective))
+    if not differences:
+        raise ValueError("empty reference analysis window")
+    return {
+        "actual_reference_reduction_peak_mps": max(differences),
+        "actual_reference_reduction_mean_mps": _V2.mean(differences),
+        "actual_reference_reduction_positive_fraction":
+            sum(value > 1e-6 for value in differences) / len(differences),
+        "upper_clipping_reduction_peak_mps": max(clipping),
+        "upper_clipping_reduction_mean_mps": _V2.mean(clipping),
+        "actual_reference_reduction_definition":
+            "same_run_candidate_common_velocity_minus_published_common_velocity",
+    }
 
 
 def manifest_nominal_velocity(run_dir):
     manifest = yaml.safe_load((run_dir / "manifest.yaml").read_text(
         encoding="utf-8"))
-    return float(manifest.get("metrics", {}).get(
-        "nominal_common_velocity", math.nan))
+    params = yaml.safe_load((run_dir / "rosparams.yaml").read_text(encoding="utf-8"))
+    runtime = params.get("formal_fake_algorithm", {}).get("formal_fake_runtime", {})
+    leader_velocity = float(runtime.get("leader", {}).get("velocity", math.nan))
+    if (runtime.get("experiment_id") != "exp2c_v3_nominal_headroom_fake" or
+            not math.isfinite(leader_velocity) or
+            abs(leader_velocity - TASK_VELOCITY) > 1e-12):
+        raise ValueError("incorrect v3 runtime experiment identity/task velocity")
+    for robot in ("agv1", "agv2", "agv3"):
+        if params.get(robot, {}).get("chassis_controller", {}).get("transport_type") != "fake":
+            raise ValueError("non-fake chassis snapshot")
+    def inspect_authorizations(value):
+        if isinstance(value, dict):
+            for key, child in value.items():
+                if key.endswith("hardware_execution_authorized") and child is not False:
+                    raise ValueError("hardware execution authorization is not false")
+                inspect_authorizations(child)
+        elif isinstance(value, list):
+            for child in value:
+                inspect_authorizations(child)
+    inspect_authorizations(params)
+    return float(manifest.get("metrics", {}).get("nominal_common_velocity", math.nan))
 
 
 def stage1_metrics(run_dir):
     validation, summary, rows = _V2.load_run(run_dir)
-    selected = active_window_rows(rows, disturbance=False)
+    # Test all post-startup moving samples, not just the future disturbance
+    # window. Terminal invalid/zero samples cannot dilute the active fraction.
+    selected = [row for row in rows if _V2.flag(row, "algorithm_valid") and
+                0.4 <= _V2.num(row, "load_s_reference") < 5.17]
+    if not selected:
+        raise ValueError("empty stage1 steady-motion window")
+    reductions = reference_reduction_metrics(selected)
     references = [_V2.num(row, "common_velocity_reference") for row in selected]
     references = _V2.finite(references)
     active = sum(boundary_active(row) for row in selected)
     sample_period = float(summary.get("sample_period", 0.01))
-    return {
+    return dict(reductions, **{
         "validation_valid": bool(validation.get("valid")),
         "validation_issue_codes": [issue.get("code") for issue in
                                    validation.get("issues", [])],
@@ -81,7 +140,7 @@ def stage1_metrics(run_dir):
             "completion_time"),
         "manifest_nominal_common_velocity_mps": manifest_nominal_velocity(
             run_dir),
-    }
+    })
 
 
 def stage1_passes(metrics):
@@ -107,7 +166,7 @@ def write_stage1(root, methods):
         "experiment": "Exp2c-v3 nominal headroom no-disturbance precheck",
         "task_velocity_mps": TASK_VELOCITY,
         "nominal_inner_upper_mps": 0.107,
-        "analysis_window_m": list(WINDOW),
+        "analysis_window_m": [0.4, 5.17],
         "methods": methods,
         "acceptance": {
             "minimum_m1_mean_reference_mps": MINIMUM_STAGE1_MEAN_REFERENCE,
@@ -158,6 +217,30 @@ def paired_run_metrics(run_dir):
         "manifest_nominal_common_velocity_mps": manifest_nominal_velocity(
             run_dir),
     })
+    if (not metrics["validation_valid"] or not selected or
+            not math.isfinite(metrics["manifest_nominal_common_velocity_mps"]) or
+            abs(metrics["manifest_nominal_common_velocity_mps"] - TASK_VELOCITY) > 1e-12):
+        raise ValueError("invalid/empty paired run or incorrect nominal velocity metadata")
+    metrics.update(reference_reduction_metrics(selected))
+    task_gap = [max(0.0, TASK_VELOCITY - _V2.num(row, "common_velocity_reference"))
+                for row in selected]
+    metrics["task_velocity_shortfall_peak_mps"] = max(task_gap)
+    metrics["task_velocity_shortfall_mean_mps"] = _V2.mean(task_gap)
+    physical_margins, disturbed_differentials = [], []
+    for row in selected:
+        left = _V2.num(row, "yaw_drive_disturbance_left_disturbed")
+        right = _V2.num(row, "yaw_drive_disturbance_right_disturbed")
+        limit = min(_V2.num(row, "agv2_wheel_left_reported_limit"),
+                    _V2.num(row, "agv2_wheel_right_reported_limit"))
+        if math.isfinite(left + right + limit):
+            physical_margins.append(limit - max(abs(left), abs(right)))
+            disturbed_differentials.append(right - left)
+    metrics["perturbed_wheel_physical_margin_minimum_mps"] = min(physical_margins, default=None)
+    metrics["perturbed_wheel_physical_margin_mean_mps"] = _V2.mean(physical_margins)
+    metrics["perturbed_differential_wheel_rms_mps"] = _V2.rms(disturbed_differentials)
+    metrics["risk_boundary_analysis_samples"] = len(selected)
+    metrics["wheel_burden_definition"] = "controller raw before antisymmetric yaw injection"
+    metrics["geometry_scope"] = "heading/side errors: yaw window; support/rigid-fit: full valid run"
     return metrics, selected
 
 
@@ -187,6 +270,8 @@ def interpolate(samples, coordinate, fields, grid):
 
 
 def paired_alignment(m1_rows, m1b_rows, domain, output_path):
+    if not m1_rows or not m1b_rows:
+        raise ValueError("empty paired alignment input")
     fields = (
         "common_velocity_reference", "common_boundary_upper",
         "risk_contraction", "agv2_robust_margin",
@@ -204,26 +289,34 @@ def paired_alignment(m1_rows, m1b_rows, domain, output_path):
               min(_V2.num(row, coordinate) for row in m1b_rows))
     high = min(max(_V2.num(row, coordinate) for row in m1_rows),
                max(_V2.num(row, coordinate) for row in m1b_rows))
+    if not math.isfinite(low + high) or high <= low:
+        raise ValueError("no paired coordinate overlap")
     grid = [low + (high - low) * index / 400.0 for index in range(401)]
     m1 = interpolate(m1_rows, coordinate, fields, grid)
     m1b = interpolate(m1b_rows, coordinate, fields, grid)
     rows, reductions = [], []
-    for effective, candidate in zip(m1, m1b):
+    counterfactual = {row[coordinate]: row for row in m1b}
+    for effective in m1:
+        candidate = counterfactual.get(effective[coordinate])
+        if candidate is None:
+            continue
         reduction = max(0.0, candidate["common_velocity_reference"] -
                         effective["common_velocity_reference"])
         reductions.append(reduction)
         row = {
             coordinate: effective[coordinate],
-            "candidate_common_velocity_mps":
+            "m1b_counterfactual_common_velocity_mps":
                 candidate["common_velocity_reference"],
             "effective_common_velocity_mps":
                 effective["common_velocity_reference"],
-            "actual_reference_reduction_mps": reduction,
+            "paired_reference_difference_mps": reduction,
         }
         for field in fields[1:]:
             row["m1_" + field] = effective[field]
             row["m1b_" + field] = candidate[field]
         rows.append(row)
+    if not rows:
+        raise ValueError("no finite aligned paired samples")
     with output_path.open("w", newline="", encoding="utf-8") as stream:
         writer = csv.DictWriter(stream, fieldnames=list(rows[0]))
         writer.writeheader()
@@ -232,13 +325,13 @@ def paired_alignment(m1_rows, m1b_rows, domain, output_path):
         "samples": len(rows),
         "domain_minimum": low,
         "domain_maximum": high,
-        "actual_reference_reduction_peak_mps": max(reductions, default=None),
-        "actual_reference_reduction_mean_mps": _V2.mean(reductions),
-        "actual_reference_reduction_positive_fraction": (
+        "paired_reference_difference_peak_mps": max(reductions, default=None),
+        "paired_reference_difference_mean_mps": _V2.mean(reductions),
+        "paired_reference_difference_positive_fraction": (
             sum(value > 1.0e-6 for value in reductions) / len(reductions)
             if reductions else None),
         "definition": (
-            "fresh_paired_M1b_candidate_common_velocity_minus_"
+            "fresh_paired_M1b_counterfactual_common_velocity_minus_"
             "M1_effective_common_velocity_clipped_at_zero"),
     }
 
@@ -262,7 +355,7 @@ def write_final(root, stage1, methods, time_alignment, progress_alignment):
             "B_risk_boundary_became_active":
                 (m1["risk_boundary_active_fraction"] or 0.0) > 0.0,
             "C_m1_produced_actual_reference_reduction":
-                (progress_alignment[
+                (m1[
                     "actual_reference_reduction_peak_mps"] or 0.0) > 1.0e-5,
             "D_controller_raw_peak_reduced":
                 m1["controller_wheel_raw_peak_mps"] <
@@ -288,6 +381,9 @@ def write_final(root, stage1, methods, time_alignment, progress_alignment):
         "historical_exp2c_v1_v2_modified": False,
         "hardware_authorization_changed": False,
     }
+    report["full_causal_chain_supported_in_this_fake_pair"] = all(
+        report["causal_questions"].values())
+    report["evidence_scope"] = "one fresh fake run per condition; not hardware authorization or repeatability proof"
     (root / "paired_comparison.json").write_text(
         json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     lines = ["# Exp2c-v3 paired fake comparison", "",
@@ -299,9 +395,9 @@ def write_final(root, stage1, methods, time_alignment, progress_alignment):
                 key, m1[key], m1b.get(key)))
     lines.extend([
         "", "## Actual reference reduction", "",
-        "Progress-domain peak/mean: {} / {} m/s".format(
-            progress_alignment["actual_reference_reduction_peak_mps"],
-            progress_alignment["actual_reference_reduction_mean_mps"]),
+        "Same-run candidate minus published reference peak/mean: {} / {} m/s".format(
+            m1["actual_reference_reduction_peak_mps"],
+            m1["actual_reference_reduction_mean_mps"]),
         "", "## Causal questions", "",
     ])
     lines.extend("- {}: {}".format(key, value) for key, value in

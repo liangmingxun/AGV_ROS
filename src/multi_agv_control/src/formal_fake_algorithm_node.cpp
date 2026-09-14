@@ -1649,10 +1649,14 @@ class FormalFakeAlgorithmNode {
       const std::array<LowerChannelOutput, 3>& lower) {
     std_msgs::Float64MultiArray message;
     message.layout.dim.resize(1);
-    message.layout.dim[0].label =
-        "formal_algorithm_state_v2:header10+3x29";
+    const bool v3_diagnostics =
+        experiment_id_ == "exp2c_v3_nominal_headroom_fake";
+    message.layout.dim[0].label = v3_diagnostics
+        ? "formal_algorithm_state_v3:header10+3x29+reference4"
+        : "formal_algorithm_state_v2:header10+3x29";
     message.layout.dim[0].size =
-        kDebugHeaderFields + kRobotCount * kDebugFieldsPerRobot;
+        kDebugHeaderFields + kRobotCount * kDebugFieldsPerRobot +
+        (v3_diagnostics ? 4U : 0U);
     message.layout.dim[0].stride = message.layout.dim[0].size;
     message.data.reserve(message.layout.dim[0].size);
     message.data.push_back(valid ? 1.0 : 0.0);
@@ -1689,6 +1693,14 @@ class FormalFakeAlgorithmNode {
           mapped_capability_[i].upper_velocity}};
       message.data.insert(
           message.data.end(), fields.begin(), fields.end());
+    }
+    if (v3_diagnostics) {
+      // Observe the actual pre-intersection inputs, not a separate run's
+      // counterfactual or the post-clamp distributed velocities.
+      for (const auto& agent : upper.agents) {
+        message.data.push_back(agent.candidate_velocity);
+      }
+      message.data.push_back(upper.common_velocity);
     }
     debug_publisher_.publish(message);
   }

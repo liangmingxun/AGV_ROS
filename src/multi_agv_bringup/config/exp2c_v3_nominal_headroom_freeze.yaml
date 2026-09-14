@@ -17,10 +17,12 @@ exp2c_v3_nominal_headroom_fake:
     maximum_m1_risk_boundary_active_fraction: 0.05
   definitions:
     risk_boundary_active: >-
-      M1 risk contraction is positive and effective common velocity is on the
-      recorded dynamic common upper boundary within 0.0001 m/s.
+      M1 risk contraction is positive, same-run candidate exceeds common upper,
+      and upper effective and published common velocities both contact that
+      boundary within 0.0001 m/s.
     actual_reference_reduction: >-
-      Fresh paired M1b candidate common velocity minus M1 effective common
-      velocity after alignment; negative values are clipped to zero.
+      Same-run candidate common velocity (mean of the three pre-intersection
+      upper inputs) minus published effective common velocity. Signed difference;
+      separate-run M1b comparison is labeled paired_reference_difference only.
   hardware_execution_authorized: false
   yaw_disturbance_hardware_authorized: false

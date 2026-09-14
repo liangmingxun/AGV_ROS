@@ -1,0 +1,61 @@
+... logging to /home/etlab/.ros/log/c3365002-b01f-11f1-a6c1-018a5f4a331b/roslaunch-robot1-13956.log
+Checking log directory for disk usage. This may take a while.
+Press Ctrl-C to interrupt
+Done checking log file disk usage. Usage is <1GB.
+]2;/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/launch/formal_evaluation_window.launch
+[1mstarted roslaunch server http://127.0.0.1:37853/[0m
+
+SUMMARY
+========
+
+PARAMETERS
+ * /formal_evaluation_supervisor/authorization_scope/evaluation_config: src/multi_agv_bri...
+ * /formal_evaluation_supervisor/authorization_scope/path_config: src/multi_agv_bri...
+ * /formal_evaluation_supervisor/authorization_scope/physical_authorization_status: prohibited_fake_only
+ * /formal_evaluation_supervisor/authorization_scope/robot2_derating: False
+ * /formal_evaluation_supervisor/authorization_scope/runtime_config: src/multi_agv_bri...
+ * /formal_evaluation_supervisor/authorization_scope/target_progress: 5.17822971502571
+ * /formal_evaluation_supervisor/authorization_scope/upper_config: src/multi_agv_bri...
+ * /formal_evaluation_supervisor/confirm_robot2_local_derating: False
+ * /formal_evaluation_supervisor/derating_publication_authorized: False
+ * /formal_evaluation_supervisor/exp2a_derating_pretest/activation_progress: 5.28
+ * /formal_evaluation_supervisor/exp2a_derating_pretest/block_id: stage2_yaw_0p020_...
+ * /formal_evaluation_supervisor/exp2a_derating_pretest/derating_mode: 1
+ * /formal_evaluation_supervisor/exp2a_derating_pretest/evaluation_end_progress: 5.17822971502571
+ * /formal_evaluation_supervisor/exp2a_derating_pretest/evaluation_start_progress: 0.0
+ * /formal_evaluation_supervisor/exp2a_derating_pretest/experiment_id: exp2c_v3_nominal_...
+ * /formal_evaluation_supervisor/exp2a_derating_pretest/finish_after_restoration: False
+ * /formal_evaluation_supervisor/exp2a_derating_pretest/hardware_execution_authorized: False
+ * /formal_evaluation_supervisor/exp2a_derating_pretest/method_id: M1b_R1
+ * /formal_evaluation_supervisor/exp2a_derating_pretest/progress_source: load_actual
+ * /formal_evaluation_supervisor/exp2a_derating_pretest/publish_rate: 10.0
+ * /formal_evaluation_supervisor/exp2a_derating_pretest/ramp_down_time: 0.5
+ * /formal_evaluation_supervisor/exp2a_derating_pretest/ramp_up_time: 0.5
+ * /formal_evaluation_supervisor/exp2a_derating_pretest/restoration_progress: 5.38
+ * /formal_evaluation_supervisor/exp2a_derating_pretest/run_id: stage2_yaw_0p020_...
+ * /formal_evaluation_supervisor/exp2a_derating_pretest/schema_version: 1
+ * /formal_evaluation_supervisor/exp2a_derating_pretest/target_acceleration_ratio_left: 0.5
+ * /formal_evaluation_supervisor/exp2a_derating_pretest/target_acceleration_ratio_right: 0.5
+ * /formal_evaluation_supervisor/exp2a_derating_pretest/target_deceleration_ratio_left: 0.6
+ * /formal_evaluation_supervisor/exp2a_derating_pretest/target_deceleration_ratio_right: 0.6
+ * /formal_evaluation_supervisor/exp2a_derating_pretest/target_speed_ratio_left: 0.4
+ * /formal_evaluation_supervisor/exp2a_derating_pretest/target_speed_ratio_right: 0.4
+ * /formal_evaluation_supervisor/formal_lower/hardware_execution_authorized: False
+ * /formal_evaluation_supervisor/formal_upper/hardware_execution_authorized: False
+ * /formal_evaluation_supervisor/formal_upper/m1b_hardware_execution_authorized: False
+ * /formal_evaluation_supervisor/platform_transport_type: fake
+ * /formal_evaluation_supervisor/yaw_drive_disturbance_v2/hardware_execution_authorized: False
+ * /rosdistro: noetic
+ * /rosversion: 1.17.0
+
+NODES
+  /
+    formal_evaluation_supervisor (multi_agv_control/experiment_supervisor_node)
+
+[1mROS_MASTER_URI=http://127.0.0.1:11643[0m
+]2;/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/launch/formal_evaluation_window.launch http://127.0.0.1:11643
+[1mprocess[formal_evaluation_supervisor-1]: started with pid [14014][0m
+[formal_evaluation_supervisor-1] killing on exit
+shutting down processing monitor...
+... shutting down processing monitor complete
+[1mdone[0m

@@ -389,6 +389,23 @@ class CameraConversionTest(unittest.TestCase):
         self.assertTrue(aligned["algorithm_state_available"])
         self.assertTrue(aligned["algorithm_valid"])
 
+    def test_v3_candidate_diagnostics_preserve_existing_robot_offsets(self):
+        raw = {name: [] for name in RAW_SCHEMAS}
+        raw["cooperative_state.csv"] = [{"header_stamp": 1.01}]
+        values = [0.] * 97 + [.100, .103, .106, .099]
+        values[0] = values[9] = 1.
+        values[10 + 29 + 27] = .12
+        raw["formal_algorithm_state.csv"] = [{
+            "topic": "/multi_agv/formal_algorithm_state", "header_stamp": 1.,
+            "layout_label": "formal_algorithm_state_v3:header10+3x29+reference4",
+            "data_json": json.dumps(values)}]
+        aligned = _aligned_rows(raw, .2)[0]
+        self.assertTrue(aligned["algorithm_valid"])
+        self.assertTrue(aligned["mapped_path_capability_available"])
+        self.assertAlmostEqual(aligned["candidate_common_velocity"], .103)
+        self.assertAlmostEqual(aligned["upper_effective_common_velocity"], .099)
+        self.assertAlmostEqual(aligned["agv2_mapped_path_velocity_lower"], .12)
+
     def test_camera_and_world_pose_fields_are_losslessly_exported(self):
         stamp = genpy.Time.from_sec(12.5)
         camera = PoseStamped()

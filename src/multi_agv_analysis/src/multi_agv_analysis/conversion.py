@@ -723,10 +723,13 @@ def _aligned_rows(raw, maximum_age,
         debug_version = 0
         if (debug and debug.get("layout_label") in (
                 "formal_algorithm_state_v1:header9+3x27",
-                "formal_algorithm_state_v2:header10+3x29")):
+                "formal_algorithm_state_v2:header10+3x29",
+                "formal_algorithm_state_v3:header10+3x29+reference4")):
             try:
                 debug_values = json.loads(debug["data_json"])
-                debug_version = (2 if debug.get("layout_label") ==
+                debug_version = (3 if debug.get("layout_label") ==
+                                 "formal_algorithm_state_v3:header10+3x29+reference4"
+                                 else 2 if debug.get("layout_label") ==
                                  "formal_algorithm_state_v2:header10+3x29"
                                  else 1)
             except (TypeError, ValueError):
@@ -746,13 +749,19 @@ def _aligned_rows(raw, maximum_age,
             limiter_values[3] if len(limiter_values) == 25 else math.nan)
         row["mapped_path_capability_available"] = (
             bool(debug_values[9])
-            if debug_version == 2 and len(debug_values) == 97 else False)
-        expected_debug_size = 97 if debug_version == 2 else 90
+            if debug_version >= 2 and len(debug_values) in (97, 101) else False)
+        expected_debug_size = 101 if debug_version == 3 else 97 if debug_version == 2 else 90
         row["algorithm_state_available"] = (
             debug_version != 0 and len(debug_values) == expected_debug_size)
         row["algorithm_valid"] = (
             bool(debug_values[0])
             if row["algorithm_state_available"] else False)
+        row["candidate_common_velocity"] = (
+            sum(debug_values[97:100]) / 3.0
+            if debug_version == 3 and len(debug_values) == 101 else math.nan)
+        row["upper_effective_common_velocity"] = (
+            debug_values[100]
+            if debug_version == 3 and len(debug_values) == 101 else math.nan)
         risk_values = []
         if (risk and risk.get("layout_label") ==
                 "risk_disturbance_state_v1:header11+3x10"):
@@ -944,8 +953,8 @@ def _aligned_rows(raw, maximum_age,
             row["agv{}_capability_derating_ratio".format(robot)] = (
                 current_capability.get("derating_ratio", math.nan)
                 if current_capability else math.nan)
-            debug_header = 10 if debug_version == 2 else 9
-            debug_fields = 29 if debug_version == 2 else 27
+            debug_header = 10 if debug_version >= 2 else 9
+            debug_fields = 29 if debug_version >= 2 else 27
             debug_offset = debug_header + (robot - 1) * debug_fields
             if len(debug_values) >= debug_offset + debug_fields:
                 names = (
@@ -962,7 +971,7 @@ def _aligned_rows(raw, maximum_age,
                 for offset, name in enumerate(names):
                     row["agv{}_{}".format(robot, name)] = (
                         debug_values[debug_offset + offset])
-                if debug_version == 2 and bool(debug_values[9]):
+                if debug_version >= 2 and bool(debug_values[9]):
                     row["agv{}_mapped_path_velocity_lower".format(robot)] = (
                         debug_values[debug_offset + 27])
                     row["agv{}_mapped_path_velocity_upper".format(robot)] = (

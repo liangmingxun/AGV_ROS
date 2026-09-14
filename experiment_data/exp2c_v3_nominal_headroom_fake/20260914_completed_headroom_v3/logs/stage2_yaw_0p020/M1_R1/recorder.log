@@ -1,0 +1,159 @@
+[INFO] [1789378816.113579389]: Subscribing to /agv1/capability_report
+[INFO] [1789378816.117253095]: Subscribing to /agv1/chassis_command
+[INFO] [1789378816.118719672]: Subscribing to /agv1/chassis_feedback
+[INFO] [1789378816.120060923]: Subscribing to /agv1/derating_command
+[INFO] [1789378816.121940524]: Subscribing to /agv1/imu
+[INFO] [1789378816.123481102]: Subscribing to /agv1/odom
+[INFO] [1789378816.124604444]: Subscribing to /agv2/capability_report
+[INFO] [1789378816.125480967]: Subscribing to /agv2/chassis_command
+[INFO] [1789378816.128060797]: Subscribing to /agv2/chassis_feedback
+[INFO] [1789378816.129664793]: Subscribing to /agv2/derating_command
+[INFO] [1789378816.130843880]: Subscribing to /agv2/imu
+[INFO] [1789378816.131861165]: Subscribing to /agv2/odom
+[INFO] [1789378816.132672297]: Subscribing to /agv3/capability_report
+[INFO] [1789378816.133430167]: Subscribing to /agv3/chassis_command
+[INFO] [1789378816.134254374]: Subscribing to /agv3/chassis_feedback
+[INFO] [1789378816.134903962]: Subscribing to /agv3/derating_command
+[INFO] [1789378816.136721489]: Subscribing to /agv3/imu
+[INFO] [1789378816.138179310]: Subscribing to /agv3/odom
+[INFO] [1789378816.140685505]: Subscribing to /camera/world/agv1_confidence
+[INFO] [1789378816.141625025]: Subscribing to /camera/world/agv1_tag_pose
+[INFO] [1789378816.142691543]: Subscribing to /camera/world/agv2_confidence
+[INFO] [1789378816.143652897]: Subscribing to /camera/world/agv2_tag_pose
+[INFO] [1789378816.144662817]: Subscribing to /camera/world/agv3_confidence
+[INFO] [1789378816.145516865]: Subscribing to /camera/world/agv3_tag_pose
+[INFO] [1789378816.147303278]: Subscribing to /camera/world/load_confidence
+[INFO] [1789378816.149126150]: Subscribing to /camera/world/load_tag_pose
+[INFO] [1789378816.150777064]: Subscribing to /experiment_recorder/armed
+[INFO] [1789378816.152101123]: Subscribing to /experiment_recorder/method_id
+[INFO] [1789378816.153160290]: Subscribing to /multi_agv/controller_state
+[INFO] [1789378816.155762388]: Subscribing to /multi_agv/cooperative_state
+[INFO] [1789378816.160186289]: Subscribing to /multi_agv/experiment_state
+[INFO] [1789378816.162155382]: Subscribing to /multi_agv/formal_algorithm_state
+[INFO] [1789378816.164276880]: Subscribing to /multi_agv/formal_execution_limiter_state
+[INFO] [1789378816.165939461]: Subscribing to /multi_agv/m2b_algorithm_state
+[INFO] [1789378816.168900532]: Subscribing to /multi_agv/path_reference
+[INFO] [1789378816.171320410]: Subscribing to /multi_agv/risk_disturbance_state
+[INFO] [1789378816.173316399]: Subscribing to /multi_agv/software_watchdog_diagnostics
+[INFO] [1789378816.174743230]: Subscribing to /multi_agv/software_watchdog_ok
+[INFO] [1789378816.177271357]: Subscribing to /multi_agv/state_projection_timing
+[INFO] [1789378816.179417828]: Subscribing to /multi_agv/yaw_drive_disturbance_state
+[INFO] [1789378816.181901585]: Subscribing to /pose_provider/agv1/base_motion_fused
+[INFO] [1789378816.183749804]: Subscribing to /pose_provider/agv1/base_pose_filtered
+[INFO] [1789378816.185123855]: Subscribing to /pose_provider/agv1/base_pose_fused
+[INFO] [1789378816.186657344]: Subscribing to /pose_provider/agv1/base_pose_raw
+[INFO] [1789378816.188098985]: Subscribing to /pose_provider/agv1/estimator_timing
+[INFO] [1789378816.188974442]: Subscribing to /pose_provider/agv1/fusion_timing
+[INFO] [1789378816.190716669]: Subscribing to /pose_provider/agv2/base_motion_fused
+[INFO] [1789378816.192136340]: Subscribing to /pose_provider/agv2/base_pose_filtered
+[INFO] [1789378816.193270106]: Subscribing to /pose_provider/agv2/base_pose_fused
+[INFO] [1789378816.194562022]: Subscribing to /pose_provider/agv2/base_pose_raw
+[INFO] [1789378816.195823454]: Subscribing to /pose_provider/agv2/estimator_timing
+[INFO] [1789378816.197368088]: Subscribing to /pose_provider/agv2/fusion_timing
+[INFO] [1789378816.198351171]: Subscribing to /pose_provider/agv3/base_motion_fused
+[INFO] [1789378816.199049139]: Subscribing to /pose_provider/agv3/base_pose_filtered
+[INFO] [1789378816.199787940]: Subscribing to /pose_provider/agv3/base_pose_fused
+[INFO] [1789378816.200488382]: Subscribing to /pose_provider/agv3/base_pose_raw
+[INFO] [1789378816.201136027]: Subscribing to /pose_provider/agv3/estimator_timing
+[INFO] [1789378816.201786563]: Subscribing to /pose_provider/agv3/fusion_timing
+[INFO] [1789378816.202529809]: Subscribing to /pose_provider/load/pose_filtered
+[INFO] [1789378816.203545769]: Subscribing to /pose_provider/load/pose_raw
+[INFO] [1789378816.205184882]: Subscribing to /vision/aruco/calibration_epoch
+[INFO] [1789378816.207352135]: Recording to '/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/experiment_data/exp2c_v3_nominal_headroom_fake/20260914_completed_headroom_v3/stage2_yaw_0p020/M1_R1/M1_R1.bag'.
+[INFO] [1789378816.230171]: Experiment recording armed after all required subscriptions connected: run_id=M1_R1 bag=/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/experiment_data/exp2c_v3_nominal_headroom_fake/20260914_completed_headroom_v3/stage2_yaw_0p020/M1_R1/M1_R1.bag
+[31m================================================================================REQUIRED process [experiment_recorder-1] has died!
+process has finished cleanly
+log file: /home/etlab/.ros/log/c3365002-b01f-11f1-a6c1-018a5f4a331b/experiment_recorder-1*.log
+Initiating shutdown!
+================================================================================[0m
+... logging to /home/etlab/.ros/log/c3365002-b01f-11f1-a6c1-018a5f4a331b/roslaunch-robot1-16793.log
+Checking log directory for disk usage. This may take a while.
+Press Ctrl-C to interrupt
+Done checking log file disk usage. Usage is <1GB.
+]2;/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/launch/experiment.launch
+[1mstarted roslaunch server http://127.0.0.1:41371/[0m
+
+SUMMARY
+========
+
+PARAMETERS
+ * /agv1/capability_report: 90.0
+ * /agv1/chassis_command: 90.0
+ * /agv1/chassis_feedback: 90.0
+ * /agv1/imu: 90.0
+ * /agv1/odom: 90.0
+ * /agv2/capability_report: 90.0
+ * /agv2/chassis_command: 90.0
+ * /agv2/chassis_feedback: 90.0
+ * /agv2/imu: 90.0
+ * /agv2/odom: 90.0
+ * /agv3/capability_report: 90.0
+ * /agv3/chassis_command: 90.0
+ * /agv3/chassis_feedback: 90.0
+ * /agv3/imu: 90.0
+ * /agv3/odom: 90.0
+ * /experiment_recorder/approval_id: 
+ * /experiment_recorder/approval_registry: /home/etlab/AGV_R...
+ * /experiment_recorder/arming_authorized: True
+ * /experiment_recorder/camera_config_files: ['/home/etlab/AGV...
+ * /experiment_recorder/camera_mode: False
+ * /experiment_recorder/config_files: ['/home/etlab/AGV...
+ * /experiment_recorder/connection_wait_seconds: 5.0
+ * /experiment_recorder/experiment_id: exp2c_v3_nominal_...
+ * /experiment_recorder/experiment_recording/camera_calibration_epoch_required: True
+ * /experiment_recorder/experiment_recording/camera_required_topics: ['/vision/aruco/c...
+ * /experiment_recorder/experiment_recording/camera_virtual_load_required_topics: ['/vision/aruco/c...
+ * /experiment_recorder/experiment_recording/fused_required_topics: ['/pose_provider/...
+ * /experiment_recorder/experiment_recording/localization_exclusion/maximum_consecutive_invalid_seconds: 0.1
+ * /experiment_recorder/experiment_recording/localization_exclusion/maximum_invalid_fraction: 0.01
+ * /experiment_recorder/experiment_recording/maximum_camera_calibration_epoch_changes: 0
+ * /experiment_recorder/experiment_recording/method_required_topics/M1_R1: ['/multi_agv/expe...
+ * /experiment_recorder/experiment_recording/method_required_topics/M1b_R1: ['/multi_agv/expe...
+ * /experiment_recorder/experiment_recording/method_required_topics/M2a_R1: ['/multi_agv/expe...
+ * /experiment_recorder/experiment_recording/method_required_topics/M2b_M2b: ['/multi_agv/m2b_...
+ * /experiment_recorder/experiment_recording/recommended_topics: ['/multi_agv/expe...
+ * /experiment_recorder/experiment_recording/registered_method_ids: ['M1_R1', 'M1b_R1...
+ * /experiment_recorder/experiment_recording/required_topics: ['/agv1/chassis_c...
+ * /experiment_recorder/experiment_recording/sample_period: 0.01
+ * /experiment_recorder/experiment_recording/sequence_rules: [{'file': 'chassi...
+ * /experiment_recorder/experiment_recording/topics: ['/agv1/chassis_c...
+ * /experiment_recorder/formal_statistics_requested: False
+ * /experiment_recorder/interface_version: agv_ros_interface...
+ * /experiment_recorder/localization_source: odom_fake
+ * /experiment_recorder/measured_payload_pose_topic: /pose_provider/lo...
+ * /experiment_recorder/method_id: M1_R1
+ * /experiment_recorder/metrics/evaluation_target: 5.17822971502571
+ * /experiment_recorder/metrics/nominal_agv2_capability: 0.0
+ * /experiment_recorder/metrics/nominal_common_velocity: 0.1
+ * /experiment_recorder/operator: 
+ * /experiment_recorder/output_root: /home/etlab/AGV_R...
+ * /experiment_recorder/pair_block_id: stage2_yaw_0p020
+ * /experiment_recorder/path_version: s_curve_v1
+ * /experiment_recorder/payload_pose_source: equivalent_load
+ * /experiment_recorder/payload_state: unloaded
+ * /experiment_recorder/preflight_wait_seconds: 15.0
+ * /experiment_recorder/require_approved_config: False
+ * /experiment_recorder/require_windows_sender_manifest: False
+ * /experiment_recorder/run_id: M1_R1
+ * /experiment_recorder/virtual_load_from_robots: False
+ * /experiment_recorder/wheel_speed_scale_freeze_id: 
+ * /experiment_recorder/workspace: /home/etlab/AGV_R...
+ * /multi_agv/controller_state: 90.0
+ * /multi_agv/cooperative_state: 90.0
+ * /multi_agv/formal_algorithm_state: 90.0
+ * /multi_agv/m2b_algorithm_state: 90.0
+ * /multi_agv/path_reference: 90.0
+ * /rosdistro: noetic
+ * /rosversion: 1.17.0
+
+NODES
+  /
+    experiment_recorder (multi_agv_analysis/record_experiment.py)
+
+[1mROS_MASTER_URI=http://127.0.0.1:11643[0m
+]2;/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/launch/experiment.launch http://127.0.0.1:11643
+[1mprocess[experiment_recorder-1]: started with pid [16835][0m
+[experiment_recorder-1] killing on exit
+shutting down processing monitor...
+... shutting down processing monitor complete
+[1mdone[0m

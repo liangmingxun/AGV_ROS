@@ -8,8 +8,8 @@ ros_port=11643
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --output-root) output_root="$2"; shift 2 ;;
-    --ros-port) ros_port="$2"; shift 2 ;;
+    --output-root) [[ $# -ge 2 ]] || exit 2; output_root="$2"; shift 2 ;;
+    --ros-port) [[ $# -ge 2 ]] || exit 2; ros_port="$2"; shift 2 ;;
     -h|--help)
       echo "usage: $0 [--output-root DIR] [--ros-port PORT]"
       echo "Runs the Exp2c-v3 no-disturbance gate, then a fresh A=0.020 paired fake comparison."
@@ -17,6 +17,9 @@ while [[ $# -gt 0 ]]; do
     *) echo "ERROR: unknown argument: $1" >&2; exit 2 ;;
   esac
 done
+if [[ ! "$ros_port" =~ ^[0-9]+$ ]] || (( ros_port < 1024 || ros_port > 65535 )); then
+  echo "ERROR: --ros-port must be a private port in 1024..65535" >&2; exit 2
+fi
 
 if [[ -z "$output_root" ]]; then
   output_root="${workspace}/experiment_data/exp2c_v3_nominal_headroom_fake/$(date +%Y%m%d_%H%M%S)"
@@ -28,6 +31,9 @@ source devel/setup.bash
 export ROS_MASTER_URI="http://127.0.0.1:${ros_port}"
 export ROS_HOSTNAME=127.0.0.1
 unset ROS_IP || true
+if [[ -e "$output_root" ]]; then
+  echo "ERROR: output root already exists; fresh v3 evidence is required" >&2; exit 2
+fi
 mkdir -p "$output_root"
 
 if rosnode list >/dev/null 2>&1; then
@@ -147,10 +153,14 @@ run_one() {
   while (( SECONDS < deadline )); do
     progress="$(timeout 2 rostopic echo -n 1 /multi_agv/path_reference 2>/dev/null |
       awk '/load_path_progress_reference:/ {print $2; exit}' || true)"
-    if [[ -n "$progress" ]] && awk -v value="$progress" 'BEGIN {exit !(value >= 5.177)}'; then
+    if [[ -n "$progress" ]] && awk -v value="$progress" 'BEGIN {exit !(value >= 5.178229715025710)}'; then
       break
     fi
-    if ! kill -0 "$algorithm_pid" 2>/dev/null; then wait "$algorithm_pid"; fi
+    for pid in "$algorithm_pid" "$evaluation_pid" "$recorder_pid"; do
+      if ! kill -0 "$pid" 2>/dev/null; then
+        echo "ERROR: required fake pipeline process exited during motion" >&2; exit 7
+      fi
+    done
     sleep 0.2
   done
   if (( SECONDS >= deadline )); then
@@ -159,7 +169,7 @@ run_one() {
   fi
   sleep 1
   rosservice call /experiment_recorder/stop >/dev/null
-  wait "$recorder_pid" || true
+  wait "$recorder_pid"
   recorder_pid=""
   cleanup_run
 
