@@ -3,6 +3,7 @@
 #include <array>
 #include <cstddef>
 #include <string>
+#include <limits>
 
 #include "multi_agv_control/dynamic_boundary.hpp"
 
@@ -13,6 +14,7 @@ enum class UpperMode {
   kM2a,
   kM2b,
   kM4,
+  kM1b,
 };
 
 struct UpperAgentConfig {
@@ -34,6 +36,9 @@ struct UpperReferenceConfig {
   std::size_t controller_ticks_per_update{4U};
   double fixed_m4_speed{0.03};
   bool golden_vectors_verified{false};
+  // Opt-in forward-path experiment. Legacy methods keep their old semantics.
+  bool hard_capability_envelope_enabled{false};
+  double hard_capability_reserve{0.005};
 };
 
 struct UpperAgentInput {
@@ -56,6 +61,9 @@ struct UpperAgentOutput {
   std::uint32_t active_constraints{0U};
   double inner_lower{0.0};
   double inner_upper{0.0};
+  double hard_inner_upper{std::numeric_limits<double>::quiet_NaN()};
+  double baseline_inner_upper{std::numeric_limits<double>::quiet_NaN()};
+  double risk_inner_upper{std::numeric_limits<double>::quiet_NaN()};
   bool valid{false};
 };
 
@@ -66,6 +74,10 @@ struct UpperReferenceOutput {
   double common_velocity{0.0};
   bool updated{false};
   bool valid{false};
+  double hard_common_upper{std::numeric_limits<double>::quiet_NaN()};
+  double baseline_common_upper{std::numeric_limits<double>::quiet_NaN()};
+  double risk_contraction{std::numeric_limits<double>::quiet_NaN()};
+  std::string invalid_reason;
 };
 
 struct DistributedReferenceConfig {
@@ -131,6 +143,7 @@ class UpperReferenceGenerator {
   const UpperReferenceOutput& output() const noexcept { return output_; }
 
  private:
+  void applyHardEnvelope(const std::array<UpperAgentInput, 3>& input);
   UpperReferenceConfig config_;
   DynamicBoundaryProjector projector_;
   std::array<DynamicBoundaryState, 3> boundary_;

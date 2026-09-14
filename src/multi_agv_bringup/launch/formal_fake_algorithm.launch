@@ -7,10 +7,17 @@
        default="$(find multi_agv_bringup)/config/formal_fake_runtime.yaml"/>
   <arg name="path_config"
        default="$(find multi_agv_bringup)/config/path_s_curve.yaml"/>
+  <arg name="localization_config"
+       default="$(find multi_agv_bringup)/config/localization_odom.yaml"/>
   <arg name="start_state_estimator" default="true"/>
   <arg name="require_recorder_armed" default="false"/>
   <arg name="command_publication_authorized" default="true"/>
   <arg name="formal_available_wheel_limit" default="0.08"/>
+  <arg name="risk_disturbance_enabled" default="false"/>
+  <arg name="risk_disturbance_peak_fraction" default="0.30"/>
+  <arg name="risk_disturbance_experiment_id"
+       default="exp2c_risk_disturbance_v1_fake"/>
+  <arg name="risk_disturbance_target_progress" default="5.178229715025710"/>
 
   <include file="$(find multi_agv_bringup)/launch/three_fake_chassis.launch">
     <arg name="formal_available_wheel_limit"
@@ -19,6 +26,7 @@
   <include if="$(arg start_state_estimator)"
            file="$(find multi_agv_bringup)/launch/odom_state_estimator.launch">
     <arg name="path_config" value="$(arg path_config)"/>
+    <arg name="localization_config" value="$(arg localization_config)"/>
   </include>
 
   <node pkg="multi_agv_control" type="formal_fake_algorithm_node"
@@ -34,5 +42,15 @@
            value="$(arg command_publication_authorized)"/>
     <param name="formal_fake_runtime/require_recorder_armed"
            value="$(arg require_recorder_armed)"/>
+    <param name="formal_fake_runtime/risk_disturbance_v1/enabled"
+           value="$(arg risk_disturbance_enabled)"/>
+    <param name="formal_fake_runtime/risk_disturbance_v1/peak_fraction"
+           value="$(arg risk_disturbance_peak_fraction)"/>
+    <param if="$(arg risk_disturbance_enabled)"
+           name="formal_fake_runtime/experiment_id"
+           value="$(arg risk_disturbance_experiment_id)"/>
+    <param if="$(arg risk_disturbance_enabled)"
+           name="formal_fake_runtime/target_progress"
+           value="$(arg risk_disturbance_target_progress)"/>
   </node>
 </launch>

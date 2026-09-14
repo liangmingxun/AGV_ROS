@@ -31,6 +31,7 @@
 #include "multi_agv_control/lower_channel_controller.hpp"
 #include "multi_agv_control/m2b_controller.hpp"
 #include "multi_agv_control/planar_support_tracker.hpp"
+#include "multi_agv_control/risk_disturbance.hpp"
 #include "multi_agv_control/s_curve_path.hpp"
 #include "multi_agv_control/support_geometry.hpp"
 #include "multi_agv_control/upper_reference_generator.hpp"
@@ -144,6 +145,8 @@ class FormalFakeAlgorithmNode {
     const auto lower_config = loadLowerConfig();
     enforceExecutionGates(upper_config, lower_config);
     upper_mode_ = upper_config.mode;
+    hard_capability_envelope_enabled_ =
+        upper_config.hard_capability_envelope_enabled;
     lower_mode_ = lower_config.mode;
     if (consistent_reference_acceleration_ && lower_mode_ != LowerMode::kR1) {
       throw std::runtime_error("reference-consistency pilot is scoped to shared R1");
@@ -222,6 +225,8 @@ class FormalFakeAlgorithmNode {
             "/multi_agv/formal_execution_limiter_state", 10, false);
     m2b_debug_publisher_ = node_.advertise<std_msgs::Float64MultiArray>(
         "/multi_agv/m2b_algorithm_state", 10, false);
+    risk_disturbance_publisher_ = node_.advertise<std_msgs::Float64MultiArray>(
+        "/multi_agv/risk_disturbance_state", 10, false);
     timer_ = node_.createTimer(
         ros::Duration(1.0 / publish_rate_),
         &FormalFakeAlgorithmNode::step, this);
@@ -535,6 +540,20 @@ class FormalFakeAlgorithmNode {
     private_node_.param(
         root + "risk/maximum_watchdog_age",
         maximum_watchdog_age_, 0.25);
+    private_node_.param(root + "risk_disturbance_v1/enabled",
+                        risk_disturbance_config_.enabled, false);
+    private_node_.param(root + "risk_disturbance_v1/start_s",
+                        risk_disturbance_config_.start_s, 2.0);
+    private_node_.param(root + "risk_disturbance_v1/end_s",
+                        risk_disturbance_config_.end_s, 2.8);
+    private_node_.param(root + "risk_disturbance_v1/transition_length",
+                        risk_disturbance_config_.transition_length, 0.15);
+    private_node_.param(root + "risk_disturbance_v1/nominal_speed",
+                        risk_disturbance_config_.nominal_speed, 0.10);
+    private_node_.param(root + "risk_disturbance_v1/frequency_hz",
+                        risk_disturbance_config_.frequency_hz, 0.30);
+    private_node_.param(root + "risk_disturbance_v1/peak_fraction",
+                        risk_disturbance_config_.peak_fraction, 0.30);
     private_node_.param(
         root + "lower/velocity_lower_bound",
         velocity_lower_bound_, -0.15);
@@ -581,6 +600,12 @@ class FormalFakeAlgorithmNode {
         velocity_lower_bound_ >= velocity_upper_bound_) {
       throw std::runtime_error("invalid formal fake runtime configuration");
     }
+    if (risk_disturbance_config_.enabled) {
+      // Performs the complete configuration validation without injecting.
+      (void)evaluateRiskDisturbance(risk_disturbance_config_, 2,
+                                    risk_disturbance_config_.start_s,
+                                    0.0, 0.0, 1.0);
+    }
     bool command_authorized = false;
     private_node_.param(
         root + "command_publication_authorized",
@@ -604,6 +629,10 @@ class FormalFakeAlgorithmNode {
     private_node_.param(
         "formal_upper/golden_vectors_verified",
         config.golden_vectors_verified, false);
+    private_node_.param("formal_upper/hard_capability_envelope/enabled",
+                        config.hard_capability_envelope_enabled, false);
+    private_node_.param("formal_upper/hard_capability_envelope/capability_reserve",
+                        config.hard_capability_reserve, 0.005);
     const std::string root = "formal_upper/agents/";
     const auto physical_lower = array3(private_node_, root + "physical_lower");
     const auto physical_upper = array3(private_node_, root + "physical_upper");
@@ -642,7 +671,7 @@ class FormalFakeAlgorithmNode {
           nominal_lower[index], nominal_upper[index]};
       agent.inner_margin = inner_margin[index];
     }
-    if (config.mode == UpperMode::kM1) {
+    if (config.mode == UpperMode::kM1 || config.mode == UpperMode::kM1b) {
       const auto restore_lower =
           array3(private_node_, root + "restore_gain_lower");
       const auto restore_upper =
@@ -795,6 +824,10 @@ class FormalFakeAlgorithmNode {
     gate.serial_execution_authorized = serial_execution_authorized_;
     gate.m1_r1_selected =
         upper.mode == UpperMode::kM1 && lower.mode == LowerMode::kR1;
+    gate.m1b_r1_selected =
+        upper.mode == UpperMode::kM1b && lower.mode == LowerMode::kR1;
+    private_node_.param("formal_upper/m1b_hardware_execution_authorized",
+                        gate.m1b_hardware_authorized, false);
     gate.m2a_r1_selected =
         upper.mode == UpperMode::kM2a && lower.mode == LowerMode::kR1;
     gate.m2b_m2b_selected =
@@ -1202,6 +1235,11 @@ class FormalFakeAlgorithmNode {
         unramped_acceleration_reference_ * startup_scale_ +
         unramped_velocity_reference_ * scale_rate;
     }
+    if (hard_capability_envelope_enabled_) {
+      current_velocity_reference_ = std::clamp(
+          current_velocity_reference_, current_upper_.common_lower,
+          current_upper_.common_upper);
+    }
     if (transport_type_ == "serial" && consistent_reference_acceleration_) {
       const auto derivative = execution_reference_derivative_.update(
           current_velocity_reference_, dt);
@@ -1342,7 +1380,7 @@ class FormalFakeAlgorithmNode {
     }
     const double unprojected =
         execution_channel_velocity_command_[index] +
-        dt * output->input_limited;
+        dt * output->input_plant;
     execution_channel_velocity_command_[index] =
         std::clamp(
             unprojected, execution_lower_bound, execution_upper_bound);
@@ -1350,6 +1388,28 @@ class FormalFakeAlgorithmNode {
     execution_channel_velocity_upper_bound_[index] = execution_upper_bound;
     output->channel_velocity_command =
         execution_channel_velocity_command_[index];
+    output->velocity_projection_active =
+        output->velocity_projection_active ||
+        output->channel_velocity_command != unprojected;
+    output->valid = output->valid &&
+        std::isfinite(output->channel_velocity_command);
+  }
+
+  void applyFakeMatchedDisturbance(
+      const LowerChannelInput& input, LowerChannelOutput* output) const {
+    if (transport_type_ != "fake" || !risk_disturbance_config_.enabled) {
+      return;
+    }
+    // The normal fake chassis is an ideal command follower.  For the
+    // explicitly selected Exp2c software rehearsal only, advance its channel
+    // velocity with the post-actuator plant input so the matched disturbance
+    // is present in the simulated response but remains unavailable to R1.
+    // With risk_disturbance_v1 disabled this path is not entered, preserving
+    // the historical fake/golden behaviour exactly.
+    const double unprojected = input.velocity_actual +
+        input.dt_seconds * output->input_plant;
+    output->channel_velocity_command = std::clamp(
+        unprojected, input.velocity_lower_bound, input.velocity_upper_bound);
     output->velocity_projection_active =
         output->velocity_projection_active ||
         output->channel_velocity_command != unprojected;
@@ -1707,6 +1767,37 @@ class FormalFakeAlgorithmNode {
       message.data.insert(message.data.end(), fields.begin(), fields.end());
     }
     m2b_debug_publisher_.publish(message);
+  }
+
+  void publishRiskDisturbance(const ros::Time& stamp) {
+    std_msgs::Float64MultiArray message;
+    message.layout.dim.resize(1);
+    message.layout.dim[0].label = "risk_disturbance_state_v1:header11+3x10";
+    message.layout.dim[0].size = 41U;
+    message.layout.dim[0].stride = 41U;
+    message.data = {
+        risk_disturbance_config_.enabled ? 1.0 : 0.0,
+        stamp.toSec(), 2.0, risk_disturbance_config_.start_s,
+        risk_disturbance_config_.end_s,
+        risk_disturbance_config_.frequency_hz,
+        risk_disturbance_config_.peak_fraction, disturbance_elapsed_seconds_,
+        current_upper_.hard_common_upper,
+        current_upper_.baseline_common_upper,
+        current_upper_.risk_contraction};
+    for (std::size_t i = 0; i < kRobotCount; ++i) {
+      const auto& value = risk_disturbance_output_[i];
+      message.data.push_back(value.window);
+      message.data.push_back(value.base);
+      message.data.push_back(value.velocity);
+      message.data.push_back(value.sinusoid);
+      message.data.push_back(value.acceleration);
+      message.data.push_back(current_upper_.agents[i].logged_mapped_capability);
+      message.data.push_back(current_upper_.agents[i].hard_inner_upper);
+      message.data.push_back(current_upper_.agents[i].baseline_inner_upper);
+      message.data.push_back(current_upper_.agents[i].risk_inner_upper);
+      message.data.push_back(current_upper_.agents[i].inner_upper);
+    }
+    risk_disturbance_publisher_.publish(message);
   }
 
   void publishExecutionLimiter(
@@ -2071,6 +2162,19 @@ class FormalFakeAlgorithmNode {
       publishDebug(false, current_upper_, distributed, lower);
       return;
     }
+    if (hard_capability_envelope_enabled_) {
+      // The hard capability intersection is evaluated every controller tick.
+      // Keep the distributed state inside it immediately; risk dynamics still
+      // retain their own un-intersected state in UpperReferenceGenerator.
+      for (std::size_t i = 0; i < kRobotCount; ++i) {
+        distributed_state_.velocity[i] = std::clamp(
+            distributed_state_.velocity[i], current_upper_.agents[i].inner_lower,
+            current_upper_.agents[i].inner_upper);
+        if (!current_upper_.updated) {
+          previous_boundary_[i] = current_upper_.agents[i].boundary;
+        }
+      }
+    }
 
     if (current_upper_.updated) {
       DistributedReferenceInput reference_input;
@@ -2143,6 +2247,8 @@ class FormalFakeAlgorithmNode {
     } else {
       robot2_derating_elapsed_seconds_ = 0.0;
     }
+    disturbance_elapsed_seconds_ += dt;
+    risk_disturbance_output_ = {};
     for (std::size_t index = 0; index < kRobotCount; ++index) {
       LowerChannelInput input;
       input.position_actual = algorithmPositionActual(index);
@@ -2167,12 +2273,31 @@ class FormalFakeAlgorithmNode {
           capability_[index].decel_limit_active_left ||
           capability_[index].decel_limit_active_right;
       input.dt_seconds = dt;
+      risk_disturbance_output_[index] = evaluateRiskDisturbance(
+          risk_disturbance_config_, static_cast<int>(index + 1U),
+          input.position_actual, input.velocity_actual,
+          disturbance_elapsed_seconds_, input.available_acceleration);
+      // LowerChannelController uses this value only after computing and
+      // limiting the control input. It is therefore a true matched plant
+      // input, not controller preview or compensation.
+      input.injected_matched_disturbance =
+          risk_disturbance_output_[index].acceleration;
       lower[index] = lower_controllers_[index]->step(input);
+      if (!lower[index].valid) {
+        ROS_WARN_THROTTLE(
+            1.0, "Formal algorithm fail-zero: lower controller for "
+            "agv%zu is invalid", index + 1U);
+        publishZero(now);
+        publishPublicState(now, false, lower, tracking);
+        publishDebug(false, current_upper_, distributed, lower);
+        return;
+      }
+      applyFakeMatchedDisturbance(input, &lower[index]);
       applySerialAccelerationExecutionAdapter(
           index, fleet.robots[index], dt, &lower[index]);
       if (!lower[index].valid) {
         ROS_WARN_THROTTLE(
-            1.0, "Formal algorithm fail-zero: lower controller for "
+            1.0, "Formal algorithm fail-zero: execution adapter for "
             "agv%zu is invalid", index + 1U);
         publishZero(now);
         publishPublicState(now, false, lower, tracking);
@@ -2227,6 +2352,7 @@ class FormalFakeAlgorithmNode {
     const double wheel_scale = applySerialExecutionLimitPolicy(&tracking);
     publishExecutionLimiter(
         now, wheel_scale, wheel_demand_before_limit, tracking);
+    publishRiskDisturbance(now);
 
     for (std::size_t index = 0; index < kRobotCount; ++index) {
       agv_msgs::ChassisCommand command;
@@ -2298,6 +2424,7 @@ class FormalFakeAlgorithmNode {
   ros::Publisher debug_publisher_;
   ros::Publisher execution_limiter_publisher_;
   ros::Publisher m2b_debug_publisher_;
+  ros::Publisher risk_disturbance_publisher_;
   ros::Timer timer_;
   agv_msgs::CooperativeState state_;
   agv_msgs::CooperativeState latest_received_state_;
@@ -2333,6 +2460,7 @@ class FormalFakeAlgorithmNode {
   bool confirm_unloaded_fixture_{false};
   bool command_outputs_ready_{false};
   bool m2b_selected_{false};
+  bool hard_capability_envelope_enabled_{false};
   bool m2b_execution_reset_pending_{true};
   bool safety_abort_latched_{false};
   bool execution_initialized_{false};
@@ -2380,6 +2508,9 @@ class FormalFakeAlgorithmNode {
   double m1_derating_actual_velocity_upper_reserve_{0.0};
   double reconciliation_activation_delay_seconds_{1.5};
   double robot2_derating_elapsed_seconds_{0.0};
+  double disturbance_elapsed_seconds_{0.0};
+  RiskDisturbanceConfig risk_disturbance_config_;
+  std::array<RiskDisturbanceOutput, 3> risk_disturbance_output_{};
   std::uint32_t reconciliation_maximum_applied_sequence_lag_{5U};
   std::size_t m1_derating_reserve_robot_index_{1U};
   double initialization_elapsed_seconds_{0.0};

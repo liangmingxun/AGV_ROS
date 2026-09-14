@@ -29,6 +29,8 @@ catkin_install_python(PROGRAMS
   scripts/process_experiment_run.py
   scripts/record_experiment.py
   scripts/software_watchdog.py
+  scripts/screen_risk_disturbance.py
+  scripts/select_risk_disturbance_fake_pairs.py
   scripts/validate_run.py
   scripts/verify_config_registry.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}

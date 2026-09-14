@@ -8,7 +8,7 @@ usage: run_m1_r1_serial_unloaded.sh \
   --confirm-area-clear --confirm-wheels-on-floor \
   --confirm-unloaded-30cm-fixture
 
-Runs the selected M1+R1, M2a+R1 or M2b+M2b serial entry on Robot1. Method
+Runs the selected M1+R1, M1b+R1, M2a+R1 or M2b+M2b serial entry on Robot1. Method
 selection changes only the formal upper/lower configuration; the selected
 path, planar execution runtime, chassis limiter and recording chain remain
 shared. Each method uses its own physical-authorization overlay. The three
@@ -21,7 +21,7 @@ operator=""
 pair_block=""
 formal_upper_mode="${FORMAL_UPPER_MODE:-M1}"
 enable_robot2_derating="${FORMAL_ENABLE_ROBOT2_DERATING:-false}"
-if [[ "$formal_upper_mode" != M1 && "$formal_upper_mode" != M2a &&
+if [[ "$formal_upper_mode" != M1 && "$formal_upper_mode" != M1b && "$formal_upper_mode" != M2a &&
       "$formal_upper_mode" != M2b ]]; then
   echo "ERROR: unsupported formal upper mode: ${formal_upper_mode}" >&2
   exit 2
@@ -88,6 +88,15 @@ case "$formal_upper_mode" in
     expected_lower_mode="R1"
     experiment_id="${FORMAL_EXPERIMENT_ID:-exp2a_m1_r1_unloaded_serial}"
     run_prefix="${FORMAL_RUN_PREFIX:-m1_r1_serial}"
+    ;;
+  M1b)
+    upper_config="${FORMAL_UPPER_CONFIG:-src/multi_agv_bringup/config/exp2c_M1b_risk_disturbance_v1.yaml}"
+    lower_config="src/multi_agv_bringup/config/exp3_R1.yaml"
+    authorization_config="${FORMAL_EXECUTION_AUTHORIZATION_CONFIG:-src/multi_agv_bringup/config/formal_exp2c_risk_disturbance_authorization.yaml}"
+    method_id="M1b_R1"
+    expected_lower_mode="R1"
+    experiment_id="${FORMAL_EXPERIMENT_ID:-exp2c_m1b_r1_risk_disturbance_v1}"
+    run_prefix="${FORMAL_RUN_PREFIX:-m1b_r1_risk_disturbance_v1}"
     ;;
 esac
 for required_config in "$runtime_config" "$path_config" \
@@ -411,7 +420,9 @@ roslaunch multi_agv_bringup formal_serial_m1_r1.launch \
   enable_commands:=true \
   confirm_test_area_clear:=true \
   confirm_wheels_on_floor:=true \
-  confirm_unloaded_30cm_fixture:=true &
+  confirm_unloaded_30cm_fixture:=true \
+  risk_disturbance_enabled:="${FORMAL_RISK_DISTURBANCE_ENABLED:-false}" \
+  risk_disturbance_peak_fraction:="${FORMAL_RISK_DISTURBANCE_PEAK_FRACTION:-0.30}" &
 algorithm_pid="$!"
 roslaunch multi_agv_bringup formal_evaluation_window.launch \
   platform_transport_type:=serial \

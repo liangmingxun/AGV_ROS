@@ -278,12 +278,47 @@ def compute_metrics(rows, sample_period, command_epsilon=1e-6,
     link_margins = []
     demand_margins = []
     limiter_samples = {"speed": 0, "acceleration": 0, "deceleration": 0}
+    disturbance_samples = 0
+    disturbance_values = []
+    disturbance_robot2_progress = []
+    disturbance_robot2_velocity = []
+    disturbance_input_limit_samples = 0
+    effective_margins = []
+    hard_margins = []
+    risk_contractions = []
+    reported_capability_values = {robot: [] for robot in range(1, 4)}
     internal = {
         "psi": [], "composite_error": [], "theta_hat": [],
         "disturbance_estimate": [], "channel_input": [], "m2b_delta_z": [],
         "m2b_delta_w": []}
 
     for row in rows:
+        disturbance = finite_float(row.get("agv2_disturbance_total"))
+        disturbance_active = (math.isfinite(disturbance) and
+                              abs(disturbance) > 1.0e-12)
+        if disturbance_active:
+            disturbance_samples += 1
+            disturbance_values.append(disturbance)
+            disturbance_robot2_progress.append(
+                progress_tracking_actual(row, 2) -
+                finite_float(row.get("load_s_reference")))
+            disturbance_robot2_velocity.append(
+                finite_float(row.get("agv2_s_dot_actual")) -
+                finite_float(row.get("load_velocity_reference")))
+            disturbance_input_limit_samples += int(bool_value(
+                row.get("agv2_channel_limit_active", False)))
+        effective = finite_float(row.get("agv2_effective_inner_upper"))
+        actual_v2 = finite_float(row.get("agv2_s_dot_actual"))
+        hard = finite_float(row.get("agv2_hard_inner_upper"))
+        if (disturbance_active and math.isfinite(effective) and
+                math.isfinite(actual_v2)):
+            effective_margins.append(effective - actual_v2)
+        if (disturbance_active and math.isfinite(hard) and
+                math.isfinite(actual_v2)):
+            hard_margins.append(hard - actual_v2)
+        contraction = finite_float(row.get("risk_contraction"))
+        if math.isfinite(contraction):
+            risk_contractions.append(contraction)
         fleet_scale = finite_float(row.get("fleet_scale"))
         if math.isfinite(fleet_scale):
             fleet_scales.append(fleet_scale)
@@ -332,6 +367,9 @@ def compute_metrics(rows, sample_period, command_epsilon=1e-6,
                 row.get(prefix + "_accel_limit_active", False))
             limiter_active["deceleration"] |= bool_value(
                 row.get(prefix + "_decel_limit_active", False))
+            reported = finite_float(row.get(prefix + "_reported_limit"))
+            if math.isfinite(reported):
+                reported_capability_values[robot].append(reported)
         demand_samples += int(demanded)
         limited_samples += int(limited)
         actual_above_reported_limit_samples += int(
@@ -753,6 +791,37 @@ def compute_metrics(rows, sample_period, command_epsilon=1e-6,
             "demand_margin_minimum": (
                 min(demand_margins) if demand_margins else None),
             "mapped_path_capability_available": bool(link_margins),
+            "reported_constancy_range": {
+                "agv{}".format(robot): (
+                    max(reported_capability_values[robot]) -
+                    min(reported_capability_values[robot])
+                    if reported_capability_values[robot] else None)
+                for robot in range(1, 4)},
+            "constancy_note": (
+                "reported chassis limits should remain constant; mapped path "
+                "capability may legitimately vary with path geometry"),
+        },
+        "risk_disturbance_v1": {
+            "active_samples": disturbance_samples,
+            "active_time": disturbance_samples * sample_period,
+            "robot2_progress_rmse": _rmse(disturbance_robot2_progress),
+            "robot2_progress_max_absolute":
+                _maximum_absolute(disturbance_robot2_progress),
+            "robot2_velocity_rmse": _rmse(disturbance_robot2_velocity),
+            "robot2_velocity_max_absolute":
+                _maximum_absolute(disturbance_robot2_velocity),
+            "robot2_input_limit_time":
+                disturbance_input_limit_samples * sample_period,
+            "peak_injected_acceleration":
+                _maximum_absolute(disturbance_values),
+            "minimum_effective_velocity_margin":
+                min(effective_margins) if effective_margins else None,
+            "minimum_hard_velocity_margin":
+                min(hard_margins) if hard_margins else None,
+            "risk_contraction_peak":
+                max(risk_contractions) if risk_contractions else None,
+            "risk_contraction_integral":
+                sum(risk_contractions) * sample_period,
         },
         "internal": {
             "psi_max_absolute": _maximum_absolute(internal["psi"]),
