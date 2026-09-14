@@ -34,6 +34,7 @@ install(PROGRAMS
         scripts/run_m1_r1_fake_observer.sh
         scripts/run_risk_disturbance_fake_screen.sh
         scripts/run_exp2c_v2_yaw_disturbance_fake_screen.sh
+        scripts/run_exp2c_v3_nominal_headroom_fake.sh
         scripts/run_m1_r1_serial_unloaded.sh
         scripts/run_m1_r1_serial_unloaded_3m.sh
         scripts/run_m1_r1_serial_unloaded_circle_r0p7.sh

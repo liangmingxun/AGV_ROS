@@ -22,6 +22,7 @@ catkin_install_python(PROGRAMS
   scripts/diagnose_exp2c_fake_pairs.py
   scripts/aggregate_experiment.py
   scripts/analyze_exp2c_v2_yaw_paired.py
+  scripts/analyze_exp2c_v3_nominal_headroom.py
   scripts/experiment_batch.py
   scripts/export_paper_run.py
   scripts/fleet_health_check.py
@@ -46,6 +47,7 @@ install(DIRECTORY config
 if(CATKIN_ENABLE_TESTING)
   catkin_add_nosetests(test/test_exp2c_diagnostic.py)
   catkin_add_nosetests(test/test_exp2c_v2_yaw_screen.py)
+  catkin_add_nosetests(test/test_exp2c_v3_nominal_headroom.py)
   catkin_add_nosetests(test/test_metrics.py)
   catkin_add_nosetests(test/test_paper_pipeline.py)
   catkin_add_nosetests(test/test_tooling.py)

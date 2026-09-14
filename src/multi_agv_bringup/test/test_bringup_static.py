@@ -482,6 +482,56 @@ class BringupStaticTest(unittest.TestCase):
         self.assertIn('lower_config="src/multi_agv_bringup/config/exp3_R1.yaml"', generic)
         self.assertIn('lower_config="src/multi_agv_bringup/config/exp2b_M2b.yaml"', generic)
 
+    def test_exp2c_v3_is_independent_fake_only_and_records_0p10_metadata(self):
+        import yaml
+
+        configs = PACKAGE / "config"
+        v2_m1 = yaml.safe_load((
+            configs / "exp2c_v2_M1_yaw_disturbance.yaml"
+        ).read_text())["formal_upper"]
+        v2_m1b = yaml.safe_load((
+            configs / "exp2c_v2_M1b_yaw_disturbance.yaml"
+        ).read_text())["formal_upper"]
+        self.assertEqual(v2_m1["agents"]["nominal_upper"], [0.115] * 3)
+        self.assertEqual(v2_m1b["agents"]["nominal_upper"], [0.115] * 3)
+
+        for method in ("M1", "M1b"):
+            upper_name = "exp2c_v3_{}_nominal_headroom.yaml".format(method)
+            upper = yaml.safe_load((configs / upper_name).read_text())
+            agents = upper["formal_upper"]["agents"]
+            disturbance = upper["formal_fake_runtime"][
+                "yaw_drive_disturbance_v2"]
+            self.assertEqual(upper["formal_fake_runtime"]["experiment_id"],
+                             "exp2c_v3_nominal_headroom_fake")
+            self.assertEqual(agents["initial_upper"], [0.112] * 3)
+            self.assertEqual(agents["nominal_upper"], [0.112] * 3)
+            self.assertEqual(agents["inner_margin"], [0.005] * 3)
+            self.assertEqual(disturbance["amplitude"], 0.020)
+            self.assertEqual([disturbance["start_s"], disturbance["end_s"]],
+                             [2.0, 2.8])
+            authorization = yaml.safe_load((
+                configs / "formal_exp2c_v3_{}_authorization.yaml".format(method)
+            ).read_text())
+            self.assertFalse(authorization["formal_upper"][
+                "hardware_execution_authorized"])
+            self.assertFalse(authorization["formal_lower"][
+                "hardware_execution_authorized"])
+            self.assertFalse(authorization["yaw_drive_disturbance_v2"][
+                "hardware_execution_authorized"])
+
+        entry = (PACKAGE / "scripts" /
+                 "run_exp2c_v3_nominal_headroom_fake.sh").read_text()
+        self.assertIn("nominal_common_velocity:=0.10", entry)
+        self.assertIn(
+            "yaw_drive_disturbance_experiment_id:=exp2c_v3_nominal_headroom_fake",
+            entry)
+        self.assertIn("run_one stage1_no_disturbance M1 false", entry)
+        self.assertIn("run_one stage1_no_disturbance M1b false", entry)
+        self.assertIn("--stage1-only", entry)
+        self.assertIn("run_one stage2_yaw_0p020 M1b true", entry)
+        self.assertIn("run_one stage2_yaw_0p020 M1 true", entry)
+        self.assertNotIn("transport_type:=serial", entry)
+
     def test_zero_odometry_reconstructs_30cm_supports(self):
         import math
         import yaml
