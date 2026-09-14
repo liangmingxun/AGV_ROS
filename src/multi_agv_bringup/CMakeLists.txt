@@ -26,11 +26,13 @@ catkin_install_python(PROGRAMS
 
 install(PROGRAMS
         scripts/run_circle_0p10_comparison.sh
+        scripts/run_circle_0p10_risk_comparison.sh
         scripts/configure_chassis_udev.sh
         scripts/check_local_clock_sync.sh
         scripts/require_three_car_motion_gate.sh
         scripts/run_engineering_baseline_circle_r0p7.sh
         scripts/run_m1_r1_fake_observer.sh
+        scripts/run_risk_disturbance_fake_screen.sh
         scripts/run_m1_r1_serial_unloaded.sh
         scripts/run_m1_r1_serial_unloaded_3m.sh
         scripts/run_m1_r1_serial_unloaded_circle_r0p7.sh

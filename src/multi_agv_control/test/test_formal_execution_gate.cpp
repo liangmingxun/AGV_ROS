@@ -155,6 +155,22 @@ TEST(FormalExecutionGate, AcceptsCompleteSerialM2aR1Gate) {
   EXPECT_TRUE(mac::evaluateFormalSerialM1R1Gate(input).allowed);
 }
 
+TEST(FormalExecutionGate, M1bRequiresItsIndependentHardwareAuthorization) {
+  auto input = validInput();
+  input.transport_type = "serial";
+  input.upper_hardware_authorized = true;
+  input.lower_hardware_authorized = true;
+  input.serial_execution_authorized = true;
+  input.m1b_r1_selected = true;
+  input.recorder_required = true;
+  input.test_area_confirmed = true;
+  input.wheels_on_floor_confirmed = true;
+  input.unloaded_fixture_confirmed = true;
+  EXPECT_FALSE(mac::evaluateFormalSerialM1R1Gate(input).allowed);
+  input.m1b_hardware_authorized = true;
+  EXPECT_TRUE(mac::evaluateFormalSerialM1R1Gate(input).allowed);
+}
+
 TEST(FormalExecutionGate, AcceptsCompleteSerialM2bM2bGate) {
   auto input = validInput();
   input.transport_type = "serial";

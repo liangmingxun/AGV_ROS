@@ -25,6 +25,10 @@ experiment_recording:
     - /multi_agv/experiment_state
 
   method_required_topics:
+    M1_R1:
+      - /multi_agv/risk_disturbance_state
+    M1b_R1:
+      - /multi_agv/risk_disturbance_state
     M2b_M2b:
       - /multi_agv/m2b_algorithm_state
 
@@ -77,6 +81,7 @@ experiment_recording:
     /multi_agv/controller_state: 90.0
     /multi_agv/formal_algorithm_state: 90.0
     /multi_agv/m2b_algorithm_state: 90.0
+    /multi_agv/risk_disturbance_state: 90.0
 
   stamp_files:
     - chassis_command.csv

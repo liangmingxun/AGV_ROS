@@ -52,6 +52,28 @@ def stage_d_metadata(test, mode="unloaded"):
 
 
 class ConfigurationApprovalTest(unittest.TestCase):
+    def test_risk_disturbance_stream_is_preserved_and_aligned(self):
+        raw = {name: [] for name in RAW_SCHEMAS}
+        state = {"header_stamp": 1.0, "load_pose_valid": True,
+                 "load_path_state_valid": True}
+        for robot in range(1, 4):
+            state["robot_pose_valid_{}".format(robot)] = True
+            state["support_pose_valid_{}".format(robot)] = True
+            state["path_state_valid_{}".format(robot)] = True
+        values = [1.0, 1.0, 2.0, 2.0, 2.8, .3, .45, 10., .11, .105, .02]
+        values += [value for robot in range(3) for value in (
+            1.0 if robot == 1 else 0.0, -.01, -.02, .003, -.027,
+            .14, .135, .11, .09, .09)]
+        raw["cooperative_state.csv"] = [state]
+        raw["risk_disturbance_state.csv"] = [{
+            "header_stamp": 1.0,
+            "layout_label": "risk_disturbance_state_v1:header11+3x10",
+            "data_json": json.dumps(values)}]
+        aligned = _aligned_rows(raw, .2)[0]
+        self.assertTrue(aligned["risk_disturbance_state_available"])
+        self.assertAlmostEqual(aligned["agv2_disturbance_total"], -.027)
+        self.assertAlmostEqual(aligned["baseline_common_upper"], .105)
+
     def test_progress_alignment_preserves_geometry_and_missing_evidence(self):
         row = {"agv3_s_actual": 0.106, "agv3_s_tracking_actual": 0.101}
         self.assertAlmostEqual(progress_tracking_actual(row, 3), 0.101)
@@ -597,6 +619,32 @@ class CameraConversionTest(unittest.TestCase):
 
 
 class MetricsTest(unittest.TestCase):
+    def test_risk_disturbance_metrics_use_only_active_robot2_window(self):
+        base = {
+            "stamp": 1.0, "evaluation_active": True,
+            "localization_valid": True, "algorithm_valid": True,
+            "load_s_reference": 2.2, "load_velocity_reference": .10,
+            "agv2_s_tracking_actual": 2.18, "agv2_s_dot_actual": .08,
+            "agv2_disturbance_total": -.20,
+            "agv2_channel_limit_active": True,
+            "agv2_effective_inner_upper": .09,
+            "agv2_hard_inner_upper": .11, "risk_contraction": .02,
+        }
+        inactive = dict(base, stamp=1.1, agv2_disturbance_total=0.0,
+                        agv2_s_tracking_actual=-9.0,
+                        agv2_s_dot_actual=.50,
+                        agv2_effective_inner_upper=.01,
+                        agv2_hard_inner_upper=.01)
+        result = compute_metrics([base, inactive], sample_period=.1)
+        risk = result["risk_disturbance_v1"]
+        self.assertEqual(risk["active_samples"], 1)
+        self.assertAlmostEqual(risk["robot2_progress_rmse"], .02)
+        self.assertAlmostEqual(risk["robot2_velocity_rmse"], .02)
+        self.assertAlmostEqual(risk["robot2_input_limit_time"], .1)
+        self.assertAlmostEqual(risk["minimum_effective_velocity_margin"], .01)
+        self.assertAlmostEqual(risk["minimum_hard_velocity_margin"], .03)
+        self.assertAlmostEqual(risk["risk_contraction_integral"], .004)
+
     def test_measurement_diagnostics_deduplicate_and_exclude_invalid_states(self):
         base = {"stamp": 1., "localization_valid": True, "algorithm_valid": True,
                 "agv1_pose_source_stamp": .92, "agv1_pose_source_age": .08,

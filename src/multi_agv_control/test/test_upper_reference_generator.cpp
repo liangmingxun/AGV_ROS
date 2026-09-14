@@ -8,8 +8,34 @@
 #include <vector>
 
 #include "multi_agv_control/upper_reference_generator.hpp"
+#include "multi_agv_control/risk_disturbance.hpp"
 
 namespace mac = multi_agv_control;
+
+TEST(RiskDisturbance, DisabledAndOtherRobotsAreUnaffected) {
+  mac::RiskDisturbanceConfig cfg;
+  EXPECT_DOUBLE_EQ(mac::evaluateRiskDisturbance(cfg, 2, 2.4, .1, 3, .2).acceleration, 0.0);
+  cfg.enabled = true;
+  for (int robot : {1, 3})
+    EXPECT_DOUBLE_EQ(mac::evaluateRiskDisturbance(cfg, robot, 2.4, .1, 3, .2).acceleration, 0.0);
+  for (double s : {0.0, 2.0, 2.8, 5.0})
+    EXPECT_DOUBLE_EQ(mac::evaluateRiskDisturbance(cfg, 2, s, .1, 3, .2).acceleration, 0.0);
+}
+
+TEST(RiskDisturbance, ResistsForwardMotionAndStaysBounded) {
+  mac::RiskDisturbanceConfig cfg;
+  cfg.enabled = true;
+  for (double level : {.30, .45, .60, .70}) {
+    cfg.peak_fraction = level;
+    for (int n = 0; n < 1000; ++n) {
+      const auto out = mac::evaluateRiskDisturbance(cfg, 2, 2.4, .4, n*.01, .2);
+      EXPECT_LE(out.acceleration, 0.0);
+      EXPECT_GE(out.acceleration, -level*.2 - 1e-12);
+    }
+  }
+  EXPECT_LT(std::abs(mac::evaluateRiskDisturbance(cfg, 2, 2.0+1e-6, .1, 3, .2).acceleration), 1e-12);
+  EXPECT_THROW(mac::evaluateRiskDisturbance(cfg, 2, 2.4, .1, 3, -1), std::invalid_argument);
+}
 
 namespace {
 
@@ -110,6 +136,72 @@ TEST(UpperReferenceGenerator, UpdatesAtTwentyFiveHertzAndHoldsOutput) {
     EXPECT_DOUBLE_EQ(held.common_velocity, first.common_velocity);
   }
   EXPECT_TRUE(generator.step(inputs(), 0.01).updated);
+}
+
+TEST(UpperReferenceGenerator, M1bRequiresExplicitHardEnvelope) {
+  EXPECT_EQ(mac::upperModeFromString("M1b"), mac::UpperMode::kM1b);
+  EXPECT_STREQ(mac::upperModeName(mac::UpperMode::kM1b), "M1b");
+  EXPECT_THROW(mac::UpperReferenceGenerator{config(mac::UpperMode::kM1b)},
+               std::invalid_argument);
+}
+
+TEST(UpperReferenceGenerator, M1bRiskIsDiagnosticOnly) {
+  auto cfg = config(mac::UpperMode::kM1b);
+  cfg.hard_capability_envelope_enabled = true;
+  mac::UpperReferenceGenerator low(cfg), high(cfg);
+  auto risky = inputs(0.15);
+  for (auto& agent : risky) agent.normalised_causal_margins.fill(0.0);
+  for (int n = 0; n < 100; ++n) {
+    const auto a = low.step(risky, 0.01);
+    const auto b = high.step(inputs(0.15), 0.01);
+    ASSERT_TRUE(a.valid);
+    ASSERT_TRUE(b.valid);
+    EXPECT_DOUBLE_EQ(a.common_velocity, b.common_velocity);
+    EXPECT_DOUBLE_EQ(a.common_upper, b.common_upper);
+    EXPECT_NEAR(a.common_upper, 0.145, 1e-12);
+    EXPECT_DOUBLE_EQ(a.risk_contraction, 0.0);
+    EXPECT_GT(a.agents[1].risk_signal, b.agents[1].risk_signal);
+  }
+}
+
+TEST(UpperReferenceGenerator, HardCapabilityDropActsBetweenRiskUpdates) {
+  auto cfg = config(mac::UpperMode::kM1b);
+  cfg.hard_capability_envelope_enabled = true;
+  mac::UpperReferenceGenerator generator(cfg);
+  ASSERT_TRUE(generator.step(inputs(), 0.01).valid);
+  auto in = inputs();
+  in[1].mapped_upper_capability = 0.10;
+  const auto out = generator.step(in, 0.01);
+  ASSERT_TRUE(out.valid);
+  EXPECT_FALSE(out.updated);
+  EXPECT_NEAR(out.common_upper, 0.095, 1e-12);
+  EXPECT_LE(out.common_velocity, out.common_upper);
+}
+
+TEST(UpperReferenceGenerator, InfeasibleHardEnvelopeIsNotProjectedUpwards) {
+  auto cfg = config(mac::UpperMode::kM1b);
+  cfg.hard_capability_envelope_enabled = true;
+  mac::UpperReferenceGenerator generator(cfg);
+  ASSERT_TRUE(generator.step(inputs(), 0.01).valid);
+  auto in = inputs();
+  in[1].mapped_upper_capability = 0.001;
+  const auto out = generator.step(in, 0.01);
+  EXPECT_FALSE(out.valid);
+  EXPECT_EQ(out.invalid_reason, "infeasible_hard_capability_envelope");
+}
+
+TEST(UpperReferenceGenerator, M1RiskContractsBelowSharedBaseline) {
+  auto cfg = config(mac::UpperMode::kM1);
+  cfg.hard_capability_envelope_enabled = true;
+  mac::UpperReferenceGenerator generator(cfg);
+  auto in = inputs();
+  for (auto& agent : in) agent.normalised_causal_margins.fill(0.0);
+  mac::UpperReferenceOutput out;
+  for (int n = 0; n < 100; ++n) out = generator.step(in, 0.01);
+  ASSERT_TRUE(out.valid);
+  EXPECT_GT(out.risk_contraction, 0.0);
+  EXPECT_NEAR(out.risk_contraction,
+              out.baseline_common_upper - out.common_upper, 1e-12);
 }
 
 TEST(UpperReferenceGenerator, M1ContractsUnderLowCausalMargin) {

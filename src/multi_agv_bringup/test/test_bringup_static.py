@@ -9,6 +9,50 @@ SOURCE_ROOT = PACKAGE.parent
 
 
 class BringupStaticTest(unittest.TestCase):
+    def test_exp2c_risk_comparison_is_scoped_and_fail_closed(self):
+        import subprocess
+        import yaml
+        configs = PACKAGE / 'config'
+        runner = PACKAGE / 'scripts/run_circle_0p10_risk_comparison.sh'
+        for method in ('M1', 'M1b'):
+            upper = yaml.safe_load((configs / (
+                'exp2c_{}_risk_disturbance_v1.yaml'.format(method))).read_text())
+            auth = yaml.safe_load((configs / (
+                'formal_exp2c_{}_risk_disturbance_authorization.yaml'.format(method))).read_text())
+            self.assertEqual(upper['formal_upper']['mode'], method)
+            self.assertTrue(upper['formal_upper'][
+                'hard_capability_envelope']['enabled'])
+            self.assertFalse(auth['formal_upper']['hardware_execution_authorized'])
+            self.assertFalse(auth['formal_lower']['hardware_execution_authorized'])
+            self.assertFalse(auth['authorization_scope']['robot2_derating'])
+        result = subprocess.run(
+            [str(runner), '--method', 'M1', '--risk-disturbance-v1',
+             '--disturbance-level', '0p50'], cwd=SOURCE_ROOT.parent,
+            capture_output=True, text=True)
+        self.assertEqual(result.returncode, 2)
+        self.assertIn('0p30|0p45|0p60|0p70', result.stderr)
+        fake_runner = (PACKAGE / 'scripts' /
+                       'run_risk_disturbance_fake_screen.sh').read_text()
+        fake_localization = yaml.safe_load((
+            configs / 'localization_odom_exp2c_fake.yaml').read_text())
+        self.assertIn('ROS_MASTER_URI="http://127.0.0.1:', fake_runner)
+        self.assertIn('unset ROS_IP', fake_runner)
+        self.assertIn('formal_available_wheel_limit:=0.16', fake_runner)
+        self.assertIn('for level_name in 0p30 0p45 0p60 0p70', fake_runner)
+        self.assertIn('run_one M1 ', fake_runner)
+        self.assertIn('run_one M1b ', fake_runner)
+        self.assertFalse(fake_localization['hardware_execution_authorized'])
+        robots = fake_localization['robots']
+        support_x = (-0.01783, 0.09908, 0.09908)
+        expected = ((0.1732050807568877, 0.0),
+                    (-0.0866025403784439, 0.15),
+                    (-0.0866025403784439, -0.15))
+        for index, robot in enumerate(robots):
+            anchor = robot['world_to_odom']
+            self.assertAlmostEqual(anchor['x'] + support_x[index],
+                                   expected[index][0], places=14)
+            self.assertAlmostEqual(anchor['y'], expected[index][1], places=14)
+
     def test_m2b_normal_and_derated_observation_routes(self):
         import subprocess
         import yaml

@@ -135,6 +135,9 @@ RAW_SCHEMAS = {
     "m2b_algorithm_state.csv": [
         "topic", "bag_stamp", "header_stamp", "layout_label", "data_json",
     ],
+    "risk_disturbance_state.csv": [
+        "topic", "bag_stamp", "header_stamp", "layout_label", "data_json",
+    ],
     "camera_pose.csv": [
         "topic", "bag_stamp", "header_stamp", "header_seq",
         "calibration_epoch_token", "frame_id", "position_x", "position_y",
@@ -438,6 +441,8 @@ def _extract(topic, bag_stamp, message):
             return "formal_execution_limiter_state.csv", row
         if topic == "/multi_agv/formal_algorithm_state":
             return "formal_algorithm_state.csv", row
+        if topic == "/multi_agv/risk_disturbance_state":
+            return "risk_disturbance_state.csv", row
         if topic == "/multi_agv/state_projection_timing":
             values = list(message.data)
             if values and math.isfinite(values[0]):
@@ -596,6 +601,7 @@ def _aligned_rows(raw, maximum_age,
     execution_limiter = _series(
         raw["formal_execution_limiter_state.csv"])
     m2b_debug = _series(raw["m2b_algorithm_state.csv"])
+    risk_debug = _series(raw.get("risk_disturbance_state.csv", []))
     experiment_states = _series(raw["experiment_state.csv"])
     measured_load_poses = _series([
         value for value in raw["camera_pose.csv"]
@@ -616,6 +622,7 @@ def _aligned_rows(raw, maximum_age,
         debug = _latest(formal_debug, stamp, maximum_age)
         limiter = _latest(execution_limiter, stamp, maximum_age)
         m2b = _latest(m2b_debug, stamp, maximum_age)
+        risk = _latest(risk_debug, stamp, maximum_age)
         experiment_state = _latest(
             experiment_states, stamp, maximum_age)
         measured_load = _latest(measured_load_poses, stamp, maximum_age)
@@ -739,6 +746,24 @@ def _aligned_rows(raw, maximum_age,
         row["algorithm_valid"] = (
             bool(debug_values[0])
             if row["algorithm_state_available"] else False)
+        risk_values = []
+        if (risk and risk.get("layout_label") ==
+                "risk_disturbance_state_v1:header11+3x10"):
+            try:
+                risk_values = json.loads(risk["data_json"])
+            except (TypeError, ValueError):
+                risk_values = []
+        row["risk_disturbance_state_available"] = len(risk_values) == 41
+        row["risk_disturbance_enabled"] = (
+            bool(risk_values[0]) if len(risk_values) == 41 else False)
+        row["risk_disturbance_peak_fraction"] = (
+            risk_values[6] if len(risk_values) == 41 else math.nan)
+        row["hard_common_upper"] = (
+            risk_values[8] if len(risk_values) == 41 else math.nan)
+        row["baseline_common_upper"] = (
+            risk_values[9] if len(risk_values) == 41 else math.nan)
+        row["risk_contraction"] = (
+            risk_values[10] if len(risk_values) == 41 else math.nan)
         m2b_values = []
         if (m2b and m2b.get("layout_label") ==
                 "m2b_algorithm_state_v1:header6+3x20"):
@@ -747,6 +772,16 @@ def _aligned_rows(raw, maximum_age,
             except (TypeError, ValueError):
                 m2b_values = []
         for robot in range(1, 4):
+            risk_offset = 11 + (robot - 1) * 10
+            for offset, suffix in enumerate((
+                    "disturbance_window", "disturbance_base",
+                    "disturbance_velocity", "disturbance_sinusoid",
+                    "disturbance_total", "mapped_capability_diagnostic",
+                    "hard_inner_upper", "baseline_inner_upper",
+                    "risk_inner_upper", "effective_inner_upper")):
+                row["agv{}_{}".format(robot, suffix)] = (
+                    risk_values[risk_offset + offset]
+                    if len(risk_values) == 41 else math.nan)
             for pose_name in ("robot_pose", "support_pose"):
                 for axis in ("x", "y", "yaw"):
                     field = "{}_{}_{}".format(pose_name, axis, robot)

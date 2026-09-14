@@ -138,15 +138,17 @@ DistributedReferenceOutput stepDistributedReference(
 
 UpperMode upperModeFromString(const std::string& value) {
   if (value == "M1") return UpperMode::kM1;
+  if (value == "M1b") return UpperMode::kM1b;
   if (value == "M2a") return UpperMode::kM2a;
   if (value == "M2b") return UpperMode::kM2b;
   if (value == "M4") return UpperMode::kM4;
-  throw std::invalid_argument("upper mode must be M1, M2a, M2b or M4");
+  throw std::invalid_argument("upper mode must be M1, M1b, M2a, M2b or M4");
 }
 
 const char* upperModeName(UpperMode mode) {
   switch (mode) {
     case UpperMode::kM1: return "M1";
+    case UpperMode::kM1b: return "M1b";
     case UpperMode::kM2a: return "M2a";
     case UpperMode::kM2b: return "M2b";
     case UpperMode::kM4: return "M4";
@@ -157,6 +159,14 @@ const char* upperModeName(UpperMode mode) {
 UpperReferenceGenerator::UpperReferenceGenerator(
     const UpperReferenceConfig& config)
     : config_(config) {
+  if ((config_.mode == UpperMode::kM1b &&
+       !config_.hard_capability_envelope_enabled) ||
+      (config_.hard_capability_envelope_enabled &&
+       (config_.mode != UpperMode::kM1 && config_.mode != UpperMode::kM1b)) ||
+      !finite(config_.hard_capability_reserve) ||
+      config_.hard_capability_reserve < 0.0) {
+    throw std::invalid_argument("invalid opt-in hard capability envelope");
+  }
   if (config_.controller_ticks_per_update == 0U ||
       !finite(config_.fixed_m4_speed) || config_.fixed_m4_speed < 0.0) {
     throw std::invalid_argument("invalid upper reference configuration");
@@ -209,6 +219,9 @@ UpperReferenceOutput UpperReferenceGenerator::step(
   ++tick_;
   if ((tick_ - 1U) % config_.controller_ticks_per_update != 0U) {
     output_.updated = false;
+    if (config_.hard_capability_envelope_enabled && output_.valid) {
+      applyHardEnvelope(input);
+    }
     return output_;
   }
 
@@ -266,8 +279,9 @@ UpperReferenceOutput UpperReferenceGenerator::step(
       agent_output.projection_correction = projection.correction;
       agent_output.active_constraints = projection.active_constraints;
     } else {
-      agent_output.pre_projection = agent_config.initial_boundary;
-      boundary_[index] = agent_config.initial_boundary;
+      boundary_[index] = config_.mode == UpperMode::kM1b
+          ? agent_config.nominal_boundary : agent_config.initial_boundary;
+      agent_output.pre_projection = boundary_[index];
     }
 
     agent_output.boundary = boundary_[index];
@@ -298,7 +312,60 @@ UpperReferenceOutput UpperReferenceGenerator::step(
         output_.common_lower, output_.common_upper);
   }
   output_.valid = true;
+  if (config_.hard_capability_envelope_enabled) applyHardEnvelope(input);
   return output_;
+}
+
+void UpperReferenceGenerator::applyHardEnvelope(
+    const std::array<UpperAgentInput, 3>& input) {
+  // Intersect AFTER risk evolution. Never feed this intersection back into
+  // the risk state or project a physically infeasible bound upwards.
+  output_.valid = false;
+  output_.invalid_reason.clear();
+  output_.common_lower = -std::numeric_limits<double>::infinity();
+  output_.common_upper = std::numeric_limits<double>::infinity();
+  output_.hard_common_upper = std::numeric_limits<double>::infinity();
+  output_.baseline_common_upper = std::numeric_limits<double>::infinity();
+  double sum = 0.0;
+  for (std::size_t i = 0; i < input.size(); ++i) {
+    auto& out = output_.agents[i];
+    const auto& cfg = config_.agents[i];
+    out.valid = false;
+    if (!finite(input[i].mapped_upper_capability) ||
+        !finite(input[i].candidate_velocity)) {
+      output_.invalid_reason = "nonfinite_hard_capability_input";
+      return;
+    }
+    out.logged_mapped_capability = input[i].mapped_upper_capability;
+    out.candidate_velocity = input[i].candidate_velocity;
+    out.hard_inner_upper = input[i].mapped_upper_capability -
+        config_.hard_capability_reserve;
+    out.baseline_inner_upper = std::min(
+        cfg.nominal_boundary.upper - cfg.inner_margin, out.hard_inner_upper);
+    out.risk_inner_upper = boundary_[i].upper - cfg.inner_margin;
+    out.boundary = boundary_[i];
+    out.inner_upper = std::min(out.baseline_inner_upper, out.risk_inner_upper);
+    out.boundary.upper = out.inner_upper + cfg.inner_margin;
+    out.inner_lower = out.boundary.lower + cfg.inner_margin;
+    if (!DynamicBoundaryProjector::feasible(out.boundary, cfg.admissible_set) ||
+        out.inner_lower > out.inner_upper || out.inner_upper < 0.0) {
+      output_.invalid_reason = "infeasible_hard_capability_envelope";
+      return;
+    }
+    out.valid = true;
+    output_.common_lower = std::max(output_.common_lower, out.inner_lower);
+    output_.common_upper = std::min(output_.common_upper, out.inner_upper);
+    output_.hard_common_upper = std::min(output_.hard_common_upper, out.hard_inner_upper);
+    output_.baseline_common_upper = std::min(output_.baseline_common_upper, out.baseline_inner_upper);
+    sum += input[i].candidate_velocity;
+  }
+  if (output_.common_lower > output_.common_upper) {
+    output_.invalid_reason = "empty_common_capability_interval";
+    return;
+  }
+  output_.common_velocity = std::clamp(sum / 3.0, output_.common_lower, output_.common_upper);
+  output_.risk_contraction = std::max(0.0, output_.baseline_common_upper - output_.common_upper);
+  output_.valid = true;
 }
 
 }  // namespace multi_agv_control
