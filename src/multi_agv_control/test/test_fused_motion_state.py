@@ -8,14 +8,22 @@ import rospy
 import rostest
 from agv_msgs.msg import CooperativeState
 from nav_msgs.msg import Odometry
-from std_msgs.msg import UInt64
+from std_msgs.msg import Float64MultiArray, UInt64
 
 
 class FusedMotionStateTest(unittest.TestCase):
     def test_camera_correction_is_not_reverse_motion(self):
         states = []
+        projection_timing = []
+        robot3_reception_timing = []
         subscriber = rospy.Subscriber('/multi_agv/cooperative_state', CooperativeState,
                                       states.append, queue_size=300)
+        timing_subscriber = rospy.Subscriber(
+            '/multi_agv/state_projection_timing', Float64MultiArray,
+            projection_timing.append, queue_size=300)
+        reception_timing_subscriber = rospy.Subscriber(
+            '/pose_provider/agv3/estimator_timing', Float64MultiArray,
+            robot3_reception_timing.append, queue_size=30)
         publishers = [rospy.Publisher('/pose_provider/agv%d/base_motion_fused' % i,
                                       Odometry, queue_size=10) for i in (1, 2, 3)]
         epoch = rospy.Publisher('/vision/aruco/calibration_epoch', UInt64,
@@ -32,8 +40,9 @@ class FusedMotionStateTest(unittest.TestCase):
         levers = (-.01783, .09908, .09908)
         origin = rospy.Time.now().to_sec()
 
-        def send(correction=0, invalid=False, skip_robot2=False, speed=.1):
-            stamp = rospy.Time.now()
+        def send(correction=0, invalid=False, skip_robot2=False, speed=.1,
+                 future_offset=0.0):
+            stamp = rospy.Time.from_sec(rospy.Time.now().to_sec() + future_offset)
             progress = speed * (stamp.to_sec() - origin) + correction
             for i, publisher in enumerate(publishers):
                 if skip_robot2 and i == 1:
@@ -62,6 +71,29 @@ class FusedMotionStateTest(unittest.TestCase):
         self.assertGreater(states[-1].s_actual[0] - initial_signed_progress, .08)
         self.assertTrue(states[-1].load_path_state_valid)
         self.assertTrue(all(states[-1].path_state_valid))
+        # Cross-host clock skew within maximum_sync_slop remains valid physical
+        # truth. The raw negative age stays visible in diagnostics, while the
+        # estimator applies zero (never backward) motion projection.
+        future_start = len(projection_timing)
+        for _ in range(12):
+            send(future_offset=.015)
+        future_timing = projection_timing[future_start:]
+        self.assertTrue(all(states[-1].path_state_valid))
+        self.assertTrue(any(len(t.data) >= 18 and
+                            any(t.data[4 + 5 * i] < -.005 for i in range(3))
+                            for t in future_timing))
+        # Let local time pass the last deliberately future-dated test sample
+        # before returning to ordinary monotonically stamped inputs.
+        time.sleep(.02)
+        # The accommodation is bounded: a timestamp beyond maximum_sync_slop
+        # remains rejected at ingress and is reported as such.
+        send(future_offset=.03)
+        deadline = time.monotonic() + 1
+        while (not robot3_reception_timing or
+               len(robot3_reception_timing[-1].data) < 5) and time.monotonic() < deadline:
+            time.sleep(.01)
+        self.assertTrue(robot3_reception_timing)
+        self.assertEqual(robot3_reception_timing[-1].data[4], 0.0)
         before = states[-1].load_s_actual
         before_control_stamp = states[-1].header.stamp.to_sec()
         before_robot_x = states[-1].robot_pose[0].x
@@ -113,6 +145,8 @@ class FusedMotionStateTest(unittest.TestCase):
             send(-.006, invalid=True)
         self.assertFalse(all(states[-1].path_state_valid))
         self.assertIsNotNone(subscriber)
+        self.assertIsNotNone(timing_subscriber)
+        self.assertIsNotNone(reception_timing_subscriber)
 
 
 if __name__ == '__main__':

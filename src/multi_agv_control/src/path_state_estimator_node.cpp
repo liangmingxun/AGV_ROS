@@ -629,8 +629,9 @@ class PathStateEstimatorNode {
     if (localization_mode_ == "fused" &&
         (!std::isfinite(source_age) || source_age < -maximum_sync_slop_ || source_age > maximum_live_fused_pose_age_)) {
       ROS_WARN_THROTTLE(1.0,
-          "Discarded stale %s fused pose before projection: source age %.3f s (live-input limit %.3f s)",
-          robot.robot_id.c_str(), source_age, maximum_live_fused_pose_age_);
+          "Discarded %s fused pose outside accepted timing window: source age %.3f s (window %.3f..%.3f s)",
+          robot.robot_id.c_str(), source_age, -maximum_sync_slop_,
+          maximum_live_fused_pose_age_);
       return;
     }
     std::uint32_t epoch_token = 0U;
@@ -1002,10 +1003,10 @@ class PathStateEstimatorNode {
       bool projection_within_horizon = true;
       for (std::size_t i=0; i<kRobotCount; ++i) {
         const auto& source=*measured_samples[i];
-        const double age=(now-source.stamp).toSec();
+        const double source_age=(now-source.stamp).toSec();
         if (!source.has_motion_velocity || !source.path_state.valid ||
             !source.body_velocity.allFinite() || !std::isfinite(source.angular_velocity) ||
-            !std::isfinite(age) || age < 0.0) {
+            !std::isfinite(source_age) || source_age < -maximum_sync_slop_) {
           ROS_WARN_THROTTLE(
               1.0,
               "Rejected agv%zu measured-motion projection input; cooperative state is invalid",
@@ -1013,7 +1014,7 @@ class PathStateEstimatorNode {
           projection_inputs_valid = false;
           break;
         }
-        if (age > maximum_motion_projection_seconds_) {
+        if (source_age > maximum_motion_projection_seconds_) {
           projection_within_horizon = false;
         }
       }
@@ -1029,11 +1030,17 @@ class PathStateEstimatorNode {
       } else {
         for (std::size_t i=0; i<kRobotCount; ++i) {
           const auto& source=*measured_samples[i];
-          const double age=(now-source.stamp).toSec();
+          const double source_age=(now-source.stamp).toSec();
+          // A synchronized multi-host measurement can be a few milliseconds
+          // ahead of this host while still satisfying maximum_sync_slop.  It
+          // is valid physical truth, but must never be extrapolated backward.
+          // Preserve source_age in state_projection_timing below and use a
+          // zero projection horizon until local time catches up.
+          const double projection_age=std::max(0.0, source_age);
           projected[i]=source;
           const auto pose=propagateMeasuredTwist(
               {source.robot_pose.position.x(), source.robot_pose.position.y(), source.robot_pose.yaw},
-              source.body_velocity.x(), source.body_velocity.y(), source.angular_velocity, age);
+              source.body_velocity.x(), source.body_velocity.y(), source.angular_velocity, projection_age);
           if (!std::isfinite(pose.x) || !std::isfinite(pose.y) || !std::isfinite(pose.yaw)) {
             synchronized=false; break;
           }
@@ -1042,7 +1049,7 @@ class PathStateEstimatorNode {
           projected[i].support_pose=composePose(projected[i].robot_pose,robots_[i].base_to_support);
           projected[i].support_velocity=supportPointVelocity(projected[i].robot_pose,
               robots_[i].base_to_support,source.body_velocity,source.angular_velocity);
-          projected[i].path_state.progress+=source.path_state.speed*age;
+          projected[i].path_state.progress+=source.path_state.speed*projection_age;
         }
         projection_applied = synchronized;
       }
