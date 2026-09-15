@@ -119,5 +119,27 @@ TEST(ClassicAdditiveDisturbance, QualificationScaleAppliesToBothComponents) {
               .25 * full_output.angular_disturbance, 1e-12);
 }
 
+TEST(ClassicAdditiveDisturbance, PhysicalMaximumQualificationIsFailClosed) {
+  EXPECT_NO_THROW(validateClassicAdditivePhysicalQualification(.25, .25));
+  EXPECT_THROW(validateClassicAdditivePhysicalQualification(.50, .25),
+               std::invalid_argument);
+  EXPECT_THROW(validateClassicAdditivePhysicalQualification(.75, .25),
+               std::invalid_argument);
+  EXPECT_THROW(validateClassicAdditivePhysicalQualification(1.00, .25),
+               std::invalid_argument);
+  EXPECT_THROW(validateClassicAdditivePhysicalQualification(.25, 0.0),
+               std::invalid_argument);
+  EXPECT_THROW(validateClassicAdditivePhysicalQualification(
+                   .25, std::numeric_limits<double>::quiet_NaN()),
+               std::invalid_argument);
+}
+
+TEST(ClassicAdditiveDisturbance, ZeroBaselineDoesNotConsumeQualification) {
+  for (double maximum : {.25, .50, .75, 1.00}) {
+    EXPECT_NO_THROW(
+        validateClassicAdditivePhysicalQualification(0.0, maximum));
+  }
+}
+
 }  // namespace
 }  // namespace multi_agv_control

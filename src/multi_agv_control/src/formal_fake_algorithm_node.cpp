@@ -693,6 +693,14 @@ class FormalFakeAlgorithmNode {
         classic_additive_physical_hardware_authorized_,false);
     private_node_.param(root+"classic_additive_physical/qualification_scale",
                         classic_additive_config_.scale,1.0);
+    private_node_.param(
+        root+"classic_additive_physical/maximum_qualified_scale",
+        classic_additive_physical_maximum_qualified_scale_,1.0);
+    if (classic_additive_physical_enabled_) {
+      validateClassicAdditivePhysicalQualification(
+          classic_additive_config_.scale,
+          classic_additive_physical_maximum_qualified_scale_);
+    }
     if (classic_additive_fake_enabled && classic_additive_physical_enabled_)
       throw std::runtime_error(
           "fake and physical classic additive scopes are mutually exclusive");
@@ -2769,7 +2777,7 @@ class FormalFakeAlgorithmNode {
     }
     const double wheel_scale = applySerialExecutionLimitPolicy(&execution_tracking);
     publishExecutionLimiter(
-        now, wheel_scale, wheel_demand_before_limit, tracking);
+        now, wheel_scale, wheel_demand_before_limit, execution_tracking);
     publishRiskDisturbance(now);
     publishYawDriveDisturbance(now);
 
@@ -2957,6 +2965,7 @@ class FormalFakeAlgorithmNode {
   ClassicAdditiveOutput classic_additive_output_{};
   bool classic_additive_physical_enabled_{false};
   bool classic_additive_physical_hardware_authorized_{false};
+  double classic_additive_physical_maximum_qualified_scale_{1.0};
   std::uint32_t reconciliation_maximum_applied_sequence_lag_{5U};
   std::size_t m1_derating_reserve_robot_index_{1U};
   double initialization_elapsed_seconds_{0.0};

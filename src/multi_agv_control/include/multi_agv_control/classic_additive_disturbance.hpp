@@ -32,6 +32,35 @@ inline bool isClassicAdditiveQualificationScale(double scale) {
        std::abs(scale - 1.00) <= tolerance);
 }
 
+inline bool isClassicAdditiveMaximumQualifiedScale(double scale) {
+  constexpr double tolerance = 1e-12;
+  return std::isfinite(scale) &&
+      (std::abs(scale - 0.25) <= tolerance ||
+       std::abs(scale - 0.50) <= tolerance ||
+       std::abs(scale - 0.75) <= tolerance ||
+       std::abs(scale - 1.00) <= tolerance);
+}
+
+inline void validateClassicAdditivePhysicalQualification(
+    double requested_scale, double maximum_qualified_scale) {
+  if (!isClassicAdditiveMaximumQualifiedScale(maximum_qualified_scale)) {
+    throw std::invalid_argument(
+        "classic additive physical maximum qualified scale is invalid");
+  }
+  if (!isClassicAdditiveQualificationScale(requested_scale)) {
+    throw std::invalid_argument(
+        "classic additive physical requested scale is invalid");
+  }
+  // Scale zero is the disturbance-disabled baseline and does not consume a
+  // qualification level.  Every active physical request is fail-closed at
+  // the highest level explicitly qualified in configuration.
+  if (requested_scale > 0.0 &&
+      requested_scale > maximum_qualified_scale + 1e-12) {
+    throw std::invalid_argument(
+        "classic additive physical scale exceeds maximum qualified scale");
+  }
+}
+
 inline void validateClassicAdditiveConfig(const ClassicAdditiveConfig& c) {
   if (!c.enabled) return;
   const double pi = std::acos(-1.0);

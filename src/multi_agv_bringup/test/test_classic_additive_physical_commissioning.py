@@ -62,6 +62,11 @@ class ClassicAdditivePhysicalCommissioningTest(unittest.TestCase):
         self.assertIn(
             "classic_additive_candidate_A_physical_commissioning", source)
         self.assertIn("physical_method && classic_additive_config_.scale > 0.0", source)
+        self.assertIn(
+            'root+"classic_additive_physical/maximum_qualified_scale"',
+            source)
+        self.assertIn(
+            "validateClassicAdditivePhysicalQualification(", source)
         demand_index = source.index("wheel_demand_before_limit[index] =")
         injection_index = source.index(
             "applyClassicAdditive(now, tracking", demand_index)
@@ -77,6 +82,19 @@ class ClassicAdditivePhysicalCommissioningTest(unittest.TestCase):
             source)
         self.assertNotIn("classic_additive_output_", (
             ROOT / "src/multi_agv_control/src/upper_reference_generator.cpp").read_text())
+
+    def test_limiter_diagnostic_uses_post_disturbance_execution_copy(self):
+        source = NODE.read_text()
+        calls = source.split("publishExecutionLimiter(")[2:]
+        self.assertEqual(len(calls), 2)
+        for call in calls:
+            invocation = call.split(");", 1)[0]
+            self.assertIn("wheel_demand_before_limit", invocation)
+            self.assertIn("execution_tracking", invocation)
+            self.assertNotIn(", tracking", invocation)
+        self.assertIn(
+            "previous_wheel_raw_[index] = wheel_demand_before_limit[index]",
+            source)
 
     def test_stage_d_and_capability_paths_are_not_modified(self):
         status = subprocess.run(
