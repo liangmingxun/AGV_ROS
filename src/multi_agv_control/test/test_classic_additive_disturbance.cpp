@@ -69,5 +69,55 @@ TEST(ClassicAdditiveDisturbance, RejectsAnyParameterSearch) {
   EXPECT_THROW(validateClassicAdditiveConfig(c), std::invalid_argument);
 }
 
+TEST(ClassicAdditiveDisturbance, QualificationScaleAllowlistIsExact) {
+  for (double scale : {0.0, .25, .50, .75, 1.0}) {
+    EXPECT_TRUE(isClassicAdditiveQualificationScale(scale));
+    ClassicAdditiveConfig c;
+    c.enabled = true;
+    c.scale = scale;
+    EXPECT_NO_THROW(validateClassicAdditiveConfig(c));
+  }
+  for (double scale : {-.25, .10, .249, .80, 1.25}) {
+    EXPECT_FALSE(isClassicAdditiveQualificationScale(scale));
+    ClassicAdditiveConfig c;
+    c.enabled = true;
+    c.scale = scale;
+    EXPECT_THROW(validateClassicAdditiveConfig(c), std::invalid_argument);
+  }
+}
+
+TEST(ClassicAdditiveDisturbance, ZeroScaleExactlyReproducesBaseline) {
+  ClassicAdditiveConfig c;
+  c.enabled = true;
+  c.scale = 0.0;
+  ClassicAdditiveDisturbance d;
+  d.evaluate(c, 2, 2.0, 1.0, .123, -.045);
+  const auto output = d.evaluate(c, 2, 2.1, 2.0, .123, -.045);
+  EXPECT_DOUBLE_EQ(output.linear_disturbance, 0.0);
+  EXPECT_DOUBLE_EQ(output.angular_disturbance, 0.0);
+  EXPECT_DOUBLE_EQ(output.left_disturbed, .123);
+  EXPECT_DOUBLE_EQ(output.right_disturbed, -.045);
+}
+
+TEST(ClassicAdditiveDisturbance, QualificationScaleAppliesToBothComponents) {
+  ClassicAdditiveConfig full;
+  full.enabled = true;
+  ClassicAdditiveDisturbance full_disturbance;
+  full_disturbance.evaluate(full, 2, 2.0, 1.0, .1, .1);
+  const auto full_output =
+      full_disturbance.evaluate(full, 2, 2.1, 2.0, .1, .1);
+
+  ClassicAdditiveConfig quarter = full;
+  quarter.scale = .25;
+  ClassicAdditiveDisturbance quarter_disturbance;
+  quarter_disturbance.evaluate(quarter, 2, 2.0, 1.0, .1, .1);
+  const auto quarter_output =
+      quarter_disturbance.evaluate(quarter, 2, 2.1, 2.0, .1, .1);
+  EXPECT_NEAR(quarter_output.linear_disturbance,
+              .25 * full_output.linear_disturbance, 1e-12);
+  EXPECT_NEAR(quarter_output.angular_disturbance,
+              .25 * full_output.angular_disturbance, 1e-12);
+}
+
 }  // namespace
 }  // namespace multi_agv_control

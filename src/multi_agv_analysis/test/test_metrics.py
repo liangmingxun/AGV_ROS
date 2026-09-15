@@ -473,6 +473,28 @@ class CameraConversionTest(unittest.TestCase):
         self.assertAlmostEqual(row['agv2_classic_tracker_lateral_error'],.005)
         self.assertFalse(row['yaw_effectiveness_hold_state_available'])
 
+    def test_classic_additive_physical_wheel_chain_is_lossless(self):
+        raw={name:[] for name in RAW_SCHEMAS}
+        raw['cooperative_state.csv']=[{'header_stamp':1.01}]
+        values=[1.,10.,9.,1.,1.,0.,1.,2.1,.25,.0075,.0875,.75,
+                .004,.05,.10,.12,.096,.124,.096,.124,2.,.094,.121]
+        raw['classic_additive_physical_state.csv']=[{'header_stamp':1.,
+            'layout_label':'classic_additive_physical_v1:header21+robot2_feedback2',
+            'data_json':json.dumps(values)}]
+        row=_aligned_rows(raw,.2)[0]
+        self.assertTrue(row['classic_additive_physical_state_available'])
+        self.assertAlmostEqual(row['classic_additive_physical_scale'],.25)
+        self.assertAlmostEqual(
+            row['classic_additive_physical_linear_amplitude_actual'],.0075)
+        self.assertAlmostEqual(
+            row['classic_additive_physical_wheel_pre_left'],.10)
+        self.assertAlmostEqual(
+            row['classic_additive_physical_wheel_post_disturbance_right'],.124)
+        self.assertAlmostEqual(
+            row['classic_additive_physical_wheel_post_limit_right'],.124)
+        self.assertAlmostEqual(
+            row['classic_additive_physical_wheel_actual_right'],.121)
+
     def test_camera_and_world_pose_fields_are_losslessly_exported(self):
         stamp = genpy.Time.from_sec(12.5)
         camera = PoseStamped()

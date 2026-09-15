@@ -101,6 +101,13 @@ class ExperimentRecorder:
         self.topics = list(self.recording.get("topics", []))
         self.required_topics = list(
             self.recording.get("required_topics", []))
+        if rospy.get_param("~record_classic_additive_physical", False):
+            physical_topics = [
+                "/multi_agv/classic_additive_disturbance_state",
+                "/multi_agv/classic_additive_physical_state",
+            ]
+            self.topics.extend(physical_topics)
+            self.required_topics.extend(physical_topics)
         if self.payload_state == "loaded":
             self.topics.append(self.measured_payload_pose_topic)
             self.required_topics.append(self.measured_payload_pose_topic)

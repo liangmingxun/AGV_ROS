@@ -61,6 +61,10 @@ path_config="${FORMAL_PATH_CONFIG:-src/multi_agv_bringup/config/path_s_curve_ter
 path_version="${FORMAL_PATH_VERSION:-s_curve_terminal_straight_v1}"
 evaluation_config="${FORMAL_EVALUATION_CONFIG:-src/multi_agv_bringup/config/formal_evaluation_window.yaml}"
 derating_authorization_config="${FORMAL_DERATING_AUTHORIZATION_CONFIG:-src/multi_agv_bringup/config/formal_exp2a_derating_authorization.yaml}"
+classic_additive_config="${FORMAL_CLASSIC_ADDITIVE_CONFIG:-src/multi_agv_bringup/config/formal_serial_classic_additive_candidate_A_commissioning.yaml}"
+classic_additive_scale="${FORMAL_CLASSIC_ADDITIVE_SCALE:-0.25}"
+classic_additive_physical_enabled="${FORMAL_CLASSIC_ADDITIVE_PHYSICAL_ENABLED:-false}"
+record_classic_additive_physical="${FORMAL_RECORD_CLASSIC_ADDITIVE_PHYSICAL:-false}"
 case "$formal_upper_mode" in
   M2a)
     upper_config="${FORMAL_UPPER_CONFIG:-src/multi_agv_bringup/config/exp2a_M2a_serial_008.yaml}"
@@ -102,7 +106,8 @@ esac
 for required_config in "$runtime_config" "$path_config" \
                        "$evaluation_config" "$upper_config" \
                        "$lower_config" "$authorization_config" \
-                       "$derating_authorization_config"; do
+                       "$derating_authorization_config" \
+                       "$classic_additive_config"; do
   if [[ ! -f "$required_config" ]]; then
     echo "ERROR: required formal configuration is missing: ${required_config}" >&2
     exit 3
@@ -413,6 +418,9 @@ roslaunch multi_agv_bringup formal_serial_m1_r1.launch \
   upper_config:="${workspace}/${upper_config}" \
   lower_config:="${workspace}/${lower_config}" \
   authorization_config:="${workspace}/${authorization_config}" \
+  classic_additive_config:="${workspace}/${classic_additive_config}" \
+  classic_additive_scale:="$classic_additive_scale" \
+  classic_additive_physical_enabled:="$classic_additive_physical_enabled" \
   path_config:="${workspace}/${path_config}" \
   runtime_config:="${workspace}/${runtime_config}" \
   experiment_id:="$experiment_id" \
@@ -456,6 +464,8 @@ roslaunch multi_agv_bringup experiment.launch \
   upper_config:="${workspace}/${upper_config}" \
   lower_config:="${workspace}/${lower_config}" \
   execution_authorization_config:="${workspace}/${authorization_config}" \
+  classic_additive_config:="${workspace}/${classic_additive_config}" \
+  record_classic_additive_physical:="$record_classic_additive_physical" \
   derating_authorization_config:="${workspace}/${derating_authorization_config}" \
   evaluation_config:="${workspace}/${evaluation_config}" \
   path_config:="${workspace}/${path_config}" \

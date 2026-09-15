@@ -9,6 +9,7 @@ namespace multi_agv_control {
 
 struct ClassicAdditiveConfig {
   bool enabled{false};
+  double scale{1.0};
   double trigger_progress{2.0};
   double linear_amplitude{0.030};
   double angular_amplitude{0.350};
@@ -21,6 +22,16 @@ struct ClassicAdditiveConfig {
   double wheel_separation{0.139284482};
 };
 
+inline bool isClassicAdditiveQualificationScale(double scale) {
+  constexpr double tolerance = 1e-12;
+  return std::isfinite(scale) &&
+      (std::abs(scale - 0.0) <= tolerance ||
+       std::abs(scale - 0.25) <= tolerance ||
+       std::abs(scale - 0.50) <= tolerance ||
+       std::abs(scale - 0.75) <= tolerance ||
+       std::abs(scale - 1.00) <= tolerance);
+}
+
 inline void validateClassicAdditiveConfig(const ClassicAdditiveConfig& c) {
   if (!c.enabled) return;
   const double pi = std::acos(-1.0);
@@ -32,6 +43,7 @@ inline void validateClassicAdditiveConfig(const ClassicAdditiveConfig& c) {
       !std::isfinite(c.angular_phase) || !std::isfinite(c.duration) ||
       !std::isfinite(c.ramp_in) || !std::isfinite(c.ramp_out) ||
       !std::isfinite(c.wheel_separation) ||
+      !isClassicAdditiveQualificationScale(c.scale) ||
       std::abs(c.trigger_progress - 2.0) > 1e-12 ||
       std::abs(c.linear_amplitude - 0.030) > 1e-12 ||
       std::abs(c.angular_amplitude - 0.350) > 1e-12 ||
@@ -108,9 +120,9 @@ class ClassicAdditiveDisturbance {
       } else {
         out.envelope = 1.0;
       }
-      out.linear_disturbance = out.envelope * c.linear_amplitude *
+      out.linear_disturbance = c.scale * out.envelope * c.linear_amplitude *
                                std::sin(c.linear_frequency * out.elapsed);
-      out.angular_disturbance = out.envelope * c.angular_amplitude *
+      out.angular_disturbance = c.scale * out.envelope * c.angular_amplitude *
           std::sin(c.angular_frequency * out.elapsed + c.angular_phase);
       const double half_track = 0.5 * c.wheel_separation;
       out.left_disturbed +=

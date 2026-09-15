@@ -150,6 +150,9 @@ RAW_SCHEMAS = {
     "classic_additive_disturbance_state.csv": [
         "topic", "bag_stamp", "header_stamp", "layout_label", "data_json",
     ],
+    "classic_additive_physical_state.csv": [
+        "topic", "bag_stamp", "header_stamp", "layout_label", "data_json",
+    ],
     "v5_exploration_quality_state.csv": [
         "topic", "bag_stamp", "header_stamp", "layout_label", "data_json",
     ],
@@ -471,6 +474,8 @@ def _extract(topic, bag_stamp, message):
             return "yaw_effectiveness_hold_state.csv", row
         if topic == "/multi_agv/classic_additive_disturbance_state":
             return "classic_additive_disturbance_state.csv", row
+        if topic == "/multi_agv/classic_additive_physical_state":
+            return "classic_additive_physical_state.csv", row
         if topic == "/multi_agv/v5_exploration_quality_state":
             return "v5_exploration_quality_state.csv", row
         if topic == "/multi_agv/state_projection_timing":
@@ -637,6 +642,8 @@ def _aligned_rows(raw, maximum_age,
     effectiveness_debug = _series(raw.get("yaw_effectiveness_state.csv", []))
     hold_effectiveness_debug = _series(raw.get("yaw_effectiveness_hold_state.csv", []))
     classic_additive_debug = _series(raw.get("classic_additive_disturbance_state.csv", []))
+    classic_additive_physical_debug = _series(
+        raw.get("classic_additive_physical_state.csv", []))
     experiment_states = _series(raw["experiment_state.csv"])
     measured_load_poses = _series([
         value for value in raw["camera_pose.csv"]
@@ -661,6 +668,8 @@ def _aligned_rows(raw, maximum_age,
         yaw = _latest(yaw_debug, stamp, maximum_age)
         transient = _latest(transient_debug, stamp, maximum_age)
         classic_additive = _latest(classic_additive_debug, stamp, maximum_age)
+        classic_additive_physical = _latest(
+            classic_additive_physical_debug, stamp, maximum_age)
         experiment_state = _latest(
             experiment_states, stamp, maximum_age)
         measured_load = _latest(measured_load_poses, stamp, maximum_age)
@@ -898,6 +907,29 @@ def _aligned_rows(raw, maximum_age,
             for j, name in enumerate(("longitudinal_error", "lateral_error", "heading_error")):
                 row["agv{}_classic_tracker_{}".format(i+1, name)] = (
                     classic_values[27+3*i+j] if len(classic_values)==36 else math.nan)
+        physical_values = []
+        if (classic_additive_physical and
+                classic_additive_physical.get("layout_label") ==
+                "classic_additive_physical_v1:header21+robot2_feedback2"):
+            try:
+                physical_values = json.loads(
+                    classic_additive_physical["data_json"])
+            except (ValueError, TypeError):
+                pass
+        row["classic_additive_physical_state_available"] = (
+            len(physical_values) == 23)
+        for offset, name in enumerate((
+                "source_stamp", "wall_time", "trigger_wall_time", "triggered",
+                "active", "finished", "elapsed", "progress", "scale",
+                "linear_amplitude_actual", "angular_amplitude_actual",
+                "envelope", "d_v", "d_omega", "wheel_pre_left",
+                "wheel_pre_right", "wheel_post_disturbance_left",
+                "wheel_post_disturbance_right", "wheel_post_limit_left",
+                "wheel_post_limit_right", "robot_id", "wheel_actual_left",
+                "wheel_actual_right")):
+            row["classic_additive_physical_"+name] = (
+                physical_values[offset]
+                if len(physical_values) == 23 else math.nan)
         if (m2b and m2b.get("layout_label") ==
                 "m2b_algorithm_state_v1:header6+3x20"):
             try:

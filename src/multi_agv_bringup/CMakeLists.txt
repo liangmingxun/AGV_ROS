@@ -42,6 +42,7 @@ install(PROGRAMS
         scripts/run_exp2c_v5b_three_method_repeat_fake.sh
         scripts/run_classic_additive_candidate_A_one_fake.sh
         scripts/run_classic_additive_candidate_A_validation_fake.sh
+        scripts/run_classic_additive_candidate_A_physical_commissioning.sh
         scripts/run_m1_r1_serial_unloaded.sh
         scripts/run_m1_r1_serial_unloaded_3m.sh
         scripts/run_m1_r1_serial_unloaded_circle_r0p7.sh
@@ -73,6 +74,7 @@ install(DIRECTORY config launch
 if(CATKIN_ENABLE_TESTING)
   find_package(rostest REQUIRED)
   catkin_add_nosetests(test/test_wheel_speed_scale_calibration.py)
+  catkin_add_nosetests(test/test_classic_additive_physical_commissioning.py)
   add_rostest(test/namespace_isolation.test)
   add_rostest(test/command_authority.test)
   add_rostest(test/tf_authority.test)

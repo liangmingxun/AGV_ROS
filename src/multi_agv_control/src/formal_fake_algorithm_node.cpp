@@ -189,12 +189,32 @@ class FormalFakeAlgorithmNode {
          lower_config.mode == LowerMode::kR1) ||
         (upper_config.mode == UpperMode::kM2b &&
          lower_config.mode == LowerMode::kM2b);
-    if (classic_additive_config_.enabled &&
-        (transport_type_ != "fake" ||
-         experiment_id_ != "classic_additive_disturbance_candidate_A_validation" ||
-         v5_hardware_authorized || !classic_method)) {
-      throw std::runtime_error(
-          "classic additive Candidate A requires exact fake-only M1/M1b+R1 or complete M2b identity");
+    bool lower_hardware_authorized = true;
+    private_node_.param("formal_lower/hardware_execution_authorized",
+                        lower_hardware_authorized, true);
+    if (classic_additive_config_.enabled) {
+      const bool fake_scope =
+          !classic_additive_physical_enabled_ && transport_type_ == "fake" &&
+          experiment_id_ ==
+              "classic_additive_disturbance_candidate_A_validation" &&
+          !v5_hardware_authorized && classic_method &&
+          std::abs(classic_additive_config_.scale - 1.0) <= 1e-12;
+      const bool physical_method =
+          (upper_config.mode == UpperMode::kM1 ||
+           upper_config.mode == UpperMode::kM1b) &&
+          lower_config.mode == LowerMode::kR1;
+      const bool physical_scope = classic_additive_physical_enabled_ &&
+          classic_additive_physical_hardware_authorized_ &&
+          transport_type_ == "serial" &&
+          experiment_id_ ==
+              "classic_additive_candidate_A_physical_commissioning" &&
+          v5_hardware_authorized && lower_hardware_authorized &&
+          physical_method && classic_additive_config_.scale > 0.0;
+      if (!fake_scope && !physical_scope) {
+        throw std::runtime_error(
+            "classic additive Candidate A is outside its exact fake or "
+            "physical commissioning authorization scope");
+      }
     }
     hard_capability_envelope_enabled_ =
         upper_config.hard_capability_envelope_enabled;
@@ -294,6 +314,10 @@ class FormalFakeAlgorithmNode {
     if (classic_additive_config_.enabled)
       classic_additive_publisher_=node_.advertise<std_msgs::Float64MultiArray>(
           "/multi_agv/classic_additive_disturbance_state",10,false);
+    if (classic_additive_physical_enabled_)
+      classic_additive_physical_publisher_=
+          node_.advertise<std_msgs::Float64MultiArray>(
+              "/multi_agv/classic_additive_physical_state",10,false);
     timer_ = node_.createTimer(
         ros::Duration(1.0 / publish_rate_),
         &FormalFakeAlgorithmNode::step, this);
@@ -650,7 +674,9 @@ class FormalFakeAlgorithmNode {
     private_node_.param(root+"yaw_effectiveness_hold_v5b/hold",yaw_hold_config_.hold,2.5);
     private_node_.param(root+"yaw_effectiveness_hold_v5b/ramp_up",yaw_hold_config_.up,.6);
     validateYawHoldConfig(yaw_hold_config_);
-    private_node_.param(root+"classic_additive_candidate_A/enabled",classic_additive_config_.enabled,false);
+    bool classic_additive_fake_enabled = false;
+    private_node_.param(root+"classic_additive_candidate_A/enabled",
+                        classic_additive_fake_enabled,false);
     private_node_.param(root+"classic_additive_candidate_A/trigger_progress",classic_additive_config_.trigger_progress,2.0);
     private_node_.param(root+"classic_additive_candidate_A/linear_amplitude",classic_additive_config_.linear_amplitude,.030);
     private_node_.param(root+"classic_additive_candidate_A/angular_amplitude",classic_additive_config_.angular_amplitude,.350);
@@ -660,6 +686,18 @@ class FormalFakeAlgorithmNode {
     private_node_.param(root+"classic_additive_candidate_A/duration",classic_additive_config_.duration,8.0);
     private_node_.param(root+"classic_additive_candidate_A/ramp_in",classic_additive_config_.ramp_in,.5);
     private_node_.param(root+"classic_additive_candidate_A/ramp_out",classic_additive_config_.ramp_out,.5);
+    private_node_.param(root+"classic_additive_physical/enabled",
+                        classic_additive_physical_enabled_,false);
+    private_node_.param(
+        root+"classic_additive_physical/hardware_execution_authorized",
+        classic_additive_physical_hardware_authorized_,false);
+    private_node_.param(root+"classic_additive_physical/qualification_scale",
+                        classic_additive_config_.scale,1.0);
+    if (classic_additive_fake_enabled && classic_additive_physical_enabled_)
+      throw std::runtime_error(
+          "fake and physical classic additive scopes are mutually exclusive");
+    classic_additive_config_.enabled =
+        classic_additive_fake_enabled || classic_additive_physical_enabled_;
     classic_additive_config_.wheel_separation=tracker_config_.wheel_separation[1];
     validateClassicAdditiveConfig(classic_additive_config_);
     const int enabled_disturbances =
@@ -2111,6 +2149,29 @@ class FormalFakeAlgorithmNode {
     publishClassicAdditive(stamp,raw);
   }
 
+  void publishClassicAdditivePhysical(
+      const ros::Time& stamp,
+      const std::array<std::array<double,2>,3>& post_limit) {
+    if (!classic_additive_physical_enabled_) return;
+    const auto& v=classic_additive_output_;
+    std_msgs::Float64MultiArray message;
+    message.layout.dim.resize(1);
+    message.layout.dim[0].label=
+        "classic_additive_physical_v1:header21+robot2_feedback2";
+    message.layout.dim[0].size=message.layout.dim[0].stride=23U;
+    message.data={stamp.toSec(),v.wall_time,v.trigger_wall_time,
+      v.triggered?1.:0.,v.active?1.:0.,v.finished?1.:0.,v.elapsed,v.progress,
+      classic_additive_config_.scale,
+      classic_additive_config_.scale*classic_additive_config_.linear_amplitude,
+      classic_additive_config_.scale*classic_additive_config_.angular_amplitude,
+      v.envelope,v.linear_disturbance,v.angular_disturbance,
+      v.left_raw,v.right_raw,v.left_disturbed,v.right_disturbed,
+      post_limit[1][0],post_limit[1][1],2.0,
+      feedback_[1].wheel_linear_velocity_left_actual,
+      feedback_[1].wheel_linear_velocity_right_actual};
+    classic_additive_physical_publisher_.publish(message);
+  }
+
   void publishExecutionLimiter(
       const ros::Time& stamp, double scale,
       const std::array<std::array<double, 2>, 3>& demand,
@@ -2712,6 +2773,7 @@ class FormalFakeAlgorithmNode {
     publishRiskDisturbance(now);
     publishYawDriveDisturbance(now);
 
+    std::array<std::array<double,2>,3> wheel_post_limit{};
     for (std::size_t index = 0; index < kRobotCount; ++index) {
       agv_msgs::ChassisCommand command;
       command.header.stamp = now;
@@ -2724,6 +2786,8 @@ class FormalFakeAlgorithmNode {
         publishDebug(false, current_upper_, distributed, lower);
         return;
       }
+      wheel_post_limit[index]={{command.wheel_linear_velocity_left_raw,
+                                command.wheel_linear_velocity_right_raw}};
       if (!reconcileExecutionChannel(
               index, tracking[index], dt)) {
         publishZero(now);
@@ -2744,6 +2808,7 @@ class FormalFakeAlgorithmNode {
           tracking[index].longitudinal_error,
           tracking[index].lateral_error);
     }
+    publishClassicAdditivePhysical(now,wheel_post_limit);
     recovery_ramp_armed_ = false;
     publishPublicState(now, true, lower, tracking);
     publishDebug(true, current_upper_, distributed, lower);
@@ -2788,6 +2853,7 @@ class FormalFakeAlgorithmNode {
   ros::Publisher yaw_effectiveness_publisher_;
   ros::Publisher yaw_hold_publisher_;
   ros::Publisher classic_additive_publisher_;
+  ros::Publisher classic_additive_physical_publisher_;
   ros::Timer timer_;
   agv_msgs::CooperativeState state_;
   agv_msgs::CooperativeState latest_received_state_;
@@ -2889,6 +2955,8 @@ class FormalFakeAlgorithmNode {
   ClassicAdditiveConfig classic_additive_config_;
   ClassicAdditiveDisturbance classic_additive_disturbance_;
   ClassicAdditiveOutput classic_additive_output_{};
+  bool classic_additive_physical_enabled_{false};
+  bool classic_additive_physical_hardware_authorized_{false};
   std::uint32_t reconciliation_maximum_applied_sequence_lag_{5U};
   std::size_t m1_derating_reserve_robot_index_{1U};
   double initialization_elapsed_seconds_{0.0};

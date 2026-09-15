@@ -47,6 +47,9 @@
   <arg name="nominal_agv2_mapped_capability" default="0.0"/>
   <arg name="nominal_common_velocity" default="0.08"/>
   <arg name="record_topics_config" default="$(find multi_agv_bringup)/config/record_topics.yaml"/>
+  <arg name="classic_additive_config"
+       default="$(find multi_agv_bringup)/config/formal_serial_classic_additive_candidate_A_commissioning.yaml"/>
+  <arg name="record_classic_additive_physical" default="false"/>
   <arg name="evaluation_target" default="1.0"/>
   <arg name="require_approved_config" default="false"/>
   <arg name="formal_statistics_requested" default="false"/>
@@ -82,6 +85,8 @@
            value="$(arg require_approved_config)"/>
     <param name="formal_statistics_requested"
            value="$(arg formal_statistics_requested)"/>
+    <param name="record_classic_additive_physical"
+           value="$(arg record_classic_additive_physical)"/>
     <param name="approval_id" value="$(arg approval_id)"/>
     <param name="approval_registry" value="$(arg approval_registry)"/>
     <param name="workspace" value="$(find multi_agv_bringup)/../../.."/>
@@ -105,6 +110,7 @@
        "$(arg execution_authorization_config)",
        "$(arg derating_authorization_config)",
        "$(arg evaluation_config)",
+       "$(arg classic_additive_config)",
        "$(find multi_agv_bringup)/config/fleet_inventory.yaml",
        "$(find multi_agv_bringup)/config/software_watchdog.yaml",
        "$(arg record_topics_config)"]
