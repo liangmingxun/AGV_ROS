@@ -1,0 +1,44 @@
+{
+  "candidate": "A",
+  "experiment_id": "classic_additive_disturbance_candidate_A_validation",
+  "hardware_authorization": false,
+  "m2b_config_sha256": "690a5a3cdacbe4a9cc10c14f36b355a2d31c3286407de5530500ea5342083507",
+  "markers": [
+    "CLASSIC_ADDITIVE_DISTURBANCE_VALIDATION",
+    "NOT_FORMAL_PAPER_EVIDENCE"
+  ],
+  "method": "M2b_COMPLETE",
+  "parameter_search": false,
+  "profile": {
+    "angular_amplitude": 0.35,
+    "angular_frequency": 1.0,
+    "angular_phase": 1.5707963267948966,
+    "duration": 8.0,
+    "enabled": true,
+    "linear_amplitude": 0.03,
+    "linear_frequency": 1.0,
+    "ramp_in": 0.5,
+    "ramp_out": 0.5,
+    "trigger_progress": 2.0
+  },
+  "serial_execution": false,
+  "task_timeout_seconds": 100,
+  "windows_seconds": {
+    "baseline": [
+      -3,
+      0
+    ],
+    "disturbance": [
+      0,
+      8
+    ],
+    "primary": [
+      0,
+      23
+    ],
+    "recovery": [
+      8,
+      23
+    ]
+  }
+}

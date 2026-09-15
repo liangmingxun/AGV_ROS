@@ -1,0 +1,143 @@
+formal_fake_runtime:
+  schema_version: 1
+  configuration_status: PILOT_M2B_CIRCLE_0P10_FORMATION_OBSERVATION
+  command_publication_authorized: true
+  serial_execution_authorized: false
+  publish_rate: 100.0
+  maximum_state_age: 0.22
+  maximum_capability_age: 0.25
+  maximum_feedback_age: 0.25
+  minimum_battery_voltage: 9.5
+  minimum_battery_voltage_duration: 0.5
+  emergency_abort_limit: 0.18
+  execution:
+    initialization_hold_seconds: 0.3
+    initialization_max_wheel_speed: 0.015
+    startup_ramp_seconds: 4.0
+    startup_catchup_margin_mps: 0.008
+    startup_feedback_ramp_seconds: 1.2
+    startup_early_rise: 0.6
+    align_progress_to_initial_pose: false
+    emergency_abort_persistence_seconds: 0.1
+    transient_state_hold_seconds: 0.08
+    transient_capability_hold_seconds: 0.4
+    transient_feedback_hold_seconds: 0.1
+  require_valid_load_state: true
+  require_recorder_armed: true
+  maximum_recorder_armed_age: 0.5
+  confirm_test_area_clear: false
+  confirm_wheels_on_floor: false
+  confirm_unloaded_30cm_fixture: false
+  initial_progress: 0.0
+  target_progress: 5.17822971502571
+  experiment_id: classic_additive_disturbance_candidate_A_validation
+  leader:
+    initial_position: 0.0
+    velocity: 0.1
+    acceleration: 0.0
+  distributed_initial:
+    position:
+    - 0.0
+    - 0.0
+    - 0.0
+    velocity:
+    - 0.1
+    - 0.1
+    - 0.1
+    auxiliary:
+    - 0.0
+    - 0.0
+    - 0.0
+  risk:
+    capability_reserve: 0.005
+    capability_safe_margin: 0.01
+    input_safe_margin: 0.4
+    wheel_safe_margin: 0.01
+    position_limit: 0.12
+    position_safe_margin: 0.06
+    require_software_watchdog: false
+    maximum_watchdog_age: 0.25
+  capability_reserve:
+    body_linear_velocity: 0.0
+    body_angular_velocity: 0.0
+    wheel_linear_velocity: 0.0
+    path_acceleration: 0.0
+    path_deceleration: 0.0
+  lower:
+    velocity_lower_bound: -0.15
+    velocity_upper_bound: 0.58
+    initial_parameter:
+    - 0.0
+    - 0.0
+    initial_disturbance_estimate: 0.08
+  tracker:
+    longitudinal_gain: 1.0
+    lateral_gain: 2.0
+    heading_gain: 2.0
+    longitudinal_gain_per_robot:
+    - 1.0
+    - 1.0
+    - 1.0
+    lateral_gain_per_robot:
+    - 4.8
+    - 3.4
+    - 4.0
+    heading_gain_per_robot:
+    - 3.5
+    - 3.0
+    - 3.0
+    angular_feedforward_scale_positive:
+    - 0.78
+    - 0.780810219
+    - 0.850009371
+    angular_feedforward_scale_negative:
+    - 0.94
+    - 0.951221879
+    - 0.94
+    formation_longitudinal_gain: 0.25
+    formation_lateral_gain: 0.85
+    formation_heading_gain: 0.7
+    curvature_preview_seconds_positive:
+    - 0.05
+    - 0.0
+    - 0.05
+    curvature_preview_seconds_negative:
+    - 0.05
+    - 0.0
+    - 0.05
+    chassis_reference_samples: 10001
+    wheel_separation:
+    - 0.135484339
+    - 0.139284482
+    - 0.136802843
+    base_to_support:
+    - x: -0.01783
+      y: 0.0
+    - x: 0.09908
+      y: 0.0
+    - x: 0.09908
+      y: 0.0
+  effect_exploration_continue_on_quality_exceedance: true
+  evidence_scope:
+  - CLASSIC_ADDITIVE_DISTURBANCE_VALIDATION
+  - NOT_FORMAL_PAPER_EVIDENCE
+  classic_additive_candidate_A:
+    enabled: true
+    trigger_progress: 2.0
+    linear_amplitude: 0.03
+    angular_amplitude: 0.35
+    linear_frequency: 1.0
+    angular_frequency: 1.0
+    angular_phase: 1.5707963267948966
+    duration: 8.0
+    ramp_in: 0.5
+    ramp_out: 0.5
+  classic_validation_metadata:
+    triad: classic_additive_disturbance_candidate_A_validation
+    method: M1_R1
+  yaw_effectiveness_hold_v5b:
+    enabled: false
+estimator:
+  filter_alpha: 0.9
+formation_observation_only: true
+maximum_observation_support_distance: 0.8

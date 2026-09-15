@@ -1,0 +1,30 @@
+... logging to /home/etlab/.ros/log/a685ffc6-b0b9-11f1-98b3-472129f0ef5b/roslaunch-robot1-65312.log
+Checking log directory for disk usage. This may take a while.
+Press Ctrl-C to interrupt
+Done checking log file disk usage. Usage is <1GB.
+]2;roscore
+[1mstarted roslaunch server http://127.0.0.1:36915/[0m
+ros_comm version 1.17.0
+
+
+SUMMARY
+========
+
+PARAMETERS
+ * /rosdistro: noetic
+ * /rosversion: 1.17.0
+
+NODES
+
+auto-starting new master
+[1mprocess[master]: started with pid [65345][0m
+[1mROS_MASTER_URI=http://127.0.0.1:11670/[0m
+]2;roscore http://127.0.0.1:11670/
+[1msetting /run_id to a685ffc6-b0b9-11f1-98b3-472129f0ef5b[0m
+[1mprocess[rosout-1]: started with pid [65380][0m
+started core service [/rosout]
+[rosout-1] killing on exit
+[master] killing on exit
+shutting down processing monitor...
+... shutting down processing monitor complete
+[1mdone[0m

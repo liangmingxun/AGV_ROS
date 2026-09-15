@@ -23,6 +23,7 @@
 #include <tf2/LinearMath/Scalar.h>
 
 #include "multi_agv_control/capability_mapper.hpp"
+#include "multi_agv_control/classic_additive_disturbance.hpp"
 #include "multi_agv_control/execution_channel_reconciler.hpp"
 #include "multi_agv_control/execution_reference_derivative.hpp"
 #include "multi_agv_control/recovery_slew.hpp"
@@ -167,7 +168,9 @@ class FormalFakeAlgorithmNode {
     private_node_.param("formal_upper/hardware_execution_authorized", v5_hardware_authorized, true);
     if (!v5QualityPolicyAuthorized(v5_quality_observation_, experiment_id_,
                                   transport_type_, v5_hardware_authorized) ||
-        (v5_quality_observation_ && !(yaw_effectiveness_config_.enabled || yaw_hold_config_.enabled)))
+        (v5_quality_observation_ && !(yaw_effectiveness_config_.enabled ||
+                                     yaw_hold_config_.enabled ||
+                                     classic_additive_config_.enabled)))
       throw std::runtime_error("v5 quality policy cannot be enabled outside exact fake exploration");
     if (yaw_effectiveness_config_.enabled && (transport_type_ != "fake" ||
         experiment_id_ != "exp2c_v5_yaw_effectiveness_exploration" ||
@@ -180,6 +183,19 @@ class FormalFakeAlgorithmNode {
     if (yaw_hold_config_.enabled && (transport_type_!="fake" ||
         (!repeat_identity && experiment_id_!="exp2c_v5b_yaw_effectiveness_hold_exploration") || !hold_method))
       throw std::runtime_error("v5b hold requires isolated fake M1/M1b+R1");
+    const bool classic_method =
+        ((upper_config.mode == UpperMode::kM1 ||
+          upper_config.mode == UpperMode::kM1b) &&
+         lower_config.mode == LowerMode::kR1) ||
+        (upper_config.mode == UpperMode::kM2b &&
+         lower_config.mode == LowerMode::kM2b);
+    if (classic_additive_config_.enabled &&
+        (transport_type_ != "fake" ||
+         experiment_id_ != "classic_additive_disturbance_candidate_A_validation" ||
+         v5_hardware_authorized || !classic_method)) {
+      throw std::runtime_error(
+          "classic additive Candidate A requires exact fake-only M1/M1b+R1 or complete M2b identity");
+    }
     hard_capability_envelope_enabled_ =
         upper_config.hard_capability_envelope_enabled;
     lower_mode_ = lower_config.mode;
@@ -275,6 +291,9 @@ class FormalFakeAlgorithmNode {
     if (yaw_hold_config_.enabled)
       yaw_hold_publisher_=node_.advertise<std_msgs::Float64MultiArray>(
           "/multi_agv/yaw_effectiveness_hold_state",10,false);
+    if (classic_additive_config_.enabled)
+      classic_additive_publisher_=node_.advertise<std_msgs::Float64MultiArray>(
+          "/multi_agv/classic_additive_disturbance_state",10,false);
     timer_ = node_.createTimer(
         ros::Duration(1.0 / publish_rate_),
         &FormalFakeAlgorithmNode::step, this);
@@ -631,6 +650,27 @@ class FormalFakeAlgorithmNode {
     private_node_.param(root+"yaw_effectiveness_hold_v5b/hold",yaw_hold_config_.hold,2.5);
     private_node_.param(root+"yaw_effectiveness_hold_v5b/ramp_up",yaw_hold_config_.up,.6);
     validateYawHoldConfig(yaw_hold_config_);
+    private_node_.param(root+"classic_additive_candidate_A/enabled",classic_additive_config_.enabled,false);
+    private_node_.param(root+"classic_additive_candidate_A/trigger_progress",classic_additive_config_.trigger_progress,2.0);
+    private_node_.param(root+"classic_additive_candidate_A/linear_amplitude",classic_additive_config_.linear_amplitude,.030);
+    private_node_.param(root+"classic_additive_candidate_A/angular_amplitude",classic_additive_config_.angular_amplitude,.350);
+    private_node_.param(root+"classic_additive_candidate_A/linear_frequency",classic_additive_config_.linear_frequency,1.0);
+    private_node_.param(root+"classic_additive_candidate_A/angular_frequency",classic_additive_config_.angular_frequency,1.0);
+    private_node_.param(root+"classic_additive_candidate_A/angular_phase",classic_additive_config_.angular_phase,.5*std::acos(-1.0));
+    private_node_.param(root+"classic_additive_candidate_A/duration",classic_additive_config_.duration,8.0);
+    private_node_.param(root+"classic_additive_candidate_A/ramp_in",classic_additive_config_.ramp_in,.5);
+    private_node_.param(root+"classic_additive_candidate_A/ramp_out",classic_additive_config_.ramp_out,.5);
+    classic_additive_config_.wheel_separation=tracker_config_.wheel_separation[1];
+    validateClassicAdditiveConfig(classic_additive_config_);
+    const int enabled_disturbances =
+        (risk_disturbance_config_.enabled ? 1 : 0) +
+        (yaw_drive_disturbance_config_.enabled ? 1 : 0) +
+        (transient_yaw_config_.enabled ? 1 : 0) +
+        (yaw_effectiveness_config_.enabled ? 1 : 0) +
+        (yaw_hold_config_.enabled ? 1 : 0) +
+        (classic_additive_config_.enabled ? 1 : 0);
+    if (enabled_disturbances > 1)
+      throw std::runtime_error("classic/legacy disturbance profiles are mutually exclusive");
     if (yaw_hold_config_.enabled && (yaw_effectiveness_config_.enabled || transient_yaw_config_.enabled ||
         yaw_drive_disturbance_config_.enabled || risk_disturbance_config_.enabled))
       throw std::runtime_error("v5b hold cannot combine with legacy disturbances");
@@ -1730,7 +1770,8 @@ class FormalFakeAlgorithmNode {
         experiment_id_ == "exp2c_v4_effect_exploration" ||
         experiment_id_ == "exp2c_v5_yaw_effectiveness_exploration" ||
         experiment_id_ == "exp2c_v5b_yaw_effectiveness_hold_exploration" ||
-        (experiment_id_ == "exp2c_v5b_s1_three_method_repeat_validation" && !m2b_selected_);
+        (experiment_id_ == "exp2c_v5b_s1_three_method_repeat_validation" && !m2b_selected_) ||
+        (experiment_id_ == "classic_additive_disturbance_candidate_A_validation" && !m2b_selected_);
     message.layout.dim[0].label = v3_diagnostics
         ? "formal_algorithm_state_v3:header10+3x29+reference4"
         : "formal_algorithm_state_v2:header10+3x29";
@@ -2020,6 +2061,56 @@ class FormalFakeAlgorithmNode {
     publishYawHold(stamp,raw);
   }
 
+  void publishClassicAdditive(
+      const ros::Time& stamp,
+      const std::array<PlanarTrackingResult,3>& raw) {
+    if (!classic_additive_config_.enabled) return;
+    const auto& v=classic_additive_output_;
+    std_msgs::Float64MultiArray message;
+    message.layout.dim.resize(1);
+    message.layout.dim[0].label="classic_additive_candidate_A:header27+3x3";
+    message.layout.dim[0].size=message.layout.dim[0].stride=36U;
+    message.data={stamp.toSec(),v.wall_time,v.trigger_wall_time,
+      v.triggered?1.:0.,v.active?1.:0.,v.finished?1.:0.,v.elapsed,v.progress,
+      classic_additive_config_.linear_amplitude,
+      classic_additive_config_.angular_amplitude,
+      classic_additive_config_.linear_frequency,
+      classic_additive_config_.angular_frequency,
+      classic_additive_config_.angular_phase,classic_additive_config_.duration,
+      classic_additive_config_.ramp_in,classic_additive_config_.ramp_out,
+      classic_additive_config_.wheel_separation,v.envelope,
+      v.linear_disturbance,v.angular_disturbance,v.left_raw,v.right_raw,
+      v.left_disturbed,v.right_disturbed,
+      .5*((v.left_disturbed+v.right_disturbed)-(v.left_raw+v.right_raw)),
+      ((v.right_disturbed-v.left_disturbed)-(v.right_raw-v.left_raw))/
+          classic_additive_config_.wheel_separation,2.0};
+    for (const auto& result : raw) {
+      message.data.push_back(result.longitudinal_error);
+      message.data.push_back(result.lateral_error);
+      message.data.push_back(result.heading_error);
+    }
+    classic_additive_publisher_.publish(message);
+  }
+
+  void applyClassicAdditive(const ros::Time& stamp,
+      const std::array<PlanarTrackingResult,3>& raw,
+      std::array<PlanarTrackingResult,3>* execution) {
+    if (!classic_additive_config_.enabled) return;
+    classic_additive_output_=classic_additive_disturbance_.evaluate(
+        classic_additive_config_,2,state_.s_actual[1],
+        ros::WallTime::now().toSec(),
+        raw[1].wheel_linear_velocity_left_raw,
+        raw[1].wheel_linear_velocity_right_raw);
+    auto& target=(*execution)[1];
+    target.wheel_linear_velocity_left_raw=classic_additive_output_.left_disturbed;
+    target.wheel_linear_velocity_right_raw=classic_additive_output_.right_disturbed;
+    target.linear_velocity_raw=.5*(classic_additive_output_.left_disturbed+
+                                   classic_additive_output_.right_disturbed);
+    target.angular_velocity_raw=(classic_additive_output_.right_disturbed-
+        classic_additive_output_.left_disturbed)/tracker_config_.wheel_separation[1];
+    publishClassicAdditive(stamp,raw);
+  }
+
   void publishExecutionLimiter(
       const ros::Time& stamp, double scale,
       const std::array<std::array<double, 2>, 3>& demand,
@@ -2307,6 +2398,7 @@ class FormalFakeAlgorithmNode {
       }
       auto execution_tracking = tracking;
       applyYawHold(now, tracking, &execution_tracking);
+      applyClassicAdditive(now, tracking, &execution_tracking);
       if (!trackingPassesSerialEmergencyGate(execution_tracking, dt)) {
         publishZero(now);
         publishPublicState(now, false, lower, tracking);
@@ -2607,6 +2699,7 @@ class FormalFakeAlgorithmNode {
       publishYawEffectiveness(now, tracking);
     }
     applyYawHold(now, tracking, &execution_tracking);
+    applyClassicAdditive(now, tracking, &execution_tracking);
     if (!trackingPassesSerialEmergencyGate(execution_tracking, dt)) {
       publishZero(now);
       publishPublicState(now, false, lower, tracking);
@@ -2694,6 +2787,7 @@ class FormalFakeAlgorithmNode {
   ros::Publisher transient_yaw_publisher_;
   ros::Publisher yaw_effectiveness_publisher_;
   ros::Publisher yaw_hold_publisher_;
+  ros::Publisher classic_additive_publisher_;
   ros::Timer timer_;
   agv_msgs::CooperativeState state_;
   agv_msgs::CooperativeState latest_received_state_;
@@ -2792,6 +2886,9 @@ class FormalFakeAlgorithmNode {
   YawEffectivenessOutput yaw_effectiveness_output_{};
   TransientYawPulse transient_yaw_pulse_;
   TransientYawOutput transient_yaw_output_{};
+  ClassicAdditiveConfig classic_additive_config_;
+  ClassicAdditiveDisturbance classic_additive_disturbance_;
+  ClassicAdditiveOutput classic_additive_output_{};
   std::uint32_t reconciliation_maximum_applied_sequence_lag_{5U};
   std::size_t m1_derating_reserve_robot_index_{1U};
   double initialization_elapsed_seconds_{0.0};

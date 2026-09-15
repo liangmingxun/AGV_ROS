@@ -147,6 +147,9 @@ RAW_SCHEMAS = {
     "yaw_effectiveness_hold_state.csv": [
         "topic", "bag_stamp", "header_stamp", "layout_label", "data_json",
     ],
+    "classic_additive_disturbance_state.csv": [
+        "topic", "bag_stamp", "header_stamp", "layout_label", "data_json",
+    ],
     "v5_exploration_quality_state.csv": [
         "topic", "bag_stamp", "header_stamp", "layout_label", "data_json",
     ],
@@ -466,6 +469,8 @@ def _extract(topic, bag_stamp, message):
             return "yaw_effectiveness_state.csv", row
         if topic == "/multi_agv/yaw_effectiveness_hold_state":
             return "yaw_effectiveness_hold_state.csv", row
+        if topic == "/multi_agv/classic_additive_disturbance_state":
+            return "classic_additive_disturbance_state.csv", row
         if topic == "/multi_agv/v5_exploration_quality_state":
             return "v5_exploration_quality_state.csv", row
         if topic == "/multi_agv/state_projection_timing":
@@ -631,6 +636,7 @@ def _aligned_rows(raw, maximum_age,
     transient_debug = _series(raw.get("transient_yaw_disturbance_state.csv", []))
     effectiveness_debug = _series(raw.get("yaw_effectiveness_state.csv", []))
     hold_effectiveness_debug = _series(raw.get("yaw_effectiveness_hold_state.csv", []))
+    classic_additive_debug = _series(raw.get("classic_additive_disturbance_state.csv", []))
     experiment_states = _series(raw["experiment_state.csv"])
     measured_load_poses = _series([
         value for value in raw["camera_pose.csv"]
@@ -654,6 +660,7 @@ def _aligned_rows(raw, maximum_age,
         risk = _latest(risk_debug, stamp, maximum_age)
         yaw = _latest(yaw_debug, stamp, maximum_age)
         transient = _latest(transient_debug, stamp, maximum_age)
+        classic_additive = _latest(classic_additive_debug, stamp, maximum_age)
         experiment_state = _latest(
             experiment_states, stamp, maximum_age)
         measured_load = _latest(measured_load_poses, stamp, maximum_age)
@@ -869,6 +876,28 @@ def _aligned_rows(raw, maximum_age,
         for i in range(3):
             for j, name in enumerate(("longitudinal_error", "lateral_error", "heading_error")):
                 row["agv{}_hold_tracker_{}".format(i+1,name)] = effectiveness_values[19+3*i+j] if len(effectiveness_values)==28 else math.nan
+        classic_values = []
+        if (classic_additive and classic_additive.get("layout_label") ==
+                "classic_additive_candidate_A:header27+3x3"):
+            try:
+                classic_values = json.loads(classic_additive["data_json"])
+            except (ValueError, TypeError):
+                pass
+        row["classic_additive_state_available"] = len(classic_values) == 36
+        for offset, name in enumerate((
+                "source_stamp", "wall_time", "trigger_wall_time", "triggered",
+                "active", "finished", "elapsed", "progress",
+                "linear_amplitude", "angular_amplitude", "linear_frequency",
+                "angular_frequency", "angular_phase", "duration", "ramp_in",
+                "ramp_out", "wheel_separation", "envelope", "d_v", "d_omega",
+                "left_raw", "right_raw", "left_disturbed", "right_disturbed",
+                "mean_delta", "angular_delta", "robot_id")):
+            row["classic_additive_"+name] = (
+                classic_values[offset] if len(classic_values)==36 else math.nan)
+        for i in range(3):
+            for j, name in enumerate(("longitudinal_error", "lateral_error", "heading_error")):
+                row["agv{}_classic_tracker_{}".format(i+1, name)] = (
+                    classic_values[27+3*i+j] if len(classic_values)==36 else math.nan)
         if (m2b and m2b.get("layout_label") ==
                 "m2b_algorithm_state_v1:header6+3x20"):
             try:

@@ -455,6 +455,24 @@ class CameraConversionTest(unittest.TestCase):
         self.assertFalse(row['yaw_effectiveness_state_available'])
         self.assertTrue(math.isnan(row['agv2_tracker_lateral_error']))
 
+    def test_classic_additive_diagnostic_is_separate_and_lossless(self):
+        raw={name:[] for name in RAW_SCHEMAS}
+        raw['cooperative_state.csv']=[{'header_stamp':1.01}]
+        values=[1.,10.,9.,1.,1.,0.,1.,2.1,.030,.350,1.,1.,math.pi/2,
+                8.,.5,.5,.139284482,.75,.012,.2,.10,.12,.098,.134,
+                .006,.2,2.,.001,.002,.003,.004,.005,.006,.007,.008,.009]
+        raw['classic_additive_disturbance_state.csv']=[{'header_stamp':1.,
+            'layout_label':'classic_additive_candidate_A:header27+3x3',
+            'data_json':json.dumps(values)}]
+        row=_aligned_rows(raw,.2)[0]
+        self.assertTrue(row['classic_additive_state_available'])
+        self.assertAlmostEqual(row['classic_additive_d_v'],.012)
+        self.assertAlmostEqual(row['classic_additive_d_omega'],.2)
+        self.assertAlmostEqual(row['classic_additive_left_raw'],.10)
+        self.assertAlmostEqual(row['classic_additive_right_disturbed'],.134)
+        self.assertAlmostEqual(row['agv2_classic_tracker_lateral_error'],.005)
+        self.assertFalse(row['yaw_effectiveness_hold_state_available'])
+
     def test_camera_and_world_pose_fields_are_losslessly_exported(self):
         stamp = genpy.Time.from_sec(12.5)
         camera = PoseStamped()
