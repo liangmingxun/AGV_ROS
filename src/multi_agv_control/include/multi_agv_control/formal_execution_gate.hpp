@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <cstddef>
 #include <cstdint>
 #include <string>
 
@@ -101,6 +102,16 @@ FeedbackFreshnessStatus assessFeedbackFreshness(
     double receive_age_seconds,
     double maximum_fresh_age_seconds,
     double transient_hold_seconds);
+
+// Classify the oldest of several independent ages for one logical input.
+// Small negative ages caused by bounded inter-host clock skew are treated as
+// zero; larger future offsets fail closed as invalid timing.
+FeedbackFreshnessStatus assessInputFreshness(
+    const std::array<double, 3>& age_seconds,
+    std::size_t age_count,
+    double maximum_fresh_age_seconds,
+    double transient_hold_seconds,
+    double maximum_future_offset_seconds);
 
 bool seedCommandSequenceFromFeedback(
     std::uint32_t command_seq_applied,

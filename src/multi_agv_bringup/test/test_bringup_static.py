@@ -756,6 +756,12 @@ class BringupStaticTest(unittest.TestCase):
             "ros::TransportHints().reliable().tcpNoDelay()",
             formal_source)
         self.assertEqual(formal_source.count("control_input_transport"), 4)
+        self.assertIn('"/capability_report", 1,', formal_source)
+        self.assertIn('"/chassis_feedback", 1,', formal_source)
+        self.assertIn("assessInputFreshness(", formal_source)
+        self.assertIn("capability_header_age", formal_source)
+        self.assertIn("feedback_header_age", formal_source)
+        self.assertIn("feedback_serial_age", formal_source)
         self.assertIn(
             "reference_input.inner_margin = distributed_inner_margin_",
             formal_source)

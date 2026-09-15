@@ -282,6 +282,36 @@ TEST(FormalExecutionGate, FeedbackTransientHoldIsBounded) {
       mac::assessFeedbackFreshness(-0.01, 0.25, 0.10));
 }
 
+TEST(FormalExecutionGate, InputFreshnessUsesOldestSourceOrReceiveAge) {
+  EXPECT_EQ(
+      mac::FeedbackFreshnessStatus::kFresh,
+      mac::assessInputFreshness(
+          {{0.02, 0.03, 0.04}}, 3U, 0.25, 0.10, 0.02));
+  EXPECT_EQ(
+      mac::FeedbackFreshnessStatus::kTransientHold,
+      mac::assessInputFreshness(
+          {{0.01, 0.28, 0.02}}, 3U, 0.25, 0.10, 0.02));
+  EXPECT_EQ(
+      mac::FeedbackFreshnessStatus::kStale,
+      mac::assessInputFreshness(
+          {{0.01, 0.02, 0.36}}, 3U, 0.25, 0.10, 0.02));
+}
+
+TEST(FormalExecutionGate, InputFreshnessAllowsOnlyBoundedFutureSkew) {
+  EXPECT_EQ(
+      mac::FeedbackFreshnessStatus::kFresh,
+      mac::assessInputFreshness(
+          {{0.01, -0.019, 0.02}}, 3U, 0.25, 0.10, 0.02));
+  EXPECT_EQ(
+      mac::FeedbackFreshnessStatus::kInvalidTiming,
+      mac::assessInputFreshness(
+          {{0.01, -0.021, 0.02}}, 3U, 0.25, 0.10, 0.02));
+  EXPECT_EQ(
+      mac::FeedbackFreshnessStatus::kInvalidTiming,
+      mac::assessInputFreshness(
+          {{0.01, 0.02, 0.03}}, 0U, 0.25, 0.10, 0.02));
+}
+
 TEST(FormalExecutionGate, SeedsSerialCommandSequenceFromChassisFeedback) {
   std::uint32_t sequence = 0U;
   ASSERT_TRUE(mac::seedCommandSequenceFromFeedback(57456U, &sequence));

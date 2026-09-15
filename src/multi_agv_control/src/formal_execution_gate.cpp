@@ -174,6 +174,29 @@ FeedbackFreshnessStatus assessFeedbackFreshness(
   return FeedbackFreshnessStatus::kStale;
 }
 
+FeedbackFreshnessStatus assessInputFreshness(
+    const std::array<double, 3>& age_seconds,
+    std::size_t age_count,
+    double maximum_fresh_age_seconds,
+    double transient_hold_seconds,
+    double maximum_future_offset_seconds) {
+  if (age_count == 0U || age_count > age_seconds.size() ||
+      !std::isfinite(maximum_future_offset_seconds) ||
+      maximum_future_offset_seconds < 0.0) {
+    return FeedbackFreshnessStatus::kInvalidTiming;
+  }
+  double oldest_age = 0.0;
+  for (std::size_t index = 0U; index < age_count; ++index) {
+    const double age = age_seconds[index];
+    if (!std::isfinite(age) || age < -maximum_future_offset_seconds) {
+      return FeedbackFreshnessStatus::kInvalidTiming;
+    }
+    oldest_age = std::max(oldest_age, age);
+  }
+  return assessFeedbackFreshness(
+      oldest_age, maximum_fresh_age_seconds, transient_hold_seconds);
+}
+
 bool seedCommandSequenceFromFeedback(
     std::uint32_t command_seq_applied,
     std::uint32_t* command_sequence) {

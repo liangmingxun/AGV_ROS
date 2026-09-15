@@ -275,12 +275,12 @@ class FormalFakeAlgorithmNode {
         &FormalFakeAlgorithmNode::receiveWatchdog, this);
     for (std::size_t index = 0; index < kRobotCount; ++index) {
       capability_subscribers_[index] = node_.subscribe<agv_msgs::CapabilityReport>(
-          "/agv" + std::to_string(index + 1U) + "/capability_report", 5,
+          "/agv" + std::to_string(index + 1U) + "/capability_report", 1,
           [this, index](const agv_msgs::CapabilityReport::ConstPtr& message) {
             receiveCapability(index, message);
           }, ros::VoidConstPtr(), control_input_transport);
       feedback_subscribers_[index] = node_.subscribe<agv_msgs::ChassisFeedback>(
-          "/agv" + std::to_string(index + 1U) + "/chassis_feedback", 5,
+          "/agv" + std::to_string(index + 1U) + "/chassis_feedback", 1,
           [this, index](const agv_msgs::ChassisFeedback::ConstPtr& message) {
             receiveFeedback(index, message);
           }, ros::VoidConstPtr(), control_input_transport);
@@ -493,6 +493,9 @@ class FormalFakeAlgorithmNode {
     private_node_.param(
         root + "execution/transient_feedback_hold_seconds",
         transient_feedback_hold_seconds_, 0.0);
+    private_node_.param(
+        root + "maximum_input_future_offset",
+        maximum_input_future_offset_, 0.02);
     private_node_.param(
         root + "minimum_battery_voltage", minimum_battery_voltage_, 9.5);
     private_node_.param(
@@ -743,6 +746,8 @@ class FormalFakeAlgorithmNode {
         transient_capability_hold_seconds_ < 0.0 ||
         !(maximum_feedback_age_ > 0.0) ||
         transient_feedback_hold_seconds_ < 0.0 ||
+        !std::isfinite(maximum_input_future_offset_) ||
+        maximum_input_future_offset_ < 0.0 ||
         !(minimum_battery_voltage_ > 0.0) ||
         !(minimum_battery_voltage_duration_ > 0.0) ||
         !(emergency_abort_limit_ > 0.0) ||
@@ -1203,20 +1208,30 @@ class FormalFakeAlgorithmNode {
       }
       const double capability_age =
           (now - capability_receive_time_[index]).toSec();
-      const auto capability_freshness = assessFeedbackFreshness(
-          capability_age, maximum_capability_age_,
-          transient_capability_hold_seconds_);
+      const double capability_header_age =
+          capability_[index].header.stamp.isZero()
+              ? std::numeric_limits<double>::quiet_NaN()
+              : (now - capability_[index].header.stamp).toSec();
+      const auto capability_freshness = assessInputFreshness(
+          {{capability_age, capability_header_age, 0.0}}, 2U,
+          maximum_capability_age_, transient_capability_hold_seconds_,
+          maximum_input_future_offset_);
       if (capability_freshness == FeedbackFreshnessStatus::kInvalidTiming) {
         return "agv" + std::to_string(index + 1U) +
-            " CapabilityReport freshness timing is invalid";
+            " CapabilityReport receive/header timing is invalid";
       }
       if (capability_freshness == FeedbackFreshnessStatus::kTransientHold) {
         ROS_WARN_THROTTLE(
             1.0,
-            "Formal execution holding the last valid agv%zu CapabilityReport for %.6f s beyond the %.6f s freshness bound",
-            index + 1U, capability_age - maximum_capability_age_,
+            "Formal execution holding the last valid agv%zu CapabilityReport: receive_age=%.6f s header_age=%.6f s, freshness_bound=%.6f s",
+            index + 1U, capability_age, capability_header_age,
             maximum_capability_age_);
       } else if (capability_freshness == FeedbackFreshnessStatus::kStale) {
+        ROS_WARN_THROTTLE(
+            1.0,
+            "Rejected stale agv%zu CapabilityReport: receive_age=%.6f s header_age=%.6f s, freshness_bound=%.6f s",
+            index + 1U, capability_age, capability_header_age,
+            maximum_capability_age_);
         return "agv" + std::to_string(index + 1U) +
             " CapabilityReport is stale";
       }
@@ -1227,20 +1242,34 @@ class FormalFakeAlgorithmNode {
         }
         const double feedback_age =
             (now - feedback_receive_time_[index]).toSec();
-        const auto freshness = assessFeedbackFreshness(
-            feedback_age, maximum_feedback_age_,
-            transient_feedback_hold_seconds_);
+        const double feedback_header_age =
+            feedback_[index].header.stamp.isZero()
+                ? std::numeric_limits<double>::quiet_NaN()
+                : (now - feedback_[index].header.stamp).toSec();
+        const double feedback_serial_age =
+            feedback_[index].serial_receive_stamp.isZero()
+                ? std::numeric_limits<double>::quiet_NaN()
+                : (now - feedback_[index].serial_receive_stamp).toSec();
+        const auto freshness = assessInputFreshness(
+            {{feedback_age, feedback_header_age, feedback_serial_age}}, 3U,
+            maximum_feedback_age_, transient_feedback_hold_seconds_,
+            maximum_input_future_offset_);
         if (freshness == FeedbackFreshnessStatus::kInvalidTiming) {
           return "agv" + std::to_string(index + 1U) +
-              " ChassisFeedback freshness timing is invalid";
+              " ChassisFeedback receive/header/serial timing is invalid";
         }
         if (freshness == FeedbackFreshnessStatus::kTransientHold) {
           ROS_WARN_THROTTLE(
               1.0,
-              "Formal execution holding the last valid agv%zu ChassisFeedback for %.6f s beyond the %.6f s freshness bound",
-              index + 1U, feedback_age - maximum_feedback_age_,
-              maximum_feedback_age_);
+              "Formal execution holding the last valid agv%zu ChassisFeedback: receive_age=%.6f s header_age=%.6f s serial_age=%.6f s, freshness_bound=%.6f s",
+              index + 1U, feedback_age, feedback_header_age,
+              feedback_serial_age, maximum_feedback_age_);
         } else if (freshness == FeedbackFreshnessStatus::kStale) {
+          ROS_WARN_THROTTLE(
+              1.0,
+              "Rejected stale agv%zu ChassisFeedback: receive_age=%.6f s header_age=%.6f s serial_age=%.6f s, freshness_bound=%.6f s",
+              index + 1U, feedback_age, feedback_header_age,
+              feedback_serial_age, maximum_feedback_age_);
           return "agv" + std::to_string(index + 1U) +
               " ChassisFeedback is stale";
         }
@@ -2930,6 +2959,7 @@ class FormalFakeAlgorithmNode {
   double transient_capability_hold_seconds_{0.0};
   double maximum_feedback_age_{0.25};
   double transient_feedback_hold_seconds_{0.0};
+  double maximum_input_future_offset_{0.02};
   double minimum_battery_voltage_{9.5};
   double minimum_battery_voltage_duration_{0.5};
   double emergency_abort_limit_{0.12};

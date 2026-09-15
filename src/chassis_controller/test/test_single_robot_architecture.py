@@ -25,7 +25,7 @@ class SingleRobotArchitectureTest(unittest.TestCase):
         for required in (
                 'subscribe("chassis_command", 1',
                 'subscribe("derating_command", 5',
-                '"chassis_feedback", 5, false',
+                '"chassis_feedback", 1, false',
                 '"capability_report", 5, false',
                 'advertise<nav_msgs::Odometry>("odom", 10, false)',
                 'advertise<sensor_msgs::Imu>("imu", 10, false)',

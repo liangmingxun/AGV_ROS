@@ -261,7 +261,7 @@ class ChassisControllerNode {
         &ChassisControllerNode::deratingCallback, this,
         ros::TransportHints().tcpNoDelay());
     feedback_pub_ = node_.advertise<agv_msgs::ChassisFeedback>(
-        "chassis_feedback", 5, false);
+        "chassis_feedback", 1, false);
     capability_pub_ = node_.advertise<agv_msgs::CapabilityReport>(
         "capability_report", 5, false);
     odom_pub_ = node_.advertise<nav_msgs::Odometry>("odom", 10, false);
