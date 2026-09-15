@@ -1,0 +1,210 @@
+bag: classic_additive_candidate_A_physical_M1_lambda_0p75_20260915_154817.bag
+bag_exit_code: 0
+camera_mode: true
+command_authority:
+  /agv1/chassis_command:
+  - /formal_algorithm
+  /agv2/chassis_command:
+  - /formal_algorithm
+  /agv3/chassis_command:
+  - /formal_algorithm
+command_authority_violations: []
+communication_age_note: Recorded ages are diagnostics only and do not establish an
+  independent communication watchdog.
+config_hashes:
+- archived_path: config/01_common_platform.yaml
+  path: /home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/common_platform.yaml
+  sha256: 65483e8a7a24965d46f69d6d86b7e36f1655e7a3a761209b2ddf70ccc0f69f2a
+- archived_path: config/02_agv1_chassis.yaml
+  path: /home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/agv1_chassis.yaml
+  sha256: f5d1ec4de63b989e253118713fa70afe5da2afea5ace0d8322d99d9220f0e637
+- archived_path: config/03_agv2_chassis.yaml
+  path: /home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/agv2_chassis.yaml
+  sha256: e11f36fa999ac6b85d4916478658c5a929f4b080653b657174d2815999a217bb
+- archived_path: config/04_agv3_chassis.yaml
+  path: /home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/agv3_chassis.yaml
+  sha256: 291a2ff22c28a2f719e6f1406dae3a7a8853fd2768c1aab7f603d6e5d6616501
+- archived_path: config/05_capability_mapping.yaml
+  path: /home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/capability_mapping.yaml
+  sha256: 371249397636c2f343cf84601d156c2fac53325a36cdf464f45a7ed49b9c1a85
+- archived_path: config/06_wheel_speed_scale_stage_d_freeze_v1.yaml
+  path: /home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/wheel_speed_scale_stage_d_freeze_v1.yaml
+  sha256: bae24f06c037a06d7bdc6cf26bdd703563d7796bceb75e2a3a3eef3c62c70af2
+- archived_path: config/07_path_circle_r0p7_cw_smooth_exit.yaml
+  path: /home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/path_circle_r0p7_cw_smooth_exit.yaml
+  sha256: 9dd10798b3f0af1c98d6ee80d335ffb34637845238ddd023a23a7edb1df5451f
+- archived_path: config/08_support_geometry.yaml
+  path: /home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/support_geometry.yaml
+  sha256: ddf201680f7ef9075a71e8e10853b3deff8e9398ef9ae58378005e482348f8f8
+- archived_path: config/09_localization_camera_three_car_closed_loop.yaml
+  path: /home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/localization_camera_three_car_closed_loop.yaml
+  sha256: e99e54653d1c6f86095534158ac7204242050828c62acd90246231e28cd0f741
+- archived_path: config/10_formal_serial_circle_r0p7_smooth_exit_0p10_reference_v1_pilot_runtime.yaml
+  path: /home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/formal_serial_circle_r0p7_smooth_exit_0p10_reference_v1_pilot_runtime.yaml
+  sha256: bc0e043729fa63f6d945a35a3d454a94ae86366864d27f3b16f9f2e06813775b
+- archived_path: config/11_exp2a_M1_serial_0p10_pilot.yaml
+  path: /home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/exp2a_M1_serial_0p10_pilot.yaml
+  sha256: 90820bdfd026f3ca94c22a8b9c4fe4373fed9ac6085239ac835d4c3cb756a422
+- archived_path: config/12_exp3_R1.yaml
+  path: /home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/exp3_R1.yaml
+  sha256: f01b322086a9130903afe7c920778ae9f45a9bc73095bf9174e5ec26d57e61bc
+- archived_path: config/13_formal_serial_classic_additive_candidate_A_M1_authorization.yaml
+  path: /home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/formal_serial_classic_additive_candidate_A_M1_authorization.yaml
+  sha256: 86c6d7182683f7562e4741363b35d77a0dbc93d74f177e40b9776db15ef3c592
+- archived_path: config/14_formal_exp2a_derating_authorization.yaml
+  path: /home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/formal_exp2a_derating_authorization.yaml
+  sha256: 7d3a73a959df272de665f06f3f98337ae22faa25e4786551c4a6ed97f2144422
+- archived_path: config/15_formal_evaluation_circle_r0p7_smooth_exit.yaml
+  path: /home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/formal_evaluation_circle_r0p7_smooth_exit.yaml
+  sha256: 73936182fb9492bf97a2d39dc1ba45c0679ea2c525450e68decc75bf6a946213
+- archived_path: config/16_formal_serial_classic_additive_candidate_A_commissioning.yaml
+  path: /home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/formal_serial_classic_additive_candidate_A_commissioning.yaml
+  sha256: 6fc0d16561703d6e711765c17c4e842d5c70e76190ccab22c2dfe8e5972c2bfb
+- archived_path: config/17_fleet_inventory.yaml
+  path: /home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/fleet_inventory.yaml
+  sha256: be71214076144a9a99bd0e1db275baa28b1ab1ae6fc05c7b154ec4cf7d8b1774
+- archived_path: config/18_software_watchdog.yaml
+  path: /home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/software_watchdog.yaml
+  sha256: f575259e7f9a2827bab66df15f21e2556d764da606cd0ac5a849f6e0344532b0
+- archived_path: config/19_record_topics.yaml
+  path: /home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/record_topics.yaml
+  sha256: 595e977e4af1cd242948c4a9361af5bec14b3afcd749e94a2e81d631dc93f76b
+- archived_path: config/20_vision_udp_bridge.yaml
+  path: /home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_vision_bridge/config/vision_udp_bridge.yaml
+  sha256: 9ac815e02578e8ad6ce4e0776da9a123a425eea1249fd5b83358f99615d9e0ef
+- archived_path: rosparams.yaml
+  path: ROS parameter server snapshot
+  sha256: 0fab4f0fac13d92117b241b8314332828d00506e9e827a5a8eeb45d490f139cd
+configuration_approval: null
+experiment_id: classic_additive_candidate_A_physical_commissioning
+finished_at: '2026-09-15T07:49:21.023769+00:00'
+formal_statistics_requested: false
+git_branch: fix/platform-foundation-closeout
+git_dirty: true
+git_sha: 94ec18762a268d52d06a4fcbaae4adf5bcdcadb7
+git_status:
+- M src/multi_agv_bringup/config/formal_serial_classic_additive_candidate_A_commissioning.yaml
+hostname: robot1
+interface_version: agv_ros_interfaces_v1
+method_id: M1_R1
+metrics:
+  evaluation_target: 5.17822971502571
+  nominal_agv2_capability: 0.0
+  nominal_common_velocity: 0.1
+move_base_command_authority: false
+payload:
+  measured_pose_topic: /pose_provider/load/pose_filtered
+  mode: unloaded
+  pose_source: equivalent_load
+  world_to_reference: {}
+python_version: 3.8.10
+record_topics:
+- /agv1/chassis_command
+- /agv2/chassis_command
+- /agv3/chassis_command
+- /agv1/chassis_feedback
+- /agv2/chassis_feedback
+- /agv3/chassis_feedback
+- /agv1/capability_report
+- /agv2/capability_report
+- /agv3/capability_report
+- /agv1/derating_command
+- /agv2/derating_command
+- /agv3/derating_command
+- /agv1/imu
+- /agv2/imu
+- /agv3/imu
+- /agv1/odom
+- /agv2/odom
+- /agv3/odom
+- /multi_agv/experiment_state
+- /multi_agv/cooperative_state
+- /multi_agv/path_reference
+- /multi_agv/controller_state
+- /multi_agv/formal_algorithm_state
+- /multi_agv/formal_execution_limiter_state
+- /multi_agv/m2b_algorithm_state
+- /multi_agv/risk_disturbance_state
+- /multi_agv/yaw_drive_disturbance_state
+- /multi_agv/software_watchdog_ok
+- /multi_agv/software_watchdog_diagnostics
+- /experiment_recorder/armed
+- /experiment_recorder/method_id
+- /vision/aruco/calibration_epoch
+- /camera/world/agv1_tag_pose
+- /camera/world/agv2_tag_pose
+- /camera/world/agv3_tag_pose
+- /camera/world/load_tag_pose
+- /camera/world/agv1_confidence
+- /camera/world/agv2_confidence
+- /camera/world/agv3_confidence
+- /camera/world/load_confidence
+- /pose_provider/agv1/base_pose_raw
+- /pose_provider/agv2/base_pose_raw
+- /pose_provider/agv3/base_pose_raw
+- /pose_provider/load/pose_raw
+- /pose_provider/agv1/base_pose_filtered
+- /pose_provider/agv2/base_pose_filtered
+- /pose_provider/agv3/base_pose_filtered
+- /pose_provider/load/pose_filtered
+- /pose_provider/agv1/base_pose_fused
+- /pose_provider/agv1/fusion_timing
+- /pose_provider/agv2/fusion_timing
+- /pose_provider/agv3/fusion_timing
+- /pose_provider/agv1/estimator_timing
+- /pose_provider/agv2/estimator_timing
+- /pose_provider/agv3/estimator_timing
+- /multi_agv/state_projection_timing
+- /pose_provider/agv2/base_pose_fused
+- /pose_provider/agv3/base_pose_fused
+- /pose_provider/agv1/base_motion_fused
+- /pose_provider/agv2/base_motion_fused
+- /pose_provider/agv3/base_motion_fused
+- /multi_agv/classic_additive_disturbance_state
+- /multi_agv/classic_additive_physical_state
+recording_armed_at: '2026-09-15T07:48:19.855125+00:00'
+required_topics:
+- /agv1/chassis_command
+- /agv2/chassis_command
+- /agv3/chassis_command
+- /agv1/chassis_feedback
+- /agv2/chassis_feedback
+- /agv3/chassis_feedback
+- /agv1/capability_report
+- /agv2/capability_report
+- /agv3/capability_report
+- /agv1/imu
+- /agv2/imu
+- /agv3/imu
+- /agv1/odom
+- /agv2/odom
+- /agv3/odom
+- /multi_agv/cooperative_state
+- /multi_agv/path_reference
+- /multi_agv/controller_state
+- /multi_agv/formal_algorithm_state
+- /multi_agv/classic_additive_disturbance_state
+- /multi_agv/classic_additive_physical_state
+- /vision/aruco/calibration_epoch
+- /camera/world/agv1_tag_pose
+- /camera/world/agv2_tag_pose
+- /camera/world/agv3_tag_pose
+- /camera/world/agv1_confidence
+- /camera/world/agv2_confidence
+- /camera/world/agv3_confidence
+- /pose_provider/agv1/base_pose_raw
+- /pose_provider/agv2/base_pose_raw
+- /pose_provider/agv3/base_pose_raw
+- /pose_provider/agv1/base_pose_filtered
+- /pose_provider/agv2/base_pose_filtered
+- /pose_provider/agv3/base_pose_filtered
+- /multi_agv/experiment_state
+- /multi_agv/risk_disturbance_state
+ros_distro: noetic
+run_id: classic_additive_candidate_A_physical_M1_lambda_0p75_20260915_154817
+schema_version: 1
+started_at: '2026-09-15T07:48:19.408184+00:00'
+virtual_load_from_robots: true
+wheel_speed_scale_freeze_id: wheel_speed_scale_stage_d_frozen_v1
+windows_sender_manifest_present: false
+windows_sender_manifest_required: false
