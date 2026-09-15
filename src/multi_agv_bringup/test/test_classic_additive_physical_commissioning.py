@@ -30,10 +30,10 @@ class ClassicAdditivePhysicalCommissioningTest(unittest.TestCase):
         self.assertEqual(profile["ramp_in"], .5)
         self.assertEqual(profile["ramp_out"], .5)
         physical = runtime["classic_additive_physical"]
-        self.assertFalse(physical["enabled"])
-        self.assertFalse(physical["hardware_execution_authorized"])
+        self.assertTrue(physical["enabled"])
+        self.assertTrue(physical["hardware_execution_authorized"])
         self.assertEqual(physical["allowed_scales"], [.25, .50, .75, 1.0])
-        self.assertEqual(physical["maximum_qualified_scale"], .25)
+        self.assertEqual(physical["maximum_qualified_scale"], 1.0)
         self.assertFalse(physical["m2b_physical_authorized"])
 
     def test_only_m1_m1b_and_exact_scales_reach_dry_run(self):
@@ -121,17 +121,13 @@ class ClassicAdditivePhysicalCommissioningTest(unittest.TestCase):
                       "wheel_post_limit_left", "wheel_actual_left"):
             self.assertIn(field, conversion)
 
-    def test_real_entry_refuses_before_ros_while_candidate_unauthorized(self):
+    def test_real_entry_still_requires_every_operator_confirmation(self):
         result = subprocess.run([
-            str(SCRIPT), "--method", "M1", "--scale", "0.25",
-            "--operator", "TEST", "--pair-block", "P2_TEST",
-            "--confirm-area-clear", "--confirm-wheels-on-floor",
-            "--confirm-unloaded-30cm-fixture", "--confirm-vision-valid",
-            "--confirm-recorder-ready", "--confirm-hardware-authorization",
-            "--confirm-physical-execution"], cwd=ROOT,
+            str(SCRIPT), "--method", "M1", "--scale", "1.00",
+            "--operator", "TEST", "--pair-block", "P5_TEST"], cwd=ROOT,
             capture_output=True, text=True)
-        self.assertEqual(result.returncode, 3)
-        self.assertIn("remains fail-closed", result.stderr)
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("every physical confirmation are required", result.stderr)
 
 
 if __name__ == "__main__":
