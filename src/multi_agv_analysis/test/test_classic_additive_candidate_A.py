@@ -54,6 +54,12 @@ class ClassicAdditiveAnalysisTest(unittest.TestCase):
         self.assertNotIn("capability", apply_body.lower())
         self.assertIn("exp2c_v5b_s1_three_method_repeat_validation", source)
         self.assertIn("exp2c_v4_transient_yaw_recovery", source)
+        # The physical qualification ceiling is a serial-only guard; the
+        # frozen fake Candidate A remains an exact scale=1.0 validation.
+        self.assertIn(
+            "validateClassicAdditivePhysicalQualification(", source)
+        self.assertIn(
+            "if (classic_additive_physical_enabled_)", source)
 
 
 if __name__ == "__main__":

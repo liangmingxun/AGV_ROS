@@ -1,5 +1,27 @@
 # multi_agv_analysis
 
+Python analysis dependencies for this ROS Noetic workspace are declared in
+`package.xml`.  The complete Candidate A analysis imports SciPy through the
+archived three-method statistics helper, so install the matching Ubuntu/ROS
+Python package without replacing the system NumPy stack:
+
+```bash
+sudo apt-get install python3-scipy
+```
+
+Run the analysis tests with the same `/usr/bin/python3` used by Noetic.  Use
+`PYTHONNOUSERSITE=1` so a newer NumPy installed under `~/.local` cannot shadow
+the Ubuntu NumPy paired with SciPy 1.3.3, for example from this package:
+
+```bash
+PYTHONNOUSERSITE=1 /usr/bin/python3 -m unittest \
+  test/test_classic_additive_candidate_A.py
+```
+
+A separate virtual environment is not currently part of this catkin
+workspace; if one is introduced later it must retain access to ROS Noetic's
+`rospy`, `rosbag`, `cv_bridge`, and generated messages.
+
 Task 17 data pipeline. It intentionally separates four stages:
 
 1. `record_experiment.py` performs command-authority and `move_base`
