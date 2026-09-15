@@ -1,0 +1,26 @@
+# Physical Candidate A is disabled and unauthorized by default. Qualification
+# requires both booleans to be reviewed and changed explicitly; enabling only
+# one remains fail-closed. The frozen mathematical profile is shared with the
+# archived fake validation and must not be tuned here.
+formal_fake_runtime:
+  classic_additive_candidate_A:
+    enabled: false
+    trigger_progress: 2.0
+    linear_amplitude: 0.030
+    angular_amplitude: 0.350
+    linear_frequency: 1.0
+    angular_frequency: 1.0
+    angular_phase: 1.5707963267948966
+    duration: 8.0
+    ramp_in: 0.5
+    ramp_out: 0.5
+  classic_additive_physical:
+    enabled: false
+    hardware_execution_authorized: false
+    qualification_scale: 0.25
+    maximum_qualified_scale: 0.25
+    allowed_scales: [0.25, 0.50, 0.75, 1.00]
+    qualification_status: P0_SOFTWARE_PREPARED_PHYSICAL_DISTURBANCE_DISABLED
+    experiment_id: classic_additive_candidate_A_physical_commissioning
+    target_robot_id: 2
+    m2b_physical_authorized: false
