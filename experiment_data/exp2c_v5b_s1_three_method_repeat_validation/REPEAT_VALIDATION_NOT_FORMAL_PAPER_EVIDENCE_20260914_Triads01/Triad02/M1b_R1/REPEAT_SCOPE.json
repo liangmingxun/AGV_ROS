@@ -1,0 +1,27 @@
+{
+  "experiment_id": "exp2c_v5b_s1_three_method_repeat_validation",
+  "markers": [
+    "REPEAT_VALIDATION",
+    "NOT_FORMAL_PAPER_EVIDENCE"
+  ],
+  "method": "M1b_R1",
+  "hardware_authorization": false,
+  "profile": {
+    "enabled": true,
+    "trigger_progress": 2.0,
+    "gamma_hold": 0.2,
+    "duration": 3.7,
+    "ramp_down": 0.6,
+    "hold": 2.5,
+    "ramp_up": 0.6
+  },
+  "risk_gain_upper": 0.1,
+  "task_timeout_seconds": 95,
+  "windows": [
+    -3,
+    0,
+    3.7,
+    18.7
+  ],
+  "m2b_config_sha256": "690a5a3cdacbe4a9cc10c14f36b355a2d31c3286407de5530500ea5342083507"
+}

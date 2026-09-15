@@ -1,0 +1,10 @@
+{
+  "experiment_id": "exp2c_v5b_s1_three_method_repeat_validation",
+  "markers": [
+    "REPEAT_VALIDATION",
+    "NOT_FORMAL_PAPER_EVIDENCE"
+  ],
+  "formal_evidence": false,
+  "parameter_search": false,
+  "profile": "S1_gamma0p20_down0p6_hold2p5_up0p6_R10"
+}

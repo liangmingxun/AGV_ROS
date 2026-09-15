@@ -174,9 +174,11 @@ class FormalFakeAlgorithmNode {
         (upper_config.mode != UpperMode::kM1 && upper_config.mode != UpperMode::kM1b) ||
         lower_config.mode != LowerMode::kR1))
       throw std::runtime_error("yaw effectiveness is restricted to isolated fake M1/M1b+R1");
+    const bool repeat_identity = experiment_id_ == "exp2c_v5b_s1_three_method_repeat_validation";
+    const bool hold_method = ((upper_config.mode == UpperMode::kM1 || upper_config.mode == UpperMode::kM1b) && lower_config.mode == LowerMode::kR1) ||
+        (repeat_identity && upper_config.mode == UpperMode::kM2b && lower_config.mode == LowerMode::kM2b);
     if (yaw_hold_config_.enabled && (transport_type_!="fake" ||
-        experiment_id_!="exp2c_v5b_yaw_effectiveness_hold_exploration" ||
-        (upper_config.mode!=UpperMode::kM1 && upper_config.mode!=UpperMode::kM1b) || lower_config.mode!=LowerMode::kR1))
+        (!repeat_identity && experiment_id_!="exp2c_v5b_yaw_effectiveness_hold_exploration") || !hold_method))
       throw std::runtime_error("v5b hold requires isolated fake M1/M1b+R1");
     hard_capability_envelope_enabled_ =
         upper_config.hard_capability_envelope_enabled;
@@ -1727,7 +1729,8 @@ class FormalFakeAlgorithmNode {
         experiment_id_ == "exp2c_v4_transient_yaw_recovery" ||
         experiment_id_ == "exp2c_v4_effect_exploration" ||
         experiment_id_ == "exp2c_v5_yaw_effectiveness_exploration" ||
-        experiment_id_ == "exp2c_v5b_yaw_effectiveness_hold_exploration";
+        experiment_id_ == "exp2c_v5b_yaw_effectiveness_hold_exploration" ||
+        (experiment_id_ == "exp2c_v5b_s1_three_method_repeat_validation" && !m2b_selected_);
     message.layout.dim[0].label = v3_diagnostics
         ? "formal_algorithm_state_v3:header10+3x29+reference4"
         : "formal_algorithm_state_v2:header10+3x29";
@@ -2002,6 +2005,19 @@ class FormalFakeAlgorithmNode {
       message.data.push_back(t.heading_error);
     }
     yaw_hold_publisher_.publish(message);
+  }
+
+  void applyYawHold(const ros::Time& stamp,
+      const std::array<PlanarTrackingResult, 3>& raw,
+      std::array<PlanarTrackingResult, 3>* execution) {
+    if (!yaw_hold_config_.enabled) return;
+    yaw_hold_output_=yaw_hold_degradation_.evaluate(yaw_hold_config_,2,state_.s_actual[1],
+        ros::WallTime::now().toSec(),raw[1].wheel_linear_velocity_left_raw,raw[1].wheel_linear_velocity_right_raw);
+    (*execution)[1].wheel_linear_velocity_left_raw=yaw_hold_output_.left_degraded;
+    (*execution)[1].wheel_linear_velocity_right_raw=yaw_hold_output_.right_degraded;
+    (*execution)[1].linear_velocity_raw=.5*(yaw_hold_output_.left_degraded+yaw_hold_output_.right_degraded);
+    (*execution)[1].angular_velocity_raw=(yaw_hold_output_.right_degraded-yaw_hold_output_.left_degraded)/tracker_config_.wheel_separation[1];
+    publishYawHold(stamp,raw);
   }
 
   void publishExecutionLimiter(
@@ -2289,22 +2305,24 @@ class FormalFakeAlgorithmNode {
             tracking[i].wheel_linear_velocity_left_raw,
             tracking[i].wheel_linear_velocity_right_raw}};
       }
-      if (!trackingPassesSerialEmergencyGate(tracking, dt)) {
+      auto execution_tracking = tracking;
+      applyYawHold(now, tracking, &execution_tracking);
+      if (!trackingPassesSerialEmergencyGate(execution_tracking, dt)) {
         publishZero(now);
         publishPublicState(now, false, lower, tracking);
         publishM2bDebug(m2b);
         return;
       }
-      const double wheel_scale = applySerialExecutionLimitPolicy(&tracking);
+      const double wheel_scale = applySerialExecutionLimitPolicy(&execution_tracking);
       publishExecutionLimiter(
-          now, wheel_scale, wheel_demand_before_limit, tracking);
+          now, wheel_scale, wheel_demand_before_limit, execution_tracking);
       for (std::size_t i = 0; i < kRobotCount; ++i) {
         agv_msgs::ChassisCommand command;
         command.header.stamp = now;
         command.robot_id = static_cast<std::uint8_t>(i + 1U);
         command.command_seq = ++command_sequence_[i];
         command.control_mode = 1U;
-        if (!fillWheelPublication(i, tracking[i], &command)) {
+        if (!fillWheelPublication(i, execution_tracking[i], &command)) {
           publishZero(now);
           publishPublicState(now, false, lower, tracking);
           publishM2bDebug(m2b);
@@ -2315,9 +2333,10 @@ class FormalFakeAlgorithmNode {
         command_publishers_[i].publish(command);
       }
       recovery_ramp_armed_ = false;
-      publishPublicState(now, true, lower, tracking);
+      publishPublicState(now, true, lower, execution_tracking);
       publishDebug(true, current_upper_, distributed, lower);
       publishM2bDebug(m2b);
+      previous_wheel_raw_ = wheel_demand_before_limit;
       return;
     }
 
@@ -2587,15 +2606,7 @@ class FormalFakeAlgorithmNode {
       execution_tracking[1].angular_velocity_raw = (yaw_effectiveness_output_.right_degraded-yaw_effectiveness_output_.left_degraded)/tracker_config_.wheel_separation[1];
       publishYawEffectiveness(now, tracking);
     }
-    if (yaw_hold_config_.enabled) {
-      yaw_hold_output_=yaw_hold_degradation_.evaluate(yaw_hold_config_,2,state_.s_actual[1],
-          ros::WallTime::now().toSec(),wheel_demand_before_limit[1][0],wheel_demand_before_limit[1][1]);
-      execution_tracking[1].wheel_linear_velocity_left_raw=yaw_hold_output_.left_degraded;
-      execution_tracking[1].wheel_linear_velocity_right_raw=yaw_hold_output_.right_degraded;
-      execution_tracking[1].linear_velocity_raw=.5*(yaw_hold_output_.left_degraded+yaw_hold_output_.right_degraded);
-      execution_tracking[1].angular_velocity_raw=(yaw_hold_output_.right_degraded-yaw_hold_output_.left_degraded)/tracker_config_.wheel_separation[1];
-      publishYawHold(now,tracking);
-    }
+    applyYawHold(now, tracking, &execution_tracking);
     if (!trackingPassesSerialEmergencyGate(execution_tracking, dt)) {
       publishZero(now);
       publishPublicState(now, false, lower, tracking);

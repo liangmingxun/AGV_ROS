@@ -1,0 +1,1 @@
+REPEAT_VALIDATION / NOT_FORMAL_PAPER_EVIDENCE; frozen S1, gain=0.10, five triads, no parameter search

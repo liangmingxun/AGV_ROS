@@ -38,6 +38,8 @@ install(PROGRAMS
         scripts/run_exp2c_v4_transient_yaw_recovery_fake.sh
         scripts/run_exp2c_v5_yaw_effectiveness_fake.sh
         scripts/run_exp2c_v5b_yaw_hold_fake.sh
+        scripts/run_exp2c_v5b_repeat_one_fake.sh
+        scripts/run_exp2c_v5b_three_method_repeat_fake.sh
         scripts/run_m1_r1_serial_unloaded.sh
         scripts/run_m1_r1_serial_unloaded_3m.sh
         scripts/run_m1_r1_serial_unloaded_circle_r0p7.sh

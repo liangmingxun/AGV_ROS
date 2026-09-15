@@ -15,6 +15,10 @@ TEST(V5QualityPolicy, ExplicitFakeScopeAndComputability) {
   EXPECT_TRUE(v5QualityPolicyAuthorized(true,hold_id,"fake",false));
   EXPECT_FALSE(v5QualityPolicyAuthorized(true,hold_id,"serial",false));
   EXPECT_FALSE(v5QualityPolicyAuthorized(true,hold_id,"fake",true));
+  const std::string repeat_id="exp2c_v5b_s1_three_method_repeat_validation";
+  EXPECT_TRUE(v5QualityPolicyAuthorized(true,repeat_id,"fake",false));
+  EXPECT_FALSE(v5QualityPolicyAuthorized(true,repeat_id,"serial",false));
+  EXPECT_FALSE(v5QualityPolicyAuthorized(true,repeat_id,"fake",true));
   std::array<Eigen::Vector2d,3> p{{{0.,0.},{.3,0.},{.15,.26}}};
   EXPECT_TRUE(v5FiniteQualityFit(true,.0105,1.,p));
   EXPECT_TRUE(v5FiniteQualityFit(true,.030,1.,p));
