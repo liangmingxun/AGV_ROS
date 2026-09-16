@@ -24,6 +24,7 @@
 
 #include "multi_agv_control/capability_mapper.hpp"
 #include "multi_agv_control/candidate_b_effectiveness_disturbance.hpp"
+#include "multi_agv_control/candidate_b_spatial_composite_disturbance.hpp"
 #include "multi_agv_control/classic_additive_disturbance.hpp"
 #include "multi_agv_control/execution_channel_reconciler.hpp"
 #include "multi_agv_control/execution_reference_derivative.hpp"
@@ -32,6 +33,7 @@
 #include "multi_agv_control/formal_execution_gate.hpp"
 #include "multi_agv_control/lower_channel_controller.hpp"
 #include "multi_agv_control/m2b_controller.hpp"
+#include "multi_agv_control/path_projector.hpp"
 #include "multi_agv_control/planar_support_tracker.hpp"
 #include "multi_agv_control/risk_disturbance.hpp"
 #include "multi_agv_control/s_curve_path.hpp"
@@ -137,6 +139,15 @@ geometry_msgs::Pose2D poseMessage(const PlanarPose& pose) {
   return message;
 }
 
+PathProjectorConfig spatialZoneProjectorConfig() {
+  PathProjectorConfig config;
+  // Support centres are intentionally offset from the virtual-load
+  // centerline. Their nearest centerline coordinate remains the physical
+  // spatial-zone coordinate, so offset distance must not invalidate it.
+  config.enforce_projection_distance = false;
+  return config;
+}
+
 }  // namespace
 
 class FormalFakeAlgorithmNode {
@@ -144,6 +155,15 @@ class FormalFakeAlgorithmNode {
   FormalFakeAlgorithmNode()
       : private_node_("~"), path_(loadPathConfig()),
         geometry_(path_, loadGeometryConfig()),
+        spatial_zone_projector_(
+            path_.length(),
+            [this](double s) {
+              const auto sample = path_.sample(s);
+              return ProjectionCurveSample{
+                  sample.position, sample.first_derivative,
+                  sample.second_derivative};
+            },
+            spatialZoneProjectorConfig()),
         tracker_(geometry_, loadTrackerConfig()),
         execution_adapter_(tracker_, loadFleetExecutionConfig()),
         capability_mapper_(loadCapabilityReserve()) {
@@ -172,7 +192,8 @@ class FormalFakeAlgorithmNode {
         (v5_quality_observation_ && !(yaw_effectiveness_config_.enabled ||
                                      yaw_hold_config_.enabled ||
                                      classic_additive_config_.enabled ||
-                                     candidate_b_config_.enabled)))
+                                     candidate_b_config_.enabled ||
+                                     candidate_b_spatial_config_.enabled)))
       throw std::runtime_error("v5 quality policy cannot be enabled outside exact fake exploration");
     if (yaw_effectiveness_config_.enabled && (transport_type_ != "fake" ||
         experiment_id_ != "exp2c_v5_yaw_effectiveness_exploration" ||
@@ -202,6 +223,21 @@ class FormalFakeAlgorithmNode {
       if (!candidate_b_scope) {
         throw std::runtime_error(
             "Candidate B is restricted to isolated fake M1/M1b/M2b validation");
+      }
+    }
+    if (candidate_b_spatial_config_.enabled) {
+      const bool candidate_b_spatial_scope =
+          transport_type_ == "fake" &&
+          experiment_id_ ==
+              "candidate_B_spatial_composite_fake_validation" &&
+          !v5_hardware_authorized && !lower_hardware_authorized &&
+          classic_method && !candidate_b_config_.enabled &&
+          !classic_additive_config_.enabled &&
+          !classic_additive_physical_enabled_;
+      if (!candidate_b_spatial_scope) {
+        throw std::runtime_error(
+            "Candidate B v2 spatial composite is restricted to isolated "
+            "fake M1/M1b/M2b validation with all hardware grants false");
       }
     }
     if (classic_additive_config_.enabled) {
@@ -332,6 +368,10 @@ class FormalFakeAlgorithmNode {
     if (candidate_b_config_.enabled)
       candidate_b_publisher_=node_.advertise<std_msgs::Float64MultiArray>(
           "/multi_agv/candidate_B_disturbance_state",10,false);
+    if (candidate_b_spatial_config_.enabled)
+      candidate_b_spatial_publisher_=
+          node_.advertise<std_msgs::Float64MultiArray>(
+              "/multi_agv/candidate_B_spatial_composite_state",10,false);
     if (classic_additive_physical_enabled_)
       classic_additive_physical_publisher_=
           node_.advertise<std_msgs::Float64MultiArray>(
@@ -760,6 +800,48 @@ class FormalFakeAlgorithmNode {
                         "candidate_B_v1_rho0p85");
     candidate_b_config_.wheel_separation=tracker_config_.wheel_separation[1];
     validateCandidateBConfig(candidate_b_config_);
+    private_node_.param(root+"candidate_b_spatial_composite/enabled",
+                        candidate_b_spatial_config_.enabled,false);
+    private_node_.param(
+        root+"candidate_b_spatial_composite/minimum_effectiveness",
+        candidate_b_spatial_config_.minimum_effectiveness,.85);
+    private_node_.param(
+        root+"candidate_b_spatial_composite/longitudinal_amplitude",
+        candidate_b_spatial_config_.longitudinal_amplitude,.020);
+    private_node_.param(
+        root+"candidate_b_spatial_composite/longitudinal_frequency",
+        candidate_b_spatial_config_.longitudinal_frequency,1.0);
+    private_node_.param(
+        root+"candidate_b_spatial_composite/longitudinal_phase",
+        candidate_b_spatial_config_.longitudinal_phase,0.0);
+    private_node_.param(root+"candidate_b_spatial_composite/yaw_amplitude",
+                        candidate_b_spatial_config_.yaw_amplitude,.2625);
+    private_node_.param(root+"candidate_b_spatial_composite/yaw_frequency",
+                        candidate_b_spatial_config_.yaw_frequency,1.0);
+    private_node_.param(root+"candidate_b_spatial_composite/yaw_phase",
+                        candidate_b_spatial_config_.yaw_phase,
+                        .5*std::acos(-1.0));
+    private_node_.param(root+"candidate_b_spatial_composite/zone_start",
+                        candidate_b_spatial_config_.zone_start,2.0);
+    private_node_.param(root+"candidate_b_spatial_composite/zone_end",
+                        candidate_b_spatial_config_.zone_end,2.8);
+    private_node_.param(
+        root+"candidate_b_spatial_composite/ramp_in_distance",
+        candidate_b_spatial_config_.ramp_in_distance,.05);
+    private_node_.param(
+        root+"candidate_b_spatial_composite/ramp_out_distance",
+        candidate_b_spatial_config_.ramp_out_distance,.05);
+    private_node_.param<std::string>(
+        root+"candidate_b_spatial_composite/disturbance_model_version",
+        candidate_b_spatial_config_.disturbance_model_version,
+        "candidate_B_v2_spatial_composite");
+    private_node_.param<std::string>(
+        root+"candidate_b_spatial_composite/freeze_id",
+        candidate_b_spatial_config_.freeze_id,
+        "candidate_B_v2_spatial_rho0p85_av0p020_aw0p2625");
+    candidate_b_spatial_config_.wheel_separation =
+        tracker_config_.wheel_separation;
+    validateCandidateBSpatialCompositeConfig(candidate_b_spatial_config_);
     const int enabled_disturbances =
         (risk_disturbance_config_.enabled ? 1 : 0) +
         (yaw_drive_disturbance_config_.enabled ? 1 : 0) +
@@ -767,7 +849,8 @@ class FormalFakeAlgorithmNode {
         (yaw_effectiveness_config_.enabled ? 1 : 0) +
         (yaw_hold_config_.enabled ? 1 : 0) +
         (classic_additive_config_.enabled ? 1 : 0) +
-        (candidate_b_config_.enabled ? 1 : 0);
+        (candidate_b_config_.enabled ? 1 : 0) +
+        (candidate_b_spatial_config_.enabled ? 1 : 0);
     if (enabled_disturbances > 1)
       throw std::runtime_error("classic/legacy disturbance profiles are mutually exclusive");
     if (yaw_hold_config_.enabled && (yaw_effectiveness_config_.enabled || transient_yaw_config_.enabled ||
@@ -1897,7 +1980,8 @@ class FormalFakeAlgorithmNode {
         experiment_id_ == "exp2c_v5b_yaw_effectiveness_hold_exploration" ||
         (experiment_id_ == "exp2c_v5b_s1_three_method_repeat_validation" && !m2b_selected_) ||
         (experiment_id_ == "classic_additive_disturbance_candidate_A_validation" && !m2b_selected_) ||
-        (experiment_id_ == "candidate_B_effectiveness_fake_validation" && !m2b_selected_);
+        (experiment_id_ == "candidate_B_effectiveness_fake_validation" && !m2b_selected_) ||
+        (experiment_id_ == "candidate_B_spatial_composite_fake_validation" && !m2b_selected_);
     message.layout.dim[0].label = v3_diagnostics
         ? "formal_algorithm_state_v3:header10+3x29+reference4"
         : "formal_algorithm_state_v2:header10+3x29";
@@ -2318,6 +2402,104 @@ class FormalFakeAlgorithmNode {
     candidate_b_publisher_.publish(message);
   }
 
+  double supportZoneProgress(std::size_t index) const {
+    const auto pose = poseValue(state_.support_pose[index]);
+    const double seed = state_.s_actual[index] +
+        geometry_.config().offsets[index].tangent;
+    const auto projection = spatial_zone_projector_.project(
+        pose.position, seed, 0.40);
+    if (!projection.valid) {
+      throw std::runtime_error(
+          "Candidate B v2 support-centre centerline projection failed");
+    }
+    return projection.s;
+  }
+
+  void applyCandidateBSpatialComposite(
+      const std::array<PlanarTrackingResult,3>& native,
+      std::array<PlanarTrackingResult,3>* execution) {
+    if (!candidate_b_spatial_config_.enabled) return;
+    const double wall_time = ros::WallTime::now().toSec();
+    for (std::size_t index = 0; index < kRobotCount; ++index) {
+      candidate_b_spatial_output_[index] =
+          candidate_b_spatial_disturbance_[index].evaluate(
+              candidate_b_spatial_config_, static_cast<int>(index + 1U),
+              supportZoneProgress(index), wall_time,
+              native[index].wheel_linear_velocity_left_raw,
+              native[index].wheel_linear_velocity_right_raw);
+      const auto& value = candidate_b_spatial_output_[index];
+      auto& target = (*execution)[index];
+      target.wheel_linear_velocity_left_raw = value.left_post_disturbance;
+      target.wheel_linear_velocity_right_raw = value.right_post_disturbance;
+      target.linear_velocity_raw = value.longitudinal_after_composite;
+      target.angular_velocity_raw = value.yaw_after_disturbance;
+    }
+  }
+
+  void publishCandidateBSpatialComposite(const ros::Time& stamp) {
+    if (!candidate_b_spatial_config_.enabled) return;
+    constexpr std::size_t header_fields = 14U;
+    constexpr std::size_t fields_per_robot = 32U;
+    constexpr double physical_limit = 0.160;
+    constexpr double emergency = 0.180;
+    std_msgs::Float64MultiArray message;
+    message.layout.dim.resize(1);
+    message.layout.dim[0].label =
+        "candidate_B_v2_spatial_composite:header14+3x32;robots=1,2,3";
+    message.layout.dim[0].size = message.layout.dim[0].stride =
+        header_fields + kRobotCount * fields_per_robot;
+    message.data.reserve(message.layout.dim[0].size);
+    message.data = {
+      stamp.toSec(), ros::WallTime::now().toSec(),
+      candidate_b_spatial_config_.enabled ? 1.0 : 0.0,
+      candidate_b_spatial_config_.minimum_effectiveness,
+      candidate_b_spatial_config_.longitudinal_amplitude,
+      candidate_b_spatial_config_.longitudinal_frequency,
+      candidate_b_spatial_config_.longitudinal_phase,
+      candidate_b_spatial_config_.yaw_amplitude,
+      candidate_b_spatial_config_.yaw_frequency,
+      candidate_b_spatial_config_.yaw_phase,
+      candidate_b_spatial_config_.zone_start,
+      candidate_b_spatial_config_.zone_end,
+      candidate_b_spatial_config_.ramp_in_distance,
+      candidate_b_spatial_config_.ramp_out_distance};
+    for (std::size_t index = 0; index < kRobotCount; ++index) {
+      const auto& v = candidate_b_spatial_output_[index];
+      const double native_peak = std::max(
+          std::abs(v.left_native), std::abs(v.right_native));
+      const double disturbed_peak = std::max(
+          std::abs(v.left_post_disturbance),
+          std::abs(v.right_post_disturbance));
+      const bool limiter_active =
+          feedback_[index].speed_limit_active_left ||
+          feedback_[index].speed_limit_active_right;
+      const double capability_limit = std::min(
+          capability_[index].max_wheel_linear_velocity_left,
+          capability_[index].max_wheel_linear_velocity_right);
+      message.data.insert(message.data.end(), {
+        static_cast<double>(index + 1U), v.spatial_progress,
+        v.entry_wall_time, v.exit_wall_time, v.local_elapsed,
+        v.triggered ? 1.0 : 0.0, v.active ? 1.0 : 0.0,
+        v.finished ? 1.0 : 0.0, v.envelope, v.effectiveness,
+        v.longitudinal_disturbance, v.yaw_disturbance,
+        v.left_native, v.right_native, v.longitudinal_native, v.yaw_native,
+        v.longitudinal_after_effectiveness,
+        v.longitudinal_after_composite, v.yaw_after_disturbance,
+        v.left_post_disturbance, v.right_post_disturbance,
+        native_peak > physical_limit ? 1.0 : 0.0,
+        native_peak > emergency ? 1.0 : 0.0,
+        disturbed_peak > physical_limit ? 1.0 : 0.0,
+        disturbed_peak > emergency ? 1.0 : 0.0,
+        capability_limit, limiter_active ? 1.0 : 0.0,
+        feedback_[index].wheel_linear_velocity_left_applied,
+        feedback_[index].wheel_linear_velocity_right_applied,
+        feedback_[index].wheel_linear_velocity_left_actual,
+        feedback_[index].wheel_linear_velocity_right_actual,
+        candidate_b_spatial_config_.wheel_separation[index]});
+    }
+    candidate_b_spatial_publisher_.publish(message);
+  }
+
   void publishClassicAdditivePhysical(
       const ros::Time& stamp,
       const std::array<std::array<double,2>,3>& post_limit) {
@@ -2629,6 +2811,7 @@ class FormalFakeAlgorithmNode {
       auto execution_tracking = tracking;
       applyYawHold(now, tracking, &execution_tracking);
       applyCandidateB(tracking, &execution_tracking);
+      applyCandidateBSpatialComposite(tracking, &execution_tracking);
       applyClassicAdditive(now, tracking, &execution_tracking);
       if (!trackingPassesSerialEmergencyGate(execution_tracking, dt)) {
         publishZero(now);
@@ -2640,6 +2823,7 @@ class FormalFakeAlgorithmNode {
       publishExecutionLimiter(
           now, wheel_scale, wheel_demand_before_limit, execution_tracking);
       publishCandidateB(now, tracking, execution_tracking);
+      publishCandidateBSpatialComposite(now);
       for (std::size_t i = 0; i < kRobotCount; ++i) {
         agv_msgs::ChassisCommand command;
         command.header.stamp = now;
@@ -2932,6 +3116,7 @@ class FormalFakeAlgorithmNode {
     }
     applyYawHold(now, tracking, &execution_tracking);
     applyCandidateB(tracking, &execution_tracking);
+    applyCandidateBSpatialComposite(tracking, &execution_tracking);
     applyClassicAdditive(now, tracking, &execution_tracking);
     if (!trackingPassesSerialEmergencyGate(execution_tracking, dt)) {
       publishZero(now);
@@ -2943,6 +3128,7 @@ class FormalFakeAlgorithmNode {
     publishExecutionLimiter(
         now, wheel_scale, wheel_demand_before_limit, execution_tracking);
     publishCandidateB(now, tracking, execution_tracking);
+    publishCandidateBSpatialComposite(now);
     publishRiskDisturbance(now);
     publishYawDriveDisturbance(now);
 
@@ -2991,6 +3177,7 @@ class FormalFakeAlgorithmNode {
   ros::NodeHandle private_node_;
   SCurvePath path_;
   SupportGeometry geometry_;
+  PathProjector spatial_zone_projector_;
   PlanarTrackerConfig tracker_config_;
   PlanarSupportTracker tracker_;
   FleetPlanarExecutionAdapter execution_adapter_;
@@ -3028,6 +3215,7 @@ class FormalFakeAlgorithmNode {
   ros::Publisher classic_additive_publisher_;
   ros::Publisher classic_additive_physical_publisher_;
   ros::Publisher candidate_b_publisher_;
+  ros::Publisher candidate_b_spatial_publisher_;
   ros::Timer timer_;
   agv_msgs::CooperativeState state_;
   agv_msgs::CooperativeState latest_received_state_;
@@ -3133,6 +3321,11 @@ class FormalFakeAlgorithmNode {
   CandidateBConfig candidate_b_config_;
   CandidateBEffectivenessDisturbance candidate_b_disturbance_;
   CandidateBOutput candidate_b_output_{};
+  CandidateBSpatialCompositeConfig candidate_b_spatial_config_;
+  std::array<CandidateBSpatialCompositeDisturbance, 3>
+      candidate_b_spatial_disturbance_;
+  std::array<CandidateBSpatialCompositeOutput, 3>
+      candidate_b_spatial_output_{};
   bool classic_additive_physical_enabled_{false};
   bool classic_additive_physical_hardware_authorized_{false};
   bool classic_additive_m2b_physical_authorized_{false};

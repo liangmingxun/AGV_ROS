@@ -1,0 +1,26 @@
+# EXPLORATORY_FAKE_VALIDATION / NOT_FORMAL_PAPER_EVIDENCE
+# Frozen Candidate B v2: the same world-space execution-degradation zone is
+# traversed by Robot1 first and the Robot2/Robot3 rear row later.
+formal_fake_runtime:
+  candidate_b_spatial_composite:
+    enabled: true
+    minimum_effectiveness: 0.85
+    longitudinal_amplitude: 0.020
+    longitudinal_frequency: 1.0
+    longitudinal_phase: 0.0
+    yaw_amplitude: 0.2625
+    yaw_frequency: 1.0
+    yaw_phase: 1.5707963267948966
+    zone_start: 2.0
+    zone_end: 2.8
+    ramp_in_distance: 0.05
+    ramp_out_distance: 0.05
+    disturbance_model_version: candidate_B_v2_spatial_composite
+    freeze_id: candidate_B_v2_spatial_rho0p85_av0p020_aw0p2625
+  candidate_b:
+    enabled: false
+  classic_additive_candidate_A:
+    enabled: false
+  classic_additive_physical:
+    enabled: false
+    hardware_execution_authorized: false

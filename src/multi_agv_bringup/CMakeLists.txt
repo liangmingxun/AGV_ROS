@@ -45,6 +45,8 @@ install(PROGRAMS
         scripts/run_classic_additive_candidate_A_physical_commissioning.sh
         scripts/run_candidate_B_one_fake.sh
         scripts/run_candidate_B_fake_comparison.sh
+        scripts/run_candidate_B_spatial_composite_one_fake.sh
+        scripts/run_candidate_B_spatial_composite_fake_comparison.sh
         scripts/run_m1_r1_serial_unloaded.sh
         scripts/run_m1_r1_serial_unloaded_3m.sh
         scripts/run_m1_r1_serial_unloaded_circle_r0p7.sh

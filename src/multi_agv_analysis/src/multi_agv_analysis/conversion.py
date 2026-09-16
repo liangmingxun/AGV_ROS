@@ -156,6 +156,9 @@ RAW_SCHEMAS = {
     "candidate_B_disturbance_state.csv": [
         "topic", "bag_stamp", "header_stamp", "layout_label", "data_json",
     ],
+    "candidate_B_spatial_composite_state.csv": [
+        "topic", "bag_stamp", "header_stamp", "layout_label", "data_json",
+    ],
     "v5_exploration_quality_state.csv": [
         "topic", "bag_stamp", "header_stamp", "layout_label", "data_json",
     ],
@@ -481,6 +484,8 @@ def _extract(topic, bag_stamp, message):
             return "classic_additive_physical_state.csv", row
         if topic == "/multi_agv/candidate_B_disturbance_state":
             return "candidate_B_disturbance_state.csv", row
+        if topic == "/multi_agv/candidate_B_spatial_composite_state":
+            return "candidate_B_spatial_composite_state.csv", row
         if topic == "/multi_agv/v5_exploration_quality_state":
             return "v5_exploration_quality_state.csv", row
         if topic == "/multi_agv/state_projection_timing":
@@ -651,6 +656,8 @@ def _aligned_rows(raw, maximum_age,
         raw.get("classic_additive_physical_state.csv", []))
     candidate_b_debug = _series(
         raw.get("candidate_B_disturbance_state.csv", []))
+    candidate_b_spatial_debug = _series(
+        raw.get("candidate_B_spatial_composite_state.csv", []))
     experiment_states = _series(raw["experiment_state.csv"])
     measured_load_poses = _series([
         value for value in raw["camera_pose.csv"]
@@ -678,6 +685,8 @@ def _aligned_rows(raw, maximum_age,
         classic_additive_physical = _latest(
             classic_additive_physical_debug, stamp, maximum_age)
         candidate_b = _latest(candidate_b_debug, stamp, maximum_age)
+        candidate_b_spatial = _latest(
+            candidate_b_spatial_debug, stamp, maximum_age)
         experiment_state = _latest(
             experiment_states, stamp, maximum_age)
         measured_load = _latest(measured_load_poses, stamp, maximum_age)
@@ -968,6 +977,44 @@ def _aligned_rows(raw, maximum_age,
                 row["agv{}_candidate_b_tracker_{}".format(i + 1, name)] = (
                     candidate_b_values[39 + 3*i + j]
                     if len(candidate_b_values) == 48 else math.nan)
+        candidate_b_spatial_values = []
+        if (candidate_b_spatial and
+                candidate_b_spatial.get("layout_label") ==
+                "candidate_B_v2_spatial_composite:header14+3x32;robots=1,2,3"):
+            try:
+                candidate_b_spatial_values = json.loads(
+                    candidate_b_spatial["data_json"])
+            except (ValueError, TypeError):
+                pass
+        row["candidate_b_spatial_state_available"] = (
+            len(candidate_b_spatial_values) == 110)
+        spatial_header_names = (
+            "source_stamp", "wall_time", "enabled", "minimum_effectiveness",
+            "longitudinal_amplitude", "longitudinal_frequency",
+            "longitudinal_phase", "yaw_amplitude", "yaw_frequency",
+            "yaw_phase", "zone_start", "zone_end", "ramp_in_distance",
+            "ramp_out_distance")
+        for offset, name in enumerate(spatial_header_names):
+            row["candidate_b_spatial_" + name] = (
+                candidate_b_spatial_values[offset]
+                if len(candidate_b_spatial_values) == 110 else math.nan)
+        spatial_robot_names = (
+            "robot_id", "progress", "entry_wall_time", "exit_wall_time",
+            "local_elapsed", "triggered", "active", "finished", "q", "rho",
+            "d_v", "d_omega", "left_native", "right_native", "v_c_native",
+            "omega_native", "v_c_after_effectiveness", "v_c_after_composite",
+            "omega_after_disturbance", "left_post_disturbance",
+            "right_post_disturbance", "native_over_0p160",
+            "native_over_0p180", "post_disturbance_over_0p160",
+            "post_disturbance_over_0p180", "capability_limit",
+            "limiter_active", "left_post_limit", "right_post_limit",
+            "actual_left", "actual_right", "wheel_separation")
+        for robot in range(1, 4):
+            base = 14 + (robot - 1) * 32
+            for offset, name in enumerate(spatial_robot_names):
+                row["agv{}_candidate_b_spatial_{}".format(robot, name)] = (
+                    candidate_b_spatial_values[base + offset]
+                    if len(candidate_b_spatial_values) == 110 else math.nan)
         if (m2b and m2b.get("layout_label") ==
                 "m2b_algorithm_state_v1:header6+3x20"):
             try:

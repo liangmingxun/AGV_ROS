@@ -11,7 +11,8 @@ inline bool v5QualityPolicyAuthorized(bool requested, const std::string& id,
                         id == "exp2c_v5b_yaw_effectiveness_hold_exploration" ||
                         id == "exp2c_v5b_s1_three_method_repeat_validation" ||
                         id == "classic_additive_disturbance_candidate_A_validation" ||
-                        id == "candidate_B_effectiveness_fake_validation") &&
+                        id == "candidate_B_effectiveness_fake_validation" ||
+                        id == "candidate_B_spatial_composite_fake_validation") &&
                         transport == "fake" && !hardware);
 }
 // Numerical degeneracy, not a formation-error or gross-divergence threshold.

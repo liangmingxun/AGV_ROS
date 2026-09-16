@@ -49,7 +49,7 @@ class ClassicAdditiveAnalysisTest(unittest.TestCase):
             self.assertLess(block.find("trackingPassesSerialEmergencyGate"),
                             block.find("publishExecutionLimiter"))
         apply_body = source.split("void applyClassicAdditive", 1)[1].split(
-            "void publishExecutionLimiter", 1)[0]
+            "void applyCandidateB(", 1)[0]
         self.assertNotIn("robust_margin", apply_body)
         self.assertNotIn("capability", apply_body.lower())
         self.assertIn("exp2c_v5b_s1_three_method_repeat_validation", source)
