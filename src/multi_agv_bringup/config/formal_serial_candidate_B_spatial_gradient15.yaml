@@ -1,6 +1,7 @@
 # Direct physical preparation for the frozen Candidate B v2 gradient15 scene.
-# The disturbance is intentionally disabled until both physical booleans below
-# are changed after human review.  No scale/qualification ladder exists here.
+# This tracked source remains fail-closed.  The reviewed operator confirmations
+# create a per-run, archived authorization overlay; this file is never edited
+# to authorize a run.  No scale/qualification ladder exists here.
 formal_fake_runtime:
   candidate_b_spatial_composite:
     enabled: false
@@ -19,10 +20,10 @@ formal_fake_runtime:
     disturbance_model_version: candidate_B_v2_spatial_composite
     freeze_id: candidate_B_v2_spatial_gradient15_rho0p85_av0p020_aw0p2625
   candidate_b_spatial_physical:
+    software_qualification_passed: true
     enabled: false
     hardware_execution_authorized: false
     experiment_id: candidate_B_spatial_gradient15_physical_validation
-    authorization_status: DIRECT_PHYSICAL_PREPARED_NOT_AUTHORIZED
     payload_mode: unloaded_equivalent_payload
   candidate_b:
     enabled: false

@@ -106,12 +106,17 @@ case "$formal_upper_mode" in
     run_prefix="${FORMAL_RUN_PREFIX:-m1b_r1_risk_disturbance_v1}"
     ;;
 esac
+authorization_base_config="${FORMAL_EXECUTION_AUTHORIZATION_BASE_CONFIG:-$authorization_config}"
+candidate_b_spatial_base_config="${FORMAL_CANDIDATE_B_SPATIAL_BASE_CONFIG:-$candidate_b_spatial_config}"
+candidate_b_spatial_authorization_source="${FORMAL_CANDIDATE_B_SPATIAL_AUTHORIZATION_SOURCE:-tracked_config}"
 for required_config in "$runtime_config" "$path_config" \
                        "$evaluation_config" "$upper_config" \
                        "$lower_config" "$authorization_config" \
+                       "$authorization_base_config" \
                        "$derating_authorization_config" \
                        "$classic_additive_config" \
-                       "$candidate_b_spatial_config"; do
+                       "$candidate_b_spatial_config" \
+                       "$candidate_b_spatial_base_config"; do
   if [[ ! -f "$required_config" ]]; then
     echo "ERROR: required formal configuration is missing: ${required_config}" >&2
     exit 3
@@ -474,12 +479,15 @@ roslaunch multi_agv_bringup experiment.launch \
   upper_config:="${workspace}/${upper_config}" \
   lower_config:="${workspace}/${lower_config}" \
   execution_authorization_config:="${workspace}/${authorization_config}" \
+  execution_authorization_base_config:="${workspace}/${authorization_base_config}" \
   classic_additive_config:="${workspace}/${classic_additive_config}" \
   record_classic_additive_physical:="$record_classic_additive_physical" \
   candidate_b_spatial_config:="${workspace}/${candidate_b_spatial_config}" \
+  candidate_b_spatial_base_config:="${workspace}/${candidate_b_spatial_base_config}" \
   record_candidate_b_spatial_physical:="$record_candidate_b_spatial_physical" \
   candidate_b_spatial_profile_id:="${FORMAL_CANDIDATE_B_SPATIAL_PROFILE_ID:-}" \
   candidate_b_spatial_physical_authorized:="${FORMAL_CANDIDATE_B_SPATIAL_PHYSICAL_AUTHORIZED:-false}" \
+  candidate_b_spatial_authorization_source:="$candidate_b_spatial_authorization_source" \
   derating_authorization_config:="${workspace}/${derating_authorization_config}" \
   evaluation_config:="${workspace}/${evaluation_config}" \
   path_config:="${workspace}/${path_config}" \

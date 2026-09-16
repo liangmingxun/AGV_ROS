@@ -63,6 +63,17 @@ def save(path, value):
     path.write_text(json.dumps(value, indent=2, sort_keys=True) + "\n")
 
 
+def classify_physical_evidence(runtime_valid, git_dirty,
+                               authorization_source):
+    provenance_complete = (
+        authorization_source == "runtime_operator_overlay")
+    if runtime_valid and provenance_complete and not git_dirty:
+        return "VALID_COMPLETED", provenance_complete
+    if runtime_valid:
+        return "VALID_COMPLETED_NONFORMAL_PROVENANCE", provenance_complete
+    return "INVALID_RUN", provenance_complete
+
+
 def selected_rows(run, primary_only=False):
     rows, seen = [], set()
     with (run / "converted/aligned_samples.csv").open(newline="") as stream:
@@ -106,9 +117,11 @@ def analyze_physical_run(run, method):
     if runtime["candidate_b_spatial_composite"] != PROFILE:
         raise ValueError("physical Candidate B profile differs from gradient15 freeze")
     physical = runtime.get("candidate_b_spatial_physical", {})
-    if (physical.get("enabled") is not True or
+    if (physical.get("software_qualification_passed") is not True or
+            physical.get("enabled") is not True or
             physical.get("hardware_execution_authorized") is not True):
-        raise ValueError("physical Candidate B authorization was not active")
+        raise ValueError(
+            "physical Candidate B qualification or authorization was not active")
     if (runtime.get("candidate_b", {}).get("enabled", False) or
             runtime.get("classic_additive_candidate_A", {}).get(
                 "enabled", False)):
@@ -122,6 +135,7 @@ def analyze_physical_run(run, method):
     if (metadata.get("profile_id") != PROFILE_ID or
             metadata.get("physical_authorized") is not True):
         raise ValueError("Candidate B physical provenance is incomplete")
+    authorization_source = metadata.get("authorization_source", "")
     algorithm_params = params["formal_fake_algorithm"]
     if (algorithm_params.get("formal_upper", {}).get(
             "hardware_execution_authorized") is not True or
@@ -160,15 +174,32 @@ def analyze_physical_run(run, method):
         verification["Robot{}".format(robot)]["d_omega_peak"] <=
             .2625 * scales[robot - 1] + 1e-7
         for robot in (1, 2, 3))
-    category = ("VALID_COMPLETED" if validation.get("valid") is True and
-                complete and profile_ok and
-                algorithm_invalid == 0.0 and localization_invalid == 0.0
-                else "INVALID_RUN")
+    runtime_log = run / "physical_runtime.log"
+    runtime_log_present = runtime_log.is_file()
+    first_valid_stamp = float(algorithm.get(
+        "first_valid_stamp", -math.inf))
+    completion_stamp = float(algorithm.get(
+        "completion_stamp", math.inf))
+    hard_failure = (BASE.hard_failure_in_valid_window(
+        runtime_log, first_valid_stamp, completion_stamp,
+        ("emergency abort", "emergency-stop abort", "abort latched"))
+        if runtime_log_present else False)
+    git_dirty = bool(manifest.get("git_dirty", False))
+    git_dirty_reason = manifest.get(
+        "git_dirty_reason",
+        "unspecified_worktree_changes" if git_dirty else "clean")
+    runtime_valid = (validation.get("valid") is True and complete and
+                     profile_ok and algorithm_invalid == 0.0 and
+                     localization_invalid == 0.0 and
+                     runtime_log_present and not hard_failure)
+    category, provenance_complete = classify_physical_evidence(
+        runtime_valid, git_dirty, authorization_source)
     result = {
         "experiment_id": IDENTITY,
         "profile_id": PROFILE_ID,
-        "formal_evidence": True,
+        "formal_evidence": category == "VALID_COMPLETED",
         "physical_authorization_recorded": True,
+        "software_qualification_recorded": True,
         "payload_semantics": "unloaded_equivalent_payload",
         "method": METHODS[method],
         "category": category,
@@ -184,7 +215,17 @@ def analyze_physical_run(run, method):
         "emergency_threshold_events": sum(
             V2.flag(row, "agv{}_candidate_b_spatial_post_disturbance_over_0p180".format(robot))
             for row in primary for robot in (1, 2, 3)),
-        "fail_zero_or_abort_detected": algorithm_invalid > 0.0,
+        "fail_zero_or_abort_detected": hard_failure,
+        "runtime_log_present": runtime_log_present,
+        "provenance": {
+            "git_sha": manifest.get("git_sha", ""),
+            "git_dirty": git_dirty,
+            "git_dirty_reason": git_dirty_reason,
+            "git_status": manifest.get("git_status", []),
+            "authorization_source": authorization_source,
+            "tracked_frozen_config_and_runtime_overlay_archived":
+                provenance_complete,
+        },
         "run_path": str(run),
     }
     save(run / METRIC_FILE, result)

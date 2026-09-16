@@ -1,5 +1,5 @@
-# Method authorization is independent from the Candidate B physical grant.
-# Both remain false until the operator explicitly reviews this exact route.
+# Tracked method authorization stays false.  The operator's explicit review of
+# this exact route is captured in a per-run authorization overlay.
 formal_upper:
   hardware_execution_authorized: false
 formal_lower:
@@ -12,4 +12,3 @@ authorization_scope:
   target_progress: 5.178229715025710
   robot2_derating: false
   experiment_id: candidate_B_spatial_gradient15_physical_validation
-  physical_authorization_status: NOT_AUTHORIZED

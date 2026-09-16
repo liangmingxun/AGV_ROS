@@ -10,5 +10,6 @@ __pycache__/
 /src/rosserial_stm32/
 .bag
 /experiment_data/
+.runtime_authorization/
 *.bag
 *.bag.active

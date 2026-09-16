@@ -115,9 +115,10 @@ def durations(rows):
     return delta + [statistics.median(delta) if delta else 0.01]
 
 
-def hard_failure_in_valid_window(log, first_valid_stamp, completion_stamp):
+def hard_failure_in_valid_window(log, first_valid_stamp, completion_stamp,
+                                 extra_tokens=()):
     tokens = ("numerical_invalid", "state_chain_invalid", "held fail-zero:",
-              "safety abort latched")
+              "safety abort latched") + tuple(extra_tokens)
     stamp_pattern = re.compile(r"\[(\d+(?:\.\d+)?)\]")
     for line in log.read_text(errors="replace").splitlines():
         if not any(token in line.lower() for token in tokens):

@@ -24,6 +24,9 @@ class CandidateBSpatialGradient15PhysicalAnalysisTest(unittest.TestCase):
         self.assertEqual(self.module.PROFILE["minimum_effectiveness"], .85)
         self.assertEqual(self.module.PROFILE["longitudinal_amplitude"], .020)
         self.assertEqual(self.module.PROFILE["yaw_amplitude"], .2625)
+        source = SCRIPT.read_text()
+        self.assertIn('physical.get("software_qualification_passed") is not True',
+                      source)
         self.assertEqual(self.module.BASE.SPATIAL_DOMAIN_GRID_SAMPLES, 5001)
         self.assertEqual(self.module.SUMMARY_FILE,
                          "candidate_b_spatial_gradient15_physical_summary.json")
@@ -57,6 +60,31 @@ class CandidateBSpatialGradient15PhysicalAnalysisTest(unittest.TestCase):
             "figure6_summary_table",
         ):
             self.assertIn(name, text)
+
+    def test_hard_failure_uses_runtime_events_not_invalid_fraction(self):
+        with tempfile.TemporaryDirectory() as directory:
+            log = Path(directory) / "physical_runtime.log"
+            log.write_text(
+                "[INFO] [100.0]: running\n"
+                "[WARN] [101.0]: Formal algorithm held fail-zero: safety\n")
+            self.assertTrue(self.module.BASE.hard_failure_in_valid_window(
+                log, 100.0, 102.0))
+            self.assertFalse(self.module.BASE.hard_failure_in_valid_window(
+                log, 102.0, 103.0))
+            log.write_text("[ERROR] [101.0]: emergency abort latched\n")
+            self.assertTrue(self.module.BASE.hard_failure_in_valid_window(
+                log, 100.0, 102.0, ("emergency abort", "abort latched")))
+
+    def test_formal_evidence_requires_clean_runtime_overlay_provenance(self):
+        classify = self.module.classify_physical_evidence
+        self.assertEqual(classify(True, False, "runtime_operator_overlay"),
+                         ("VALID_COMPLETED", True))
+        self.assertEqual(classify(True, True, "runtime_operator_overlay"),
+                         ("VALID_COMPLETED_NONFORMAL_PROVENANCE", True))
+        self.assertEqual(classify(True, False, "tracked_config"),
+                         ("VALID_COMPLETED_NONFORMAL_PROVENANCE", False))
+        self.assertEqual(classify(False, False, "runtime_operator_overlay"),
+                         ("INVALID_RUN", True))
 
 
 if __name__ == "__main__":

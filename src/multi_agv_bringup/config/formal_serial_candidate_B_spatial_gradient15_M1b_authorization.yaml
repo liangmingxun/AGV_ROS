@@ -1,4 +1,4 @@
-# Independent M1b+R1 method grant for the frozen Candidate B gradient15 route.
+# Fail-closed M1b+R1 source; each reviewed run uses an archived local overlay.
 formal_upper:
   hardware_execution_authorized: false
   m1b_hardware_execution_authorized: false
@@ -12,4 +12,3 @@ authorization_scope:
   target_progress: 5.178229715025710
   robot2_derating: false
   experiment_id: candidate_B_spatial_gradient15_physical_validation
-  physical_authorization_status: NOT_AUTHORIZED

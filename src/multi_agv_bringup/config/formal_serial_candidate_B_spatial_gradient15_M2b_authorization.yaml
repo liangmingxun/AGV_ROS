@@ -1,4 +1,4 @@
-# Independent complete M2b+M2b method grant for Candidate B gradient15.
+# Fail-closed M2b+M2b source; each reviewed run uses an archived local overlay.
 formal_upper:
   hardware_execution_authorized: false
 formal_lower:
@@ -11,4 +11,3 @@ authorization_scope:
   target_progress: 5.178229715025710
   robot2_derating: false
   experiment_id: candidate_B_spatial_gradient15_physical_validation
-  physical_authorization_status: NOT_AUTHORIZED

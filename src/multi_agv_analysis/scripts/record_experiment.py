@@ -102,6 +102,8 @@ class ExperimentRecorder:
             "~candidate_b_spatial_profile_id", "")
         self.candidate_b_spatial_physical_authorized = rospy.get_param(
             "~candidate_b_spatial_physical_authorized", False)
+        self.candidate_b_spatial_authorization_source = rospy.get_param(
+            "~candidate_b_spatial_authorization_source", "tracked_config")
         self.topics = list(self.recording.get("topics", []))
         self.required_topics = list(
             self.recording.get("required_topics", []))
@@ -270,6 +272,10 @@ class ExperimentRecorder:
         })
         status = _git(repo, "status", "--porcelain",
                       "--untracked-files=normal")
+        git_status = status.splitlines()
+        git_dirty_reason = (
+            "clean" if not git_status else
+            "tracked_or_untracked_worktree_changes_at_recording_start")
         self.manifest = {
             "schema_version": 1,
             "run_id": self.run_id,
@@ -290,6 +296,8 @@ class ExperimentRecorder:
                 "profile_id": self.candidate_b_spatial_profile_id,
                 "physical_authorized":
                     self.candidate_b_spatial_physical_authorized,
+                "authorization_source":
+                    self.candidate_b_spatial_authorization_source,
             },
             "windows_sender_manifest_required":
                 self.require_windows_sender_manifest,
@@ -301,8 +309,9 @@ class ExperimentRecorder:
             "finished_at": None,
             "git_sha": _git(repo, "rev-parse", "HEAD"),
             "git_branch": _git(repo, "branch", "--show-current"),
-            "git_dirty": bool(status),
-            "git_status": status.splitlines(),
+            "git_dirty": bool(git_status),
+            "git_dirty_reason": git_dirty_reason,
+            "git_status": git_status,
             "hostname": platform.node(),
             "python_version": platform.python_version(),
             "ros_distro": os.environ.get("ROS_DISTRO", ""),
@@ -359,6 +368,8 @@ class ExperimentRecorder:
                 "profile_id": self.candidate_b_spatial_profile_id,
                 "physical_authorized":
                     self.candidate_b_spatial_physical_authorized,
+                "authorization_source":
+                    self.candidate_b_spatial_authorization_source,
             },
             "localization_source": self.localization_source,
             "battery_voltage_start": None,
