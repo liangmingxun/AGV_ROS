@@ -1,0 +1,163 @@
+[INFO] [1789537875.093656837]: Subscribing to /agv1/capability_report
+[INFO] [1789537875.095885542]: Subscribing to /agv1/chassis_command
+[INFO] [1789537875.097459770]: Subscribing to /agv1/chassis_feedback
+[INFO] [1789537875.099038728]: Subscribing to /agv1/derating_command
+[INFO] [1789537875.100078612]: Subscribing to /agv1/imu
+[INFO] [1789537875.100751048]: Subscribing to /agv1/odom
+[INFO] [1789537875.101806183]: Subscribing to /agv2/capability_report
+[INFO] [1789537875.102433702]: Subscribing to /agv2/chassis_command
+[INFO] [1789537875.103476115]: Subscribing to /agv2/chassis_feedback
+[INFO] [1789537875.104381014]: Subscribing to /agv2/derating_command
+[INFO] [1789537875.106102181]: Subscribing to /agv2/imu
+[INFO] [1789537875.108835711]: Subscribing to /agv2/odom
+[INFO] [1789537875.110452755]: Subscribing to /agv3/capability_report
+[INFO] [1789537875.112343571]: Subscribing to /agv3/chassis_command
+[INFO] [1789537875.113729749]: Subscribing to /agv3/chassis_feedback
+[INFO] [1789537875.115360021]: Subscribing to /agv3/derating_command
+[INFO] [1789537875.116599645]: Subscribing to /agv3/imu
+[INFO] [1789537875.117674907]: Subscribing to /agv3/odom
+[INFO] [1789537875.119310921]: Subscribing to /camera/world/agv1_confidence
+[INFO] [1789537875.120305096]: Subscribing to /camera/world/agv1_tag_pose
+[INFO] [1789537875.121685173]: Subscribing to /camera/world/agv2_confidence
+[INFO] [1789537875.123195386]: Subscribing to /camera/world/agv2_tag_pose
+[INFO] [1789537875.125159968]: Subscribing to /camera/world/agv3_confidence
+[INFO] [1789537875.126644772]: Subscribing to /camera/world/agv3_tag_pose
+[INFO] [1789537875.128487058]: Subscribing to /camera/world/load_confidence
+[INFO] [1789537875.130046910]: Subscribing to /camera/world/load_tag_pose
+[INFO] [1789537875.131893243]: Subscribing to /experiment_recorder/armed
+[INFO] [1789537875.133661435]: Subscribing to /experiment_recorder/method_id
+[INFO] [1789537875.141234733]: Subscribing to /multi_agv/candidate_B_spatial_composite_state
+[INFO] [1789537875.144620366]: Subscribing to /multi_agv/controller_state
+[INFO] [1789537875.147155632]: Subscribing to /multi_agv/cooperative_state
+[INFO] [1789537875.149651326]: Subscribing to /multi_agv/experiment_state
+[INFO] [1789537875.169410344]: Subscribing to /multi_agv/formal_algorithm_state
+[INFO] [1789537875.182393701]: Subscribing to /multi_agv/formal_execution_limiter_state
+[INFO] [1789537875.191651992]: Subscribing to /multi_agv/m2b_algorithm_state
+[INFO] [1789537875.200807281]: Subscribing to /multi_agv/path_reference
+[INFO] [1789537875.203113979]: Subscribing to /multi_agv/risk_disturbance_state
+[INFO] [1789537875.204175603]: Subscribing to /multi_agv/software_watchdog_diagnostics
+[INFO] [1789537875.205087798]: Subscribing to /multi_agv/software_watchdog_ok
+[INFO] [1789537875.206010794]: Subscribing to /multi_agv/state_projection_timing
+[INFO] [1789537875.207035597]: Subscribing to /multi_agv/v5_exploration_quality_state
+[INFO] [1789537875.220957123]: Subscribing to /multi_agv/yaw_drive_disturbance_state
+[INFO] [1789537875.233229705]: Subscribing to /pose_provider/agv1/base_motion_fused
+[INFO] [1789537875.234261927]: Subscribing to /pose_provider/agv1/base_pose_filtered
+[INFO] [1789537875.235187010]: Subscribing to /pose_provider/agv1/base_pose_fused
+[INFO] [1789537875.236141164]: Subscribing to /pose_provider/agv1/base_pose_raw
+[INFO] [1789537875.236960288]: Subscribing to /pose_provider/agv1/estimator_timing
+[INFO] [1789537875.238146667]: Subscribing to /pose_provider/agv1/fusion_timing
+[INFO] [1789537875.239217076]: Subscribing to /pose_provider/agv2/base_motion_fused
+[INFO] [1789537875.240640502]: Subscribing to /pose_provider/agv2/base_pose_filtered
+[INFO] [1789537875.243103946]: Subscribing to /pose_provider/agv2/base_pose_fused
+[INFO] [1789537875.245438988]: Subscribing to /pose_provider/agv2/base_pose_raw
+[INFO] [1789537875.246676547]: Subscribing to /pose_provider/agv2/estimator_timing
+[INFO] [1789537875.248008702]: Subscribing to /pose_provider/agv2/fusion_timing
+[INFO] [1789537875.249012350]: Subscribing to /pose_provider/agv3/base_motion_fused
+[INFO] [1789537875.249759823]: Subscribing to /pose_provider/agv3/base_pose_filtered
+[INFO] [1789537875.250469156]: Subscribing to /pose_provider/agv3/base_pose_fused
+[INFO] [1789537875.251618386]: Subscribing to /pose_provider/agv3/base_pose_raw
+[INFO] [1789537875.252335840]: Subscribing to /pose_provider/agv3/estimator_timing
+[INFO] [1789537875.253087227]: Subscribing to /pose_provider/agv3/fusion_timing
+[INFO] [1789537875.253758170]: Subscribing to /pose_provider/load/pose_filtered
+[INFO] [1789537875.254418843]: Subscribing to /pose_provider/load/pose_raw
+[INFO] [1789537875.255166150]: Subscribing to /vision/aruco/calibration_epoch
+[INFO] [1789537875.256107649]: Recording to '/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/experiment_data/candidate_B_spatial_composite_fake/CANDIDATE_B_SPATIAL_COMPOSITE_RHO0P85_AV0P020_20260916_134850/M1_R1/run/run.bag'.
+[INFO] [1789537875.260752]: Experiment recording armed after all required subscriptions connected: run_id=run bag=/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/experiment_data/candidate_B_spatial_composite_fake/CANDIDATE_B_SPATIAL_COMPOSITE_RHO0P85_AV0P020_20260916_134850/M1_R1/run/run.bag
+[31mWARNING: disk usage in log directory [/home/etlab/.ros/log] is over 1GB.
+It's recommended that you use the 'rosclean' command.[0m
+[31m================================================================================REQUIRED process [experiment_recorder-1] has died!
+process has finished cleanly
+log file: /home/etlab/.ros/log/9f9c2d46-b192-11f1-a0bd-b5ebb25db9e8/experiment_recorder-1*.log
+Initiating shutdown!
+================================================================================[0m
+... logging to /home/etlab/.ros/log/9f9c2d46-b192-11f1-a0bd-b5ebb25db9e8/roslaunch-robot1-19620.log
+Checking log directory for disk usage. This may take a while.
+Press Ctrl-C to interrupt
+]2;/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/launch/experiment.launch
+[1mstarted roslaunch server http://127.0.0.1:42979/[0m
+
+SUMMARY
+========
+
+PARAMETERS
+ * /agv1/capability_report: 90.0
+ * /agv1/chassis_command: 90.0
+ * /agv1/chassis_feedback: 90.0
+ * /agv1/imu: 90.0
+ * /agv1/odom: 90.0
+ * /agv2/capability_report: 90.0
+ * /agv2/chassis_command: 90.0
+ * /agv2/chassis_feedback: 90.0
+ * /agv2/imu: 90.0
+ * /agv2/odom: 90.0
+ * /agv3/capability_report: 90.0
+ * /agv3/chassis_command: 90.0
+ * /agv3/chassis_feedback: 90.0
+ * /agv3/imu: 90.0
+ * /agv3/odom: 90.0
+ * /experiment_recorder/approval_id: 
+ * /experiment_recorder/approval_registry: /home/etlab/AGV_R...
+ * /experiment_recorder/arming_authorized: True
+ * /experiment_recorder/camera_config_files: ['/home/etlab/AGV...
+ * /experiment_recorder/camera_mode: False
+ * /experiment_recorder/config_files: ['/home/etlab/AGV...
+ * /experiment_recorder/connection_wait_seconds: 5.0
+ * /experiment_recorder/experiment_id: candidate_B_spati...
+ * /experiment_recorder/experiment_recording/camera_calibration_epoch_required: True
+ * /experiment_recorder/experiment_recording/camera_required_topics: ['/vision/aruco/c...
+ * /experiment_recorder/experiment_recording/camera_virtual_load_required_topics: ['/vision/aruco/c...
+ * /experiment_recorder/experiment_recording/fused_required_topics: ['/pose_provider/...
+ * /experiment_recorder/experiment_recording/localization_exclusion/maximum_consecutive_invalid_seconds: 0.1
+ * /experiment_recorder/experiment_recording/localization_exclusion/maximum_invalid_fraction: 0.01
+ * /experiment_recorder/experiment_recording/maximum_camera_calibration_epoch_changes: 0
+ * /experiment_recorder/experiment_recording/method_required_topics/M1_R1: ['/multi_agv/expe...
+ * /experiment_recorder/experiment_recording/method_required_topics/M1b_R1: ['/multi_agv/expe...
+ * /experiment_recorder/experiment_recording/method_required_topics/M2a_R1: ['/multi_agv/expe...
+ * /experiment_recorder/experiment_recording/method_required_topics/M2b_M2b: ['/multi_agv/m2b_...
+ * /experiment_recorder/experiment_recording/recommended_topics: ['/multi_agv/expe...
+ * /experiment_recorder/experiment_recording/registered_method_ids: ['M1_R1', 'M1b_R1...
+ * /experiment_recorder/experiment_recording/required_topics: ['/agv1/chassis_c...
+ * /experiment_recorder/experiment_recording/sample_period: 0.01
+ * /experiment_recorder/experiment_recording/sequence_rules: [{'file': 'chassi...
+ * /experiment_recorder/experiment_recording/topics: ['/agv1/chassis_c...
+ * /experiment_recorder/formal_statistics_requested: False
+ * /experiment_recorder/interface_version: agv_ros_interface...
+ * /experiment_recorder/localization_source: odom_fake
+ * /experiment_recorder/measured_payload_pose_topic: /pose_provider/lo...
+ * /experiment_recorder/method_id: M1_R1
+ * /experiment_recorder/metrics/evaluation_target: 5.17822971502571
+ * /experiment_recorder/metrics/nominal_agv2_capability: 0.0
+ * /experiment_recorder/metrics/nominal_common_velocity: 0.1
+ * /experiment_recorder/operator: 
+ * /experiment_recorder/output_root: /home/etlab/AGV_R...
+ * /experiment_recorder/pair_block_id: Triad01
+ * /experiment_recorder/path_version: s_curve_v1
+ * /experiment_recorder/payload_pose_source: equivalent_load
+ * /experiment_recorder/payload_state: unloaded
+ * /experiment_recorder/preflight_wait_seconds: 15.0
+ * /experiment_recorder/record_classic_additive_physical: False
+ * /experiment_recorder/require_approved_config: False
+ * /experiment_recorder/require_windows_sender_manifest: False
+ * /experiment_recorder/run_id: run
+ * /experiment_recorder/virtual_load_from_robots: False
+ * /experiment_recorder/wheel_speed_scale_freeze_id: 
+ * /experiment_recorder/workspace: /home/etlab/AGV_R...
+ * /multi_agv/controller_state: 90.0
+ * /multi_agv/cooperative_state: 90.0
+ * /multi_agv/formal_algorithm_state: 90.0
+ * /multi_agv/m2b_algorithm_state: 90.0
+ * /multi_agv/path_reference: 90.0
+ * /rosdistro: noetic
+ * /rosversion: 1.17.0
+
+NODES
+  /
+    experiment_recorder (multi_agv_analysis/record_experiment.py)
+
+[1mROS_MASTER_URI=http://127.0.0.1:11710[0m
+]2;/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/launch/experiment.launch http://127.0.0.1:11710
+[1mprocess[experiment_recorder-1]: started with pid [19661][0m
+[experiment_recorder-1] killing on exit
+shutting down processing monitor...
+... shutting down processing monitor complete
+[1mdone[0m

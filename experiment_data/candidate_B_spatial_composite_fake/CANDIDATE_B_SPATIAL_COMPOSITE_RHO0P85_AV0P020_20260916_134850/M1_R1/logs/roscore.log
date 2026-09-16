@@ -1,0 +1,31 @@
+[31mWARNING: disk usage in log directory [/home/etlab/.ros/log] is over 1GB.
+It's recommended that you use the 'rosclean' command.[0m
+... logging to /home/etlab/.ros/log/9f9c2d46-b192-11f1-a0bd-b5ebb25db9e8/roslaunch-robot1-19385.log
+Checking log directory for disk usage. This may take a while.
+Press Ctrl-C to interrupt
+]2;roscore
+[1mstarted roslaunch server http://127.0.0.1:44999/[0m
+ros_comm version 1.17.0
+
+
+SUMMARY
+========
+
+PARAMETERS
+ * /rosdistro: noetic
+ * /rosversion: 1.17.0
+
+NODES
+
+auto-starting new master
+[1mprocess[master]: started with pid [19418][0m
+[1mROS_MASTER_URI=http://127.0.0.1:11710/[0m
+]2;roscore http://127.0.0.1:11710/
+[1msetting /run_id to 9f9c2d46-b192-11f1-a0bd-b5ebb25db9e8[0m
+[1mprocess[rosout-1]: started with pid [19452][0m
+started core service [/rosout]
+[rosout-1] killing on exit
+[master] killing on exit
+shutting down processing monitor...
+... shutting down processing monitor complete
+[1mdone[0m

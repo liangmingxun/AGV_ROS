@@ -1,0 +1,948 @@
+{
+  "all_runs_valid": true,
+  "comparisons": {
+    "M1_vs_M1b": {
+      "actual_peak_mps": {
+        "M1": 0.15089666405513963,
+        "M1b": 0.15421987620790115,
+        "direction": "lower_is_better",
+        "improvement_percent": 2.1548533395796228
+      },
+      "equivalent_load_position_error_max": {
+        "M1": 0.025090385882208726,
+        "M1b": 0.02581863360482064,
+        "direction": "lower_is_better",
+        "improvement_percent": 2.8206284412972975
+      },
+      "equivalent_load_position_error_rmse": {
+        "M1": 0.011353043781904309,
+        "M1b": 0.0138225313429469,
+        "direction": "lower_is_better",
+        "improvement_percent": 17.865668015306582
+      },
+      "equivalent_load_yaw_error_max": {
+        "M1": 0.03838984361853903,
+        "M1b": 0.04156084686274841,
+        "direction": "lower_is_better",
+        "improvement_percent": 7.629784962470523
+      },
+      "equivalent_load_yaw_error_rmse": {
+        "M1": 0.016395779855729008,
+        "M1b": 0.01942106023748727,
+        "direction": "lower_is_better",
+        "improvement_percent": 15.57731835833942
+      },
+      "native_controller_raw_peak_mps": {
+        "M1": 0.16538734072993996,
+        "M1b": 0.1912753986135619,
+        "direction": "lower_is_better",
+        "improvement_percent": 13.534441998954703
+      },
+      "native_controller_raw_rms_mps": {
+        "M1": 0.1030854231008479,
+        "M1b": 0.11538662051761353,
+        "direction": "lower_is_better",
+        "improvement_percent": 10.66085249882839
+      },
+      "native_over_0p160_duration_seconds": {
+        "M1": 0.7400779724121094,
+        "M1b": 4.609736442565918,
+        "direction": "lower_is_better",
+        "improvement_percent": 83.94533002845256
+      },
+      "native_over_0p180_duration_seconds": {
+        "M1": 0,
+        "M1b": 1.7099874019622803,
+        "direction": "lower_is_better",
+        "improvement_percent": 100.0
+      },
+      "pairwise_side_error_max": {
+        "M1": 0.03717270703290587,
+        "M1b": 0.0373350942816289,
+        "direction": "lower_is_better",
+        "improvement_percent": 0.43494532918035905
+      },
+      "pairwise_side_error_rmse": {
+        "M1": 0.017925125343443465,
+        "M1b": 0.018771922155501237,
+        "direction": "lower_is_better",
+        "improvement_percent": 4.510975514617786
+      },
+      "physical_limiter_duration_seconds": {
+        "M1": 0,
+        "M1b": 0,
+        "direction": "lower_is_better",
+        "improvement_percent": null
+      },
+      "post_candidate_b_over_0p160_duration_seconds": {
+        "M1": 0,
+        "M1b": 0,
+        "direction": "lower_is_better",
+        "improvement_percent": null
+      },
+      "post_candidate_b_over_0p180_duration_seconds": {
+        "M1": 0,
+        "M1b": 0,
+        "direction": "lower_is_better",
+        "improvement_percent": null
+      },
+      "post_candidate_b_peak_mps": {
+        "M1": 0.15089666405513963,
+        "M1b": 0.15421987620790115,
+        "direction": "lower_is_better",
+        "improvement_percent": 2.1548533395796228
+      },
+      "post_limit_peak_mps": {
+        "M1": 0.15089666405513963,
+        "M1b": 0.15421987620790115,
+        "direction": "lower_is_better",
+        "improvement_percent": 2.1548533395796228
+      },
+      "rigid_fit_error_max": {
+        "M1": 0.017449410008603186,
+        "M1b": 0.01747568533891408,
+        "direction": "lower_is_better",
+        "improvement_percent": 0.1503536473753261
+      },
+      "rigid_fit_error_rmse": {
+        "M1": 0.008522733556097395,
+        "M1b": 0.008818522347633556,
+        "direction": "lower_is_better",
+        "improvement_percent": 3.3541763560369717
+      },
+      "robot1_heading_error_rmse": {
+        "M1": 0.03742618040537145,
+        "M1b": 0.03779490048416767,
+        "direction": "lower_is_better",
+        "improvement_percent": 0.9755815574926034
+      },
+      "robot1_lateral_error_rmse": {
+        "M1": 0.004667507840824103,
+        "M1b": 0.005513591152280699,
+        "direction": "lower_is_better",
+        "improvement_percent": 15.345412601125021
+      },
+      "robot1_progress_error_rmse": {
+        "M1": 0.013645655422415302,
+        "M1b": 0.015441235249928789,
+        "direction": "lower_is_better",
+        "improvement_percent": 11.62847271251675
+      },
+      "robot1_velocity_error_rmse": {
+        "M1": 0.011699111324963724,
+        "M1b": 0.01118227124464396,
+        "direction": "lower_is_better",
+        "improvement_percent": -4.621959788064683
+      },
+      "robot2_heading_error_rmse": {
+        "M1": 0.12712299329180354,
+        "M1b": 0.13217179370988494,
+        "direction": "lower_is_better",
+        "improvement_percent": 3.8198773553481726
+      },
+      "robot2_lateral_error_rmse": {
+        "M1": 0.00712019856917045,
+        "M1b": 0.008733980334414887,
+        "direction": "lower_is_better",
+        "improvement_percent": 18.477048303916852
+      },
+      "robot2_progress_error_rmse": {
+        "M1": 0.012015727248747433,
+        "M1b": 0.0143474474396849,
+        "direction": "lower_is_better",
+        "improvement_percent": 16.251812043499477
+      },
+      "robot2_velocity_error_rmse": {
+        "M1": 0.01106047067436183,
+        "M1b": 0.009696118931225866,
+        "direction": "lower_is_better",
+        "improvement_percent": -14.071111883148808
+      },
+      "robot3_heading_error_rmse": {
+        "M1": 0.1861207934719384,
+        "M1b": 0.19075324868534071,
+        "direction": "lower_is_better",
+        "improvement_percent": 2.4285065891820405
+      },
+      "robot3_lateral_error_rmse": {
+        "M1": 0.005725647792090727,
+        "M1b": 0.006671739282554597,
+        "direction": "lower_is_better",
+        "improvement_percent": 14.180582459775223
+      },
+      "robot3_progress_error_rmse": {
+        "M1": 0.01581848957508113,
+        "M1b": 0.018134669184124076,
+        "direction": "lower_is_better",
+        "improvement_percent": 12.7721084157997
+      },
+      "robot3_velocity_error_rmse": {
+        "M1": 0.01512643897764307,
+        "M1b": 0.014709775332623158,
+        "direction": "lower_is_better",
+        "improvement_percent": -2.8325629426565095
+      },
+      "support_error_max": {
+        "M1": 0.03826389930894912,
+        "M1b": 0.03941125198649419,
+        "direction": "lower_is_better",
+        "improvement_percent": 2.9112312340096635
+      },
+      "support_error_rmse": {
+        "M1": 0.015629673991583676,
+        "M1b": 0.01863769441750582,
+        "direction": "lower_is_better",
+        "improvement_percent": 16.139444925638454
+      },
+      "wheel_margin_below_0p5_duration_seconds": {
+        "M1": 1.7904047966003418,
+        "M1b": 5.400964975357056,
+        "direction": "lower_is_better",
+        "improvement_percent": 66.85027944507307
+      },
+      "wheel_margin_below_0p7_duration_seconds": {
+        "M1": 2.0601303577423096,
+        "M1b": 5.649175643920898,
+        "direction": "lower_is_better",
+        "improvement_percent": 63.53219500336789
+      },
+      "wheel_margin_mean": {
+        "M1": 0.9517762711877022,
+        "M1b": 0.8319334800889768,
+        "direction": "higher_is_better",
+        "improvement_percent": 14.405333355006702
+      },
+      "wheel_margin_minimum": {
+        "M1": 0.0,
+        "M1b": 0.0,
+        "direction": "higher_is_better",
+        "improvement_percent": null
+      },
+      "wheel_margin_p05": {
+        "M1": 0.502293147039348,
+        "M1b": 0.0,
+        "direction": "higher_is_better",
+        "improvement_percent": null
+      }
+    },
+    "M1_vs_M2b": {
+      "actual_peak_mps": {
+        "M1": 0.15089666405513963,
+        "M2b": 0.15538922558909207,
+        "direction": "lower_is_better",
+        "improvement_percent": 2.891166692491587
+      },
+      "equivalent_load_position_error_max": {
+        "M1": 0.025090385882208726,
+        "M2b": 0.026441091802150804,
+        "direction": "lower_is_better",
+        "improvement_percent": 5.108359102751601
+      },
+      "equivalent_load_position_error_rmse": {
+        "M1": 0.011353043781904309,
+        "M2b": 0.014177319833750406,
+        "direction": "lower_is_better",
+        "improvement_percent": 19.9210858255638
+      },
+      "equivalent_load_yaw_error_max": {
+        "M1": 0.03838984361853903,
+        "M2b": 0.042072987638650534,
+        "direction": "lower_is_better",
+        "improvement_percent": 8.754177506348434
+      },
+      "equivalent_load_yaw_error_rmse": {
+        "M1": 0.016395779855729008,
+        "M2b": 0.019705305371781227,
+        "direction": "lower_is_better",
+        "improvement_percent": 16.795098850848515
+      },
+      "native_controller_raw_peak_mps": {
+        "M1": 0.16538734072993996,
+        "M2b": 0.19210993888813233,
+        "direction": "lower_is_better",
+        "improvement_percent": 13.910054999160256
+      },
+      "native_controller_raw_rms_mps": {
+        "M1": 0.1030854231008479,
+        "M2b": 0.1157306380882483,
+        "direction": "lower_is_better",
+        "improvement_percent": 10.926419482590273
+      },
+      "native_over_0p160_duration_seconds": {
+        "M1": 0.7400779724121094,
+        "M2b": 4.719768047332764,
+        "direction": "lower_is_better",
+        "improvement_percent": 84.31961136669963
+      },
+      "native_over_0p180_duration_seconds": {
+        "M1": 0,
+        "M2b": 1.7797574996948242,
+        "direction": "lower_is_better",
+        "improvement_percent": 100.0
+      },
+      "pairwise_side_error_max": {
+        "M1": 0.03717270703290587,
+        "M2b": 0.0384359555961275,
+        "direction": "lower_is_better",
+        "improvement_percent": 3.2866323826976878
+      },
+      "pairwise_side_error_rmse": {
+        "M1": 0.017925125343443465,
+        "M2b": 0.019171588699107876,
+        "direction": "lower_is_better",
+        "improvement_percent": 6.501617446666866
+      },
+      "physical_limiter_duration_seconds": {
+        "M1": 0,
+        "M2b": 0,
+        "direction": "lower_is_better",
+        "improvement_percent": null
+      },
+      "post_candidate_b_over_0p160_duration_seconds": {
+        "M1": 0,
+        "M2b": 0,
+        "direction": "lower_is_better",
+        "improvement_percent": null
+      },
+      "post_candidate_b_over_0p180_duration_seconds": {
+        "M1": 0,
+        "M2b": 0,
+        "direction": "lower_is_better",
+        "improvement_percent": null
+      },
+      "post_candidate_b_peak_mps": {
+        "M1": 0.15089666405513963,
+        "M2b": 0.1557679048053561,
+        "direction": "lower_is_better",
+        "improvement_percent": 3.1272429043091123
+      },
+      "post_limit_peak_mps": {
+        "M1": 0.15089666405513963,
+        "M2b": 0.1557679048053561,
+        "direction": "lower_is_better",
+        "improvement_percent": 3.1272429043091123
+      },
+      "rigid_fit_error_max": {
+        "M1": 0.017449410008603186,
+        "M2b": 0.017951030302594696,
+        "direction": "lower_is_better",
+        "improvement_percent": 2.794381634568372
+      },
+      "rigid_fit_error_rmse": {
+        "M1": 0.008522733556097395,
+        "M2b": 0.009019688643948766,
+        "direction": "lower_is_better",
+        "improvement_percent": 5.509670094707467
+      },
+      "robot1_heading_error_rmse": {
+        "M1": 0.03742618040537145,
+        "M2b": 0.037743967639929085,
+        "direction": "lower_is_better",
+        "improvement_percent": 0.8419550313026768
+      },
+      "robot1_lateral_error_rmse": {
+        "M1": 0.004667507840824103,
+        "M2b": 0.00559391850987257,
+        "direction": "lower_is_better",
+        "improvement_percent": 16.56103261807386
+      },
+      "robot1_progress_error_rmse": {
+        "M1": 0.013645655422415302,
+        "M2b": 0.015807108459735854,
+        "direction": "lower_is_better",
+        "improvement_percent": 13.673930578930632
+      },
+      "robot1_velocity_error_rmse": {
+        "M1": 0.011699111324963724,
+        "M2b": 0.011587752887381375,
+        "direction": "lower_is_better",
+        "improvement_percent": -0.9610011420213715
+      },
+      "robot2_heading_error_rmse": {
+        "M1": 0.12712299329180354,
+        "M2b": 0.13244902376192522,
+        "direction": "lower_is_better",
+        "improvement_percent": 4.021192696516298
+      },
+      "robot2_lateral_error_rmse": {
+        "M1": 0.00712019856917045,
+        "M2b": 0.008813363596226772,
+        "direction": "lower_is_better",
+        "improvement_percent": 19.211337516827403
+      },
+      "robot2_progress_error_rmse": {
+        "M1": 0.012015727248747433,
+        "M2b": 0.014737975598628012,
+        "direction": "lower_is_better",
+        "improvement_percent": 18.470978810237675
+      },
+      "robot2_velocity_error_rmse": {
+        "M1": 0.01106047067436183,
+        "M2b": 0.010010559294824427,
+        "direction": "lower_is_better",
+        "improvement_percent": -10.488039165606043
+      },
+      "robot3_heading_error_rmse": {
+        "M1": 0.1861207934719384,
+        "M2b": 0.1909548238570864,
+        "direction": "lower_is_better",
+        "improvement_percent": 2.5315047232144554
+      },
+      "robot3_lateral_error_rmse": {
+        "M1": 0.005725647792090727,
+        "M2b": 0.00674119517796954,
+        "direction": "lower_is_better",
+        "improvement_percent": 15.064797251348807
+      },
+      "robot3_progress_error_rmse": {
+        "M1": 0.01581848957508113,
+        "M2b": 0.01867823173323682,
+        "direction": "lower_is_better",
+        "improvement_percent": 15.310561508169666
+      },
+      "robot3_velocity_error_rmse": {
+        "M1": 0.01512643897764307,
+        "M2b": 0.015198656554447026,
+        "direction": "lower_is_better",
+        "improvement_percent": 0.4751576334740327
+      },
+      "support_error_max": {
+        "M1": 0.03826389930894912,
+        "M2b": 0.04031987638050709,
+        "direction": "lower_is_better",
+        "improvement_percent": 5.099165116865151
+      },
+      "support_error_rmse": {
+        "M1": 0.015629673991583676,
+        "M2b": 0.019081637984284923,
+        "direction": "lower_is_better",
+        "improvement_percent": 18.0905014315028
+      },
+      "wheel_margin_below_0p5_duration_seconds": {
+        "M1": 1.7904047966003418,
+        "M2b": 5.4699530601501465,
+        "direction": "lower_is_better",
+        "improvement_percent": 67.26837000405271
+      },
+      "wheel_margin_below_0p7_duration_seconds": {
+        "M1": 2.0601303577423096,
+        "M2b": 5.680854082107544,
+        "direction": "lower_is_better",
+        "improvement_percent": 63.7355522960727
+      },
+      "wheel_margin_mean": {
+        "M1": 0.9517762711877022,
+        "M2b": 0.8292883686114528,
+        "direction": "higher_is_better",
+        "improvement_percent": 14.770242440677324
+      },
+      "wheel_margin_minimum": {
+        "M1": 0.0,
+        "M2b": 0.0,
+        "direction": "higher_is_better",
+        "improvement_percent": null
+      },
+      "wheel_margin_p05": {
+        "M1": 0.502293147039348,
+        "M2b": 0.0,
+        "direction": "higher_is_better",
+        "improvement_percent": null
+      }
+    }
+  },
+  "experiment_id": "candidate_B_spatial_composite_fake_validation",
+  "fake_comparison": "VALID",
+  "markers": [
+    "EXPLORATORY_FAKE_VALIDATION",
+    "NOT_FORMAL_PAPER_EVIDENCE"
+  ],
+  "methods": {
+    "M1": {
+      "M1_mechanism": {
+        "actual_reference_reduction_mean": 0.002655248062571989,
+        "actual_reference_reduction_peak": 0.01323760414025446,
+        "common_reference_mean": 0.09078595169681963,
+        "common_reference_minimum": 0.06836541365862092,
+        "risk_boundary_active_duration": 8.168609142303467,
+        "risk_contraction_integral": 0.1698230498222055,
+        "risk_contraction_peak": 0.038634586341379076,
+        "risk_factor_mean": 0.11787271416027933,
+        "risk_factor_peak": 1.0,
+        "risk_signal_mean": 0.11197907845226536,
+        "risk_signal_peak": 0.95,
+        "robust_margin_mean": 0.8538862299652663,
+        "robust_margin_minimum": 0.0
+      },
+      "category": "VALID_COMPLETED",
+      "complete": true,
+      "disturbance_verification": {
+        "Robot1": {
+          "d_omega_peak": 0.26249989649852884,
+          "d_omega_rms": 0.16910014775584062,
+          "d_v_peak": 0.019999996156448947,
+          "d_v_rms": 0.014039535171149848,
+          "entry_common_progress": 1.8311420037896575,
+          "entry_wall_time": 1789537893.6410487,
+          "exit_common_progress": 2.632172983688352,
+          "exit_wall_time": 1789537902.4813333,
+          "exposure_duration_seconds": 8.840284585952759,
+          "minimum_rho": 0.85,
+          "projection_distance_available": true,
+          "projection_distance_max": 0.17247280958812997,
+          "projection_distance_mean": 0.02132693238594019,
+          "q_max": 1.0,
+          "q_mean": 0.9240512821230117,
+          "zone_entry_progress": 2.0006023428445667,
+          "zone_exit_progress": 2.800358109979339
+        },
+        "Robot2": {
+          "d_omega_peak": 0.2624996342552273,
+          "d_omega_rms": 0.17076905410867493,
+          "d_v_peak": 0.019999993638571727,
+          "d_v_rms": 0.014233866767964919,
+          "entry_common_progress": 2.072169138200667,
+          "entry_common_progress_minus_robot1_m": 0.24102713441100954,
+          "entry_time_minus_robot1_seconds": 2.4102656841278076,
+          "entry_wall_time": 1789537896.0513144,
+          "exit_common_progress": 2.873918656494788,
+          "exit_wall_time": 1789537905.1713705,
+          "exposure_duration_seconds": 9.12005615234375,
+          "minimum_rho": 0.85,
+          "projection_distance_available": true,
+          "projection_distance_max": 0.17263582897535446,
+          "projection_distance_mean": 0.15436982549048436,
+          "q_max": 1.0,
+          "q_mean": 0.9429803264281401,
+          "zone_entry_progress": 2.0010281335480697,
+          "zone_exit_progress": 2.800342144844352
+        },
+        "Robot3": {
+          "d_omega_peak": 0.2624998113401918,
+          "d_omega_rms": 0.16963388578355865,
+          "d_v_peak": 0.019999994886422855,
+          "d_v_rms": 0.014193643871087895,
+          "entry_common_progress": 2.1101813734186656,
+          "entry_common_progress_minus_robot1_m": 0.2790393696290081,
+          "entry_time_minus_robot1_seconds": 2.790152072906494,
+          "entry_wall_time": 1789537896.4312007,
+          "exit_common_progress": 2.912416519722168,
+          "exit_wall_time": 1789537905.5510008,
+          "exposure_duration_seconds": 9.119800090789795,
+          "minimum_rho": 0.85,
+          "projection_distance_available": true,
+          "projection_distance_max": 0.17268964143651938,
+          "projection_distance_mean": 0.14330544226363492,
+          "q_max": 1.0,
+          "q_mean": 0.9355482043052149,
+          "zone_entry_progress": 2.000572321395228,
+          "zone_exit_progress": 2.800436825055049
+        },
+        "entry_order": [
+          [
+            1789537893.6410487,
+            "Robot1"
+          ],
+          [
+            1789537896.0513144,
+            "Robot2"
+          ],
+          [
+            1789537896.4312007,
+            "Robot3"
+          ]
+        ]
+      },
+      "experiment_id": "candidate_B_spatial_composite_fake_validation",
+      "formal_evidence": false,
+      "markers": [
+        "EXPLORATORY_FAKE_VALIDATION",
+        "NOT_FORMAL_PAPER_EVIDENCE"
+      ],
+      "method": "M1_R1",
+      "metrics": {
+        "actual_peak_mps": 0.15089666405513963,
+        "duration_seconds": 11.910048484802246,
+        "equivalent_load_position_error_max": 0.025090385882208726,
+        "equivalent_load_position_error_rmse": 0.011353043781904309,
+        "equivalent_load_yaw_error_max": 0.03838984361853903,
+        "equivalent_load_yaw_error_rmse": 0.016395779855729008,
+        "native_controller_raw_peak_mps": 0.16538734072993996,
+        "native_controller_raw_rms_mps": 0.1030854231008479,
+        "native_over_0p160_duration_seconds": 0.7400779724121094,
+        "native_over_0p180_duration_seconds": 0,
+        "pairwise_side_error_max": 0.03717270703290587,
+        "pairwise_side_error_rmse": 0.017925125343443465,
+        "physical_limiter_duration_seconds": 0,
+        "post_candidate_b_over_0p160_duration_seconds": 0,
+        "post_candidate_b_over_0p180_duration_seconds": 0,
+        "post_candidate_b_peak_mps": 0.15089666405513963,
+        "post_limit_peak_mps": 0.15089666405513963,
+        "rigid_fit_error_max": 0.017449410008603186,
+        "rigid_fit_error_rmse": 0.008522733556097395,
+        "robot1_heading_error_max": 0.08160067759793233,
+        "robot1_heading_error_rmse": 0.03742618040537145,
+        "robot1_lateral_error_max": 0.009894805764157811,
+        "robot1_lateral_error_rmse": 0.004667507840824103,
+        "robot1_progress_error_max": 0.03308264836536612,
+        "robot1_progress_error_rmse": 0.013645655422415302,
+        "robot1_support_error_max": 0.033789579953739796,
+        "robot1_support_error_rmse": 0.014264269306056704,
+        "robot1_velocity_error_max": 0.030915260424415975,
+        "robot1_velocity_error_rmse": 0.011699111324963724,
+        "robot2_heading_error_max": 0.19458186317115397,
+        "robot2_heading_error_rmse": 0.12712299329180354,
+        "robot2_lateral_error_max": 0.0154870307844104,
+        "robot2_lateral_error_rmse": 0.00712019856917045,
+        "robot2_progress_error_max": 0.030158341955796253,
+        "robot2_progress_error_rmse": 0.012015727248747433,
+        "robot2_support_error_max": 0.03826389930894912,
+        "robot2_support_error_rmse": 0.015629673991583676,
+        "robot2_velocity_error_max": 0.029932618245038983,
+        "robot2_velocity_error_rmse": 0.01106047067436183,
+        "robot3_heading_error_max": 0.2557229905036502,
+        "robot3_heading_error_rmse": 0.1861207934719384,
+        "robot3_lateral_error_max": 0.011777220672550904,
+        "robot3_lateral_error_rmse": 0.005725647792090727,
+        "robot3_progress_error_max": 0.038321331763229605,
+        "robot3_progress_error_rmse": 0.01581848957508113,
+        "robot3_support_error_max": 0.031469653059796314,
+        "robot3_support_error_rmse": 0.013461804633517744,
+        "robot3_velocity_error_max": 0.03410571747198801,
+        "robot3_velocity_error_rmse": 0.01512643897764307,
+        "samples": 1191,
+        "support_error_max": 0.03826389930894912,
+        "support_error_rmse": 0.015629673991583676,
+        "wheel_margin_below_0p5_duration_seconds": 1.7904047966003418,
+        "wheel_margin_below_0p7_duration_seconds": 2.0601303577423096,
+        "wheel_margin_mean": 0.9517762711877022,
+        "wheel_margin_minimum": 0.0,
+        "wheel_margin_p05": 0.502293147039348
+      },
+      "physical_readiness": "NOT_AUTHORIZED",
+      "profile_verified": true,
+      "run_path": "/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/experiment_data/candidate_B_spatial_composite_fake/CANDIDATE_B_SPATIAL_COMPOSITE_RHO0P85_AV0P020_20260916_134850/M1_R1/run",
+      "task_time_seconds": 52.819961071014404
+    },
+    "M1b": {
+      "M1_mechanism": null,
+      "category": "VALID_COMPLETED",
+      "complete": true,
+      "disturbance_verification": {
+        "Robot1": {
+          "d_omega_peak": 0.26249975035026807,
+          "d_omega_rms": 0.17652878070183195,
+          "d_v_peak": 0.019999999927018265,
+          "d_v_rms": 0.013703959068251639,
+          "entry_common_progress": 1.8308557327479345,
+          "entry_wall_time": 1789537806.2959406,
+          "exit_common_progress": 2.630426227551611,
+          "exit_wall_time": 1789537814.3063326,
+          "exposure_duration_seconds": 8.0103919506073,
+          "minimum_rho": 0.85,
+          "projection_distance_available": true,
+          "projection_distance_max": 0.17259373758447186,
+          "projection_distance_mean": 0.02124522169276716,
+          "q_max": 1.0,
+          "q_mean": 0.9357115597840557,
+          "zone_entry_progress": 2.000302609306905,
+          "zone_exit_progress": 2.800130225347929
+        },
+        "Robot2": {
+          "d_omega_peak": 0.2624995340674651,
+          "d_omega_rms": 0.17644242308234032,
+          "d_v_peak": 0.019999977458065997,
+          "d_v_rms": 0.013717595592121355,
+          "entry_common_progress": 2.0714053645018327,
+          "entry_common_progress_minus_robot1_m": 0.2405496317538982,
+          "entry_time_minus_robot1_seconds": 2.410813570022583,
+          "entry_wall_time": 1789537808.7067542,
+          "exit_common_progress": 2.8699865947792302,
+          "exit_wall_time": 1789537816.7064703,
+          "exposure_duration_seconds": 7.99971604347229,
+          "minimum_rho": 0.85,
+          "projection_distance_available": true,
+          "projection_distance_max": 0.1725046639401374,
+          "projection_distance_mean": 0.15453058961454771,
+          "q_max": 1.0,
+          "q_mean": 0.936292424363572,
+          "zone_entry_progress": 2.0001061997895118,
+          "zone_exit_progress": 2.8004248059993366
+        },
+        "Robot3": {
+          "d_omega_peak": 0.26249956536151214,
+          "d_omega_rms": 0.17665751769457932,
+          "d_v_peak": 0.01999999271343164,
+          "d_v_rms": 0.01362533139432121,
+          "entry_common_progress": 2.110308288819341,
+          "entry_common_progress_minus_robot1_m": 0.27945255607140673,
+          "entry_time_minus_robot1_seconds": 2.8003149032592773,
+          "entry_wall_time": 1789537809.0962555,
+          "exit_common_progress": 2.9049022228172894,
+          "exit_wall_time": 1789537817.055961,
+          "exposure_duration_seconds": 7.959705352783203,
+          "minimum_rho": 0.85,
+          "projection_distance_available": true,
+          "projection_distance_max": 0.17249471309931128,
+          "projection_distance_mean": 0.143529170149596,
+          "q_max": 1.0,
+          "q_mean": 0.9314784170344211,
+          "zone_entry_progress": 2.0000817715771833,
+          "zone_exit_progress": 2.800361916366756
+        },
+        "entry_order": [
+          [
+            1789537806.2959406,
+            "Robot1"
+          ],
+          [
+            1789537808.7067542,
+            "Robot2"
+          ],
+          [
+            1789537809.0962555,
+            "Robot3"
+          ]
+        ]
+      },
+      "experiment_id": "candidate_B_spatial_composite_fake_validation",
+      "formal_evidence": false,
+      "markers": [
+        "EXPLORATORY_FAKE_VALIDATION",
+        "NOT_FORMAL_PAPER_EVIDENCE"
+      ],
+      "method": "M1b_R1",
+      "metrics": {
+        "actual_peak_mps": 0.15421987620790115,
+        "duration_seconds": 10.760144233703613,
+        "equivalent_load_position_error_max": 0.02581863360482064,
+        "equivalent_load_position_error_rmse": 0.0138225313429469,
+        "equivalent_load_yaw_error_max": 0.04156084686274841,
+        "equivalent_load_yaw_error_rmse": 0.01942106023748727,
+        "native_controller_raw_peak_mps": 0.1912753986135619,
+        "native_controller_raw_rms_mps": 0.11538662051761353,
+        "native_over_0p160_duration_seconds": 4.609736442565918,
+        "native_over_0p180_duration_seconds": 1.7099874019622803,
+        "pairwise_side_error_max": 0.0373350942816289,
+        "pairwise_side_error_rmse": 0.018771922155501237,
+        "physical_limiter_duration_seconds": 0,
+        "post_candidate_b_over_0p160_duration_seconds": 0,
+        "post_candidate_b_over_0p180_duration_seconds": 0,
+        "post_candidate_b_peak_mps": 0.15421987620790115,
+        "post_limit_peak_mps": 0.15421987620790115,
+        "rigid_fit_error_max": 0.01747568533891408,
+        "rigid_fit_error_rmse": 0.008818522347633556,
+        "robot1_heading_error_max": 0.08170935831649073,
+        "robot1_heading_error_rmse": 0.03779490048416767,
+        "robot1_lateral_error_max": 0.011314022494399611,
+        "robot1_lateral_error_rmse": 0.005513591152280699,
+        "robot1_progress_error_max": 0.033301804431063786,
+        "robot1_progress_error_rmse": 0.015441235249928789,
+        "robot1_support_error_max": 0.03422122992602761,
+        "robot1_support_error_rmse": 0.016117166346114792,
+        "robot1_velocity_error_max": 0.02098527697098311,
+        "robot1_velocity_error_rmse": 0.01118227124464396,
+        "robot2_heading_error_max": 0.19997680425795863,
+        "robot2_heading_error_rmse": 0.13217179370988494,
+        "robot2_lateral_error_max": 0.01848599276475455,
+        "robot2_lateral_error_rmse": 0.008733980334414887,
+        "robot2_progress_error_max": 0.030234218900970777,
+        "robot2_progress_error_rmse": 0.0143474474396849,
+        "robot2_support_error_max": 0.03941125198649419,
+        "robot2_support_error_rmse": 0.01863769441750582,
+        "robot2_velocity_error_max": 0.021328725083750208,
+        "robot2_velocity_error_rmse": 0.009696118931225866,
+        "robot3_heading_error_max": 0.2581866135795557,
+        "robot3_heading_error_rmse": 0.19075324868534071,
+        "robot3_lateral_error_max": 0.01364400516039123,
+        "robot3_lateral_error_rmse": 0.006671739282554597,
+        "robot3_progress_error_max": 0.0400263733477777,
+        "robot3_progress_error_rmse": 0.018134669184124076,
+        "robot3_support_error_max": 0.0331395826705996,
+        "robot3_support_error_rmse": 0.015289061653295133,
+        "robot3_velocity_error_max": 0.025200950193137617,
+        "robot3_velocity_error_rmse": 0.014709775332623158,
+        "samples": 1076,
+        "support_error_max": 0.03941125198649419,
+        "support_error_rmse": 0.01863769441750582,
+        "wheel_margin_below_0p5_duration_seconds": 5.400964975357056,
+        "wheel_margin_below_0p7_duration_seconds": 5.649175643920898,
+        "wheel_margin_mean": 0.8319334800889768,
+        "wheel_margin_minimum": 0.0,
+        "wheel_margin_p05": 0.0
+      },
+      "physical_readiness": "NOT_AUTHORIZED",
+      "profile_verified": true,
+      "run_path": "/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/experiment_data/candidate_B_spatial_composite_fake/CANDIDATE_B_SPATIAL_COMPOSITE_RHO0P85_AV0P020_20260916_134850/M1b_R1/run",
+      "task_time_seconds": 51.76999807357788
+    },
+    "M2b": {
+      "M1_mechanism": null,
+      "category": "VALID_COMPLETED",
+      "complete": true,
+      "disturbance_verification": {
+        "Robot1": {
+          "d_omega_peak": 0.2624993884596227,
+          "d_omega_rms": 0.1765946220998524,
+          "d_v_peak": 0.01999998689609176,
+          "d_v_rms": 0.013694140629220758,
+          "entry_common_progress": 1.8305060487146936,
+          "entry_wall_time": 1789537982.3215308,
+          "exit_common_progress": 2.6305139803254374,
+          "exit_wall_time": 1789537990.32124,
+          "exposure_duration_seconds": 7.999709129333496,
+          "minimum_rho": 0.85,
+          "projection_distance_available": true,
+          "projection_distance_max": 0.1723350612338977,
+          "projection_distance_mean": 0.02118744315369716,
+          "q_max": 1.0,
+          "q_mean": 0.9353232036030127,
+          "zone_entry_progress": 2.0001249250309385,
+          "zone_exit_progress": 2.800240057868624
+        },
+        "Robot2": {
+          "d_omega_peak": 0.26249963195318604,
+          "d_omega_rms": 0.17668027786052284,
+          "d_v_peak": 0.019999998064371582,
+          "d_v_rms": 0.013709472811078113,
+          "entry_common_progress": 2.071500770655611,
+          "entry_common_progress_minus_robot1_m": 0.2409947219409172,
+          "entry_time_minus_robot1_seconds": 2.40978741645813,
+          "entry_wall_time": 1789537984.7313182,
+          "exit_common_progress": 2.8694996024106083,
+          "exit_wall_time": 1789537992.7109392,
+          "exposure_duration_seconds": 7.979620933532715,
+          "minimum_rho": 0.85,
+          "projection_distance_available": true,
+          "projection_distance_max": 0.1726422954055246,
+          "projection_distance_mean": 0.15449359879537286,
+          "q_max": 1.0,
+          "q_mean": 0.9369160745520708,
+          "zone_entry_progress": 2.0002093028724217,
+          "zone_exit_progress": 2.800084932375139
+        },
+        "Robot3": {
+          "d_omega_peak": 0.2624998271994968,
+          "d_omega_rms": 0.1770301657218902,
+          "d_v_peak": 0.019999995201924,
+          "d_v_rms": 0.013620074231511623,
+          "entry_common_progress": 2.1105043581554455,
+          "entry_common_progress_minus_robot1_m": 0.2799983094407519,
+          "entry_time_minus_robot1_seconds": 2.799478054046631,
+          "entry_wall_time": 1789537985.1210089,
+          "exit_common_progress": 2.9035101323353167,
+          "exit_wall_time": 1789537993.0511572,
+          "exposure_duration_seconds": 7.930148363113403,
+          "minimum_rho": 0.85,
+          "projection_distance_available": true,
+          "projection_distance_max": 0.17269605283777714,
+          "projection_distance_mean": 0.14359640836094398,
+          "q_max": 1.0,
+          "q_mean": 0.9328214770506178,
+          "zone_entry_progress": 2.000052660100994,
+          "zone_exit_progress": 2.8002797298287194
+        },
+        "entry_order": [
+          [
+            1789537982.3215308,
+            "Robot1"
+          ],
+          [
+            1789537984.7313182,
+            "Robot2"
+          ],
+          [
+            1789537985.1210089,
+            "Robot3"
+          ]
+        ]
+      },
+      "experiment_id": "candidate_B_spatial_composite_fake_validation",
+      "formal_evidence": false,
+      "markers": [
+        "EXPLORATORY_FAKE_VALIDATION",
+        "NOT_FORMAL_PAPER_EVIDENCE"
+      ],
+      "method": "M2b_M2b",
+      "metrics": {
+        "actual_peak_mps": 0.15538922558909207,
+        "duration_seconds": 10.729866981506348,
+        "equivalent_load_position_error_max": 0.026441091802150804,
+        "equivalent_load_position_error_rmse": 0.014177319833750406,
+        "equivalent_load_yaw_error_max": 0.042072987638650534,
+        "equivalent_load_yaw_error_rmse": 0.019705305371781227,
+        "native_controller_raw_peak_mps": 0.19210993888813233,
+        "native_controller_raw_rms_mps": 0.1157306380882483,
+        "native_over_0p160_duration_seconds": 4.719768047332764,
+        "native_over_0p180_duration_seconds": 1.7797574996948242,
+        "pairwise_side_error_max": 0.0384359555961275,
+        "pairwise_side_error_rmse": 0.019171588699107876,
+        "physical_limiter_duration_seconds": 0,
+        "post_candidate_b_over_0p160_duration_seconds": 0,
+        "post_candidate_b_over_0p180_duration_seconds": 0,
+        "post_candidate_b_peak_mps": 0.1557679048053561,
+        "post_limit_peak_mps": 0.1557679048053561,
+        "rigid_fit_error_max": 0.017951030302594696,
+        "rigid_fit_error_rmse": 0.009019688643948766,
+        "robot1_heading_error_max": 0.08154022521452564,
+        "robot1_heading_error_rmse": 0.037743967639929085,
+        "robot1_lateral_error_max": 0.011475039615137603,
+        "robot1_lateral_error_rmse": 0.00559391850987257,
+        "robot1_progress_error_max": 0.033972755929469134,
+        "robot1_progress_error_rmse": 0.015807108459735854,
+        "robot1_support_error_max": 0.03490360005453122,
+        "robot1_support_error_rmse": 0.016490785411771125,
+        "robot1_velocity_error_max": 0.021358084473642666,
+        "robot1_velocity_error_rmse": 0.011587752887381375,
+        "robot2_heading_error_max": 0.20036568940835076,
+        "robot2_heading_error_rmse": 0.13244902376192522,
+        "robot2_lateral_error_max": 0.018658294961658342,
+        "robot2_lateral_error_rmse": 0.008813363596226772,
+        "robot2_progress_error_max": 0.031004203199044067,
+        "robot2_progress_error_rmse": 0.014737975598628012,
+        "robot2_support_error_max": 0.04031987638050709,
+        "robot2_support_error_rmse": 0.019081637984284923,
+        "robot2_velocity_error_max": 0.02141525921645665,
+        "robot2_velocity_error_rmse": 0.010010559294824427,
+        "robot3_heading_error_max": 0.2582906701881893,
+        "robot3_heading_error_rmse": 0.1909548238570864,
+        "robot3_lateral_error_max": 0.013826521797977429,
+        "robot3_lateral_error_rmse": 0.00674119517796954,
+        "robot3_progress_error_max": 0.04120219589846963,
+        "robot3_progress_error_rmse": 0.01867823173323682,
+        "robot3_support_error_max": 0.03404220792437118,
+        "robot3_support_error_rmse": 0.015697808221871334,
+        "robot3_velocity_error_max": 0.02649734950707487,
+        "robot3_velocity_error_rmse": 0.015198656554447026,
+        "samples": 1073,
+        "support_error_max": 0.04031987638050709,
+        "support_error_rmse": 0.019081637984284923,
+        "wheel_margin_below_0p5_duration_seconds": 5.4699530601501465,
+        "wheel_margin_below_0p7_duration_seconds": 5.680854082107544,
+        "wheel_margin_mean": 0.8292883686114528,
+        "wheel_margin_minimum": 0.0,
+        "wheel_margin_p05": 0.0
+      },
+      "physical_readiness": "NOT_AUTHORIZED",
+      "profile_verified": true,
+      "run_path": "/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/experiment_data/candidate_B_spatial_composite_fake/CANDIDATE_B_SPATIAL_COMPOSITE_RHO0P85_AV0P020_20260916_134850/M2b_M2b/run",
+      "task_time_seconds": 51.68003010749817
+    }
+  },
+  "physical_readiness": "NOT_AUTHORIZED",
+  "profile": {
+    "disturbance_model_version": "candidate_B_v2_spatial_composite",
+    "enabled": true,
+    "freeze_id": "candidate_B_v2_spatial_rho0p85_av0p020_aw0p2625",
+    "longitudinal_amplitude": 0.02,
+    "longitudinal_frequency": 1.0,
+    "longitudinal_phase": 0.0,
+    "minimum_effectiveness": 0.85,
+    "ramp_in_distance": 0.05,
+    "ramp_out_distance": 0.05,
+    "yaw_amplitude": 0.2625,
+    "yaw_frequency": 1.0,
+    "yaw_phase": 1.5707963267948966,
+    "zone_end": 2.8,
+    "zone_start": 2.0
+  }
+}
