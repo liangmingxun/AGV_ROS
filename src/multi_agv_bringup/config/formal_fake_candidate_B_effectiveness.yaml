@@ -1,0 +1,18 @@
+# EXPLORATORY_FAKE_VALIDATION / NOT_FORMAL_PAPER_EVIDENCE
+# Equivalent longitudinal execution-effectiveness degradation plus bounded yaw.
+formal_fake_runtime:
+  candidate_b:
+    enabled: true
+    target_robot_id: 2
+    minimum_effectiveness: 0.85
+    yaw_amplitude: 0.2625
+    yaw_frequency: 1.0
+    yaw_phase: 1.5707963267948966
+    trigger_progress: 2.0
+    duration: 8.0
+    ramp_in: 0.5
+    ramp_out: 0.5
+    disturbance_model_version: candidate_B_v1
+    freeze_id: candidate_B_v1_rho0p85
+  classic_additive_candidate_A:
+    enabled: false

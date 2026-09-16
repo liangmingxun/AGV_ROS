@@ -239,6 +239,12 @@ if(CATKIN_ENABLE_TESTING)
     target_link_libraries(test_classic_additive_disturbance
       multi_agv_geometry gtest_main)
   endif()
+  catkin_add_gtest(test_candidate_b_effectiveness_disturbance
+    test/test_candidate_b_effectiveness_disturbance.cpp)
+  if(TARGET test_candidate_b_effectiveness_disturbance)
+    target_link_libraries(test_candidate_b_effectiveness_disturbance
+      multi_agv_geometry gtest_main)
+  endif()
   catkin_add_gtest(test_lower_channel_controller test/test_lower_channel_controller.cpp)
   catkin_add_gtest(test_m2b_controller test/test_m2b_controller.cpp)
   catkin_add_gtest(test_execution_channel_reconciler

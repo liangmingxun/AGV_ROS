@@ -25,8 +25,10 @@ The physical profile is fail-closed until both
 `classic_additive_physical.enabled` and
 `classic_additive_physical.hardware_execution_authorized` are true in
 `formal_serial_classic_additive_candidate_A_commissioning.yaml`. Method gates
-are separate. Enabling one Candidate A boolean is insufficient. M2b is not a
-permitted physical method.
+are separate. Enabling one Candidate A boolean is insufficient. The shared
+entry accepts M1+R1, M1b+R1 and the complete M2b+M2b method; M2b additionally
+requires `m2b_physical_authorized` and its exact-scope method overlay. It is
+never substituted into the shared R1 lower layer.
 
 The initial `maximum_qualified_scale` is 0.25. It may be raised to 0.50 only
 after both M1 and M1b pass 25%; likewise for 75% and 100%. Never skip a level,

@@ -34,15 +34,15 @@ class ClassicAdditivePhysicalCommissioningTest(unittest.TestCase):
         self.assertTrue(physical["hardware_execution_authorized"])
         self.assertEqual(physical["allowed_scales"], [.25, .50, .75, 1.0])
         self.assertEqual(physical["maximum_qualified_scale"], 1.0)
-        self.assertFalse(physical["m2b_physical_authorized"])
+        self.assertTrue(physical["m2b_physical_authorized"])
 
-    def test_only_m1_m1b_and_exact_scales_reach_dry_run(self):
+    def test_only_supported_methods_and_exact_scales_reach_dry_run(self):
         bad_method = subprocess.run(
-            [str(SCRIPT), "--method", "M2b", "--scale", "0.25",
+            [str(SCRIPT), "--method", "M2a", "--scale", "0.25",
              "--software-only-dry-run"], cwd=ROOT,
             capture_output=True, text=True)
         self.assertEqual(bad_method.returncode, 2)
-        self.assertIn("permits only M1 or M1b", bad_method.stderr)
+        self.assertIn("permits only M1, M1b or M2b", bad_method.stderr)
         bad_scale = subprocess.run(
             [str(SCRIPT), "--method", "M1", "--scale", "0.30",
              "--software-only-dry-run"], cwd=ROOT,
@@ -54,10 +54,25 @@ class ClassicAdditivePhysicalCommissioningTest(unittest.TestCase):
             capture_output=True, text=True, check=True)
         self.assertIn("LAMBDA_ZERO_BASELINE_EXACT=YES", baseline.stdout)
         self.assertIn("SERIAL_COMMAND_PUBLISHED=NO", baseline.stdout)
+        m2b = subprocess.run(
+            [str(SCRIPT), "--method", "M2b", "--scale", "1.00",
+             "--software-only-dry-run"], cwd=ROOT,
+            capture_output=True, text=True, check=True)
+        self.assertIn("METHOD=M2b", m2b.stdout)
+        self.assertIn("SERIAL_COMMAND_PUBLISHED=NO", m2b.stdout)
+        authorization = yaml.safe_load((CONFIG /
+            "formal_serial_classic_additive_candidate_A_M2b_authorization.yaml").read_text())
+        self.assertTrue(authorization["formal_upper"]["hardware_execution_authorized"])
+        self.assertTrue(authorization["formal_lower"]["hardware_execution_authorized"])
+        self.assertEqual(authorization["authorization_scope"]["upper_config"],
+                         "src/multi_agv_bringup/config/exp2b_M2b.yaml")
 
     def test_runtime_scope_and_insertion_order_are_fail_closed(self):
         source = NODE.read_text()
         self.assertIn("classic_additive_physical_hardware_authorized_", source)
+        self.assertIn("classic_additive_m2b_physical_authorized_", source)
+        self.assertIn("upper_config.mode == UpperMode::kM2b", source)
+        self.assertIn("lower_config.mode == LowerMode::kM2b", source)
         self.assertIn("transport_type_ == \"serial\"", source)
         self.assertIn(
             "classic_additive_candidate_A_physical_commissioning", source)

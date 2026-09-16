@@ -4,7 +4,7 @@ set -euo pipefail
 usage() {
   cat >&2 <<'EOF'
 usage: run_classic_additive_candidate_A_physical_commissioning.sh \
-  --method M1|M1b --scale 0|0.25|0.50|0.75|1.00 \
+  --method M1|M1b|M2b --scale 0|0.25|0.50|0.75|1.00 \
   [--software-only-dry-run] \
   --operator NAME --pair-block ID \
   --confirm-area-clear --confirm-wheels-on-floor \
@@ -42,8 +42,8 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-[[ "$method" == M1 || "$method" == M1b ]] || {
-  echo "ERROR: physical Candidate A permits only M1 or M1b" >&2; exit 2; }
+[[ "$method" == M1 || "$method" == M1b || "$method" == M2b ]] || {
+  echo "ERROR: physical Candidate A permits only M1, M1b or M2b" >&2; exit 2; }
 case "$scale" in
   0|0.25|0.50|0.75|1.00) ;;
   *) echo "ERROR: scale must be 0, 0.25, 0.50, 0.75 or 1.00" >&2; exit 2 ;;
@@ -59,7 +59,7 @@ if [[ "$dry_run" == true ]]; then
 import math, sys
 method, scale_text = sys.argv[1:]
 scale = float(scale_text)
-assert method in ("M1", "M1b")
+assert method in ("M1", "M1b", "M2b")
 assert scale in (0.0, .25, .50, .75, 1.0)
 b = .139284482
 left_raw, right_raw, t = .100, .100, 1.0
@@ -107,10 +107,15 @@ PY
 maximum_scale="$(read_config_value formal_fake_runtime.classic_additive_physical.maximum_qualified_scale)"
 physical_enabled="$(read_config_value formal_fake_runtime.classic_additive_physical.enabled)"
 hardware_authorized="$(read_config_value formal_fake_runtime.classic_additive_physical.hardware_execution_authorized)"
+m2b_authorized="$(read_config_value formal_fake_runtime.classic_additive_physical.m2b_physical_authorized)"
 
 if [[ "$scale" != 0 && ( "$physical_enabled" != true || "$hardware_authorized" != true ) ]]; then
   echo "ERROR: physical Candidate A remains fail-closed in ${physical_config}" >&2
   echo "Both classic_additive_physical.enabled and hardware_execution_authorized must be true after human review." >&2
+  exit 3
+fi
+if [[ "$method" == M2b && "$m2b_authorized" != true ]]; then
+  echo "ERROR: M2b physical Candidate A execution remains fail-closed in ${physical_config}" >&2
   exit 3
 fi
 if [[ "$scale" != 0 ]] && ! awk -v value="$scale" -v maximum="$maximum_scale" \
@@ -127,11 +132,11 @@ if [[ "$upper_authorized" != true || "$lower_authorized" != true ]]; then
   exit 3
 fi
 
-if [[ "$method" == M1 ]]; then
-  upper_config="$config_dir/exp2a_M1_serial_0p10_pilot.yaml"
-else
-  upper_config="$config_dir/exp2c_M1b_risk_disturbance_v1.yaml"
-fi
+case "$method" in
+  M1) upper_config="$config_dir/exp2a_M1_serial_0p10_pilot.yaml" ;;
+  M1b) upper_config="$config_dir/exp2c_M1b_risk_disturbance_v1.yaml" ;;
+  M2b) upper_config="$config_dir/exp2b_M2b.yaml" ;;
+esac
 
 echo "METHOD=${method}"
 echo "SCALE=${scale}"

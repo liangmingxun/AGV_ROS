@@ -24,4 +24,6 @@ formal_fake_runtime:
     qualification_status: ALL_FROZEN_LEVELS_OPERATOR_AUTHORIZED_SEQUENTIAL_VALIDATION_REQUIRED_WITH_PRIOR_M1B_0P25_OPERATOR_WAIVER
     experiment_id: classic_additive_candidate_A_physical_commissioning
     target_robot_id: 2
-    m2b_physical_authorized: false
+    # M2b remains a complete M2b+M2b method. This admits it only to this
+    # already operator-gated route; it bypasses no per-run confirmation.
+    m2b_physical_authorized: true

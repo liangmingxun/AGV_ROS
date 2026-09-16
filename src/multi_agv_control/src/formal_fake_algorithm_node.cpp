@@ -23,6 +23,7 @@
 #include <tf2/LinearMath/Scalar.h>
 
 #include "multi_agv_control/capability_mapper.hpp"
+#include "multi_agv_control/candidate_b_effectiveness_disturbance.hpp"
 #include "multi_agv_control/classic_additive_disturbance.hpp"
 #include "multi_agv_control/execution_channel_reconciler.hpp"
 #include "multi_agv_control/execution_reference_derivative.hpp"
@@ -170,7 +171,8 @@ class FormalFakeAlgorithmNode {
                                   transport_type_, v5_hardware_authorized) ||
         (v5_quality_observation_ && !(yaw_effectiveness_config_.enabled ||
                                      yaw_hold_config_.enabled ||
-                                     classic_additive_config_.enabled)))
+                                     classic_additive_config_.enabled ||
+                                     candidate_b_config_.enabled)))
       throw std::runtime_error("v5 quality policy cannot be enabled outside exact fake exploration");
     if (yaw_effectiveness_config_.enabled && (transport_type_ != "fake" ||
         experiment_id_ != "exp2c_v5_yaw_effectiveness_exploration" ||
@@ -192,6 +194,16 @@ class FormalFakeAlgorithmNode {
     bool lower_hardware_authorized = true;
     private_node_.param("formal_lower/hardware_execution_authorized",
                         lower_hardware_authorized, true);
+    if (candidate_b_config_.enabled) {
+      const bool candidate_b_scope = transport_type_ == "fake" &&
+          experiment_id_ == "candidate_B_effectiveness_fake_validation" &&
+          !v5_hardware_authorized && !lower_hardware_authorized &&
+          classic_method;
+      if (!candidate_b_scope) {
+        throw std::runtime_error(
+            "Candidate B is restricted to isolated fake M1/M1b/M2b validation");
+      }
+    }
     if (classic_additive_config_.enabled) {
       const bool fake_scope =
           !classic_additive_physical_enabled_ && transport_type_ == "fake" &&
@@ -200,9 +212,12 @@ class FormalFakeAlgorithmNode {
           !v5_hardware_authorized && classic_method &&
           std::abs(classic_additive_config_.scale - 1.0) <= 1e-12;
       const bool physical_method =
-          (upper_config.mode == UpperMode::kM1 ||
-           upper_config.mode == UpperMode::kM1b) &&
-          lower_config.mode == LowerMode::kR1;
+          (((upper_config.mode == UpperMode::kM1 ||
+             upper_config.mode == UpperMode::kM1b) &&
+            lower_config.mode == LowerMode::kR1) ||
+           (classic_additive_m2b_physical_authorized_ &&
+            upper_config.mode == UpperMode::kM2b &&
+            lower_config.mode == LowerMode::kM2b));
       const bool physical_scope = classic_additive_physical_enabled_ &&
           classic_additive_physical_hardware_authorized_ &&
           transport_type_ == "serial" &&
@@ -314,6 +329,9 @@ class FormalFakeAlgorithmNode {
     if (classic_additive_config_.enabled)
       classic_additive_publisher_=node_.advertise<std_msgs::Float64MultiArray>(
           "/multi_agv/classic_additive_disturbance_state",10,false);
+    if (candidate_b_config_.enabled)
+      candidate_b_publisher_=node_.advertise<std_msgs::Float64MultiArray>(
+          "/multi_agv/candidate_B_disturbance_state",10,false);
     if (classic_additive_physical_enabled_)
       classic_additive_physical_publisher_=
           node_.advertise<std_msgs::Float64MultiArray>(
@@ -694,6 +712,9 @@ class FormalFakeAlgorithmNode {
     private_node_.param(
         root+"classic_additive_physical/hardware_execution_authorized",
         classic_additive_physical_hardware_authorized_,false);
+    private_node_.param(
+        root+"classic_additive_physical/m2b_physical_authorized",
+        classic_additive_m2b_physical_authorized_,false);
     private_node_.param(root+"classic_additive_physical/qualification_scale",
                         classic_additive_config_.scale,1.0);
     private_node_.param(
@@ -711,13 +732,42 @@ class FormalFakeAlgorithmNode {
         classic_additive_fake_enabled || classic_additive_physical_enabled_;
     classic_additive_config_.wheel_separation=tracker_config_.wheel_separation[1];
     validateClassicAdditiveConfig(classic_additive_config_);
+    private_node_.param(root+"candidate_b/enabled",
+                        candidate_b_config_.enabled,false);
+    private_node_.param(root+"candidate_b/target_robot_id",
+                        candidate_b_config_.target_robot_id,2);
+    private_node_.param(root+"candidate_b/minimum_effectiveness",
+                        candidate_b_config_.minimum_effectiveness,.85);
+    private_node_.param(root+"candidate_b/yaw_amplitude",
+                        candidate_b_config_.yaw_amplitude,.2625);
+    private_node_.param(root+"candidate_b/yaw_frequency",
+                        candidate_b_config_.yaw_frequency,1.0);
+    private_node_.param(root+"candidate_b/yaw_phase",
+                        candidate_b_config_.yaw_phase,.5*std::acos(-1.0));
+    private_node_.param(root+"candidate_b/trigger_progress",
+                        candidate_b_config_.trigger_progress,2.0);
+    private_node_.param(root+"candidate_b/duration",
+                        candidate_b_config_.duration,8.0);
+    private_node_.param(root+"candidate_b/ramp_in",
+                        candidate_b_config_.ramp_in,.5);
+    private_node_.param(root+"candidate_b/ramp_out",
+                        candidate_b_config_.ramp_out,.5);
+    private_node_.param<std::string>(root+"candidate_b/disturbance_model_version",
+                        candidate_b_config_.disturbance_model_version,
+                        "candidate_B_v1");
+    private_node_.param<std::string>(root+"candidate_b/freeze_id",
+                        candidate_b_config_.freeze_id,
+                        "candidate_B_v1_rho0p85");
+    candidate_b_config_.wheel_separation=tracker_config_.wheel_separation[1];
+    validateCandidateBConfig(candidate_b_config_);
     const int enabled_disturbances =
         (risk_disturbance_config_.enabled ? 1 : 0) +
         (yaw_drive_disturbance_config_.enabled ? 1 : 0) +
         (transient_yaw_config_.enabled ? 1 : 0) +
         (yaw_effectiveness_config_.enabled ? 1 : 0) +
         (yaw_hold_config_.enabled ? 1 : 0) +
-        (classic_additive_config_.enabled ? 1 : 0);
+        (classic_additive_config_.enabled ? 1 : 0) +
+        (candidate_b_config_.enabled ? 1 : 0);
     if (enabled_disturbances > 1)
       throw std::runtime_error("classic/legacy disturbance profiles are mutually exclusive");
     if (yaw_hold_config_.enabled && (yaw_effectiveness_config_.enabled || transient_yaw_config_.enabled ||
@@ -1846,7 +1896,8 @@ class FormalFakeAlgorithmNode {
         experiment_id_ == "exp2c_v5_yaw_effectiveness_exploration" ||
         experiment_id_ == "exp2c_v5b_yaw_effectiveness_hold_exploration" ||
         (experiment_id_ == "exp2c_v5b_s1_three_method_repeat_validation" && !m2b_selected_) ||
-        (experiment_id_ == "classic_additive_disturbance_candidate_A_validation" && !m2b_selected_);
+        (experiment_id_ == "classic_additive_disturbance_candidate_A_validation" && !m2b_selected_) ||
+        (experiment_id_ == "candidate_B_effectiveness_fake_validation" && !m2b_selected_);
     message.layout.dim[0].label = v3_diagnostics
         ? "formal_algorithm_state_v3:header10+3x29+reference4"
         : "formal_algorithm_state_v2:header10+3x29";
@@ -2186,6 +2237,87 @@ class FormalFakeAlgorithmNode {
     publishClassicAdditive(stamp,raw);
   }
 
+  void applyCandidateB(
+      const std::array<PlanarTrackingResult,3>& native,
+      std::array<PlanarTrackingResult,3>* execution) {
+    if (!candidate_b_config_.enabled) return;
+    const std::size_t index =
+        static_cast<std::size_t>(candidate_b_config_.target_robot_id - 1);
+    candidate_b_output_ = candidate_b_disturbance_.evaluate(
+        candidate_b_config_, candidate_b_config_.target_robot_id,
+        state_.s_actual[index], ros::WallTime::now().toSec(),
+        native[index].wheel_linear_velocity_left_raw,
+        native[index].wheel_linear_velocity_right_raw);
+    auto& target = (*execution)[index];
+    target.wheel_linear_velocity_left_raw =
+        candidate_b_output_.left_post_disturbance;
+    target.wheel_linear_velocity_right_raw =
+        candidate_b_output_.right_post_disturbance;
+    target.linear_velocity_raw = 0.5 * (
+        candidate_b_output_.left_post_disturbance +
+        candidate_b_output_.right_post_disturbance);
+    target.angular_velocity_raw = (
+        candidate_b_output_.right_post_disturbance -
+        candidate_b_output_.left_post_disturbance) /
+        candidate_b_config_.wheel_separation;
+  }
+
+  void publishCandidateB(
+      const ros::Time& stamp,
+      const std::array<PlanarTrackingResult,3>& native,
+      const std::array<PlanarTrackingResult,3>& post_limit) {
+    if (!candidate_b_config_.enabled) return;
+    (void)post_limit;
+    constexpr double emergency = 0.18;
+    const std::size_t index =
+        static_cast<std::size_t>(candidate_b_config_.target_robot_id - 1);
+    const auto& v = candidate_b_output_;
+    // The fake chassis applies the same reported 0.160 m/s physical limiter
+    // downstream of the algorithm command.  Record its returned applied
+    // values and flags; do not emulate a second limiter in the algorithm.
+    const double post_left =
+        feedback_[index].wheel_linear_velocity_left_applied;
+    const double post_right =
+        feedback_[index].wheel_linear_velocity_right_applied;
+    const bool limiter_active = feedback_[index].speed_limit_active_left ||
+                                feedback_[index].speed_limit_active_right;
+    std_msgs::Float64MultiArray message;
+    message.layout.dim.resize(1);
+    message.layout.dim[0].label = "candidate_B_v1:header39+3x3";
+    message.layout.dim[0].size = message.layout.dim[0].stride = 48U;
+    message.data = {
+      stamp.toSec(), v.wall_time, v.trigger_wall_time,
+      v.triggered ? 1.0 : 0.0, v.active ? 1.0 : 0.0,
+      v.finished ? 1.0 : 0.0, v.elapsed, v.progress,
+      candidate_b_config_.enabled ? 1.0 : 0.0,
+      static_cast<double>(candidate_b_config_.target_robot_id),
+      candidate_b_config_.minimum_effectiveness, v.envelope, v.effectiveness,
+      candidate_b_config_.yaw_amplitude, candidate_b_config_.yaw_frequency,
+      candidate_b_config_.yaw_phase, candidate_b_config_.duration,
+      candidate_b_config_.ramp_in, candidate_b_config_.ramp_out,
+      candidate_b_config_.wheel_separation, v.yaw_disturbance,
+      v.left_native, v.right_native, v.longitudinal_native, v.yaw_native,
+      v.longitudinal_after_effectiveness, v.yaw_native,
+      v.yaw_after_disturbance, v.left_post_disturbance,
+      v.right_post_disturbance,
+      std::max(std::abs(v.left_native), std::abs(v.right_native)) > emergency
+          ? 1.0 : 0.0,
+      std::max(std::abs(v.left_post_disturbance),
+               std::abs(v.right_post_disturbance)) > emergency ? 1.0 : 0.0,
+      limiter_active ? 1.0 : 0.0, post_left, post_right,
+      feedback_[index].wheel_linear_velocity_left_actual,
+      feedback_[index].wheel_linear_velocity_right_actual,
+      0.5 * (feedback_[index].wheel_linear_velocity_left_actual +
+             feedback_[index].wheel_linear_velocity_right_actual),
+      1.0};
+    for (const auto& result : native) {
+      message.data.push_back(result.longitudinal_error);
+      message.data.push_back(result.lateral_error);
+      message.data.push_back(result.heading_error);
+    }
+    candidate_b_publisher_.publish(message);
+  }
+
   void publishClassicAdditivePhysical(
       const ros::Time& stamp,
       const std::array<std::array<double,2>,3>& post_limit) {
@@ -2496,6 +2628,7 @@ class FormalFakeAlgorithmNode {
       }
       auto execution_tracking = tracking;
       applyYawHold(now, tracking, &execution_tracking);
+      applyCandidateB(tracking, &execution_tracking);
       applyClassicAdditive(now, tracking, &execution_tracking);
       if (!trackingPassesSerialEmergencyGate(execution_tracking, dt)) {
         publishZero(now);
@@ -2506,6 +2639,7 @@ class FormalFakeAlgorithmNode {
       const double wheel_scale = applySerialExecutionLimitPolicy(&execution_tracking);
       publishExecutionLimiter(
           now, wheel_scale, wheel_demand_before_limit, execution_tracking);
+      publishCandidateB(now, tracking, execution_tracking);
       for (std::size_t i = 0; i < kRobotCount; ++i) {
         agv_msgs::ChassisCommand command;
         command.header.stamp = now;
@@ -2797,6 +2931,7 @@ class FormalFakeAlgorithmNode {
       publishYawEffectiveness(now, tracking);
     }
     applyYawHold(now, tracking, &execution_tracking);
+    applyCandidateB(tracking, &execution_tracking);
     applyClassicAdditive(now, tracking, &execution_tracking);
     if (!trackingPassesSerialEmergencyGate(execution_tracking, dt)) {
       publishZero(now);
@@ -2807,6 +2942,7 @@ class FormalFakeAlgorithmNode {
     const double wheel_scale = applySerialExecutionLimitPolicy(&execution_tracking);
     publishExecutionLimiter(
         now, wheel_scale, wheel_demand_before_limit, execution_tracking);
+    publishCandidateB(now, tracking, execution_tracking);
     publishRiskDisturbance(now);
     publishYawDriveDisturbance(now);
 
@@ -2891,6 +3027,7 @@ class FormalFakeAlgorithmNode {
   ros::Publisher yaw_hold_publisher_;
   ros::Publisher classic_additive_publisher_;
   ros::Publisher classic_additive_physical_publisher_;
+  ros::Publisher candidate_b_publisher_;
   ros::Timer timer_;
   agv_msgs::CooperativeState state_;
   agv_msgs::CooperativeState latest_received_state_;
@@ -2993,8 +3130,12 @@ class FormalFakeAlgorithmNode {
   ClassicAdditiveConfig classic_additive_config_;
   ClassicAdditiveDisturbance classic_additive_disturbance_;
   ClassicAdditiveOutput classic_additive_output_{};
+  CandidateBConfig candidate_b_config_;
+  CandidateBEffectivenessDisturbance candidate_b_disturbance_;
+  CandidateBOutput candidate_b_output_{};
   bool classic_additive_physical_enabled_{false};
   bool classic_additive_physical_hardware_authorized_{false};
+  bool classic_additive_m2b_physical_authorized_{false};
   double classic_additive_physical_maximum_qualified_scale_{1.0};
   std::uint32_t reconciliation_maximum_applied_sequence_lag_{5U};
   std::size_t m1_derating_reserve_robot_index_{1U};
