@@ -226,7 +226,7 @@ class FormalFakeAlgorithmNode {
       }
     }
     if (candidate_b_spatial_config_.enabled) {
-      const bool candidate_b_spatial_scope =
+      const bool candidate_b_spatial_fake_scope =
           transport_type_ == "fake" &&
           (experiment_id_ ==
                "candidate_B_spatial_composite_fake_validation" ||
@@ -236,10 +236,22 @@ class FormalFakeAlgorithmNode {
           classic_method && !candidate_b_config_.enabled &&
           !classic_additive_config_.enabled &&
           !classic_additive_physical_enabled_;
-      if (!candidate_b_spatial_scope) {
+      const bool candidate_b_spatial_physical_scope =
+          transport_type_ == "serial" &&
+          experiment_id_ ==
+              "candidate_B_spatial_gradient15_physical_validation" &&
+          candidate_b_spatial_physical_enabled_ &&
+          candidate_b_spatial_physical_hardware_authorized_ &&
+          v5_hardware_authorized && lower_hardware_authorized &&
+          classic_method && !candidate_b_config_.enabled &&
+          !classic_additive_config_.enabled &&
+          !classic_additive_physical_enabled_ &&
+          isCandidateBSpatialGradient15Profile(candidate_b_spatial_config_);
+      if (!candidate_b_spatial_fake_scope &&
+          !candidate_b_spatial_physical_scope) {
         throw std::runtime_error(
-            "Candidate B v2 spatial composite is restricted to isolated "
-            "fake M1/M1b/M2b validation with all hardware grants false");
+            "Candidate B v2 spatial composite is outside its exact fake or "
+            "dual-authorized gradient15 physical scope");
       }
     }
     if (classic_additive_config_.enabled) {
@@ -847,6 +859,12 @@ class FormalFakeAlgorithmNode {
     candidate_b_spatial_config_.wheel_separation =
         tracker_config_.wheel_separation;
     validateCandidateBSpatialCompositeConfig(candidate_b_spatial_config_);
+    private_node_.param(
+        root+"candidate_b_spatial_physical/enabled",
+        candidate_b_spatial_physical_enabled_,false);
+    private_node_.param(
+        root+"candidate_b_spatial_physical/hardware_execution_authorized",
+        candidate_b_spatial_physical_hardware_authorized_,false);
     const int enabled_disturbances =
         (risk_disturbance_config_.enabled ? 1 : 0) +
         (yaw_drive_disturbance_config_.enabled ? 1 : 0) +
@@ -1987,7 +2005,9 @@ class FormalFakeAlgorithmNode {
         (experiment_id_ == "classic_additive_disturbance_candidate_A_validation" && !m2b_selected_) ||
         (experiment_id_ == "candidate_B_effectiveness_fake_validation" && !m2b_selected_) ||
         ((experiment_id_ == "candidate_B_spatial_composite_fake_validation" ||
-          experiment_id_ == "candidate_B_spatial_gradient15_fake_validation") &&
+          experiment_id_ == "candidate_B_spatial_gradient15_fake_validation" ||
+          experiment_id_ ==
+              "candidate_B_spatial_gradient15_physical_validation") &&
          !m2b_selected_);
     message.layout.dim[0].label = v3_diagnostics
         ? "formal_algorithm_state_v3:header10+3x29+reference4"
@@ -3340,6 +3360,8 @@ class FormalFakeAlgorithmNode {
   std::array<CandidateBSpatialCompositeOutput, 3>
       candidate_b_spatial_output_{};
   std::array<double, 3> candidate_b_spatial_projection_distance_{};
+  bool candidate_b_spatial_physical_enabled_{false};
+  bool candidate_b_spatial_physical_hardware_authorized_{false};
   bool classic_additive_physical_enabled_{false};
   bool classic_additive_physical_hardware_authorized_{false};
   bool classic_additive_m2b_physical_authorized_{false};

@@ -50,6 +50,11 @@
   <arg name="classic_additive_config"
        default="$(find multi_agv_bringup)/config/formal_serial_classic_additive_candidate_A_commissioning.yaml"/>
   <arg name="record_classic_additive_physical" default="false"/>
+  <arg name="candidate_b_spatial_config"
+       default="$(find multi_agv_bringup)/config/formal_serial_candidate_B_spatial_disabled.yaml"/>
+  <arg name="record_candidate_b_spatial_physical" default="false"/>
+  <arg name="candidate_b_spatial_profile_id" default=""/>
+  <arg name="candidate_b_spatial_physical_authorized" default="false"/>
   <arg name="evaluation_target" default="1.0"/>
   <arg name="require_approved_config" default="false"/>
   <arg name="formal_statistics_requested" default="false"/>
@@ -87,6 +92,12 @@
            value="$(arg formal_statistics_requested)"/>
     <param name="record_classic_additive_physical"
            value="$(arg record_classic_additive_physical)"/>
+    <param name="record_candidate_b_spatial_physical"
+           value="$(arg record_candidate_b_spatial_physical)"/>
+    <param name="candidate_b_spatial_profile_id"
+           value="$(arg candidate_b_spatial_profile_id)"/>
+    <param name="candidate_b_spatial_physical_authorized"
+           value="$(arg candidate_b_spatial_physical_authorized)"/>
     <param name="approval_id" value="$(arg approval_id)"/>
     <param name="approval_registry" value="$(arg approval_registry)"/>
     <param name="workspace" value="$(find multi_agv_bringup)/../../.."/>
@@ -111,6 +122,7 @@
        "$(arg derating_authorization_config)",
        "$(arg evaluation_config)",
        "$(arg classic_additive_config)",
+       "$(arg candidate_b_spatial_config)",
        "$(find multi_agv_bringup)/config/fleet_inventory.yaml",
        "$(find multi_agv_bringup)/config/software_watchdog.yaml",
        "$(arg record_topics_config)"]

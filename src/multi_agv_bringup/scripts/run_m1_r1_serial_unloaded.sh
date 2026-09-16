@@ -65,6 +65,9 @@ classic_additive_config="${FORMAL_CLASSIC_ADDITIVE_CONFIG:-src/multi_agv_bringup
 classic_additive_scale="${FORMAL_CLASSIC_ADDITIVE_SCALE:-0.25}"
 classic_additive_physical_enabled="${FORMAL_CLASSIC_ADDITIVE_PHYSICAL_ENABLED:-false}"
 record_classic_additive_physical="${FORMAL_RECORD_CLASSIC_ADDITIVE_PHYSICAL:-false}"
+candidate_b_spatial_config="${FORMAL_CANDIDATE_B_SPATIAL_CONFIG:-src/multi_agv_bringup/config/formal_serial_candidate_B_spatial_disabled.yaml}"
+candidate_b_spatial_physical_enabled="${FORMAL_CANDIDATE_B_SPATIAL_PHYSICAL_ENABLED:-false}"
+record_candidate_b_spatial_physical="${FORMAL_RECORD_CANDIDATE_B_SPATIAL_PHYSICAL:-false}"
 case "$formal_upper_mode" in
   M2a)
     upper_config="${FORMAL_UPPER_CONFIG:-src/multi_agv_bringup/config/exp2a_M2a_serial_008.yaml}"
@@ -107,7 +110,8 @@ for required_config in "$runtime_config" "$path_config" \
                        "$evaluation_config" "$upper_config" \
                        "$lower_config" "$authorization_config" \
                        "$derating_authorization_config" \
-                       "$classic_additive_config"; do
+                       "$classic_additive_config" \
+                       "$candidate_b_spatial_config"; do
   if [[ ! -f "$required_config" ]]; then
     echo "ERROR: required formal configuration is missing: ${required_config}" >&2
     exit 3
@@ -413,7 +417,11 @@ done
 rosrun multi_agv_bringup check_three_car_readonly_gate.py \
   --observe-seconds 5 --require-fused-cooperative-state
 
-run_id="${run_prefix}_$(date +%Y%m%d_%H%M%S)"
+run_id="${FORMAL_RUN_ID:-${run_prefix}_$(date +%Y%m%d_%H%M%S)}"
+if [[ ! "$run_id" =~ ^[A-Za-z0-9._-]+$ ]]; then
+  echo "ERROR: run id is invalid: ${run_id}" >&2
+  exit 3
+fi
 roslaunch multi_agv_bringup formal_serial_m1_r1.launch \
   upper_config:="${workspace}/${upper_config}" \
   lower_config:="${workspace}/${lower_config}" \
@@ -421,6 +429,8 @@ roslaunch multi_agv_bringup formal_serial_m1_r1.launch \
   classic_additive_config:="${workspace}/${classic_additive_config}" \
   classic_additive_scale:="$classic_additive_scale" \
   classic_additive_physical_enabled:="$classic_additive_physical_enabled" \
+  candidate_b_spatial_config:="${workspace}/${candidate_b_spatial_config}" \
+  candidate_b_spatial_physical_enabled:="$candidate_b_spatial_physical_enabled" \
   path_config:="${workspace}/${path_config}" \
   runtime_config:="${workspace}/${runtime_config}" \
   experiment_id:="$experiment_id" \
@@ -466,6 +476,10 @@ roslaunch multi_agv_bringup experiment.launch \
   execution_authorization_config:="${workspace}/${authorization_config}" \
   classic_additive_config:="${workspace}/${classic_additive_config}" \
   record_classic_additive_physical:="$record_classic_additive_physical" \
+  candidate_b_spatial_config:="${workspace}/${candidate_b_spatial_config}" \
+  record_candidate_b_spatial_physical:="$record_candidate_b_spatial_physical" \
+  candidate_b_spatial_profile_id:="${FORMAL_CANDIDATE_B_SPATIAL_PROFILE_ID:-}" \
+  candidate_b_spatial_physical_authorized:="${FORMAL_CANDIDATE_B_SPATIAL_PHYSICAL_AUTHORIZED:-false}" \
   derating_authorization_config:="${workspace}/${derating_authorization_config}" \
   evaluation_config:="${workspace}/${evaluation_config}" \
   path_config:="${workspace}/${path_config}" \

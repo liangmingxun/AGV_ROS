@@ -48,6 +48,26 @@ inline double candidateBSpatialQ5(double u) {
   return u * u * u * (10.0 + u * (-15.0 + 6.0 * u));
 }
 
+inline bool isCandidateBSpatialGradient15Profile(
+    const CandidateBSpatialCompositeConfig& c) {
+  const double pi = std::acos(-1.0);
+  return std::abs(c.minimum_effectiveness - 0.85) <= 1e-12 &&
+      std::abs(c.longitudinal_amplitude - 0.020) <= 1e-12 &&
+      std::abs(c.longitudinal_frequency - 1.0) <= 1e-12 &&
+      std::abs(c.longitudinal_phase) <= 1e-12 &&
+      std::abs(c.yaw_amplitude - 0.2625) <= 1e-12 &&
+      std::abs(c.yaw_frequency - 1.0) <= 1e-12 &&
+      std::abs(c.yaw_phase - 0.5 * pi) <= 1e-12 &&
+      std::abs(c.zone_start - 2.0) <= 1e-12 &&
+      std::abs(c.zone_end - 2.8) <= 1e-12 &&
+      std::abs(c.ramp_in_distance - 0.05) <= 1e-12 &&
+      std::abs(c.ramp_out_distance - 0.05) <= 1e-12 &&
+      c.severity_scale == std::array<double, 3>{{1.0, 1.15, 0.85}} &&
+      c.disturbance_model_version == "candidate_B_v2_spatial_composite" &&
+      c.freeze_id ==
+          "candidate_B_v2_spatial_gradient15_rho0p85_av0p020_aw0p2625";
+}
+
 inline void validateCandidateBSpatialCompositeConfig(
     const CandidateBSpatialCompositeConfig& c) {
   if (!c.enabled) return;
@@ -62,10 +82,7 @@ inline void validateCandidateBSpatialCompositeConfig(
       c.severity_scale == std::array<double, 3>{{1.0, 1.0, 1.0}} &&
       c.freeze_id ==
           "candidate_B_v2_spatial_rho0p85_av0p020_aw0p2625";
-  const bool gradient15_profile =
-      c.severity_scale == std::array<double, 3>{{1.0, 1.15, 0.85}} &&
-      c.freeze_id ==
-          "candidate_B_v2_spatial_gradient15_rho0p85_av0p020_aw0p2625";
+  const bool gradient15_profile = isCandidateBSpatialGradient15Profile(c);
   if (!std::isfinite(c.minimum_effectiveness) ||
       !std::isfinite(c.longitudinal_amplitude) ||
       !std::isfinite(c.longitudinal_frequency) ||

@@ -14,6 +14,9 @@
        default="$(find multi_agv_bringup)/config/formal_serial_classic_additive_candidate_A_commissioning.yaml"/>
   <arg name="classic_additive_scale" default="0.25"/>
   <arg name="classic_additive_physical_enabled" default="false"/>
+  <arg name="candidate_b_spatial_config"
+       default="$(find multi_agv_bringup)/config/formal_serial_candidate_B_spatial_disabled.yaml"/>
+  <arg name="candidate_b_spatial_physical_enabled" default="false"/>
   <arg name="experiment_id" default="exp2a_m1_r1_unloaded_serial"/>
   <arg name="target_progress" default="1.2042352285"/>
   <arg name="enable_commands" default="false"/>
@@ -33,6 +36,7 @@
     <rosparam command="load" file="$(arg lower_config)"/>
     <rosparam command="load" file="$(arg authorization_config)"/>
     <rosparam command="load" file="$(arg classic_additive_config)"/>
+    <rosparam command="load" file="$(arg candidate_b_spatial_config)"/>
     <param name="platform_transport_type" value="serial"/>
     <param name="formal_fake_runtime/command_publication_authorized"
            value="$(arg enable_commands)"/>
@@ -48,6 +52,10 @@
            value="$(arg classic_additive_scale)"/>
     <param name="formal_fake_runtime/classic_additive_physical/enabled"
            value="$(arg classic_additive_physical_enabled)"/>
+    <param name="formal_fake_runtime/candidate_b_spatial_composite/enabled"
+           value="$(arg candidate_b_spatial_physical_enabled)"/>
+    <param name="formal_fake_runtime/candidate_b_spatial_physical/enabled"
+           value="$(arg candidate_b_spatial_physical_enabled)"/>
     <param name="formal_fake_runtime/target_progress" value="$(arg target_progress)"/>
     <param name="formal_fake_runtime/risk_disturbance_v1/peak_fraction"
            value="$(arg risk_disturbance_peak_fraction)"/>

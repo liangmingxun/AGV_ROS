@@ -1,0 +1,33 @@
+# Direct physical preparation for the frozen Candidate B v2 gradient15 scene.
+# The disturbance is intentionally disabled until both physical booleans below
+# are changed after human review.  No scale/qualification ladder exists here.
+formal_fake_runtime:
+  candidate_b_spatial_composite:
+    enabled: false
+    minimum_effectiveness: 0.85
+    longitudinal_amplitude: 0.020
+    longitudinal_frequency: 1.0
+    longitudinal_phase: 0.0
+    yaw_amplitude: 0.2625
+    yaw_frequency: 1.0
+    yaw_phase: 1.5707963267948966
+    zone_start: 2.0
+    zone_end: 2.8
+    ramp_in_distance: 0.05
+    ramp_out_distance: 0.05
+    severity_scale: [1.0, 1.15, 0.85]
+    disturbance_model_version: candidate_B_v2_spatial_composite
+    freeze_id: candidate_B_v2_spatial_gradient15_rho0p85_av0p020_aw0p2625
+  candidate_b_spatial_physical:
+    enabled: false
+    hardware_execution_authorized: false
+    experiment_id: candidate_B_spatial_gradient15_physical_validation
+    authorization_status: DIRECT_PHYSICAL_PREPARED_NOT_AUTHORIZED
+    payload_mode: unloaded_equivalent_payload
+  candidate_b:
+    enabled: false
+  classic_additive_candidate_A:
+    enabled: false
+  classic_additive_physical:
+    enabled: false
+    hardware_execution_authorized: false

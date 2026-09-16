@@ -48,6 +48,7 @@ install(PROGRAMS
         scripts/run_candidate_B_spatial_composite_one_fake.sh
         scripts/run_candidate_B_spatial_composite_fake_comparison.sh
         scripts/run_candidate_B_spatial_gradient15_fake_comparison.sh
+        scripts/run_candidate_B_spatial_gradient15_physical.sh
         scripts/run_m1_r1_serial_unloaded.sh
         scripts/run_m1_r1_serial_unloaded_3m.sh
         scripts/run_m1_r1_serial_unloaded_circle_r0p7.sh
@@ -80,6 +81,7 @@ if(CATKIN_ENABLE_TESTING)
   find_package(rostest REQUIRED)
   catkin_add_nosetests(test/test_wheel_speed_scale_calibration.py)
   catkin_add_nosetests(test/test_classic_additive_physical_commissioning.py)
+  catkin_add_nosetests(test/test_candidate_B_spatial_gradient15_physical.py)
   add_rostest(test/namespace_isolation.test)
   add_rostest(test/command_authority.test)
   add_rostest(test/tf_authority.test)

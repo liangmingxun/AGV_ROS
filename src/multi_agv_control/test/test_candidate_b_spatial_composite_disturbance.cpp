@@ -162,5 +162,15 @@ TEST(CandidateBSpatialComposite, RejectsUnfrozenSeverityScale) {
                std::invalid_argument);
 }
 
+TEST(CandidateBSpatialComposite, PhysicalGradient15IdentityIsExact) {
+  auto c = config();
+  c.severity_scale = {{1.0, 1.15, 0.85}};
+  c.freeze_id =
+      "candidate_B_v2_spatial_gradient15_rho0p85_av0p020_aw0p2625";
+  EXPECT_TRUE(isCandidateBSpatialGradient15Profile(c));
+  c.longitudinal_amplitude = 0.019;
+  EXPECT_FALSE(isCandidateBSpatialGradient15Profile(c));
+}
+
 }  // namespace
 }  // namespace multi_agv_control

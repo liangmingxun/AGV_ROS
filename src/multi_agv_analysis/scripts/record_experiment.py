@@ -98,6 +98,10 @@ class ExperimentRecorder:
         self.operator = rospy.get_param("~operator", "")
         self.interface_version = rospy.get_param(
             "~interface_version", "agv_ros_interfaces_v1")
+        self.candidate_b_spatial_profile_id = rospy.get_param(
+            "~candidate_b_spatial_profile_id", "")
+        self.candidate_b_spatial_physical_authorized = rospy.get_param(
+            "~candidate_b_spatial_physical_authorized", False)
         self.topics = list(self.recording.get("topics", []))
         self.required_topics = list(
             self.recording.get("required_topics", []))
@@ -108,6 +112,16 @@ class ExperimentRecorder:
             ]
             self.topics.extend(physical_topics)
             self.required_topics.extend(physical_topics)
+        if rospy.get_param("~record_candidate_b_spatial_physical", False):
+            spatial_topics = [
+                "/multi_agv/candidate_B_spatial_composite_state",
+                "/multi_agv/formal_execution_limiter_state",
+            ]
+            for topic in spatial_topics:
+                if topic not in self.topics:
+                    self.topics.append(topic)
+                if topic not in self.required_topics:
+                    self.required_topics.append(topic)
         if self.payload_state == "loaded":
             self.topics.append(self.measured_payload_pose_topic)
             self.required_topics.append(self.measured_payload_pose_topic)
@@ -272,6 +286,11 @@ class ExperimentRecorder:
             },
             "wheel_speed_scale_freeze_id":
                 self.wheel_speed_scale_freeze_id,
+            "candidate_b_spatial": {
+                "profile_id": self.candidate_b_spatial_profile_id,
+                "physical_authorized":
+                    self.candidate_b_spatial_physical_authorized,
+            },
             "windows_sender_manifest_required":
                 self.require_windows_sender_manifest,
             "windows_sender_manifest_present":
@@ -336,6 +355,11 @@ class ExperimentRecorder:
             },
             "wheel_speed_scale_freeze_id":
                 self.wheel_speed_scale_freeze_id,
+            "candidate_b_spatial": {
+                "profile_id": self.candidate_b_spatial_profile_id,
+                "physical_authorized":
+                    self.candidate_b_spatial_physical_authorized,
+            },
             "localization_source": self.localization_source,
             "battery_voltage_start": None,
             "battery_voltage_end": None,
