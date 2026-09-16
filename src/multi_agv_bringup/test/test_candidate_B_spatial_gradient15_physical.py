@@ -12,6 +12,7 @@ CONFIG = PACKAGE / "config"
 SCRIPT = PACKAGE / "scripts/run_candidate_B_spatial_gradient15_physical.sh"
 NODE = ROOT / "src/multi_agv_control/src/formal_fake_algorithm_node.cpp"
 RECORDER = ROOT / "src/multi_agv_analysis/scripts/record_experiment.py"
+BASE_RUNNER = PACKAGE / "scripts/run_m1_r1_serial_unloaded.sh"
 
 
 class CandidateBSpatialGradient15PhysicalTest(unittest.TestCase):
@@ -78,6 +79,23 @@ class CandidateBSpatialGradient15PhysicalTest(unittest.TestCase):
         self.assertIn("FORMAL_CANDIDATE_B_SPATIAL_BASE_CONFIG", source)
         self.assertIn("physical_runtime.log", source)
         self.assertIn(".runtime_authorization/", (ROOT / ".gitignore").read_text())
+
+    def test_authorized_target_is_compared_numerically(self):
+        source = BASE_RUNNER.read_text()
+        self.assertIn("difference <= 1e-9", source)
+        self.assertIn('"$authorized_target_matches" != true', source)
+        equivalent = subprocess.run([
+            "awk", "-v", "requested=5.178229715025710",
+            "-v", "authorized=5.17822971502571",
+            "BEGIN {d=requested-authorized; if(d<0)d=-d; exit !(d<=1e-9)}",
+        ])
+        self.assertEqual(equivalent.returncode, 0)
+        mismatch = subprocess.run([
+            "awk", "-v", "requested=5.178229715025710",
+            "-v", "authorized=5.17",
+            "BEGIN {d=requested-authorized; if(d<0)d=-d; exit !(d<=1e-9)}",
+        ])
+        self.assertNotEqual(mismatch.returncode, 0)
 
     def test_node_scope_and_recorder_are_physical_specific(self):
         source = NODE.read_text()

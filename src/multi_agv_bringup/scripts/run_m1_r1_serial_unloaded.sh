@@ -265,17 +265,29 @@ if [[ "$enable_robot2_derating" == true ]]; then
     exit 3
   fi
 fi
-if [[ -n "$authorized_path_config" ]] &&
-   [[ -n "$authorized_upper_config" &&
-      "$upper_config" != "$authorized_upper_config" ||
-      "$path_config" != "$authorized_path_config" ||
-      "$runtime_config" != "$authorized_runtime_config" ||
-      "$evaluation_config" != "$authorized_evaluation_config" ||
-      "$target_progress" != "$authorized_target_progress" ||
-      "$enable_robot2_derating" != "$authorized_robot2_derating" ]]; then
-  echo "ERROR: ${method_id} execution request is outside its authorized scope" >&2
-  echo "Authorized scope: upper=${authorized_upper_config:-method-default}, path=${authorized_path_config}, runtime=${authorized_runtime_config}, target=${authorized_target_progress}, Robot2_derating=${authorized_robot2_derating}" >&2
-  exit 3
+authorized_target_matches=false
+if awk -v requested="$target_progress" -v authorized="$authorized_target_progress" '
+  BEGIN {
+    number = "^[0-9]+([.][0-9]+)?$"
+    if (requested !~ number || authorized !~ number) exit 1
+    difference = requested - authorized
+    if (difference < 0.0) difference = -difference
+    exit !(difference <= 1e-9)
+  }'; then
+  authorized_target_matches=true
+fi
+if [[ -n "$authorized_path_config" ]]; then
+  if [[ -z "$authorized_upper_config" ||
+        "$upper_config" != "$authorized_upper_config" ||
+        "$path_config" != "$authorized_path_config" ||
+        "$runtime_config" != "$authorized_runtime_config" ||
+        "$evaluation_config" != "$authorized_evaluation_config" ||
+        "$authorized_target_matches" != true ||
+        "$enable_robot2_derating" != "$authorized_robot2_derating" ]]; then
+    echo "ERROR: ${method_id} execution request is outside its authorized scope" >&2
+    echo "Authorized scope: upper=${authorized_upper_config:-method-default}, path=${authorized_path_config}, runtime=${authorized_runtime_config}, target=${authorized_target_progress}, Robot2_derating=${authorized_robot2_derating}" >&2
+    exit 3
+  fi
 fi
 source /opt/ros/noetic/setup.bash
 source devel/setup.bash
