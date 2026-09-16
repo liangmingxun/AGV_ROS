@@ -1,0 +1,22 @@
+{
+  "entry_order": [
+    [
+      1789530814.7075622,
+      "Robot1"
+    ],
+    [
+      1789530817.1075592,
+      "Robot2"
+    ],
+    [
+      1789530817.507525,
+      "Robot3"
+    ]
+  ],
+  "expected_front_rear_geometry_m": 0.259807621,
+  "passed": true,
+  "robot2_minus_robot1_common_progress_m": 0.2401736539776409,
+  "robot2_minus_robot1_entry_time_seconds": 2.3999969959259033,
+  "robot3_minus_robot1_common_progress_m": 0.28020887047082965,
+  "robot3_minus_robot1_entry_time_seconds": 2.7999627590179443
+}

@@ -1,0 +1,98 @@
+[FATAL] [1789529831.898783]: Experiment recorder failed: preflight timed out: authority={'/agv1/chassis_command': [], '/agv2/chassis_command': [], '/agv3/chassis_command': []} move_base=[] missing=['/agv1/chassis_command', '/agv2/chassis_command', '/agv3/chassis_command', '/agv1/chassis_feedback', '/agv2/chassis_feedback', '/agv3/chassis_feedback', '/agv1/capability_report', '/agv2/capability_report', '/agv3/capability_report', '/agv1/imu', '/agv2/imu', '/agv3/imu', '/agv1/odom', '/agv2/odom', '/agv3/odom', '/multi_agv/cooperative_state', '/multi_agv/path_reference', '/multi_agv/controller_state', '/multi_agv/formal_algorithm_state', '/multi_agv/v5_exploration_quality_state', '/multi_agv/candidate_B_spatial_composite_state', '/multi_agv/risk_disturbance_state']
+[31m================================================================================REQUIRED process [experiment_recorder-1] has died!
+process has died [pid 9054, exit code 2, cmd /home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/devel/lib/multi_agv_analysis/record_experiment.py __name:=experiment_recorder __log:=/home/etlab/.ros/log/dcbaef04-b17f-11f1-96b7-9bd5854e01a8/experiment_recorder-1.log].
+log file: /home/etlab/.ros/log/dcbaef04-b17f-11f1-96b7-9bd5854e01a8/experiment_recorder-1*.log
+Initiating shutdown!
+================================================================================[0m
+... logging to /home/etlab/.ros/log/dcbaef04-b17f-11f1-96b7-9bd5854e01a8/roslaunch-robot3-9001.log
+Checking log directory for disk usage. This may take a while.
+Press Ctrl-C to interrupt
+Done checking log file disk usage. Usage is <1GB.
+]2;/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/launch/experiment.launch
+[1mstarted roslaunch server http://127.0.0.1:44185/[0m
+
+SUMMARY
+========
+
+PARAMETERS
+ * /agv1/capability_report: 90.0
+ * /agv1/chassis_command: 90.0
+ * /agv1/chassis_feedback: 90.0
+ * /agv1/imu: 90.0
+ * /agv1/odom: 90.0
+ * /agv2/capability_report: 90.0
+ * /agv2/chassis_command: 90.0
+ * /agv2/chassis_feedback: 90.0
+ * /agv2/imu: 90.0
+ * /agv2/odom: 90.0
+ * /agv3/capability_report: 90.0
+ * /agv3/chassis_command: 90.0
+ * /agv3/chassis_feedback: 90.0
+ * /agv3/imu: 90.0
+ * /agv3/odom: 90.0
+ * /experiment_recorder/approval_id: 
+ * /experiment_recorder/approval_registry: /home/etlab/AGV_R...
+ * /experiment_recorder/arming_authorized: True
+ * /experiment_recorder/camera_config_files: ['/home/etlab/AGV...
+ * /experiment_recorder/camera_mode: False
+ * /experiment_recorder/config_files: ['/home/etlab/AGV...
+ * /experiment_recorder/connection_wait_seconds: 5.0
+ * /experiment_recorder/experiment_id: candidate_B_spati...
+ * /experiment_recorder/experiment_recording/camera_calibration_epoch_required: True
+ * /experiment_recorder/experiment_recording/camera_required_topics: ['/vision/aruco/c...
+ * /experiment_recorder/experiment_recording/camera_virtual_load_required_topics: ['/vision/aruco/c...
+ * /experiment_recorder/experiment_recording/fused_required_topics: ['/pose_provider/...
+ * /experiment_recorder/experiment_recording/localization_exclusion/maximum_consecutive_invalid_seconds: 0.1
+ * /experiment_recorder/experiment_recording/localization_exclusion/maximum_invalid_fraction: 0.01
+ * /experiment_recorder/experiment_recording/maximum_camera_calibration_epoch_changes: 0
+ * /experiment_recorder/experiment_recording/method_required_topics/M1_R1: ['/multi_agv/expe...
+ * /experiment_recorder/experiment_recording/method_required_topics/M1b_R1: ['/multi_agv/expe...
+ * /experiment_recorder/experiment_recording/method_required_topics/M2a_R1: ['/multi_agv/expe...
+ * /experiment_recorder/experiment_recording/method_required_topics/M2b_M2b: ['/multi_agv/m2b_...
+ * /experiment_recorder/experiment_recording/recommended_topics: ['/multi_agv/expe...
+ * /experiment_recorder/experiment_recording/registered_method_ids: ['M1_R1', 'M1b_R1...
+ * /experiment_recorder/experiment_recording/required_topics: ['/agv1/chassis_c...
+ * /experiment_recorder/experiment_recording/sample_period: 0.01
+ * /experiment_recorder/experiment_recording/sequence_rules: [{'file': 'chassi...
+ * /experiment_recorder/experiment_recording/topics: ['/agv1/chassis_c...
+ * /experiment_recorder/formal_statistics_requested: False
+ * /experiment_recorder/interface_version: agv_ros_interface...
+ * /experiment_recorder/localization_source: odom_fake
+ * /experiment_recorder/measured_payload_pose_topic: /pose_provider/lo...
+ * /experiment_recorder/method_id: M1b_R1
+ * /experiment_recorder/metrics/evaluation_target: 3.0
+ * /experiment_recorder/metrics/nominal_agv2_capability: 0.0
+ * /experiment_recorder/metrics/nominal_common_velocity: 0.1
+ * /experiment_recorder/operator: 
+ * /experiment_recorder/output_root: /home/etlab/AGV_R...
+ * /experiment_recorder/pair_block_id: SpatialSanity
+ * /experiment_recorder/path_version: s_curve_v1
+ * /experiment_recorder/payload_pose_source: equivalent_load
+ * /experiment_recorder/payload_state: unloaded
+ * /experiment_recorder/preflight_wait_seconds: 15.0
+ * /experiment_recorder/record_classic_additive_physical: False
+ * /experiment_recorder/require_approved_config: False
+ * /experiment_recorder/require_windows_sender_manifest: False
+ * /experiment_recorder/run_id: run
+ * /experiment_recorder/virtual_load_from_robots: False
+ * /experiment_recorder/wheel_speed_scale_freeze_id: 
+ * /experiment_recorder/workspace: /home/etlab/AGV_R...
+ * /multi_agv/controller_state: 90.0
+ * /multi_agv/cooperative_state: 90.0
+ * /multi_agv/formal_algorithm_state: 90.0
+ * /multi_agv/m2b_algorithm_state: 90.0
+ * /multi_agv/path_reference: 90.0
+ * /rosdistro: noetic
+ * /rosversion: 1.17.4
+
+NODES
+  /
+    experiment_recorder (multi_agv_analysis/record_experiment.py)
+
+[1mROS_MASTER_URI=http://127.0.0.1:11710[0m
+]2;/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/launch/experiment.launch http://127.0.0.1:11710
+[1mprocess[experiment_recorder-1]: started with pid [9054][0m
+[experiment_recorder-1] killing on exit
+shutting down processing monitor...
+... shutting down processing monitor complete
+[1mdone[0m

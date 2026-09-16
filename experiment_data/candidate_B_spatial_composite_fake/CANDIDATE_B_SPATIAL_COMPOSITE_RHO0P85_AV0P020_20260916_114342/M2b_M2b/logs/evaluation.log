@@ -1,0 +1,64 @@
+... logging to /home/etlab/.ros/log/5a51e782-b181-11f1-96b7-9bd5854e01a8/roslaunch-robot3-21989.log
+Checking log directory for disk usage. This may take a while.
+Press Ctrl-C to interrupt
+Done checking log file disk usage. Usage is <1GB.
+]2;/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/launch/formal_evaluation_window.launch
+[1mstarted roslaunch server http://127.0.0.1:42843/[0m
+
+SUMMARY
+========
+
+PARAMETERS
+ * /formal_evaluation_supervisor/authorization_scope/evaluation_config: src/multi_agv_bri...
+ * /formal_evaluation_supervisor/authorization_scope/path_config: src/multi_agv_bri...
+ * /formal_evaluation_supervisor/authorization_scope/physical_authorization_status: prohibited_fake_only
+ * /formal_evaluation_supervisor/authorization_scope/robot2_derating: False
+ * /formal_evaluation_supervisor/authorization_scope/runtime_config: /home/etlab/AGV_R...
+ * /formal_evaluation_supervisor/authorization_scope/target_progress: 5.17822971502571
+ * /formal_evaluation_supervisor/authorization_scope/upper_config: /home/etlab/AGV_R...
+ * /formal_evaluation_supervisor/candidate_b/hardware_execution_authorized: False
+ * /formal_evaluation_supervisor/candidate_b_spatial_composite/hardware_execution_authorized: False
+ * /formal_evaluation_supervisor/confirm_robot2_local_derating: False
+ * /formal_evaluation_supervisor/derating_publication_authorized: False
+ * /formal_evaluation_supervisor/evidence_scope: ['EXPLORATORY_FAK...
+ * /formal_evaluation_supervisor/exp2a_derating_pretest/activation_progress: 5.28
+ * /formal_evaluation_supervisor/exp2a_derating_pretest/block_id: Triad01_M2b_M2b
+ * /formal_evaluation_supervisor/exp2a_derating_pretest/derating_mode: 1
+ * /formal_evaluation_supervisor/exp2a_derating_pretest/evaluation_end_progress: 5.17822971502571
+ * /formal_evaluation_supervisor/exp2a_derating_pretest/evaluation_start_progress: 0.0
+ * /formal_evaluation_supervisor/exp2a_derating_pretest/experiment_id: candidate_B_spati...
+ * /formal_evaluation_supervisor/exp2a_derating_pretest/finish_after_restoration: False
+ * /formal_evaluation_supervisor/exp2a_derating_pretest/hardware_execution_authorized: False
+ * /formal_evaluation_supervisor/exp2a_derating_pretest/method_id: M2b_M2b
+ * /formal_evaluation_supervisor/exp2a_derating_pretest/progress_source: load_actual
+ * /formal_evaluation_supervisor/exp2a_derating_pretest/publish_rate: 10.0
+ * /formal_evaluation_supervisor/exp2a_derating_pretest/ramp_down_time: 0.5
+ * /formal_evaluation_supervisor/exp2a_derating_pretest/ramp_up_time: 0.5
+ * /formal_evaluation_supervisor/exp2a_derating_pretest/restoration_progress: 5.38
+ * /formal_evaluation_supervisor/exp2a_derating_pretest/run_id: Triad01_M2b_M2b
+ * /formal_evaluation_supervisor/exp2a_derating_pretest/schema_version: 1
+ * /formal_evaluation_supervisor/exp2a_derating_pretest/target_acceleration_ratio_left: 0.5
+ * /formal_evaluation_supervisor/exp2a_derating_pretest/target_acceleration_ratio_right: 0.5
+ * /formal_evaluation_supervisor/exp2a_derating_pretest/target_deceleration_ratio_left: 0.6
+ * /formal_evaluation_supervisor/exp2a_derating_pretest/target_deceleration_ratio_right: 0.6
+ * /formal_evaluation_supervisor/exp2a_derating_pretest/target_speed_ratio_left: 0.4
+ * /formal_evaluation_supervisor/exp2a_derating_pretest/target_speed_ratio_right: 0.4
+ * /formal_evaluation_supervisor/formal_lower/hardware_execution_authorized: False
+ * /formal_evaluation_supervisor/formal_upper/hardware_execution_authorized: False
+ * /formal_evaluation_supervisor/platform_transport_type: fake
+ * /formal_evaluation_supervisor/transient_yaw_v4/hardware_execution_authorized: False
+ * /formal_evaluation_supervisor/yaw_effectiveness_hold_v5b/hardware_execution_authorized: False
+ * /rosdistro: noetic
+ * /rosversion: 1.17.4
+
+NODES
+  /
+    formal_evaluation_supervisor (multi_agv_control/experiment_supervisor_node)
+
+[1mROS_MASTER_URI=http://127.0.0.1:11710[0m
+]2;/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/launch/formal_evaluation_window.launch http://127.0.0.1:11710
+[1mprocess[formal_evaluation_supervisor-1]: started with pid [22072][0m
+[formal_evaluation_supervisor-1] killing on exit
+shutting down processing monitor...
+... shutting down processing monitor complete
+[1mdone[0m
