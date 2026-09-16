@@ -246,6 +246,10 @@ def disturbance_verification(rows):
         d_omega = [V2.num(row, prefix + "d_omega") for row in active]
         q = [V2.num(row, prefix + "q") for row in active]
         rho = [V2.num(row, prefix + "rho") for row in active]
+        projection_distance = [
+            V2.num(row, prefix + "projection_distance") for row in rows]
+        projection_distance = [value for value in projection_distance
+                               if math.isfinite(value)]
         dt = durations(active)
         result[f"Robot{robot}"] = {
             "zone_entry_progress": V2.num(triggered[0], prefix + "progress"),
@@ -259,6 +263,12 @@ def disturbance_verification(rows):
             "d_v_rms": rms(d_v, dt),
             "d_omega_peak": max(abs(value) for value in d_omega),
             "d_omega_rms": rms(d_omega, dt),
+            "projection_distance_available": bool(projection_distance),
+            "projection_distance_mean": (
+                sum(projection_distance) / len(projection_distance)
+                if projection_distance else None),
+            "projection_distance_max": (
+                max(projection_distance) if projection_distance else None),
         }
     one = result["Robot1"]
     for robot in (2, 3):
@@ -509,6 +519,7 @@ def aggregate(root):
         f"Experiment identity: `{IDENTITY}`", "",
         "Frozen profile:", "", "```json", json.dumps(PROFILE, indent=2), "```", "",
         "Spatial coordinate: each measured support centre is projected onto the existing load centerline PathProjector. The original s_actual is a support-specific common load parameter and is not used as the world-zone coordinate.", "",
+        "Candidate B v2 rejects a spatial projection unless it is valid, has finite progress and distance, and remains within 0.30 m of the load centerline. The limit is deliberately wider than the nominal 0.15 m support-centre lateral offset of the 30 cm formation, while still rejecting grossly inconsistent poses.", "",
         "The coordinate therefore represents the measured support centre crossing the same world-space centerline section. No 2.598 s delay and no fixed 8 s termination are used; each robot owns an independent entry wall clock and exits only after its projected progress reaches 2.8 m.", "",
         "Fresh run paths:", "",
         *[f"- `{data[m]['run_path']}`" for m in ("M1b", "M1", "M2b")], "",
@@ -545,19 +556,21 @@ def aggregate(root):
                              data["M2b"]["task_time_seconds"] - 1.0)
     lines += ["", "## Spatial verification", "", "```json",
               json.dumps({m:data[m]["disturbance_verification"] for m in data},indent=2), "```", "",
+              "Projection-distance mean/max above establish Candidate B v2 spatial-coordinate validity independently for every robot. Disturbance-profile validity, fake-comparison validity, and physical readiness are separate decisions.", "",
               "## M1 mechanism", "", "```json", json.dumps(data["M1"]["M1_mechanism"],indent=2), "```", "",
               "The frozen disturbance drove robust margin to zero at its worst sample, risk factor to 1.0, and risk contraction to its recorded peak. The risk boundary was active for the recorded duration and produced the measured candidate-minus-effective reference reduction. This timing-consistent chain supports, but does not by itself prove, strict causality.", "",
               f"M1 task-time cost was {task_cost_m1b:.3f}% versus M1b and {task_cost_m2b:.3f}% versus M2b.", "",
               "## Validity and physical-readiness notes", "",
               "- All three runs completed with zero algorithm-invalid and localization-invalid fractions and identical fake-only disturbance profiles.",
-              "- M1b and M2b native demands exceeded 0.180 m/s briefly; this does not invalidate the fake scientific comparison, but requires a separate physical-safe qualification.",
-              "- All post-Candidate-B demands remained below 0.160 m/s in these fake runs and no fake physical limiter duration was recorded.",
+              "- M1b/M2b pre-disturbance native controller demand exceeded 0.180 m/s for {:.3f} s and {:.3f} s, respectively, during the analysis window. This does not invalidate the fake scientific comparison, but requires a separate physical-safe qualification.".format(data["M1b"]["metrics"]["native_over_0p180_duration_seconds"], data["M2b"]["metrics"]["native_over_0p180_duration_seconds"]),
+              "- The four stages are reported separately: native controller demand, post-Candidate-B execution demand, post-limit command, and fake-plant actual feedback. Native demand above 0.180 m/s is not described as actual wheel command above 0.180 m/s.",
+              "- All post-Candidate-B execution demands remained below 0.160 m/s in these fake runs and no fake physical limiter duration was recorded; post-limit and actual peaks remain separately tabulated.",
               "- Minimum normalized wheel margin reached zero for all methods, so that minimum alone cannot express improvement; mean/p05 and threshold durations are retained.",
               "- M1 rigid-fit maximum was slightly worse than M1b in this run even though rigid-fit RMSE improved; this unfavorable point is retained.",
               "- CapabilityReport was not modified. Candidate A and Candidate B v1 remained disabled.",
               "- No serial or hardware execution was started. Physical readiness remains NOT_AUTHORIZED; no transition to physical qualification is recommended without a separate safety review.", "",
               "## Regression verification for this implementation revision", "",
-              "- Candidate B v2 C++: PASS, 5 tests; Python: PASS, 5 tests.",
+              "- Candidate B v2 C++ and Python tests: PASS.",
               "- Candidate B v1 C++: PASS, 4 tests; Python: PASS, 3 tests.",
               "- Candidate A C++: PASS, 9 tests; Python: PASS, 4 tests.",
               "- Analysis metrics: PASS, 64 tests; bringup static: PASS, 49 tests.",

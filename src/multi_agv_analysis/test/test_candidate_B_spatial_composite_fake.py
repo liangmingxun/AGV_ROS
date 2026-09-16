@@ -10,6 +10,7 @@ ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = ROOT / "multi_agv_analysis/scripts/analyze_candidate_B_spatial_composite_fake.py"
 CONFIG = ROOT / "multi_agv_bringup/config/formal_fake_candidate_B_spatial_composite.yaml"
 NODE = ROOT / "multi_agv_control/src/formal_fake_algorithm_node.cpp"
+CONVERSION = ROOT / "multi_agv_analysis/src/multi_agv_analysis/conversion.py"
 
 
 class CandidateBSpatialCompositeFakeTest(unittest.TestCase):
@@ -56,7 +57,7 @@ class CandidateBSpatialCompositeFakeTest(unittest.TestCase):
         limited = text.index("applySerialExecutionLimitPolicy", disturbed)
         self.assertLess(saved, disturbed)
         self.assertLess(disturbed, limited)
-        self.assertIn("supportZoneProgress", text)
+        self.assertIn("supportZoneProjection", text)
         self.assertNotIn("2.598", text)
         self.assertIn(
             '(experiment_id_ == "candidate_B_spatial_composite_fake_validation" && !m2b_selected_)',
@@ -81,9 +82,62 @@ class CandidateBSpatialCompositeFakeTest(unittest.TestCase):
         publish = text.split("void publishCandidateBSpatialComposite", 1)[1].split(
             "void publishClassicAdditivePhysical", 1)[0]
         self.assertIn("header_fields = 14U", publish)
-        self.assertIn("fields_per_robot = 32U", publish)
-        self.assertIn("header14+3x32;robots=1,2,3", publish)
+        self.assertIn("fields_per_robot = 33U", publish)
+        self.assertIn("header14+3x33;robots=1,2,3", publish)
+        self.assertIn("candidate_b_spatial_projection_distance_", publish)
         self.assertNotIn("duration", CONFIG.read_text())
+
+    def test_projection_quality_is_finite_and_bounded(self):
+        text = NODE.read_text()
+        projection = text.split("SupportZoneProjection supportZoneProjection", 1)[1].split(
+            "void applyCandidateBSpatialComposite", 1)[0]
+        self.assertIn("validateCandidateBSpatialProjectionQuality", projection)
+        header = (ROOT / "multi_agv_control/include/multi_agv_control/"
+                  "candidate_b_spatial_composite_disturbance.hpp").read_text()
+        self.assertIn("kCandidateBSpatialMaximumProjectionDistance = 0.30", header)
+        self.assertIn("std::isfinite(progress)", header)
+        self.assertIn("std::isfinite(distance)", header)
+
+    def test_three_independent_disturbance_states_and_tracks(self):
+        text = NODE.read_text()
+        self.assertIn("std::array<CandidateBSpatialCompositeDisturbance, 3>", text)
+        self.assertIn("candidate_b_spatial_disturbance_[index].evaluate", text)
+        self.assertIn("wheel_separation[index]", text)
+
+    def test_conversion_accepts_legacy_and_projection_distance_layouts(self):
+        text = CONVERSION.read_text()
+        self.assertIn("header14+3x32;robots=1,2,3\": 32", text)
+        self.assertIn("header14+3x33;robots=1,2,3\": 33", text)
+        self.assertIn('"projection_distance"', text)
+
+    def test_projection_statistics_are_reported_per_robot(self):
+        rows = []
+        for index, wall in enumerate((0.0, 0.01, 0.02)):
+            row = {"wall": wall, "load_s_reference": 2.0 + index * .4}
+            for robot in (1, 2, 3):
+                prefix = f"agv{robot}_candidate_b_spatial_"
+                row.update({
+                    prefix + "triggered": 1.0,
+                    prefix + "active": 1.0 if index == 1 else 0.0,
+                    prefix + "finished": 1.0 if index == 2 else 0.0,
+                    prefix + "entry_wall_time": 0.0,
+                    prefix + "exit_wall_time": .02,
+                    prefix + "progress": 2.0 + index * .4,
+                    prefix + "d_v": .01,
+                    prefix + "d_omega": .1,
+                    prefix + "q": .5,
+                    prefix + "rho": .925,
+                    prefix + "projection_distance": .14 + robot * .01,
+                })
+            rows.append(row)
+        result = self.module.disturbance_verification(rows)
+        for robot in (1, 2, 3):
+            item = result[f"Robot{robot}"]
+            self.assertTrue(item["projection_distance_available"])
+            self.assertAlmostEqual(item["projection_distance_mean"],
+                                   .14 + robot * .01)
+            self.assertAlmostEqual(item["projection_distance_max"],
+                                   .14 + robot * .01)
 
 
 if __name__ == "__main__":

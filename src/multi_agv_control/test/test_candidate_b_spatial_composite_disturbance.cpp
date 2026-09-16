@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 
 #include <cmath>
+#include <limits>
 
 #include "multi_agv_control/candidate_b_spatial_composite_disturbance.hpp"
 
@@ -83,6 +84,58 @@ TEST(CandidateBSpatialComposite, NoFixedTimeTermination) {
   EXPECT_FALSE(long_exposure.finished);
   const auto exited = d.evaluate(c, 1, 2.8, 101.0, 0.1, 0.1);
   EXPECT_TRUE(exited.finished);
+}
+
+TEST(CandidateBSpatialComposite, ExitThenBacktrackRemainsIdentity) {
+  auto c = config();
+  CandidateBSpatialCompositeDisturbance d;
+  d.evaluate(c, 1, 1.9, 0.0, 0.08, 0.12);
+  d.evaluate(c, 1, 2.4, 1.0, 0.08, 0.12);
+  const auto exited = d.evaluate(c, 1, 2.81, 2.0, 0.08, 0.12);
+  ASSERT_TRUE(exited.finished);
+
+  const auto backtracked = d.evaluate(c, 1, 2.5, 3.0, 0.07, 0.11);
+  EXPECT_TRUE(backtracked.triggered);
+  EXPECT_TRUE(backtracked.finished);
+  EXPECT_FALSE(backtracked.active);
+  EXPECT_DOUBLE_EQ(backtracked.envelope, 0.0);
+  EXPECT_DOUBLE_EQ(backtracked.effectiveness, 1.0);
+  EXPECT_DOUBLE_EQ(backtracked.longitudinal_disturbance, 0.0);
+  EXPECT_DOUBLE_EQ(backtracked.yaw_disturbance, 0.0);
+  EXPECT_DOUBLE_EQ(backtracked.left_post_disturbance, 0.07);
+  EXPECT_DOUBLE_EQ(backtracked.right_post_disturbance, 0.11);
+}
+
+TEST(CandidateBSpatialComposite, ProjectionQualityAcceptsNormalSupportGeometry) {
+  EXPECT_NO_THROW(validateCandidateBSpatialProjectionQuality(
+      true, 2.4, 0.15));
+  EXPECT_NO_THROW(validateCandidateBSpatialProjectionQuality(
+      true, 2.4, kCandidateBSpatialMaximumProjectionDistance));
+}
+
+TEST(CandidateBSpatialComposite, ProjectionQualityRejectsInvalidOrRemotePose) {
+  EXPECT_THROW(validateCandidateBSpatialProjectionQuality(
+      false, 2.4, 0.15), std::runtime_error);
+  EXPECT_THROW(validateCandidateBSpatialProjectionQuality(
+      true, std::numeric_limits<double>::quiet_NaN(), 0.15),
+      std::runtime_error);
+  EXPECT_THROW(validateCandidateBSpatialProjectionQuality(
+      true, 2.4, std::numeric_limits<double>::infinity()),
+      std::runtime_error);
+  EXPECT_THROW(validateCandidateBSpatialProjectionQuality(
+      true, 2.4, 0.301), std::runtime_error);
+}
+
+TEST(CandidateBSpatialComposite, FrozenAmplitudeBoundsAndNativeYaw) {
+  auto c = config();
+  CandidateBSpatialCompositeDisturbance d;
+  d.evaluate(c, 3, 2.0, 0.0, 0.08, 0.12);
+  const auto out = d.evaluate(c, 3, 2.4, 1.234, 0.08, 0.12);
+  EXPECT_LE(std::abs(out.longitudinal_disturbance), 0.020 + 1e-12);
+  EXPECT_LE(std::abs(out.yaw_disturbance), 0.2625 + 1e-12);
+  EXPECT_NEAR(out.yaw_native, (0.12 - 0.08) / 0.18, 1e-12);
+  EXPECT_NEAR(out.yaw_after_disturbance,
+              out.yaw_native + out.yaw_disturbance, 1e-12);
 }
 
 }  // namespace

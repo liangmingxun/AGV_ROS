@@ -2402,17 +2402,20 @@ class FormalFakeAlgorithmNode {
     candidate_b_publisher_.publish(message);
   }
 
-  double supportZoneProgress(std::size_t index) const {
+  struct SupportZoneProjection {
+    double progress{0.0};
+    double distance{0.0};
+  };
+
+  SupportZoneProjection supportZoneProjection(std::size_t index) const {
     const auto pose = poseValue(state_.support_pose[index]);
     const double seed = state_.s_actual[index] +
         geometry_.config().offsets[index].tangent;
     const auto projection = spatial_zone_projector_.project(
         pose.position, seed, 0.40);
-    if (!projection.valid) {
-      throw std::runtime_error(
-          "Candidate B v2 support-centre centerline projection failed");
-    }
-    return projection.s;
+    validateCandidateBSpatialProjectionQuality(
+        projection.valid, projection.s, projection.distance);
+    return {projection.s, projection.distance};
   }
 
   void applyCandidateBSpatialComposite(
@@ -2421,10 +2424,12 @@ class FormalFakeAlgorithmNode {
     if (!candidate_b_spatial_config_.enabled) return;
     const double wall_time = ros::WallTime::now().toSec();
     for (std::size_t index = 0; index < kRobotCount; ++index) {
+      const auto projection = supportZoneProjection(index);
+      candidate_b_spatial_projection_distance_[index] = projection.distance;
       candidate_b_spatial_output_[index] =
           candidate_b_spatial_disturbance_[index].evaluate(
               candidate_b_spatial_config_, static_cast<int>(index + 1U),
-              supportZoneProgress(index), wall_time,
+              projection.progress, wall_time,
               native[index].wheel_linear_velocity_left_raw,
               native[index].wheel_linear_velocity_right_raw);
       const auto& value = candidate_b_spatial_output_[index];
@@ -2439,13 +2444,13 @@ class FormalFakeAlgorithmNode {
   void publishCandidateBSpatialComposite(const ros::Time& stamp) {
     if (!candidate_b_spatial_config_.enabled) return;
     constexpr std::size_t header_fields = 14U;
-    constexpr std::size_t fields_per_robot = 32U;
+    constexpr std::size_t fields_per_robot = 33U;
     constexpr double physical_limit = 0.160;
     constexpr double emergency = 0.180;
     std_msgs::Float64MultiArray message;
     message.layout.dim.resize(1);
     message.layout.dim[0].label =
-        "candidate_B_v2_spatial_composite:header14+3x32;robots=1,2,3";
+        "candidate_B_v2_spatial_composite:header14+3x33;robots=1,2,3";
     message.layout.dim[0].size = message.layout.dim[0].stride =
         header_fields + kRobotCount * fields_per_robot;
     message.data.reserve(message.layout.dim[0].size);
@@ -2478,6 +2483,7 @@ class FormalFakeAlgorithmNode {
           capability_[index].max_wheel_linear_velocity_right);
       message.data.insert(message.data.end(), {
         static_cast<double>(index + 1U), v.spatial_progress,
+        candidate_b_spatial_projection_distance_[index],
         v.entry_wall_time, v.exit_wall_time, v.local_elapsed,
         v.triggered ? 1.0 : 0.0, v.active ? 1.0 : 0.0,
         v.finished ? 1.0 : 0.0, v.envelope, v.effectiveness,
@@ -3326,6 +3332,7 @@ class FormalFakeAlgorithmNode {
       candidate_b_spatial_disturbance_;
   std::array<CandidateBSpatialCompositeOutput, 3>
       candidate_b_spatial_output_{};
+  std::array<double, 3> candidate_b_spatial_projection_distance_{};
   bool classic_additive_physical_enabled_{false};
   bool classic_additive_physical_hardware_authorized_{false};
   bool classic_additive_m2b_physical_authorized_{false};

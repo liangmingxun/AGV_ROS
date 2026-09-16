@@ -9,6 +9,19 @@
 
 namespace multi_agv_control {
 
+inline constexpr double kCandidateBSpatialMaximumProjectionDistance = 0.30;
+
+inline void validateCandidateBSpatialProjectionQuality(
+    bool valid, double progress, double distance,
+    double maximum_distance = kCandidateBSpatialMaximumProjectionDistance) {
+  if (!valid || !std::isfinite(progress) || !std::isfinite(distance) ||
+      !std::isfinite(maximum_distance) || maximum_distance <= 0.0 ||
+      distance < 0.0 || distance > maximum_distance) {
+    throw std::runtime_error(
+        "Candidate B v2 spatial projection quality error");
+  }
+}
+
 struct CandidateBSpatialCompositeConfig {
   bool enabled{false};
   double minimum_effectiveness{0.85};
@@ -145,6 +158,11 @@ class CandidateBSpatialCompositeDisturbance {
     out.local_elapsed = triggered_ ? wall_time - entry_wall_time_ : 0.0;
     out.active = triggered_ && !finished_ &&
         spatial_progress > c.zone_start && spatial_progress < c.zone_end;
+
+    // Completion is latched for the lifetime of this disturbance object.
+    // A noisy/backtracking projection after zone exit must never re-arm the
+    // disturbance within the same run.
+    if (finished_) return out;
 
     if (spatial_progress > c.zone_start &&
         spatial_progress < c.zone_start + c.ramp_in_distance) {

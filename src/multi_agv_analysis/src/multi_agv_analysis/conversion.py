@@ -978,16 +978,23 @@ def _aligned_rows(raw, maximum_age,
                     candidate_b_values[39 + 3*i + j]
                     if len(candidate_b_values) == 48 else math.nan)
         candidate_b_spatial_values = []
-        if (candidate_b_spatial and
-                candidate_b_spatial.get("layout_label") ==
-                "candidate_B_v2_spatial_composite:header14+3x32;robots=1,2,3"):
+        spatial_layout = (candidate_b_spatial.get("layout_label")
+                          if candidate_b_spatial else "")
+        spatial_fields_per_robot = {
+            "candidate_B_v2_spatial_composite:header14+3x32;robots=1,2,3": 32,
+            "candidate_B_v2_spatial_composite:header14+3x33;robots=1,2,3": 33,
+        }.get(spatial_layout, 0)
+        if spatial_fields_per_robot:
             try:
                 candidate_b_spatial_values = json.loads(
                     candidate_b_spatial["data_json"])
             except (ValueError, TypeError):
                 pass
-        row["candidate_b_spatial_state_available"] = (
-            len(candidate_b_spatial_values) == 110)
+        spatial_expected_size = (14 + 3 * spatial_fields_per_robot
+                                 if spatial_fields_per_robot else 0)
+        spatial_state_available = bool(spatial_fields_per_robot) and (
+            len(candidate_b_spatial_values) == spatial_expected_size)
+        row["candidate_b_spatial_state_available"] = spatial_state_available
         spatial_header_names = (
             "source_stamp", "wall_time", "enabled", "minimum_effectiveness",
             "longitudinal_amplitude", "longitudinal_frequency",
@@ -997,9 +1004,11 @@ def _aligned_rows(raw, maximum_age,
         for offset, name in enumerate(spatial_header_names):
             row["candidate_b_spatial_" + name] = (
                 candidate_b_spatial_values[offset]
-                if len(candidate_b_spatial_values) == 110 else math.nan)
+                if spatial_state_available
+                else math.nan)
         spatial_robot_names = (
-            "robot_id", "progress", "entry_wall_time", "exit_wall_time",
+            "robot_id", "progress", "projection_distance",
+            "entry_wall_time", "exit_wall_time",
             "local_elapsed", "triggered", "active", "finished", "q", "rho",
             "d_v", "d_omega", "left_native", "right_native", "v_c_native",
             "omega_native", "v_c_after_effectiveness", "v_c_after_composite",
@@ -1009,12 +1018,21 @@ def _aligned_rows(raw, maximum_age,
             "post_disturbance_over_0p180", "capability_limit",
             "limiter_active", "left_post_limit", "right_post_limit",
             "actual_left", "actual_right", "wheel_separation")
+        legacy_spatial_robot_names = tuple(
+            name for name in spatial_robot_names
+            if name != "projection_distance")
+        active_spatial_robot_names = (spatial_robot_names
+                                      if spatial_fields_per_robot == 33
+                                      else legacy_spatial_robot_names)
         for robot in range(1, 4):
-            base = 14 + (robot - 1) * 32
-            for offset, name in enumerate(spatial_robot_names):
+            base = 14 + (robot - 1) * spatial_fields_per_robot
+            row["agv{}_candidate_b_spatial_projection_distance".format(
+                robot)] = math.nan
+            for offset, name in enumerate(active_spatial_robot_names):
                 row["agv{}_candidate_b_spatial_{}".format(robot, name)] = (
                     candidate_b_spatial_values[base + offset]
-                    if len(candidate_b_spatial_values) == 110 else math.nan)
+                    if spatial_state_available
+                    else math.nan)
         if (m2b and m2b.get("layout_label") ==
                 "m2b_algorithm_state_v1:header6+3x20"):
             try:
