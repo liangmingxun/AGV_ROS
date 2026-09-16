@@ -59,9 +59,8 @@ class CandidateBSpatialCompositeFakeTest(unittest.TestCase):
         self.assertLess(disturbed, limited)
         self.assertIn("supportZoneProjection", text)
         self.assertNotIn("2.598", text)
-        self.assertIn(
-            '(experiment_id_ == "candidate_B_spatial_composite_fake_validation" && !m2b_selected_)',
-            text)
+        self.assertIn("candidate_B_spatial_composite_fake_validation", text)
+        self.assertIn("!m2b_selected_", text)
 
     def test_exact_fake_only_gate_and_no_direct_capability_path(self):
         text = NODE.read_text()

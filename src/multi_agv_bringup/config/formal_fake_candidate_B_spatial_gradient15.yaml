@@ -1,0 +1,27 @@
+# EXPLORATORY_FAKE_VALIDATION / NOT_FORMAL_PAPER_EVIDENCE
+# Candidate B v2 frozen world-space scene with a mean-preserving 15% lateral
+# severity gradient across Robot1/Robot2/Robot3.
+formal_fake_runtime:
+  candidate_b_spatial_composite:
+    enabled: true
+    minimum_effectiveness: 0.85
+    longitudinal_amplitude: 0.020
+    longitudinal_frequency: 1.0
+    longitudinal_phase: 0.0
+    yaw_amplitude: 0.2625
+    yaw_frequency: 1.0
+    yaw_phase: 1.5707963267948966
+    zone_start: 2.0
+    zone_end: 2.8
+    ramp_in_distance: 0.05
+    ramp_out_distance: 0.05
+    severity_scale: [1.0, 1.15, 0.85]
+    disturbance_model_version: candidate_B_v2_spatial_composite
+    freeze_id: candidate_B_v2_spatial_gradient15_rho0p85_av0p020_aw0p2625
+  candidate_b:
+    enabled: false
+  classic_additive_candidate_A:
+    enabled: false
+  classic_additive_physical:
+    enabled: false
+    hardware_execution_authorized: false

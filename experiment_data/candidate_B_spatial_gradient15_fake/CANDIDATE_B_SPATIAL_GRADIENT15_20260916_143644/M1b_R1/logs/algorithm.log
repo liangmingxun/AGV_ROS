@@ -1,0 +1,396 @@
+... logging to /home/etlab/.ros/log/fc301922-b198-11f1-a0bd-b5ebb25db9e8/roslaunch-robot1-37108.log
+Checking log directory for disk usage. This may take a while.
+Press Ctrl-C to interrupt
+]2;/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/launch/formal_fake_algorithm.launch
+[1mstarted roslaunch server http://127.0.0.1:44359/[0m
+
+SUMMARY
+========
+
+PARAMETERS
+ * /agv1/chassis_controller/base_frame: agv1/base_link
+ * /agv1/chassis_controller/base_link_z: 0.05969
+ * /agv1/chassis_controller/capability_publish_rate: 100.0
+ * /agv1/chassis_controller/command_timeout_seconds: 0.2
+ * /agv1/chassis_controller/control_loop_overrun_seconds: 0.008
+ * /agv1/chassis_controller/enable_vofa: False
+ * /agv1/chassis_controller/formal_available_wheel_limit: 0.16
+ * /agv1/chassis_controller/host_ip: 192.168.6.101
+ * /agv1/chassis_controller/imu/acc_bias: [-0.06465477, -0....
+ * /agv1/chassis_controller/imu/acc_scale: [0.99247297, 0.99...
+ * /agv1/chassis_controller/imu/gyro_bias: [-0.00379211, 0.0...
+ * /agv1/chassis_controller/imu/gyro_lpf_tau: 0.02
+ * /agv1/chassis_controller/imu_frame: agv1/imu_link
+ * /agv1/chassis_controller/nominal/max_wheel_linear_acceleration_left: 1.0
+ * /agv1/chassis_controller/nominal/max_wheel_linear_acceleration_right: 1.0
+ * /agv1/chassis_controller/nominal/max_wheel_linear_deceleration_left: 2.0
+ * /agv1/chassis_controller/nominal/max_wheel_linear_deceleration_right: 2.0
+ * /agv1/chassis_controller/nominal/max_wheel_linear_velocity_left: 0.9
+ * /agv1/chassis_controller/nominal/max_wheel_linear_velocity_right: 0.9
+ * /agv1/chassis_controller/odom_frame: agv1/odom
+ * /agv1/chassis_controller/odometry_stationary_wheel_velocity_tolerance: 0.005
+ * /agv1/chassis_controller/robot_id: agv1
+ * /agv1/chassis_controller/robot_index: 1
+ * /agv1/chassis_controller/sensor_feedback_timeout_seconds: 0.15
+ * /agv1/chassis_controller/serial_device: /dev/chassis_driver
+ * /agv1/chassis_controller/serial_startup_timeout_seconds: 10.0
+ * /agv1/chassis_controller/support_frame: agv1/support_link
+ * /agv1/chassis_controller/transport_type: fake
+ * /agv1/chassis_controller/wheel_command_scale_left: 0.927513947
+ * /agv1/chassis_controller/wheel_command_scale_right: 0.921275775
+ * /agv1/chassis_controller/wheel_feedback_scale_left: 1.075628349
+ * /agv1/chassis_controller/wheel_feedback_scale_right: 1.08231954
+ * /agv1/chassis_controller/wheel_radius: 0.0325
+ * /agv1/chassis_controller/wheel_separation: 0.135484339
+ * /agv2/chassis_controller/base_frame: agv2/base_link
+ * /agv2/chassis_controller/base_link_z: 0.05969
+ * /agv2/chassis_controller/capability_publish_rate: 100.0
+ * /agv2/chassis_controller/command_timeout_seconds: 0.2
+ * /agv2/chassis_controller/control_loop_overrun_seconds: 0.008
+ * /agv2/chassis_controller/enable_vofa: False
+ * /agv2/chassis_controller/formal_available_wheel_limit: 0.16
+ * /agv2/chassis_controller/host_ip: 192.168.6.102
+ * /agv2/chassis_controller/imu/acc_bias: [0.03683805, -0.0...
+ * /agv2/chassis_controller/imu/acc_scale: [0.99527174, 0.99...
+ * /agv2/chassis_controller/imu/gyro_bias: [0.00196799, 0.00...
+ * /agv2/chassis_controller/imu/gyro_lpf_tau: 0.02
+ * /agv2/chassis_controller/imu_frame: agv2/imu_link
+ * /agv2/chassis_controller/nominal/max_wheel_linear_acceleration_left: 1.0
+ * /agv2/chassis_controller/nominal/max_wheel_linear_acceleration_right: 1.0
+ * /agv2/chassis_controller/nominal/max_wheel_linear_deceleration_left: 2.0
+ * /agv2/chassis_controller/nominal/max_wheel_linear_deceleration_right: 2.0
+ * /agv2/chassis_controller/nominal/max_wheel_linear_velocity_left: 0.9
+ * /agv2/chassis_controller/nominal/max_wheel_linear_velocity_right: 0.9
+ * /agv2/chassis_controller/odom_frame: agv2/odom
+ * /agv2/chassis_controller/odometry_stationary_wheel_velocity_tolerance: 0.005
+ * /agv2/chassis_controller/robot_id: agv2
+ * /agv2/chassis_controller/robot_index: 2
+ * /agv2/chassis_controller/sensor_feedback_timeout_seconds: 0.15
+ * /agv2/chassis_controller/serial_device: /dev/ttyACM0
+ * /agv2/chassis_controller/serial_startup_timeout_seconds: 10.0
+ * /agv2/chassis_controller/support_frame: agv2/support_link
+ * /agv2/chassis_controller/transport_type: fake
+ * /agv2/chassis_controller/wheel_command_scale_left: 0.907894004
+ * /agv2/chassis_controller/wheel_command_scale_right: 0.902080277
+ * /agv2/chassis_controller/wheel_feedback_scale_left: 1.099449201
+ * /agv2/chassis_controller/wheel_feedback_scale_right: 1.101910817
+ * /agv2/chassis_controller/wheel_radius: 0.0325
+ * /agv2/chassis_controller/wheel_separation: 0.139284482
+ * /agv3/chassis_controller/base_frame: agv3/base_link
+ * /agv3/chassis_controller/base_link_z: 0.05969
+ * /agv3/chassis_controller/capability_publish_rate: 100.0
+ * /agv3/chassis_controller/command_timeout_seconds: 0.2
+ * /agv3/chassis_controller/control_loop_overrun_seconds: 0.008
+ * /agv3/chassis_controller/enable_vofa: False
+ * /agv3/chassis_controller/formal_available_wheel_limit: 0.16
+ * /agv3/chassis_controller/host_ip: 192.168.6.103
+ * /agv3/chassis_controller/imu/acc_bias: [-0.00149775, -0....
+ * /agv3/chassis_controller/imu/acc_scale: [0.9904211, 0.991...
+ * /agv3/chassis_controller/imu/gyro_bias: [0.00398279, -0.0...
+ * /agv3/chassis_controller/imu/gyro_lpf_tau: 0.02
+ * /agv3/chassis_controller/imu_frame: agv3/imu_link
+ * /agv3/chassis_controller/nominal/max_wheel_linear_acceleration_left: 1.0
+ * /agv3/chassis_controller/nominal/max_wheel_linear_acceleration_right: 1.0
+ * /agv3/chassis_controller/nominal/max_wheel_linear_deceleration_left: 2.0
+ * /agv3/chassis_controller/nominal/max_wheel_linear_deceleration_right: 2.0
+ * /agv3/chassis_controller/nominal/max_wheel_linear_velocity_left: 0.9
+ * /agv3/chassis_controller/nominal/max_wheel_linear_velocity_right: 0.9
+ * /agv3/chassis_controller/odom_frame: agv3/odom
+ * /agv3/chassis_controller/odometry_stationary_wheel_velocity_tolerance: 0.005
+ * /agv3/chassis_controller/robot_id: agv3
+ * /agv3/chassis_controller/robot_index: 3
+ * /agv3/chassis_controller/sensor_feedback_timeout_seconds: 0.15
+ * /agv3/chassis_controller/serial_device: /dev/chassis_driver
+ * /agv3/chassis_controller/serial_startup_timeout_seconds: 10.0
+ * /agv3/chassis_controller/support_frame: agv3/support_link
+ * /agv3/chassis_controller/transport_type: fake
+ * /agv3/chassis_controller/wheel_command_scale_left: 0.912910288
+ * /agv3/chassis_controller/wheel_command_scale_right: 0.908267917
+ * /agv3/chassis_controller/wheel_feedback_scale_left: 1.091549715
+ * /agv3/chassis_controller/wheel_feedback_scale_right: 1.099654555
+ * /agv3/chassis_controller/wheel_radius: 0.0325
+ * /agv3/chassis_controller/wheel_separation: 0.136802843
+ * /formal_fake_algorithm/estimator/filter_alpha: 0.9
+ * /formal_fake_algorithm/formal_fake_runtime/candidate_b/enabled: False
+ * /formal_fake_algorithm/formal_fake_runtime/candidate_b_metadata/method: M1b_R1
+ * /formal_fake_algorithm/formal_fake_runtime/candidate_b_metadata/triad: CANDIDATE_B_SPATI...
+ * /formal_fake_algorithm/formal_fake_runtime/candidate_b_spatial_composite/disturbance_model_version: candidate_B_v2_sp...
+ * /formal_fake_algorithm/formal_fake_runtime/candidate_b_spatial_composite/enabled: True
+ * /formal_fake_algorithm/formal_fake_runtime/candidate_b_spatial_composite/freeze_id: candidate_B_v2_sp...
+ * /formal_fake_algorithm/formal_fake_runtime/candidate_b_spatial_composite/longitudinal_amplitude: 0.02
+ * /formal_fake_algorithm/formal_fake_runtime/candidate_b_spatial_composite/longitudinal_frequency: 1.0
+ * /formal_fake_algorithm/formal_fake_runtime/candidate_b_spatial_composite/longitudinal_phase: 0.0
+ * /formal_fake_algorithm/formal_fake_runtime/candidate_b_spatial_composite/minimum_effectiveness: 0.85
+ * /formal_fake_algorithm/formal_fake_runtime/candidate_b_spatial_composite/ramp_in_distance: 0.05
+ * /formal_fake_algorithm/formal_fake_runtime/candidate_b_spatial_composite/ramp_out_distance: 0.05
+ * /formal_fake_algorithm/formal_fake_runtime/candidate_b_spatial_composite/severity_scale: [1.0, 1.15, 0.85]
+ * /formal_fake_algorithm/formal_fake_runtime/candidate_b_spatial_composite/yaw_amplitude: 0.2625
+ * /formal_fake_algorithm/formal_fake_runtime/candidate_b_spatial_composite/yaw_frequency: 1.0
+ * /formal_fake_algorithm/formal_fake_runtime/candidate_b_spatial_composite/yaw_phase: 1.5707963267948966
+ * /formal_fake_algorithm/formal_fake_runtime/candidate_b_spatial_composite/zone_end: 2.8
+ * /formal_fake_algorithm/formal_fake_runtime/candidate_b_spatial_composite/zone_start: 2.0
+ * /formal_fake_algorithm/formal_fake_runtime/candidate_b_spatial_metadata/method: M1b_R1
+ * /formal_fake_algorithm/formal_fake_runtime/candidate_b_spatial_metadata/triad: CANDIDATE_B_SPATI...
+ * /formal_fake_algorithm/formal_fake_runtime/capability_reserve/body_angular_velocity: 0.0
+ * /formal_fake_algorithm/formal_fake_runtime/capability_reserve/body_linear_velocity: 0.0
+ * /formal_fake_algorithm/formal_fake_runtime/capability_reserve/path_acceleration: 0.0
+ * /formal_fake_algorithm/formal_fake_runtime/capability_reserve/path_deceleration: 0.0
+ * /formal_fake_algorithm/formal_fake_runtime/capability_reserve/wheel_linear_velocity: 0.0
+ * /formal_fake_algorithm/formal_fake_runtime/classic_additive_candidate_A/enabled: False
+ * /formal_fake_algorithm/formal_fake_runtime/classic_additive_physical/enabled: False
+ * /formal_fake_algorithm/formal_fake_runtime/classic_additive_physical/hardware_execution_authorized: False
+ * /formal_fake_algorithm/formal_fake_runtime/command_publication_authorized: True
+ * /formal_fake_algorithm/formal_fake_runtime/configuration_status: PILOT_SHARED_CIRC...
+ * /formal_fake_algorithm/formal_fake_runtime/confirm_test_area_clear: False
+ * /formal_fake_algorithm/formal_fake_runtime/confirm_unloaded_30cm_fixture: False
+ * /formal_fake_algorithm/formal_fake_runtime/confirm_wheels_on_floor: False
+ * /formal_fake_algorithm/formal_fake_runtime/distributed_initial/auxiliary: [0.0, 0.0, 0.0]
+ * /formal_fake_algorithm/formal_fake_runtime/distributed_initial/position: [0.0, 0.0, 0.0]
+ * /formal_fake_algorithm/formal_fake_runtime/distributed_initial/velocity: [0.1, 0.1, 0.1]
+ * /formal_fake_algorithm/formal_fake_runtime/effect_exploration_continue_on_quality_exceedance: True
+ * /formal_fake_algorithm/formal_fake_runtime/emergency_abort_limit: 0.18
+ * /formal_fake_algorithm/formal_fake_runtime/evidence_scope: ['EXPLORATORY_FAK...
+ * /formal_fake_algorithm/formal_fake_runtime/execution/align_progress_to_initial_pose: False
+ * /formal_fake_algorithm/formal_fake_runtime/execution/consistent_reference_acceleration: True
+ * /formal_fake_algorithm/formal_fake_runtime/execution/emergency_abort_persistence_seconds: 0.1
+ * /formal_fake_algorithm/formal_fake_runtime/execution/initialization_hold_seconds: 0.3
+ * /formal_fake_algorithm/formal_fake_runtime/execution/initialization_max_wheel_speed: 0.015
+ * /formal_fake_algorithm/formal_fake_runtime/execution/reconciliation/enabled: False
+ * /formal_fake_algorithm/formal_fake_runtime/execution/startup_catchup_margin_mps: 0.008
+ * /formal_fake_algorithm/formal_fake_runtime/execution/startup_early_rise: 0.6
+ * /formal_fake_algorithm/formal_fake_runtime/execution/startup_feedback_ramp_seconds: 1.2
+ * /formal_fake_algorithm/formal_fake_runtime/execution/startup_ramp_seconds: 4.0
+ * /formal_fake_algorithm/formal_fake_runtime/execution/transient_capability_hold_seconds: 0.4
+ * /formal_fake_algorithm/formal_fake_runtime/execution/transient_feedback_hold_seconds: 0.1
+ * /formal_fake_algorithm/formal_fake_runtime/execution/transient_state_hold_seconds: 0.08
+ * /formal_fake_algorithm/formal_fake_runtime/experiment_id: candidate_B_spati...
+ * /formal_fake_algorithm/formal_fake_runtime/initial_progress: 0.0
+ * /formal_fake_algorithm/formal_fake_runtime/leader/acceleration: 0.0
+ * /formal_fake_algorithm/formal_fake_runtime/leader/initial_position: 0.0
+ * /formal_fake_algorithm/formal_fake_runtime/leader/velocity: 0.1
+ * /formal_fake_algorithm/formal_fake_runtime/lower/initial_disturbance_estimate: 0.08
+ * /formal_fake_algorithm/formal_fake_runtime/lower/initial_parameter: [0.0, 0.0]
+ * /formal_fake_algorithm/formal_fake_runtime/lower/velocity_lower_bound: -0.15
+ * /formal_fake_algorithm/formal_fake_runtime/lower/velocity_upper_bound: 0.58
+ * /formal_fake_algorithm/formal_fake_runtime/maximum_capability_age: 0.25
+ * /formal_fake_algorithm/formal_fake_runtime/maximum_feedback_age: 0.25
+ * /formal_fake_algorithm/formal_fake_runtime/maximum_recorder_armed_age: 0.5
+ * /formal_fake_algorithm/formal_fake_runtime/maximum_state_age: 0.22
+ * /formal_fake_algorithm/formal_fake_runtime/minimum_battery_voltage: 9.5
+ * /formal_fake_algorithm/formal_fake_runtime/minimum_battery_voltage_duration: 0.5
+ * /formal_fake_algorithm/formal_fake_runtime/publish_rate: 100.0
+ * /formal_fake_algorithm/formal_fake_runtime/require_recorder_armed: True
+ * /formal_fake_algorithm/formal_fake_runtime/require_valid_load_state: True
+ * /formal_fake_algorithm/formal_fake_runtime/risk/capability_reserve: 0.005
+ * /formal_fake_algorithm/formal_fake_runtime/risk/capability_safe_margin: 0.01
+ * /formal_fake_algorithm/formal_fake_runtime/risk/input_safe_margin: 0.4
+ * /formal_fake_algorithm/formal_fake_runtime/risk/maximum_watchdog_age: 0.25
+ * /formal_fake_algorithm/formal_fake_runtime/risk/position_limit: 0.12
+ * /formal_fake_algorithm/formal_fake_runtime/risk/position_safe_margin: 0.06
+ * /formal_fake_algorithm/formal_fake_runtime/risk/require_software_watchdog: False
+ * /formal_fake_algorithm/formal_fake_runtime/risk/wheel_safe_margin: 0.01
+ * /formal_fake_algorithm/formal_fake_runtime/risk_disturbance_v1/enabled: False
+ * /formal_fake_algorithm/formal_fake_runtime/risk_disturbance_v1/peak_fraction: 0.3
+ * /formal_fake_algorithm/formal_fake_runtime/schema_version: 1
+ * /formal_fake_algorithm/formal_fake_runtime/serial_execution_authorized: True
+ * /formal_fake_algorithm/formal_fake_runtime/target_progress: 5.17822971502571
+ * /formal_fake_algorithm/formal_fake_runtime/tracker/angular_feedforward_scale_negative: [0.94, 0.95122187...
+ * /formal_fake_algorithm/formal_fake_runtime/tracker/angular_feedforward_scale_positive: [0.78, 0.78081021...
+ * /formal_fake_algorithm/formal_fake_runtime/tracker/base_to_support: [{'x': -0.01783, ...
+ * /formal_fake_algorithm/formal_fake_runtime/tracker/chassis_reference_samples: 10001
+ * /formal_fake_algorithm/formal_fake_runtime/tracker/curvature_preview_seconds_negative: [0.05, 0.0, 0.05]
+ * /formal_fake_algorithm/formal_fake_runtime/tracker/curvature_preview_seconds_positive: [0.05, 0.0, 0.05]
+ * /formal_fake_algorithm/formal_fake_runtime/tracker/formation_heading_gain: 0.7
+ * /formal_fake_algorithm/formal_fake_runtime/tracker/formation_lateral_gain: 0.85
+ * /formal_fake_algorithm/formal_fake_runtime/tracker/formation_longitudinal_gain: 0.25
+ * /formal_fake_algorithm/formal_fake_runtime/tracker/heading_gain: 2.0
+ * /formal_fake_algorithm/formal_fake_runtime/tracker/heading_gain_per_robot: [3.5, 3.0, 3.0]
+ * /formal_fake_algorithm/formal_fake_runtime/tracker/lateral_gain: 2.0
+ * /formal_fake_algorithm/formal_fake_runtime/tracker/lateral_gain_per_robot: [4.8, 3.4, 4.0]
+ * /formal_fake_algorithm/formal_fake_runtime/tracker/longitudinal_gain: 1.0
+ * /formal_fake_algorithm/formal_fake_runtime/tracker/longitudinal_gain_per_robot: [1.0, 1.0, 1.0]
+ * /formal_fake_algorithm/formal_fake_runtime/tracker/wheel_separation: [0.135484339, 0.1...
+ * /formal_fake_algorithm/formal_fake_runtime/transient_yaw_v4/enabled: False
+ * /formal_fake_algorithm/formal_fake_runtime/yaw_drive_disturbance_v2/amplitude: 0.004
+ * /formal_fake_algorithm/formal_fake_runtime/yaw_drive_disturbance_v2/enabled: False
+ * /formal_fake_algorithm/formal_fake_runtime/yaw_effectiveness_hold_v5b/enabled: False
+ * /formal_fake_algorithm/formal_fake_runtime/yaw_effectiveness_v5/enabled: False
+ * /formal_fake_algorithm/formal_lower/adaptation_enabled: True
+ * /formal_fake_algorithm/formal_lower/adaptation_gain: [0.12, 0.12]
+ * /formal_fake_algorithm/formal_lower/algorithm_execution_authorized: True
+ * /formal_fake_algorithm/formal_lower/composite_gain: 1.2
+ * /formal_fake_algorithm/formal_lower/configuration_status: complete_lower_go...
+ * /formal_fake_algorithm/formal_lower/constraint_margin: 2e-05
+ * /formal_fake_algorithm/formal_lower/disturbance_adaptation_gain: 1.0
+ * /formal_fake_algorithm/formal_lower/disturbance_compensation_enabled: True
+ * /formal_fake_algorithm/formal_lower/disturbance_estimate_max: 0.55
+ * /formal_fake_algorithm/formal_lower/disturbance_leakage: 0.08
+ * /formal_fake_algorithm/formal_lower/feedback_gain: 2.4
+ * /formal_fake_algorithm/formal_lower/golden_vectors_verified: True
+ * /formal_fake_algorithm/formal_lower/hardware_execution_authorized: False
+ * /formal_fake_algorithm/formal_lower/mode: R1
+ * /formal_fake_algorithm/formal_lower/parameter_leakage: 0.025
+ * /formal_fake_algorithm/formal_lower/parameter_max: [0.8, 0.8]
+ * /formal_fake_algorithm/formal_lower/parameter_min: [-0.8, -0.8]
+ * /formal_fake_algorithm/formal_lower/robust_boundary_layer: 0.055
+ * /formal_fake_algorithm/formal_lower/schema_version: 1
+ * /formal_fake_algorithm/formal_lower/sustained_saturation_seconds: 0.5
+ * /formal_fake_algorithm/formal_lower/update_rate: 100.0
+ * /formal_fake_algorithm/formal_upper/agents/initial_lower: [-0.015, -0.015, ...
+ * /formal_fake_algorithm/formal_upper/agents/initial_upper: [0.112, 0.112, 0....
+ * /formal_fake_algorithm/formal_upper/agents/inner_margin: [0.005, 0.005, 0....
+ * /formal_fake_algorithm/formal_upper/agents/minimum_width: [0.065, 0.065, 0....
+ * /formal_fake_algorithm/formal_upper/agents/nominal_lower: [-0.015, -0.015, ...
+ * /formal_fake_algorithm/formal_upper/agents/nominal_upper: [0.112, 0.112, 0....
+ * /formal_fake_algorithm/formal_upper/agents/physical_lower: [-0.03, -0.03, -0...
+ * /formal_fake_algorithm/formal_upper/agents/physical_margin_lower: [0.005, 0.005, 0....
+ * /formal_fake_algorithm/formal_upper/agents/physical_margin_upper: [0.005, 0.005, 0....
+ * /formal_fake_algorithm/formal_upper/agents/physical_upper: [0.125, 0.125, 0....
+ * /formal_fake_algorithm/formal_upper/agents/restore_gain_lower: [0.55, 0.55, 0.55]
+ * /formal_fake_algorithm/formal_upper/agents/restore_gain_upper: [0.65, 0.65, 0.65]
+ * /formal_fake_algorithm/formal_upper/agents/risk_decay: [0.42, 0.42, 0.42]
+ * /formal_fake_algorithm/formal_upper/agents/risk_gain_lower: [0.036, 0.036, 0....
+ * /formal_fake_algorithm/formal_upper/agents/risk_gain_upper: [0.1, 0.1, 0.1]
+ * /formal_fake_algorithm/formal_upper/agents/risk_scale: [0.95, 0.95, 0.95]
+ * /formal_fake_algorithm/formal_upper/agents/zero_margin: [0.005, 0.005, 0....
+ * /formal_fake_algorithm/formal_upper/algorithm_execution_authorized: True
+ * /formal_fake_algorithm/formal_upper/configuration_status: EXPLORATORY_FAKE_...
+ * /formal_fake_algorithm/formal_upper/controller_ticks_per_update: 4
+ * /formal_fake_algorithm/formal_upper/golden_vectors_verified: True
+ * /formal_fake_algorithm/formal_upper/hard_capability_envelope/capability_reserve: 0.005
+ * /formal_fake_algorithm/formal_upper/hard_capability_envelope/enabled: True
+ * /formal_fake_algorithm/formal_upper/hardware_execution_authorized: False
+ * /formal_fake_algorithm/formal_upper/m1b_hardware_execution_authorized: False
+ * /formal_fake_algorithm/formal_upper/mode: M1b
+ * /formal_fake_algorithm/formal_upper/schema_version: 1
+ * /formal_fake_algorithm/path_s_curve/amplitude: 0.0
+ * /formal_fake_algorithm/path_s_curve/circle_direction: -1.0
+ * /formal_fake_algorithm/path_s_curve/circle_radius: 0.7
+ * /formal_fake_algorithm/path_s_curve/configuration_status: frozen_m1_r1_circ...
+ * /formal_fake_algorithm/path_s_curve/curvature_ramp_length: 0.4
+ * /formal_fake_algorithm/path_s_curve/entry_straight_length: 0.2
+ * /formal_fake_algorithm/path_s_curve/exit_straight_length: 0.18
+ * /formal_fake_algorithm/path_s_curve/hardware_execution_authorized: False
+ * /formal_fake_algorithm/path_s_curve/longitudinal_length: 4.99822971502571
+ * /formal_fake_algorithm/path_s_curve/lookup_samples: 60001
+ * /formal_fake_algorithm/path_s_curve/model: circle_smooth_ent...
+ * /formal_fake_algorithm/path_s_curve/schema_version: 1
+ * /formal_fake_algorithm/platform_transport_type: fake
+ * /formal_fake_algorithm/support_geometry/configuration_status: unloaded_equilate...
+ * /formal_fake_algorithm/support_geometry/coordinate_convention: load_path_frenet_...
+ * /formal_fake_algorithm/support_geometry/hardware_execution_authorized: False
+ * /formal_fake_algorithm/support_geometry/minimum_nondegeneracy: 0.2
+ * /formal_fake_algorithm/support_geometry/minimum_speed_scale: 0.2
+ * /formal_fake_algorithm/support_geometry/schema_version: 1
+ * /formal_fake_algorithm/support_geometry/supports: [{'robot_id': 'ag...
+ * /formal_fake_algorithm/support_geometry/validation_samples: 10001
+ * /path_state_estimator/configuration_status: EXP2C_FAKE_ONLY_E...
+ * /path_state_estimator/effect_exploration_continue_on_quality_exceedance: True
+ * /path_state_estimator/estimator/filter_alpha: 0.8
+ * /path_state_estimator/estimator/initial_progress: 0.0
+ * /path_state_estimator/estimator/maximum_absolute_speed: 0.5
+ * /path_state_estimator/estimator/maximum_measurement_interval: 0.2
+ * /path_state_estimator/estimator/minimum_measurement_interval: 1e-05
+ * /path_state_estimator/estimator/projection_half_window: 0.35
+ * /path_state_estimator/experiment_id: candidate_B_spati...
+ * /path_state_estimator/hardware_execution_authorized: False
+ * /path_state_estimator/localization_mode: odometry_pretest
+ * /path_state_estimator/maximum_rigid_fit_residual: 0.01
+ * /path_state_estimator/maximum_state_age: 0.15
+ * /path_state_estimator/maximum_sync_slop: 0.02
+ * /path_state_estimator/path_s_curve/amplitude: 0.0
+ * /path_state_estimator/path_s_curve/circle_direction: -1.0
+ * /path_state_estimator/path_s_curve/circle_radius: 0.7
+ * /path_state_estimator/path_s_curve/configuration_status: frozen_m1_r1_circ...
+ * /path_state_estimator/path_s_curve/curvature_ramp_length: 0.4
+ * /path_state_estimator/path_s_curve/entry_straight_length: 0.2
+ * /path_state_estimator/path_s_curve/exit_straight_length: 0.18
+ * /path_state_estimator/path_s_curve/hardware_execution_authorized: False
+ * /path_state_estimator/path_s_curve/longitudinal_length: 4.99822971502571
+ * /path_state_estimator/path_s_curve/lookup_samples: 60001
+ * /path_state_estimator/path_s_curve/model: circle_smooth_ent...
+ * /path_state_estimator/path_s_curve/schema_version: 1
+ * /path_state_estimator/platform_transport_type: fake
+ * /path_state_estimator/projector/coarse_samples: 81
+ * /path_state_estimator/projector/convergence_tolerance: 1e-09
+ * /path_state_estimator/projector/maximum_projection_distance: 0.08
+ * /path_state_estimator/projector/maximum_refinement_iterations: 48
+ * /path_state_estimator/publish_rate: 100.0
+ * /path_state_estimator/robots: [{'robot_id': 'ag...
+ * /path_state_estimator/support_geometry/configuration_status: unloaded_equilate...
+ * /path_state_estimator/support_geometry/coordinate_convention: load_path_frenet_...
+ * /path_state_estimator/support_geometry/hardware_execution_authorized: False
+ * /path_state_estimator/support_geometry/minimum_nondegeneracy: 0.2
+ * /path_state_estimator/support_geometry/minimum_speed_scale: 0.2
+ * /path_state_estimator/support_geometry/schema_version: 1
+ * /path_state_estimator/support_geometry/supports: [{'robot_id': 'ag...
+ * /path_state_estimator/support_geometry/validation_samples: 10001
+ * /path_state_estimator/synchronization_queue_size: 64
+ * /rosdistro: noetic
+ * /rosversion: 1.17.0
+
+NODES
+  /
+    formal_fake_algorithm (multi_agv_control/formal_fake_algorithm_node)
+    path_state_estimator (multi_agv_control/path_state_estimator_node)
+  /agv1/
+    base_to_imu_tf (tf2_ros/static_transform_publisher)
+    base_to_support_tf (tf2_ros/static_transform_publisher)
+    chassis_controller (chassis_controller/chassis_controller)
+  /agv2/
+    base_to_imu_tf (tf2_ros/static_transform_publisher)
+    base_to_support_tf (tf2_ros/static_transform_publisher)
+    chassis_controller (chassis_controller/chassis_controller)
+  /agv3/
+    base_to_imu_tf (tf2_ros/static_transform_publisher)
+    base_to_support_tf (tf2_ros/static_transform_publisher)
+    chassis_controller (chassis_controller/chassis_controller)
+[WARN] [1789540606.079922540]: No synchronized odometry set: latest ages agv1=inf agv2=inf agv3=inf s (slop=0.020000 s)
+[WARN] [1789540606.131429895]: Formal algorithm integration ready: transport=fake upper=M1b lower=R1 recorder_required=true
+[WARN] [1789540606.144322110]: Formal algorithm held at zero until a fresh experiment recorder heartbeat confirms method_id=M1b_R1
+[WARN] [1789540606.256916334]: agv3 battery voltage 0.000 V is below 9.500 V; waiting for 0.500 s of continuous undervoltage before fail-zero
+[WARN] [1789540606.258381741]: agv1 battery voltage 0.000 V is below 9.500 V; waiting for 0.500 s of continuous undervoltage before fail-zero
+[WARN] [1789540606.261137784]: agv2 battery voltage 0.000 V is below 9.500 V; waiting for 0.500 s of continuous undervoltage before fail-zero
+[WARN] [1789540607.151771846]: Formal algorithm held at zero until a fresh experiment recorder heartbeat confirms method_id=M1b_R1
+[WARN] [1789540629.490899826]: QUALITY_THRESHOLD_EXCEEDED: rigid-fit 0.010203 m > unchanged 0.010000 m; v5 fake observation only, control remains valid
+[WARN] [1789540630.500787121]: QUALITY_THRESHOLD_EXCEEDED: rigid-fit 0.016792 m > unchanged 0.010000 m; v5 fake observation only, control remains valid
+[WARN] [1789540632.540675753]: QUALITY_THRESHOLD_EXCEEDED: rigid-fit 0.010172 m > unchanged 0.010000 m; v5 fake observation only, control remains valid
+[WARN] [1789540633.550779131]: QUALITY_THRESHOLD_EXCEEDED: rigid-fit 0.014526 m > unchanged 0.010000 m; v5 fake observation only, control remains valid
+[INFO] [1789540605.991945254]: agv2 formal available wheel limit: 0.160000 m/s (reported and enforced)
+[INFO] [1789540606.002031109]: agv2 wheel calibration: command left=0.907894004 right=0.902080277; feedback left=1.099449201 right=1.101910817
+[INFO] [1789540606.017008893]: agv3 formal available wheel limit: 0.160000 m/s (reported and enforced)
+[INFO] [1789540606.033073886]: agv3 wheel calibration: command left=0.912910288 right=0.908267917; feedback left=1.091549715 right=1.099654555
+[INFO] [1789540606.144261721]: Formal command publishers enabled after all three chassis transport parameters were verified as fake
+[INFO] [1789540659.171787937]: Formal execution reached 5.178 m; synchronized terminal stop latched without endpoint pose hunting
+[INFO] [1789540605.974878752]: agv1 formal available wheel limit: 0.160000 m/s (reported and enforced)
+[INFO] [1789540605.987321186]: agv1 wheel calibration: command left=0.927513947 right=0.921275775; feedback left=1.075628349 right=1.082319540
+[31mWARNING: disk usage in log directory [/home/etlab/.ros/log] is over 1GB.
+It's recommended that you use the 'rosclean' command.[0m
+
+[1mROS_MASTER_URI=http://127.0.0.1:11710[0m
+]2;/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/launch/formal_fake_algorithm.launch http://127.0.0.1:11710
+[1mprocess[agv1/chassis_controller-1]: started with pid [37152][0m
+[1mprocess[agv1/base_to_imu_tf-2]: started with pid [37153][0m
+[1mprocess[agv1/base_to_support_tf-3]: started with pid [37154][0m
+[1mprocess[agv2/chassis_controller-4]: started with pid [37155][0m
+[1mprocess[agv2/base_to_imu_tf-5]: started with pid [37161][0m
+[1mprocess[agv2/base_to_support_tf-6]: started with pid [37171][0m
+[1mprocess[agv3/chassis_controller-7]: started with pid [37174][0m
+[1mprocess[agv3/base_to_imu_tf-8]: started with pid [37180][0m
+[1mprocess[agv3/base_to_support_tf-9]: started with pid [37185][0m
+[1mprocess[path_state_estimator-10]: started with pid [37191][0m
+[1mprocess[formal_fake_algorithm-11]: started with pid [37200][0m
+[formal_fake_algorithm-11] killing on exit
+[path_state_estimator-10] killing on exit
+[agv3/base_to_support_tf-9] killing on exit
+[agv3/base_to_imu_tf-8] killing on exit
+[agv3/chassis_controller-7] killing on exit
+[agv2/base_to_support_tf-6] killing on exit
+[agv2/base_to_imu_tf-5] killing on exit
+[agv2/chassis_controller-4] killing on exit
+[agv1/base_to_support_tf-3] killing on exit
+[agv1/base_to_imu_tf-2] killing on exit
+[agv1/chassis_controller-1] killing on exit
+shutting down processing monitor...
+... shutting down processing monitor complete
+[1mdone[0m

@@ -4,6 +4,8 @@ set -euo pipefail
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 workspace="$(cd "${script_dir}/../../.." && pwd)"
 output_root=""; ros_port=11710; method=""; stage=Triad01; target=5.178229715025710
+analysis_script="src/multi_agv_analysis/scripts/analyze_candidate_B_spatial_composite_fake.py"
+experiment_id="candidate_B_spatial_composite_fake_validation"
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --method) method="$2"; shift 2 ;;
@@ -11,6 +13,8 @@ while [[ $# -gt 0 ]]; do
     --output-root) output_root="$2"; shift 2 ;;
     --ros-port) ros_port="$2"; shift 2 ;;
     --target) target="$2"; shift 2 ;;
+    --analysis-script) analysis_script="$2"; shift 2 ;;
+    --experiment-id) experiment_id="$2"; shift 2 ;;
     *) echo "ERROR: unknown argument $1" >&2; exit 2 ;;
   esac
 done
@@ -29,7 +33,7 @@ export ROS_MASTER_URI="http://127.0.0.1:${ros_port}"
 export ROS_HOSTNAME=127.0.0.1
 unset ROS_IP || true
 mkdir -p "$output_root/logs"
-python3 src/multi_agv_analysis/scripts/analyze_candidate_B_spatial_composite_fake.py \
+python3 "$analysis_script" \
   --prepare "$output_root" --method "$method"
 if rosnode list >/dev/null 2>&1; then
   echo "ERROR: ROS master already responds on $ROS_MASTER_URI" >&2; exit 3
@@ -87,7 +91,7 @@ roslaunch multi_agv_bringup formal_evaluation_window.launch \
   platform_transport_type:=fake derating_publication_authorized:=false \
   authorization_config:="$authorization_config" evaluation_config:="$evaluation_config" \
   run_id:="${stage}_${method_id}" method_id:="$method_id" \
-  experiment_id:=candidate_B_spatial_composite_fake_validation \
+  experiment_id:="$experiment_id" \
   block_id:="${stage}_${method_id}" >"$output_root/logs/evaluation.log" 2>&1 &
 evaluation_pid=$!
 
@@ -99,7 +103,7 @@ until rosnode list 2>/dev/null | grep -Fqx /formal_fake_algorithm; do
 done
 roslaunch multi_agv_bringup experiment.launch arming_authorized:=true \
   output_root:="$output_root" run_id:=run \
-  experiment_id:=candidate_B_spatial_composite_fake_validation \
+  experiment_id:="$experiment_id" \
   method_id:="$method_id" pair_block_id:="$stage" payload_state:=unloaded \
   localization_source:=odom_fake require_windows_sender_manifest:=false \
   path_config:="$path_config" localization_config:="$localization_config" \
@@ -137,7 +141,7 @@ wait "$recorder_pid" || true; recorder_pid=""
 cleanup_run; algorithm_pid=""; evaluation_pid=""
 rosrun multi_agv_analysis process_experiment_run.py "$output_root/run" \
   "$validation_config" --skip-plots || true
-python3 src/multi_agv_analysis/scripts/analyze_candidate_B_spatial_composite_fake.py \
+python3 "$analysis_script" \
   --method "$method" --check-run "$output_root/run" \
   --check-log "$output_root/logs/algorithm.log"
 echo "CANDIDATE_B_SPATIAL_RUN_DIR=$output_root/run"

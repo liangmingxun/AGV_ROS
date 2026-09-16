@@ -35,6 +35,7 @@ struct CandidateBSpatialCompositeConfig {
   double zone_end{2.8};
   double ramp_in_distance{0.05};
   double ramp_out_distance{0.05};
+  std::array<double, 3> severity_scale{{1.0, 1.0, 1.0}};
   std::array<double, 3> wheel_separation{{0.0, 0.0, 0.0}};
   std::string disturbance_model_version{
       "candidate_B_v2_spatial_composite"};
@@ -54,6 +55,17 @@ inline void validateCandidateBSpatialCompositeConfig(
   const bool finite_tracks = std::all_of(
       c.wheel_separation.begin(), c.wheel_separation.end(),
       [](double value) { return std::isfinite(value) && value > 0.0; });
+  const bool finite_scales = std::all_of(
+      c.severity_scale.begin(), c.severity_scale.end(),
+      [](double value) { return std::isfinite(value) && value > 0.0; });
+  const bool uniform_profile =
+      c.severity_scale == std::array<double, 3>{{1.0, 1.0, 1.0}} &&
+      c.freeze_id ==
+          "candidate_B_v2_spatial_rho0p85_av0p020_aw0p2625";
+  const bool gradient15_profile =
+      c.severity_scale == std::array<double, 3>{{1.0, 1.15, 0.85}} &&
+      c.freeze_id ==
+          "candidate_B_v2_spatial_gradient15_rho0p85_av0p020_aw0p2625";
   if (!std::isfinite(c.minimum_effectiveness) ||
       !std::isfinite(c.longitudinal_amplitude) ||
       !std::isfinite(c.longitudinal_frequency) ||
@@ -64,6 +76,7 @@ inline void validateCandidateBSpatialCompositeConfig(
       !std::isfinite(c.zone_start) || !std::isfinite(c.zone_end) ||
       !std::isfinite(c.ramp_in_distance) ||
       !std::isfinite(c.ramp_out_distance) || !finite_tracks ||
+      !finite_scales ||
       std::abs(c.minimum_effectiveness - 0.85) > 1e-12 ||
       std::abs(c.longitudinal_amplitude - 0.020) > 1e-12 ||
       std::abs(c.longitudinal_frequency - 1.0) > 1e-12 ||
@@ -79,8 +92,7 @@ inline void validateCandidateBSpatialCompositeConfig(
           c.zone_end - c.ramp_out_distance ||
       c.disturbance_model_version !=
           "candidate_B_v2_spatial_composite" ||
-      c.freeze_id !=
-          "candidate_B_v2_spatial_rho0p85_av0p020_aw0p2625") {
+      (!uniform_profile && !gradient15_profile)) {
     throw std::invalid_argument(
         "Candidate B v2 permits only the frozen spatial composite profile");
   }
@@ -177,12 +189,15 @@ class CandidateBSpatialCompositeDisturbance {
           (c.zone_end - spatial_progress) / c.ramp_out_distance);
     }
 
-    out.effectiveness =
-        1.0 - (1.0 - c.minimum_effectiveness) * out.envelope;
-    out.longitudinal_disturbance = c.longitudinal_amplitude * out.envelope *
+    const double severity =
+        c.severity_scale[static_cast<std::size_t>(robot_id - 1)];
+    out.effectiveness = 1.0 -
+        (1.0 - c.minimum_effectiveness) * severity * out.envelope;
+    out.longitudinal_disturbance =
+        c.longitudinal_amplitude * severity * out.envelope *
         std::sin(c.longitudinal_frequency * out.local_elapsed +
                  c.longitudinal_phase);
-    out.yaw_disturbance = c.yaw_amplitude * out.envelope *
+    out.yaw_disturbance = c.yaw_amplitude * severity * out.envelope *
         std::sin(c.yaw_frequency * out.local_elapsed + c.yaw_phase);
     out.longitudinal_after_effectiveness =
         out.effectiveness * out.longitudinal_native;

@@ -1,0 +1,129 @@
+formal_upper:
+  schema_version: 1
+  mode: M1b
+  configuration_status: EXPLORATORY_FAKE_VALIDATION_NOT_FORMAL_PAPER_EVIDENCE
+  algorithm_execution_authorized: true
+  hardware_execution_authorized: false
+  m1b_hardware_execution_authorized: false
+  golden_vectors_verified: true
+  controller_ticks_per_update: 4
+  hard_capability_envelope:
+    enabled: true
+    capability_reserve: 0.005
+  agents:
+    physical_lower:
+    - -0.03
+    - -0.03
+    - -0.03
+    physical_upper:
+    - 0.125
+    - 0.125
+    - 0.125
+    physical_margin_lower:
+    - 0.005
+    - 0.005
+    - 0.005
+    physical_margin_upper:
+    - 0.005
+    - 0.005
+    - 0.005
+    zero_margin:
+    - 0.005
+    - 0.005
+    - 0.005
+    minimum_width:
+    - 0.065
+    - 0.065
+    - 0.065
+    inner_margin:
+    - 0.005
+    - 0.005
+    - 0.005
+    initial_lower:
+    - -0.015
+    - -0.015
+    - -0.015
+    initial_upper:
+    - 0.112
+    - 0.112
+    - 0.112
+    nominal_lower:
+    - -0.015
+    - -0.015
+    - -0.015
+    nominal_upper:
+    - 0.112
+    - 0.112
+    - 0.112
+    restore_gain_lower:
+    - 0.55
+    - 0.55
+    - 0.55
+    restore_gain_upper:
+    - 0.65
+    - 0.65
+    - 0.65
+    risk_gain_lower:
+    - 0.036
+    - 0.036
+    - 0.036
+    risk_gain_upper:
+    - 0.1
+    - 0.1
+    - 0.1
+    risk_scale:
+    - 0.95
+    - 0.95
+    - 0.95
+    risk_decay:
+    - 0.42
+    - 0.42
+    - 0.42
+formal_fake_runtime:
+  experiment_id: candidate_B_spatial_gradient15_fake_validation
+  risk_disturbance_v1:
+    enabled: false
+  yaw_drive_disturbance_v2:
+    enabled: false
+  transient_yaw_v4:
+    enabled: false
+  evidence_scope:
+  - EXPLORATORY_FAKE_VALIDATION
+  - NOT_FORMAL_PAPER_EVIDENCE
+  effect_exploration_continue_on_quality_exceedance: true
+  yaw_effectiveness_v5:
+    enabled: false
+  yaw_effectiveness_hold_v5b:
+    enabled: false
+  candidate_b:
+    enabled: false
+  candidate_b_metadata:
+    triad: CANDIDATE_B_SPATIAL_GRADIENT15_20260916_143644
+    method: M2b_M2b
+  classic_additive_candidate_A:
+    enabled: false
+  classic_additive_physical:
+    enabled: false
+    hardware_execution_authorized: false
+  candidate_b_spatial_composite:
+    enabled: true
+    minimum_effectiveness: 0.85
+    longitudinal_amplitude: 0.02
+    longitudinal_frequency: 1.0
+    longitudinal_phase: 0.0
+    yaw_amplitude: 0.2625
+    yaw_frequency: 1.0
+    yaw_phase: 1.5707963267948966
+    zone_start: 2.0
+    zone_end: 2.8
+    ramp_in_distance: 0.05
+    ramp_out_distance: 0.05
+    severity_scale:
+    - 1.0
+    - 1.15
+    - 0.85
+    disturbance_model_version: candidate_B_v2_spatial_composite
+    freeze_id: candidate_B_v2_spatial_gradient15_rho0p85_av0p020_aw0p2625
+  candidate_b_spatial_metadata:
+    triad: CANDIDATE_B_SPATIAL_GRADIENT15_20260916_143644
+    method: M2b_M2b

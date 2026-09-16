@@ -25,6 +25,9 @@ CONFIG = HERE.parents[1] / "multi_agv_bringup/config"
 PROFILE = yaml.safe_load((
     CONFIG / "formal_fake_candidate_B_spatial_composite.yaml").read_text()
 )["formal_fake_runtime"]["candidate_b_spatial_composite"]
+COMPARISON_FILENAME = "candidate_b_spatial_comparison.json"
+REPORT_FILENAME = (
+    "candidate-B-spatial-composite-rho0p85-av0p020-fake-results.md")
 
 
 def save(path, value):
@@ -361,10 +364,15 @@ def analyze(run, method, log):
     invalid_log = hard_failure_in_valid_window(
         log, float(algorithm_window.get("first_valid_stamp", -math.inf)),
         float(algorithm_window.get("completion_stamp", math.inf)))
+    scales = PROFILE.get("severity_scale", [1.0, 1.0, 1.0])
     profile_ok = all(
-        abs(verification[f"Robot{i}"]["minimum_rho"] - .85) < 2e-3 and
-        verification[f"Robot{i}"]["d_v_peak"] <= .0200001 and
-        verification[f"Robot{i}"]["d_omega_peak"] <= .2625001
+        abs(verification[f"Robot{i}"]["minimum_rho"] -
+            (1.0 - (1.0 - PROFILE["minimum_effectiveness"]) *
+             scales[i - 1])) < 2e-3 and
+        verification[f"Robot{i}"]["d_v_peak"] <=
+            PROFILE["longitudinal_amplitude"] * scales[i - 1] + 1e-7 and
+        verification[f"Robot{i}"]["d_omega_peak"] <=
+            PROFILE["yaw_amplitude"] * scales[i - 1] + 1e-7
         for i in (1, 2, 3))
     category = ("VALID_COMPLETED" if complete and not invalid_log and profile_ok
                 else "INVALID_RUN")
@@ -499,7 +507,7 @@ def aggregate(root):
               "comparisons": comparisons, "all_runs_valid": valid,
               "fake_comparison": "VALID" if valid else "INVALID",
               "physical_readiness": "NOT_AUTHORIZED"}
-    save(root / "candidate_b_spatial_comparison.json", result)
+    save(root / COMPARISON_FILENAME, result)
     rows_for_plot = {}
     for method, folder in METHODS.items():
         rows = list(csv.DictReader((root / folder / "run/converted/aligned_samples.csv").open()))
@@ -576,7 +584,7 @@ def aggregate(root):
               "- Analysis metrics: PASS, 64 tests; bringup static: PASS, 49 tests.",
               "- Involved C++ build, shell syntax, Python compile, and `git diff --check`: PASS.", "",
               "Python regression commands used `PYTHONNOUSERSITE=1` so ROS Noetic loaded the compatible system NumPy 1.17.4 and SciPy 1.3.3. The host user-site NumPy is incompatible with system SciPy; this is an analysis-environment issue, not a Candidate B regression."]
-    report=root/"candidate-B-spatial-composite-rho0p85-av0p020-fake-results.md"
+    report = root / REPORT_FILENAME
     report.write_text("\n".join(lines)+"\n")
     return result
 

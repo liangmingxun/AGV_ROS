@@ -228,8 +228,10 @@ class FormalFakeAlgorithmNode {
     if (candidate_b_spatial_config_.enabled) {
       const bool candidate_b_spatial_scope =
           transport_type_ == "fake" &&
-          experiment_id_ ==
-              "candidate_B_spatial_composite_fake_validation" &&
+          (experiment_id_ ==
+               "candidate_B_spatial_composite_fake_validation" ||
+           experiment_id_ ==
+               "candidate_B_spatial_gradient15_fake_validation") &&
           !v5_hardware_authorized && !lower_hardware_authorized &&
           classic_method && !candidate_b_config_.enabled &&
           !classic_additive_config_.enabled &&
@@ -831,6 +833,9 @@ class FormalFakeAlgorithmNode {
     private_node_.param(
         root+"candidate_b_spatial_composite/ramp_out_distance",
         candidate_b_spatial_config_.ramp_out_distance,.05);
+    candidate_b_spatial_config_.severity_scale = optionalArray3(
+        private_node_, root+"candidate_b_spatial_composite/severity_scale",
+        {{1.0, 1.0, 1.0}});
     private_node_.param<std::string>(
         root+"candidate_b_spatial_composite/disturbance_model_version",
         candidate_b_spatial_config_.disturbance_model_version,
@@ -1981,7 +1986,9 @@ class FormalFakeAlgorithmNode {
         (experiment_id_ == "exp2c_v5b_s1_three_method_repeat_validation" && !m2b_selected_) ||
         (experiment_id_ == "classic_additive_disturbance_candidate_A_validation" && !m2b_selected_) ||
         (experiment_id_ == "candidate_B_effectiveness_fake_validation" && !m2b_selected_) ||
-        (experiment_id_ == "candidate_B_spatial_composite_fake_validation" && !m2b_selected_);
+        ((experiment_id_ == "candidate_B_spatial_composite_fake_validation" ||
+          experiment_id_ == "candidate_B_spatial_gradient15_fake_validation") &&
+         !m2b_selected_);
     message.layout.dim[0].label = v3_diagnostics
         ? "formal_algorithm_state_v3:header10+3x29+reference4"
         : "formal_algorithm_state_v2:header10+3x29";

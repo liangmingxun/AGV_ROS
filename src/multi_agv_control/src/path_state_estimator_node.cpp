@@ -100,7 +100,9 @@ class PathStateEstimatorNode {
     if (!v5QualityPolicyAuthorized(v5_quality_observation_, exploration_id,
                                   exploration_transport, exploration_hardware) ||
         (v5_quality_observation_ && camera_mode_))
-      throw std::runtime_error("quality observation requires an authorized fake exploration/repeat/classic identity and hardware=false");
+      throw std::runtime_error(
+          "quality observation requires an authorized fake "
+          "exploration/repeat/classic/spatial identity and hardware=false");
     if (v5_quality_observation_)
       v5_quality_publisher_ = node_.advertise<std_msgs::Float64MultiArray>(
           "/multi_agv/v5_exploration_quality_state", 10, false);

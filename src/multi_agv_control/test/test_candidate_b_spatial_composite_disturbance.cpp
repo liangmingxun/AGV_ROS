@@ -138,5 +138,29 @@ TEST(CandidateBSpatialComposite, FrozenAmplitudeBoundsAndNativeYaw) {
               out.yaw_native + out.yaw_disturbance, 1e-12);
 }
 
+TEST(CandidateBSpatialComposite, Gradient15UsesPerRobotSeverity) {
+  auto c = config();
+  c.severity_scale = {{1.0, 1.15, 0.85}};
+  c.freeze_id =
+      "candidate_B_v2_spatial_gradient15_rho0p85_av0p020_aw0p2625";
+  for (int robot = 1; robot <= 3; ++robot) {
+    CandidateBSpatialCompositeDisturbance d;
+    d.evaluate(c, robot, 2.0, 0.0, 0.1, 0.1);
+    const auto out = d.evaluate(c, robot, 2.4, 0.0, 0.1, 0.1);
+    const double scale = c.severity_scale[static_cast<std::size_t>(robot - 1)];
+    EXPECT_NEAR(out.effectiveness, 1.0 - 0.15 * scale, 1e-12);
+    EXPECT_NEAR(out.longitudinal_disturbance, 0.0, 1e-12);
+    EXPECT_NEAR(out.yaw_disturbance, 0.2625 * scale, 1e-12);
+  }
+}
+
+TEST(CandidateBSpatialComposite, RejectsUnfrozenSeverityScale) {
+  auto c = config();
+  c.severity_scale = {{1.0, 1.10, 0.90}};
+  CandidateBSpatialCompositeDisturbance d;
+  EXPECT_THROW(d.evaluate(c, 1, 2.4, 0.0, 0.1, 0.1),
+               std::invalid_argument);
+}
+
 }  // namespace
 }  // namespace multi_agv_control
