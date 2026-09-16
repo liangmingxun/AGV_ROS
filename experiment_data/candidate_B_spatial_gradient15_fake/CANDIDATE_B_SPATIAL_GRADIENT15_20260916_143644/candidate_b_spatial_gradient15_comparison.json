@@ -621,6 +621,11 @@
       "physical_readiness": "NOT_AUTHORIZED",
       "profile_verified": true,
       "run_path": "/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/experiment_data/candidate_B_spatial_gradient15_fake/CANDIDATE_B_SPATIAL_GRADIENT15_20260916_143644/M1_R1/run",
+      "spatial_metrics": {
+        "pairwise_side_error_spatial_rmse": 0.016177951704489903,
+        "rigid_fit_error_spatial_rmse": 0.008221294555314188,
+        "support_error_spatial_rmse": 0.017022842975531083
+      },
       "task_time_seconds": 53.11998128890991
     },
     "M1b": {
@@ -773,6 +778,11 @@
       "physical_readiness": "NOT_AUTHORIZED",
       "profile_verified": true,
       "run_path": "/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/experiment_data/candidate_B_spatial_gradient15_fake/CANDIDATE_B_SPATIAL_GRADIENT15_20260916_143644/M1b_R1/run",
+      "spatial_metrics": {
+        "pairwise_side_error_spatial_rmse": 0.017506881518502534,
+        "rigid_fit_error_spatial_rmse": 0.008842547345535069,
+        "support_error_spatial_rmse": 0.021694492814821435
+      },
       "task_time_seconds": 51.74001145362854
     },
     "M2b": {
@@ -925,6 +935,11 @@
       "physical_readiness": "NOT_AUTHORIZED",
       "profile_verified": true,
       "run_path": "/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/experiment_data/candidate_B_spatial_gradient15_fake/CANDIDATE_B_SPATIAL_GRADIENT15_20260916_143644/M2b_M2b/run",
+      "spatial_metrics": {
+        "pairwise_side_error_spatial_rmse": 0.017837472945088823,
+        "rigid_fit_error_spatial_rmse": 0.009033967260013338,
+        "support_error_spatial_rmse": 0.022141821198530566
+      },
       "task_time_seconds": 51.62003231048584
     }
   },
@@ -949,5 +964,72 @@
     "yaw_phase": 1.5707963267948966,
     "zone_end": 2.8,
     "zone_start": 2.0
+  },
+  "spatial_domain_rmse": {
+    "common_interval_end_m": 2.9038070754452665,
+    "common_interval_length_m": 1.0723915571977043,
+    "common_interval_start_m": 1.8314155182475622,
+    "comparisons": {
+      "M1_vs_M1b": {
+        "pairwise_side_error_spatial_rmse": {
+          "M1": 0.016177951704489903,
+          "M1b": 0.017506881518502534,
+          "direction": "lower_is_better",
+          "improvement_percent": 7.590899684836058
+        },
+        "rigid_fit_error_spatial_rmse": {
+          "M1": 0.008221294555314188,
+          "M1b": 0.008842547345535069,
+          "direction": "lower_is_better",
+          "improvement_percent": 7.02572195482306
+        },
+        "support_error_spatial_rmse": {
+          "M1": 0.017022842975531083,
+          "M1b": 0.021694492814821435,
+          "direction": "lower_is_better",
+          "improvement_percent": 21.53380528029092
+        }
+      },
+      "M1_vs_M2b": {
+        "pairwise_side_error_spatial_rmse": {
+          "M1": 0.016177951704489903,
+          "M2b": 0.017837472945088823,
+          "direction": "lower_is_better",
+          "improvement_percent": 9.303566966619195
+        },
+        "rigid_fit_error_spatial_rmse": {
+          "M1": 0.008221294555314188,
+          "M2b": 0.009033967260013338,
+          "direction": "lower_is_better",
+          "improvement_percent": 8.995745515884794
+        },
+        "support_error_spatial_rmse": {
+          "M1": 0.017022842975531083,
+          "M2b": 0.022141821198530566,
+          "direction": "lower_is_better",
+          "improvement_percent": 23.119047783382886
+        }
+      }
+    },
+    "coordinate": "load_s_reference",
+    "grid_samples": 5001,
+    "integration": "linear interpolation and trapezoidal integral",
+    "methods": {
+      "M1": {
+        "pairwise_side_error_spatial_rmse": 0.016177951704489903,
+        "rigid_fit_error_spatial_rmse": 0.008221294555314188,
+        "support_error_spatial_rmse": 0.017022842975531083
+      },
+      "M1b": {
+        "pairwise_side_error_spatial_rmse": 0.017506881518502534,
+        "rigid_fit_error_spatial_rmse": 0.008842547345535069,
+        "support_error_spatial_rmse": 0.021694492814821435
+      },
+      "M2b": {
+        "pairwise_side_error_spatial_rmse": 0.017837472945088823,
+        "rigid_fit_error_spatial_rmse": 0.009033967260013338,
+        "support_error_spatial_rmse": 0.022141821198530566
+      }
+    }
   }
 }

@@ -28,6 +28,8 @@ PROFILE = yaml.safe_load((
 COMPARISON_FILENAME = "candidate_b_spatial_comparison.json"
 REPORT_FILENAME = (
     "candidate-B-spatial-composite-rho0p85-av0p020-fake-results.md")
+ENABLE_SPATIAL_DOMAIN_RMSE = False
+SPATIAL_DOMAIN_GRID_SAMPLES = 5001
 
 
 def save(path, value):
@@ -393,6 +395,87 @@ def percent(m1, comparator):
     return 100.0 * (comparator - m1) / comparator if abs(comparator) > 1e-12 else None
 
 
+def spatial_domain_metrics(runs, sample_count=SPATIAL_DOMAIN_GRID_SAMPLES):
+    """Compute equal-progress RMSE on the common spatial interval."""
+    if sample_count < 2:
+        raise ValueError("spatial RMSE requires at least two grid samples")
+    keys = ("support", "rigid_fit", "pairwise_side")
+    series = {}
+    for method, rows in runs.items():
+        buckets = {}
+        for row in rows:
+            progress = V2.num(row, "load_s_reference")
+            values = tuple(row["errors"][key] for key in keys)
+            if not math.isfinite(progress) or not all(
+                    math.isfinite(value) for value in values):
+                continue
+            buckets.setdefault(progress, []).append(values)
+        points = []
+        for progress, values in sorted(buckets.items()):
+            points.append((progress,) + tuple(
+                sum(value[index] for value in values) / len(values)
+                for index in range(len(keys))))
+        if len(points) < 2:
+            raise ValueError(f"insufficient spatial samples for {method}")
+        series[method] = points
+
+    lower = max(points[0][0] for points in series.values())
+    upper = min(points[-1][0] for points in series.values())
+    if not math.isfinite(lower) or not math.isfinite(upper) or upper <= lower:
+        raise ValueError("methods have no common spatial interval")
+    step = (upper - lower) / (sample_count - 1)
+    grid = [lower + index * step for index in range(sample_count)]
+
+    def interpolate(points, column):
+        values = []
+        right = 1
+        for progress in grid:
+            while right < len(points) - 1 and points[right][0] < progress:
+                right += 1
+            left = right - 1
+            s0, s1 = points[left][0], points[right][0]
+            if s1 <= s0:
+                raise ValueError("non-increasing spatial samples")
+            weight = (progress - s0) / (s1 - s0)
+            values.append(points[left][column] + weight * (
+                points[right][column] - points[left][column]))
+        return values
+
+    methods = {}
+    for method, points in series.items():
+        metrics = {}
+        for column, key in enumerate(keys, start=1):
+            values = interpolate(points, column)
+            integral = sum(
+                0.5 * (values[index - 1] ** 2 + values[index] ** 2) * step
+                for index in range(1, len(values)))
+            metrics[f"{key}_error_spatial_rmse"] = math.sqrt(
+                integral / (upper - lower))
+        methods[method] = metrics
+    comparisons = {}
+    for comparator in ("M1b", "M2b"):
+        comparisons[f"M1_vs_{comparator}"] = {
+            key: {
+                "M1": methods["M1"][key],
+                comparator: methods[comparator][key],
+                "direction": "lower_is_better",
+                "improvement_percent": percent(
+                    methods["M1"][key], methods[comparator][key]),
+            }
+            for key in methods["M1"]
+        }
+    return {
+        "coordinate": "load_s_reference",
+        "integration": "linear interpolation and trapezoidal integral",
+        "common_interval_start_m": lower,
+        "common_interval_end_m": upper,
+        "common_interval_length_m": upper - lower,
+        "grid_samples": sample_count,
+        "methods": methods,
+        "comparisons": comparisons,
+    }
+
+
 def make_plots(root, runs):
     import matplotlib
     matplotlib.use("Agg")
@@ -507,8 +590,8 @@ def aggregate(root):
               "comparisons": comparisons, "all_runs_valid": valid,
               "fake_comparison": "VALID" if valid else "INVALID",
               "physical_readiness": "NOT_AUTHORIZED"}
-    save(root / COMPARISON_FILENAME, result)
     rows_for_plot = {}
+    rows_for_spatial = {}
     for method, folder in METHODS.items():
         rows = list(csv.DictReader((root / folder / "run/converted/aligned_samples.csv").open()))
         selected=[]
@@ -518,6 +601,20 @@ def aggregate(root):
                 row["errors"]=V4.error_signals(row)
                 selected.append(row)
         rows_for_plot[method]=selected
+        verification = data[method]["disturbance_verification"]
+        entry = min(verification[f"Robot{i}"]["entry_wall_time"]
+                    for i in (1, 2, 3))
+        exit_time = max(verification[f"Robot{i}"]["exit_wall_time"]
+                        for i in (1, 2, 3))
+        rows_for_spatial[method] = [
+            row for row in selected if entry <= row["wall"] <= exit_time]
+    spatial = None
+    if ENABLE_SPATIAL_DOMAIN_RMSE:
+        spatial = spatial_domain_metrics(rows_for_spatial)
+        result["spatial_domain_rmse"] = spatial
+        for method in METHODS:
+            data[method]["spatial_metrics"] = spatial["methods"][method]
+    save(root / COMPARISON_FILENAME, result)
     make_plots(root, rows_for_plot)
     start_status = (root / "start_git_status.txt").read_text().strip()
     lines = ["# Candidate B v2 spatial composite fake results", "",
@@ -538,6 +635,35 @@ def aggregate(root):
         d=data[method]; m=d["metrics"]
         lines.append("| {} | {:.6g} | {:.6g}/{:.6g} | {:.6g}/{:.6g} | {:.6g}/{:.6g} | {:.6g}/{:.6g} | {:.6g} | {:.6g} | {:.6g} | {:.6g} | {:.6g}/{:.6g} | {:.6g} | {:.6g}/{:.6g} | {:.6g}/{:.6g}/{:.6g} | {:.6g}/{:.6g} |".format(
             METHODS[method], d["task_time_seconds"], m["support_error_rmse"],m["support_error_max"],m["rigid_fit_error_rmse"],m["rigid_fit_error_max"],m["pairwise_side_error_rmse"],m["pairwise_side_error_max"],m["equivalent_load_position_error_rmse"],m["equivalent_load_yaw_error_rmse"],m["native_controller_raw_peak_mps"],m["native_over_0p160_duration_seconds"],m["native_over_0p180_duration_seconds"],m["post_candidate_b_peak_mps"],m["post_candidate_b_over_0p160_duration_seconds"],m["post_candidate_b_over_0p180_duration_seconds"],m["physical_limiter_duration_seconds"],m["post_limit_peak_mps"],m["actual_peak_mps"],m["wheel_margin_minimum"],m["wheel_margin_mean"],m["wheel_margin_p05"],m["wheel_margin_below_0p5_duration_seconds"],m["wheel_margin_below_0p7_duration_seconds"]))
+    if spatial is not None:
+        lines += ["", "## Spatial-domain RMSE (primary formation metric)", "",
+                  ("Common `load_s_reference` interval: "
+                   f"{spatial['common_interval_start_m']:.9g}–"
+                   f"{spatial['common_interval_end_m']:.9g} m; "
+                   f"{spatial['grid_samples']} equal-progress samples. "
+                   "Linear interpolation and trapezoidal spatial integration "
+                   "remove repeated time weighting caused by method-dependent "
+                   "zone residence time."), "",
+                  "| Method | Support spatial RMSE / m | Rigid-fit spatial RMSE / m | Pairwise spatial RMSE / m |",
+                  "| --- | ---: | ---: | ---: |"]
+        for method in ("M1", "M1b", "M2b"):
+            values = spatial["methods"][method]
+            lines.append(
+                "| {} | {:.9g} | {:.9g} | {:.9g} |".format(
+                    METHODS[method],
+                    values["support_error_spatial_rmse"],
+                    values["rigid_fit_error_spatial_rmse"],
+                    values["pairwise_side_error_spatial_rmse"]))
+        lines += ["", "| Comparison | Support improvement | Rigid-fit improvement | Pairwise improvement |",
+                  "| --- | ---: | ---: | ---: |"]
+        for comparator in ("M1b", "M2b"):
+            values = spatial["comparisons"][f"M1_vs_{comparator}"]
+            lines.append(
+                "| M1 vs {} | {:.3f}% | {:.3f}% | {:.3f}% |".format(
+                    comparator,
+                    values["support_error_spatial_rmse"]["improvement_percent"],
+                    values["rigid_fit_error_spatial_rmse"]["improvement_percent"],
+                    values["pairwise_side_error_spatial_rmse"]["improvement_percent"]))
     lines += ["", "## Per-robot RMSE", "",
               "| Method | Robot | progress / m | lateral / m | heading / rad | velocity / (m/s) |",
               "| --- | ---: | ---: | ---: | ---: | ---: |"]

@@ -72,6 +72,21 @@ Fake comparison: **VALID**; physical readiness: **NOT_AUTHORIZED**.
 | M1b_R1 | 51.74 | 0.0216862/0.0458141 | 0.00883846/0.0172067 | 0.0174984/0.0361371 | 0.0142456/0.0262182 | 0.202173 | 5.07034 | 2.17002 | 0.15694 | 0/0 | 0 | 0.15694/0.15694 | 0/0.816252/0 | 5.69003/5.82985 |
 | M2b_M2b | 51.62 | 0.0221117/0.0467867 | 0.00902651/0.0177439 | 0.0178218/0.0371081 | 0.0145276/0.0265765 | 0.20295 | 5.13905 | 2.19959 | 0.158157 | 0/0 | 0 | 0.158157/0.158157 | 0/0.815746/0 | 5.69012/5.85042 |
 
+## Spatial-domain RMSE (primary formation metric)
+
+Common `load_s_reference` interval: 1.83141552–2.90380708 m; 5001 equal-progress samples. Linear interpolation and trapezoidal spatial integration remove repeated time weighting caused by method-dependent zone residence time.
+
+| Method | Support spatial RMSE / m | Rigid-fit spatial RMSE / m | Pairwise spatial RMSE / m |
+| --- | ---: | ---: | ---: |
+| M1_R1 | 0.017022843 | 0.00822129456 | 0.0161779517 |
+| M1b_R1 | 0.0216944928 | 0.00884254735 | 0.0175068815 |
+| M2b_M2b | 0.0221418212 | 0.00903396726 | 0.0178374729 |
+
+| Comparison | Support improvement | Rigid-fit improvement | Pairwise improvement |
+| --- | ---: | ---: | ---: |
+| M1 vs M1b | 21.534% | 7.026% | 7.591% |
+| M1 vs M2b | 23.119% | 8.996% | 9.304% |
+
 ## Per-robot RMSE
 
 | Method | Robot | progress / m | lateral / m | heading / rad | velocity / (m/s) |

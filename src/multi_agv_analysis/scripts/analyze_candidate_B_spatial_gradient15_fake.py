@@ -19,6 +19,8 @@ BASE.PROFILE = yaml.safe_load((
 BASE.COMPARISON_FILENAME = "candidate_b_spatial_gradient15_comparison.json"
 BASE.REPORT_FILENAME = (
     "candidate-B-spatial-gradient15-rho0p85-av0p020-fake-results.md")
+BASE.ENABLE_SPATIAL_DOMAIN_RMSE = True
+BASE.SPATIAL_DOMAIN_GRID_SAMPLES = 5001
 
 if __name__ == "__main__":
     raise SystemExit(BASE.main())

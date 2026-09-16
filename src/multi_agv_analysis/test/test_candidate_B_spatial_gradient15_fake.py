@@ -59,6 +59,36 @@ class CandidateBSpatialGradient15FakeTest(unittest.TestCase):
         self.assertIn("!v5_hardware_authorized", gate)
         self.assertIn("!lower_hardware_authorized", gate)
 
+    def test_spatial_rmse_uses_common_progress_not_sample_count(self):
+        runs = {
+            "M1": [
+                {"load_s_reference": str(s), "errors": {
+                    "support": 1.0, "rigid_fit": 2.0,
+                    "pairwise_side": 3.0}}
+                for s in (0.0, .25, .5, .75, 1.0)],
+            "M1b": [
+                {"load_s_reference": str(s), "errors": {
+                    "support": 2.0, "rigid_fit": 4.0,
+                    "pairwise_side": 6.0}}
+                for s in (0.0, .5, 1.0)],
+            "M2b": [
+                {"load_s_reference": str(s), "errors": {
+                    "support": 4.0, "rigid_fit": 8.0,
+                    "pairwise_side": 12.0}}
+                for s in (0.0, 1.0)],
+        }
+        result = self.base.spatial_domain_metrics(runs, sample_count=101)
+        self.assertEqual(result["common_interval_start_m"], 0.0)
+        self.assertEqual(result["common_interval_end_m"], 1.0)
+        self.assertAlmostEqual(result["methods"]["M1"][
+            "support_error_spatial_rmse"], 1.0)
+        self.assertAlmostEqual(result["methods"]["M1b"][
+            "rigid_fit_error_spatial_rmse"], 4.0)
+        self.assertAlmostEqual(result["methods"]["M2b"][
+            "pairwise_side_error_spatial_rmse"], 12.0)
+        self.assertAlmostEqual(result["comparisons"]["M1_vs_M1b"][
+            "support_error_spatial_rmse"]["improvement_percent"], 50.0)
+
 
 if __name__ == "__main__":
     unittest.main()
