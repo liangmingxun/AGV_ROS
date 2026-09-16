@@ -232,6 +232,14 @@ UpperReferenceOutput UpperReferenceGenerator::step(
   output_.updated = true;
   output_.common_lower = -std::numeric_limits<double>::infinity();
   output_.common_upper = std::numeric_limits<double>::infinity();
+  // Keep the risk-boundary diagnostics meaningful even when the optional
+  // hard capability envelope is disabled.  These fields describe the
+  // nominal inner upper and its contraction by the evolved risk boundary;
+  // applying the hard envelope below may tighten them further, but is not a
+  // prerequisite for observing that the dynamic boundary is active.
+  output_.hard_common_upper = std::numeric_limits<double>::infinity();
+  output_.baseline_common_upper = std::numeric_limits<double>::infinity();
+  output_.risk_contraction = 0.0;
   double candidate_sum = 0.0;
 
   for (std::size_t index = 0; index < input.size(); ++index) {
@@ -245,6 +253,10 @@ UpperReferenceOutput UpperReferenceGenerator::step(
     agent_output.candidate_velocity = agent_input.candidate_velocity;
     agent_output.logged_mapped_capability =
         agent_input.mapped_upper_capability;
+    agent_output.hard_inner_upper =
+        agent_input.mapped_upper_capability - config_.hard_capability_reserve;
+    agent_output.baseline_inner_upper =
+        agent_config.nominal_boundary.upper - agent_config.inner_margin;
     candidate_sum += agent_input.candidate_velocity;
 
     DynamicBoundarySet active_set = agent_config.admissible_set;
@@ -289,6 +301,7 @@ UpperReferenceOutput UpperReferenceGenerator::step(
         boundary_[index].lower + agent_config.inner_margin;
     agent_output.inner_upper =
         boundary_[index].upper - agent_config.inner_margin;
+    agent_output.risk_inner_upper = agent_output.inner_upper;
     agent_output.valid =
         DynamicBoundaryProjector::feasible(boundary_[index], active_set) &&
         agent_output.inner_lower <= agent_output.inner_upper;
@@ -297,6 +310,10 @@ UpperReferenceOutput UpperReferenceGenerator::step(
         std::max(output_.common_lower, agent_output.inner_lower);
     output_.common_upper =
         std::min(output_.common_upper, agent_output.inner_upper);
+    output_.hard_common_upper =
+        std::min(output_.hard_common_upper, agent_output.hard_inner_upper);
+    output_.baseline_common_upper = std::min(
+        output_.baseline_common_upper, agent_output.baseline_inner_upper);
   }
 
   if (output_.common_lower > output_.common_upper) return output_;
@@ -311,6 +328,8 @@ UpperReferenceOutput UpperReferenceGenerator::step(
         candidate_sum / static_cast<double>(input.size()),
         output_.common_lower, output_.common_upper);
   }
+  output_.risk_contraction =
+      std::max(0.0, output_.baseline_common_upper - output_.common_upper);
   output_.valid = true;
   if (config_.hard_capability_envelope_enabled) applyHardEnvelope(input);
   return output_;

@@ -13,6 +13,7 @@ SCRIPT = PACKAGE / "scripts/run_candidate_B_spatial_gradient15_physical.sh"
 NODE = ROOT / "src/multi_agv_control/src/formal_fake_algorithm_node.cpp"
 RECORDER = ROOT / "src/multi_agv_analysis/scripts/record_experiment.py"
 BASE_RUNNER = PACKAGE / "scripts/run_m1_r1_serial_unloaded.sh"
+SERIAL_LAUNCH = PACKAGE / "launch/formal_serial_m1_r1.launch"
 
 
 class CandidateBSpatialGradient15PhysicalTest(unittest.TestCase):
@@ -79,6 +80,31 @@ class CandidateBSpatialGradient15PhysicalTest(unittest.TestCase):
         self.assertIn("FORMAL_CANDIDATE_B_SPATIAL_BASE_CONFIG", source)
         self.assertIn("physical_runtime.log", source)
         self.assertIn(".runtime_authorization/", (ROOT / ".gitignore").read_text())
+
+    def test_m2b_uses_its_non_r1_runtime(self):
+        source = SCRIPT.read_text()
+        m2b_runtime = (
+            "formal_serial_m2b_circle_0p10_observation_runtime.yaml")
+        self.assertIn('runtime_config="$config_dir/{}"'.format(m2b_runtime),
+                      source)
+        authorization = yaml.safe_load((CONFIG /
+            "formal_serial_candidate_B_spatial_gradient15_M2b_authorization.yaml").read_text())
+        self.assertTrue(authorization["authorization_scope"][
+            "runtime_config"].endswith(m2b_runtime))
+        runtime = yaml.safe_load((CONFIG / m2b_runtime).read_text())
+        execution = runtime["formal_fake_runtime"]["execution"]
+        self.assertIn("consistent_reference_acceleration", execution)
+        self.assertFalse(execution["consistent_reference_acceleration"])
+        self.assertFalse(execution["reconciliation"]["enabled"])
+        m2b = yaml.safe_load((CONFIG / "exp2b_M2b.yaml").read_text())[
+            "formal_upper"]
+        self.assertFalse(m2b["m1b_hardware_execution_authorized"])
+        self.assertFalse(m2b["hard_capability_envelope"]["enabled"])
+
+    def test_serial_algorithm_private_parameters_are_fresh_per_run(self):
+        launch = SERIAL_LAUNCH.read_text()
+        self.assertIn('name="formal_algorithm"', launch)
+        self.assertIn('clear_params="true"', launch)
 
     def test_authorized_target_is_compared_numerically(self):
         source = BASE_RUNNER.read_text()

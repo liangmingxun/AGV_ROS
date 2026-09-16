@@ -142,8 +142,10 @@ class BringupStaticTest(unittest.TestCase):
         self.assertTrue(obs.pop('formation_observation_only'))
         self.assertEqual(obs.pop('maximum_observation_support_distance'), .8)
         obs['formal_fake_runtime']['configuration_status'] = base['formal_fake_runtime']['configuration_status']
+        execution = obs['formal_fake_runtime']['execution']
+        self.assertFalse(execution.pop('consistent_reference_acceleration'))
+        self.assertFalse(execution.pop('reconciliation')['enabled'])
         self.assertEqual(obs, base)
-        self.assertFalse(obs['formal_fake_runtime']['execution'].get('consistent_reference_acceleration', False))
         auth = yaml.safe_load((configs / 'formal_circle_0p10_M2b_observation_authorization.yaml').read_text())
         self.assertTrue(auth['authorization_scope']['upper_config'].endswith('exp2b_M2b.yaml'))
 
@@ -661,9 +663,11 @@ class BringupStaticTest(unittest.TestCase):
         self.assertIn("/pose_provider/agv1/base_pose_fused", recorded)
 
     def test_m2b_remains_fake_and_exp2a_statistics_remain_gated(self):
+        import yaml
         m2b = (
             PACKAGE / "config" / "exp2b_M2b.yaml"
         ).read_text(encoding="utf-8")
+        m2b_config = yaml.safe_load(m2b)
         registry = (
             PACKAGE / "config" / "approved_config_registry.yaml"
         ).read_text(encoding="utf-8")
@@ -674,7 +678,12 @@ class BringupStaticTest(unittest.TestCase):
             SOURCE_ROOT.parent / "docs" / "test-protocols" /
             "formal-exp2a-gate.md"
         ).read_text(encoding="utf-8")
-        self.assertEqual(m2b.count("hardware_execution_authorized: false"), 2)
+        self.assertFalse(m2b_config["formal_upper"][
+            "hardware_execution_authorized"])
+        self.assertFalse(m2b_config["formal_upper"][
+            "m1b_hardware_execution_authorized"])
+        self.assertFalse(m2b_config["formal_lower"][
+            "hardware_execution_authorized"])
         self.assertIn("capability_policy: log_only_never_used_by_control",
                       m2b)
         self.assertIn("formal_fake_algorithm.launch", launch)

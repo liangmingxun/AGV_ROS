@@ -110,9 +110,18 @@ if [[ -z "$operator" || -z "$pair_block" ||
 fi
 
 case "$method" in
-  M1) upper_config="$config_dir/exp2a_M1_serial_0p10_pilot.yaml" ;;
-  M1b) upper_config="$config_dir/exp2c_M1b_risk_disturbance_v1.yaml" ;;
-  M2b) upper_config="$config_dir/exp2b_M2b.yaml" ;;
+  M1)
+    upper_config="$config_dir/exp2a_M1_serial_0p10_pilot.yaml"
+    runtime_config="$config_dir/formal_serial_circle_r0p7_smooth_exit_0p10_reference_v1_pilot_runtime.yaml"
+    ;;
+  M1b)
+    upper_config="$config_dir/exp2c_M1b_risk_disturbance_v1.yaml"
+    runtime_config="$config_dir/formal_serial_circle_r0p7_smooth_exit_0p10_reference_v1_pilot_runtime.yaml"
+    ;;
+  M2b)
+    upper_config="$config_dir/exp2b_M2b.yaml"
+    runtime_config="$config_dir/formal_serial_m2b_circle_0p10_observation_runtime.yaml"
+    ;;
 esac
 [[ -n "$run_id" ]] || run_id="candidate_B_spatial_gradient15_physical_${method}_$(date +%Y%m%d_%H%M%S)"
 
@@ -169,7 +178,7 @@ PY
 
 export FORMAL_UPPER_MODE="$method"
 export FORMAL_UPPER_CONFIG="$upper_config"
-export FORMAL_RUNTIME_CONFIG="$config_dir/formal_serial_circle_r0p7_smooth_exit_0p10_reference_v1_pilot_runtime.yaml"
+export FORMAL_RUNTIME_CONFIG="$runtime_config"
 export FORMAL_PATH_CONFIG="$config_dir/path_circle_r0p7_cw_smooth_exit.yaml"
 export FORMAL_PATH_VERSION="circle_r0p7_cw_smooth_exit_v1"
 export FORMAL_EVALUATION_CONFIG="$config_dir/formal_evaluation_circle_r0p7_smooth_exit.yaml"

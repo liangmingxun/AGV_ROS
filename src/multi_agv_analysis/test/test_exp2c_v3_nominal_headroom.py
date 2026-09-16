@@ -71,6 +71,8 @@ class Exp2cV3NominalHeadroomTest(unittest.TestCase):
         self.assertTrue(V3.boundary_active(row))
         row["risk_contraction"] = "0"
         self.assertFalse(V3.boundary_active(row))
+        self.assertTrue(V3.boundary_active(
+            row, contraction_override=0.006))
         row.update(risk_contraction="0.006", upper_effective_common_velocity="0.100")
         self.assertFalse(V3.boundary_active(row))
 

@@ -204,6 +204,25 @@ TEST(UpperReferenceGenerator, M1RiskContractsBelowSharedBaseline) {
               out.baseline_common_upper - out.common_upper, 1e-12);
 }
 
+TEST(UpperReferenceGenerator, M1RiskDiagnosticsDoNotRequireHardEnvelope) {
+  auto cfg = config(mac::UpperMode::kM1);
+  ASSERT_FALSE(cfg.hard_capability_envelope_enabled);
+  mac::UpperReferenceGenerator generator(cfg);
+  auto in = inputs();
+  for (auto& agent : in) agent.normalised_causal_margins.fill(0.0);
+  mac::UpperReferenceOutput out;
+  for (int n = 0; n < 100; ++n) out = generator.step(in, 0.01);
+  ASSERT_TRUE(out.valid);
+  EXPECT_TRUE(std::isfinite(out.baseline_common_upper));
+  EXPECT_GT(out.risk_contraction, 0.0);
+  EXPECT_NEAR(out.risk_contraction,
+              out.baseline_common_upper - out.common_upper, 1e-12);
+  for (const auto& agent : out.agents) {
+    EXPECT_TRUE(std::isfinite(agent.risk_inner_upper));
+    EXPECT_DOUBLE_EQ(agent.risk_inner_upper, agent.inner_upper);
+  }
+}
+
 TEST(UpperReferenceGenerator, M1ContractsUnderLowCausalMargin) {
   mac::UpperReferenceGenerator generator(config(mac::UpperMode::kM1));
   auto value = inputs();

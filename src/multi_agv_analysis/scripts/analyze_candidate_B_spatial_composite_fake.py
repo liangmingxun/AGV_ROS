@@ -289,7 +289,7 @@ def disturbance_verification(rows):
     return result
 
 
-def mechanism_metrics(rows):
+def mechanism_metrics(rows, baseline_common_upper=None):
     dt = durations(rows)
     robust = [min(V2.num(row, f"agv{robot}_robust_margin")
                   for robot in (1, 2, 3)) for row in rows]
@@ -297,12 +297,24 @@ def mechanism_metrics(rows):
                        for robot in (1, 2, 3)) for row in rows]
     risk_signal = [max(V2.num(row, f"agv{robot}_risk_signal")
                        for robot in (1, 2, 3)) for row in rows]
-    contraction = [max(0.0, V2.num(row, "risk_contraction"))
-                   if math.isfinite(V2.num(row, "risk_contraction")) else 0.0
-                   for row in rows]
+    contraction = []
+    for row in rows:
+        recorded = V2.num(row, "risk_contraction")
+        if math.isfinite(recorded):
+            contraction.append(max(0.0, recorded))
+        elif baseline_common_upper is not None:
+            contraction.append(max(
+                0.0, baseline_common_upper -
+                V2.num(row, "common_boundary_upper")))
+        else:
+            contraction.append(0.0)
     reduction = [max(0.0, V2.num(row, "candidate_common_velocity") -
                      V2.num(row, "common_velocity_reference")) for row in rows]
     common = [V2.num(row, "common_velocity_reference") for row in rows]
+    active_duration = sum(
+        t for row, t, value in zip(rows, dt, contraction)
+        if V4.V3.boundary_active(row, contraction_override=value))
+    total_duration = sum(dt)
     return {
         "robust_margin_minimum": min(robust),
         "robust_margin_mean": weighted(robust, dt),
@@ -312,8 +324,9 @@ def mechanism_metrics(rows):
         "risk_signal_mean": weighted(risk_signal, dt),
         "risk_contraction_peak": max(contraction),
         "risk_contraction_integral": sum(v*t for v, t in zip(contraction, dt)),
-        "risk_boundary_active_duration": sum(
-            t for row, t in zip(rows, dt) if V4.V3.boundary_active(row)),
+        "risk_boundary_active_duration": active_duration,
+        "risk_boundary_active_fraction": (
+            active_duration / total_duration if total_duration > 0.0 else 0.0),
         "actual_reference_reduction_peak": max(reduction),
         "actual_reference_reduction_mean": weighted(reduction, dt),
         "common_reference_minimum": min(common),

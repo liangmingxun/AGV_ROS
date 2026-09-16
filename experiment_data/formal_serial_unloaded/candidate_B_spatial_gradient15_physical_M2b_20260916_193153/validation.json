@@ -1,0 +1,212 @@
+{
+  "algorithm": {
+    "algorithm_end_stamp": 1789558380.9529128,
+    "completion_stamp": 1789558380.9529128,
+    "excluded_samples": 36,
+    "first_valid_stamp": 1789558327.2028623,
+    "invalid_fraction": 0.0,
+    "invalid_samples": 0,
+    "maximum_consecutive_invalid_seconds": 0.0,
+    "samples": 5375,
+    "scope": "after_first_valid_before_task_completion"
+  },
+  "camera_evidence": {
+    "calibration_epoch_tokens": [
+      "93423323"
+    ],
+    "calibration_epochs": [
+      "1789550982410337800"
+    ],
+    "camera_or_fused_used": true,
+    "fused_used": true,
+    "missing_topics": [],
+    "required_topics": [
+      "/pose_provider/agv1/base_pose_fused",
+      "/pose_provider/agv2/base_pose_fused",
+      "/pose_provider/agv3/base_pose_fused"
+    ]
+  },
+  "communication_age_claim": "Diagnostic observation only; no independent communication watchdog safety claim is made.",
+  "communication_ages": {
+    "capability_report.csv": {
+      "count": 17115,
+      "maximum": 0.05066657066345215,
+      "mean": 8.071845921375164e-05,
+      "minimum": -0.0018351078033447266,
+      "note": "Observed bag-receipt minus source-stamp age; this is not evidence of an independent communication watchdog."
+    },
+    "chassis_command.csv": {
+      "count": 17118,
+      "maximum": 0.0038771629333496094,
+      "mean": 0.000793171703348874,
+      "minimum": 0.0004076957702636719,
+      "note": "Observed bag-receipt minus source-stamp age; this is not evidence of an independent communication watchdog."
+    },
+    "chassis_feedback.csv": {
+      "count": 17115,
+      "maximum": 0.05077791213989258,
+      "mean": -8.327352906610755e-05,
+      "minimum": -0.0018286705017089844,
+      "note": "Observed bag-receipt minus source-stamp age; this is not evidence of an independent communication watchdog."
+    },
+    "cooperative_state.csv": {
+      "count": 5705,
+      "maximum": 0.0017366409301757812,
+      "mean": 0.00012646970991290107,
+      "minimum": 4.839897155761719e-05,
+      "note": "Observed bag-receipt minus source-stamp age; this is not evidence of an independent communication watchdog."
+    }
+  },
+  "formal_statistics_gate": {
+    "active_samples": 541,
+    "bounded_and_contiguous": false,
+    "configuration_approval_present": false,
+    "formal_statistics_requested": false,
+    "samples": 571
+  },
+  "issues": [],
+  "localization": {
+    "excluded_samples": 294,
+    "invalid_fraction": 0.0,
+    "invalid_samples": 0,
+    "maximum_consecutive_invalid_seconds": 0.0,
+    "samples": 5411,
+    "scope": "evaluation_active"
+  },
+  "schema_version": 1,
+  "task_completion": {
+    "complete": true,
+    "completion_stamp": 1789558380.9529128,
+    "required": true,
+    "target": 5.17822971502571
+  },
+  "topic_rates": {
+    "/agv1/capability_report": {
+      "duration": 57.04797291755676,
+      "messages": 5706,
+      "minimum": 90.0,
+      "observed": 100.00355329442847
+    },
+    "/agv1/chassis_command": {
+      "duration": 57.04970121383667,
+      "messages": 5706,
+      "minimum": 90.0,
+      "observed": 100.00052372958486
+    },
+    "/agv1/chassis_feedback": {
+      "duration": 57.047964334487915,
+      "messages": 5706,
+      "minimum": 90.0,
+      "observed": 100.00356834031824
+    },
+    "/agv1/imu": {
+      "duration": 57.04797720909119,
+      "messages": 5706,
+      "minimum": 90.0,
+      "observed": 100.00354577148529
+    },
+    "/agv1/odom": {
+      "duration": 57.04797029495239,
+      "messages": 5706,
+      "minimum": 90.0,
+      "observed": 100.0035578917832
+    },
+    "/agv2/capability_report": {
+      "duration": 57.03178882598877,
+      "messages": 5704,
+      "minimum": 90.0,
+      "observed": 99.99686345803701
+    },
+    "/agv2/chassis_command": {
+      "duration": 57.04970717430115,
+      "messages": 5706,
+      "minimum": 90.0,
+      "observed": 100.00051328168601
+    },
+    "/agv2/chassis_feedback": {
+      "duration": 57.03176522254944,
+      "messages": 5704,
+      "minimum": 90.0,
+      "observed": 99.99690484321755
+    },
+    "/agv2/imu": {
+      "duration": 57.03183364868164,
+      "messages": 5704,
+      "minimum": 90.0,
+      "observed": 99.9967848680915
+    },
+    "/agv2/odom": {
+      "duration": 57.03184795379639,
+      "messages": 5704,
+      "minimum": 90.0,
+      "observed": 99.99675978622
+    },
+    "/agv3/capability_report": {
+      "duration": 57.038806676864624,
+      "messages": 5705,
+      "minimum": 90.0,
+      "observed": 100.00209212500208
+    },
+    "/agv3/chassis_command": {
+      "duration": 57.04972195625305,
+      "messages": 5706,
+      "minimum": 90.0,
+      "observed": 100.00048737090631
+    },
+    "/agv3/chassis_feedback": {
+      "duration": 57.038798570632935,
+      "messages": 5705,
+      "minimum": 90.0,
+      "observed": 100.00210633708488
+    },
+    "/agv3/imu": {
+      "duration": 57.03881549835205,
+      "messages": 5705,
+      "minimum": 90.0,
+      "observed": 100.00207665891656
+    },
+    "/agv3/odom": {
+      "duration": 57.038837909698486,
+      "messages": 5705,
+      "minimum": 90.0,
+      "observed": 100.00203736672081
+    },
+    "/multi_agv/controller_state": {
+      "duration": 57.040305614471436,
+      "messages": 5705,
+      "minimum": 90.0,
+      "observed": 99.99946421312414
+    },
+    "/multi_agv/cooperative_state": {
+      "duration": 57.040138959884644,
+      "messages": 5705,
+      "minimum": 90.0,
+      "observed": 99.99975638228241
+    },
+    "/multi_agv/formal_algorithm_state": {
+      "duration": 57.040306091308594,
+      "messages": 5705,
+      "minimum": 90.0,
+      "observed": 99.99946337716332
+    },
+    "/multi_agv/m2b_algorithm_state": {
+      "duration": 53.749552488327026,
+      "messages": 5376,
+      "minimum": 90.0,
+      "observed": 100.00083258678865
+    },
+    "/multi_agv/path_reference": {
+      "duration": 57.04029703140259,
+      "messages": 5705,
+      "minimum": 90.0,
+      "observed": 99.99947926042105
+    }
+  },
+  "valid": true,
+  "warnings": [
+    {
+      "code": "DRESS_REHEARSAL_ONLY",
+      "detail": "no bounded formal evaluation window; outputs are not formal-statistics ready"
+    }
+  ]
+}

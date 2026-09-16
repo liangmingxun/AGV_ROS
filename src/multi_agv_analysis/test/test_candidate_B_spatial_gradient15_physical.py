@@ -75,16 +75,56 @@ class CandidateBSpatialGradient15PhysicalAnalysisTest(unittest.TestCase):
             self.assertTrue(self.module.BASE.hard_failure_in_valid_window(
                 log, 100.0, 102.0, ("emergency abort", "abort latched")))
 
-    def test_formal_evidence_requires_clean_runtime_overlay_provenance(self):
+    def test_formal_evidence_uses_runtime_overlay_not_worktree_cleanliness(self):
         classify = self.module.classify_physical_evidence
-        self.assertEqual(classify(True, False, "runtime_operator_overlay"),
+        self.assertEqual(classify(True, "runtime_operator_overlay"),
                          ("VALID_COMPLETED", True))
-        self.assertEqual(classify(True, True, "runtime_operator_overlay"),
-                         ("VALID_COMPLETED_NONFORMAL_PROVENANCE", True))
-        self.assertEqual(classify(True, False, "tracked_config"),
+        self.assertEqual(classify(True, "tracked_config"),
                          ("VALID_COMPLETED_NONFORMAL_PROVENANCE", False))
-        self.assertEqual(classify(False, False, "runtime_operator_overlay"),
+        self.assertEqual(classify(False, "runtime_operator_overlay"),
                          ("INVALID_RUN", True))
+
+    def test_physical_analysis_uses_serial_algorithm_namespace(self):
+        serial = {"formal_algorithm": {
+            "formal_fake_runtime": {"experiment_id": self.module.IDENTITY},
+            "formal_upper": {"hardware_execution_authorized": True},
+            "formal_lower": {"hardware_execution_authorized": True},
+        }}
+        selected = self.module.physical_algorithm_params(serial)
+        self.assertEqual(selected, serial["formal_algorithm"])
+        with self.assertRaisesRegex(
+                ValueError, "missing the formal_algorithm namespace"):
+            self.module.physical_algorithm_params({
+                "formal_fake_algorithm": serial["formal_algorithm"]})
+
+    def test_historical_bag_nominal_upper_reconstruction(self):
+        params = {"formal_upper": {"agents": {
+            "nominal_upper": [.115, .115, .115],
+            "inner_margin": [.005, .005, .005],
+        }}}
+        self.assertAlmostEqual(
+            self.module.nominal_common_inner_upper(params), .110)
+
+    def test_historical_nan_contraction_is_reconstructed(self):
+        rows = []
+        for wall in (0.0, 0.01):
+            row = {
+                "wall": wall,
+                "risk_contraction": "nan",
+                "common_boundary_upper": ".090",
+                "candidate_common_velocity": ".100",
+                "upper_effective_common_velocity": ".090",
+                "common_velocity_reference": ".090",
+            }
+            for robot in (1, 2, 3):
+                row[f"agv{robot}_robust_margin"] = ".5"
+                row[f"agv{robot}_risk_factor"] = ".5"
+                row[f"agv{robot}_risk_signal"] = ".475"
+            rows.append(row)
+        result = self.module.BASE.mechanism_metrics(rows, .110)
+        self.assertAlmostEqual(result["risk_contraction_peak"], .020)
+        self.assertAlmostEqual(result["risk_boundary_active_duration"], .020)
+        self.assertAlmostEqual(result["risk_boundary_active_fraction"], 1.0)
 
 
 if __name__ == "__main__":

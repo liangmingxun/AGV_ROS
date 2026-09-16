@@ -1,0 +1,406 @@
+{
+  "capability": {
+    "constancy_note": "reported chassis limits should remain constant; mapped path capability may legitimately vary with path geometry",
+    "demand_margin_minimum": 0.018274984733666136,
+    "link_margin_minimum": -0.39957127627151423,
+    "mapped_path_capability_available": true,
+    "reported_constancy_range": {
+      "agv1": 0.0,
+      "agv2": 0.0,
+      "agv3": 0.0
+    }
+  },
+  "causal_unfiltered": true,
+  "evaluation_window": {
+    "bounded_and_contiguous": false,
+    "formal_statistics_ready": false,
+    "source": "experiment_state"
+  },
+  "experiment_id": "candidate_B_spatial_gradient15_physical_validation",
+  "geometry": {
+    "endpoint": {
+      "definition": "last_commanded_sample_before_terminal_stop",
+      "reference_progress": 5.17822971502571,
+      "side": {
+        "agv1_agv2": {
+          "absolute_error": 0.012612690055530729,
+          "distance": 0.3126126900555307,
+          "signed_error": 0.012612690055530729,
+          "target": 0.3
+        },
+        "agv1_agv3": {
+          "absolute_error": 0.007669158586383951,
+          "distance": 0.29233084141361615,
+          "signed_error": -0.007669158586383951,
+          "target": 0.3000000000000001
+        },
+        "agv2_agv3": {
+          "absolute_error": 0.007536912393025841,
+          "distance": 0.30753691239302583,
+          "signed_error": 0.007536912393025841,
+          "target": 0.3
+        }
+      },
+      "stamp": 1789558530.3397121
+    },
+    "load_equivalent_consistency_position_max": null,
+    "load_equivalent_consistency_position_rmse": null,
+    "load_equivalent_consistency_yaw_max_absolute": null,
+    "load_equivalent_consistency_yaw_rmse": null,
+    "load_metric_source": "equivalent",
+    "load_position_max": 0.018769101396570724,
+    "load_position_rmse": 0.010870595175339864,
+    "load_position_samples": 5375,
+    "load_tracking_scope": "evaluation_active_and_localization_and_algorithm_valid",
+    "load_yaw_max_absolute": 0.07697876930548198,
+    "load_yaw_rmse": 0.04340056336136631,
+    "reference_geometry_scope": "evaluation_active_and_localization_and_algorithm_valid_and_noncollapsed_support_reference",
+    "rigid_fit_residual_max": 0.013602666641859986,
+    "rigid_fit_residual_rmse": 0.008550938162944749,
+    "support": {
+      "agv1": {
+        "position_max": 0.015367784155485975,
+        "position_rmse": 0.007089522124368529
+      },
+      "agv2": {
+        "position_max": 0.033419360371597644,
+        "position_rmse": 0.021969626213997357
+      },
+      "agv3": {
+        "position_max": 0.023885426099898806,
+        "position_rmse": 0.014612963685913543
+      }
+    },
+    "vehicle_heading": {
+      "agv1": {
+        "endpoint_absolute_error": 0.0012624460304971484,
+        "endpoint_error": 0.0012624460304971484,
+        "max_absolute": 0.08430181341044651,
+        "rmse": 0.026935045937173784
+      },
+      "agv2": {
+        "endpoint_absolute_error": 0.02180433877681341,
+        "endpoint_error": -0.02180433877681341,
+        "max_absolute": 0.18283955640342,
+        "rmse": 0.0794303305715149
+      },
+      "agv3": {
+        "endpoint_absolute_error": 0.007981673382007056,
+        "endpoint_error": -0.007981673382007056,
+        "max_absolute": 0.2241249744209937,
+        "rmse": 0.13610999404007637
+      }
+    }
+  },
+  "internal": {
+    "channel_input_max_absolute": 0.060605185764998105,
+    "composite_error_max_absolute": 0.012249181317029557,
+    "disturbance_estimate_max": 0.0,
+    "m2b_delta_w_max": 0.0012516986720708945,
+    "m2b_delta_z_max": 0.0014905861865036618,
+    "psi_max_absolute": 0.012377198239793098,
+    "theta_hat_max_absolute": 0.0
+  },
+  "method_id": "M2b_M2b",
+  "path": {
+    "origin_aligned_diagnostic": {
+      "definition": "actual_minus_initial_offset_minus_public_reference; not_geometric_formation_tracking",
+      "per_robot": {
+        "agv1": {
+          "progress_max_absolute": 0.00621288311257695,
+          "progress_rmse": 0.002611462576228217
+        },
+        "agv2": {
+          "progress_max_absolute": 0.004569746658829477,
+          "progress_rmse": 0.0015866706413491863
+        },
+        "agv3": {
+          "progress_max_absolute": 0.007146579216711579,
+          "progress_rmse": 0.0019425788805359006
+        }
+      }
+    },
+    "per_robot": {
+      "agv1": {
+        "progress_max_absolute": 0.005291195600823251,
+        "progress_rmse": 0.0015250178112172167,
+        "velocity_max_absolute": 0.10003882720075986,
+        "velocity_rmse": 0.0037410352076648547
+      },
+      "agv2": {
+        "progress_max_absolute": 0.005111863797730987,
+        "progress_rmse": 0.0016883147494646054,
+        "velocity_max_absolute": 0.1014002886912337,
+        "velocity_rmse": 0.003899461707798324
+      },
+      "agv3": {
+        "progress_max_absolute": 0.006757593094669279,
+        "progress_rmse": 0.0016887988402577397,
+        "velocity_max_absolute": 0.10144292170233003,
+        "velocity_rmse": 0.0038977340009601243
+      }
+    },
+    "per_robot_progress_definition": "recorded_controller_coordinate_or_legacy_origin_alignment_minus_public_reference",
+    "progress_max_absolute": 0.005229038738059355,
+    "progress_rmse": 0.001668361730686524
+  },
+  "payload_context": {
+    "diagnostic_equivalent_fallback": false,
+    "equivalent_load_available": true,
+    "load_metric_source": "equivalent",
+    "measured_payload_available": false,
+    "payload_actual_source": "equivalent",
+    "payload_error_label": "虚拟等效载荷位置误差",
+    "payload_label": "虚拟等效载荷",
+    "payload_mode": "unloaded",
+    "payload_mode_explicit": true,
+    "payload_pose_prefix": "equivalent_load_pose_",
+    "payload_reference_label": "虚拟等效载荷参考轨迹",
+    "payload_trajectory_label": "虚拟等效载荷轨迹",
+    "wheel_speed_scale_freeze_id": "wheel_speed_scale_stage_d_frozen_v1",
+    "wheel_speed_scale_freeze_snapshot_present": true,
+    "wheel_speed_scale_freeze_verified": true
+  },
+  "processing_version": "paper_run_pipeline_v15_recorded_controller_progress_coordinate",
+  "publication_provenance": {
+    "agv2_derating_ratio_observed": 1.0,
+    "config_hashes": [
+      {
+        "archived_path": "config/01_common_platform.yaml",
+        "path": "/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/common_platform.yaml",
+        "sha256": "65483e8a7a24965d46f69d6d86b7e36f1655e7a3a761209b2ddf70ccc0f69f2a"
+      },
+      {
+        "archived_path": "config/02_agv1_chassis.yaml",
+        "path": "/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/agv1_chassis.yaml",
+        "sha256": "f5d1ec4de63b989e253118713fa70afe5da2afea5ace0d8322d99d9220f0e637"
+      },
+      {
+        "archived_path": "config/03_agv2_chassis.yaml",
+        "path": "/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/agv2_chassis.yaml",
+        "sha256": "e11f36fa999ac6b85d4916478658c5a929f4b080653b657174d2815999a217bb"
+      },
+      {
+        "archived_path": "config/04_agv3_chassis.yaml",
+        "path": "/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/agv3_chassis.yaml",
+        "sha256": "291a2ff22c28a2f719e6f1406dae3a7a8853fd2768c1aab7f603d6e5d6616501"
+      },
+      {
+        "archived_path": "config/05_capability_mapping.yaml",
+        "path": "/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/capability_mapping.yaml",
+        "sha256": "371249397636c2f343cf84601d156c2fac53325a36cdf464f45a7ed49b9c1a85"
+      },
+      {
+        "archived_path": "config/06_wheel_speed_scale_stage_d_freeze_v1.yaml",
+        "path": "/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/wheel_speed_scale_stage_d_freeze_v1.yaml",
+        "sha256": "bae24f06c037a06d7bdc6cf26bdd703563d7796bceb75e2a3a3eef3c62c70af2"
+      },
+      {
+        "archived_path": "config/07_path_circle_r0p7_cw_smooth_exit.yaml",
+        "path": "/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/path_circle_r0p7_cw_smooth_exit.yaml",
+        "sha256": "9dd10798b3f0af1c98d6ee80d335ffb34637845238ddd023a23a7edb1df5451f"
+      },
+      {
+        "archived_path": "config/08_support_geometry.yaml",
+        "path": "/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/support_geometry.yaml",
+        "sha256": "ddf201680f7ef9075a71e8e10853b3deff8e9398ef9ae58378005e482348f8f8"
+      },
+      {
+        "archived_path": "config/09_localization_camera_three_car_closed_loop.yaml",
+        "path": "/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/localization_camera_three_car_closed_loop.yaml",
+        "sha256": "e99e54653d1c6f86095534158ac7204242050828c62acd90246231e28cd0f741"
+      },
+      {
+        "archived_path": "config/10_formal_serial_m2b_circle_0p10_observation_runtime.yaml",
+        "path": "/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/formal_serial_m2b_circle_0p10_observation_runtime.yaml",
+        "sha256": "f3f1c79546c35b5384632354c3d0819665352c1430ed9e55413fdce822ced7df"
+      },
+      {
+        "archived_path": "config/11_exp2b_M2b.yaml",
+        "path": "/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/exp2b_M2b.yaml",
+        "sha256": "8588517529353f0972b58edafd84f9f6d21c4cc8db3d242f9875d80703bb2409"
+      },
+      {
+        "archived_path": "config/12_exp2b_M2b.yaml",
+        "path": "/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/exp2b_M2b.yaml",
+        "sha256": "8588517529353f0972b58edafd84f9f6d21c4cc8db3d242f9875d80703bb2409"
+      },
+      {
+        "archived_path": "config/13_formal_serial_candidate_B_spatial_gradient15_M2b_authorization.yaml",
+        "path": "/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/formal_serial_candidate_B_spatial_gradient15_M2b_authorization.yaml",
+        "sha256": "98f7e17c23b6a5ac583179195e829e3119064b2ef24f61452f95fac007c04cf5"
+      },
+      {
+        "archived_path": "config/14_method_authorization.yaml",
+        "path": "/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/.runtime_authorization/candidate_b_gradient15.BjbWZD/method_authorization.yaml",
+        "sha256": "7276315961ae2a493dee906a9aee0d3bdef857a475e30d7a3d8b2fb2aeb93469"
+      },
+      {
+        "archived_path": "config/15_formal_exp2a_derating_authorization.yaml",
+        "path": "/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/formal_exp2a_derating_authorization.yaml",
+        "sha256": "7d3a73a959df272de665f06f3f98337ae22faa25e4786551c4a6ed97f2144422"
+      },
+      {
+        "archived_path": "config/16_formal_evaluation_circle_r0p7_smooth_exit.yaml",
+        "path": "/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/formal_evaluation_circle_r0p7_smooth_exit.yaml",
+        "sha256": "73936182fb9492bf97a2d39dc1ba45c0679ea2c525450e68decc75bf6a946213"
+      },
+      {
+        "archived_path": "config/17_formal_serial_classic_additive_candidate_A_commissioning.yaml",
+        "path": "/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/formal_serial_classic_additive_candidate_A_commissioning.yaml",
+        "sha256": "f5a3a41178bdf13ed86464195e7833955b2123ed0fa4c454eff2ed00ac17eeea"
+      },
+      {
+        "archived_path": "config/18_formal_serial_candidate_B_spatial_gradient15.yaml",
+        "path": "/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/formal_serial_candidate_B_spatial_gradient15.yaml",
+        "sha256": "294159d57a3aea340d0c7b62148b8e64a66ac31e69d876359b620e4ae753bccb"
+      },
+      {
+        "archived_path": "config/19_physical_authorization.yaml",
+        "path": "/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/.runtime_authorization/candidate_b_gradient15.BjbWZD/physical_authorization.yaml",
+        "sha256": "629f9700185b743bfa91ea30a637431ccb806b569b63fce2511ee9b8dd7de86f"
+      },
+      {
+        "archived_path": "config/20_fleet_inventory.yaml",
+        "path": "/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/fleet_inventory.yaml",
+        "sha256": "be71214076144a9a99bd0e1db275baa28b1ab1ae6fc05c7b154ec4cf7d8b1774"
+      },
+      {
+        "archived_path": "config/21_software_watchdog.yaml",
+        "path": "/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/software_watchdog.yaml",
+        "sha256": "f575259e7f9a2827bab66df15f21e2556d764da606cd0ac5a849f6e0344532b0"
+      },
+      {
+        "archived_path": "config/22_record_topics.yaml",
+        "path": "/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/record_topics.yaml",
+        "sha256": "595e977e4af1cd242948c4a9361af5bec14b3afcd749e94a2e81d631dc93f76b"
+      },
+      {
+        "archived_path": "config/23_vision_udp_bridge.yaml",
+        "path": "/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_vision_bridge/config/vision_udp_bridge.yaml",
+        "sha256": "9ac815e02578e8ad6ce4e0776da9a123a425eea1249fd5b83358f99615d9e0ef"
+      },
+      {
+        "archived_path": "rosparams.yaml",
+        "path": "ROS parameter server snapshot",
+        "sha256": "a92dea9e33b043af1ec2979bd1c8e771b98b5827d4f1d0e72f899a7a8b9baa08"
+      }
+    ],
+    "experiment_id": "candidate_B_spatial_gradient15_physical_validation",
+    "git_commit": "6e456f37bdccb9cc0523a97e87b817f9f4714a24",
+    "load_metric_source": "equivalent",
+    "method_id": "M2b_M2b",
+    "nominal_reference_speed_mps": 0.1,
+    "payload_mode": "unloaded",
+    "run_timestamp": "2026-09-16T11:34:35.879771+00:00",
+    "wheel_speed_scale_freeze_id": "wheel_speed_scale_stage_d_frozen_v1",
+    "wheel_speed_scale_freeze_snapshot_present": true,
+    "wheel_speed_scale_freeze_verified": true
+  },
+  "recovery": {
+    "capability_95_stamp": null,
+    "capability_95_time": null,
+    "capability_source": "explicit_mapper_output_or_historical_m2b_mapper_input",
+    "common_velocity_95_stamp": null,
+    "common_velocity_95_time": null,
+    "common_velocity_after_capability_delay": null,
+    "derating_command_end_stamp": null,
+    "derating_command_start_stamp": null,
+    "derating_observed_stamp": null,
+    "nominal_agv2_capability": 0.0,
+    "nominal_agv2_capability_source": null
+  },
+  "risk_disturbance_v1": {
+    "active_samples": 0,
+    "active_time": 0.0,
+    "minimum_effective_velocity_margin": null,
+    "minimum_hard_velocity_margin": null,
+    "peak_injected_acceleration": null,
+    "risk_contraction_integral": 0.0,
+    "risk_contraction_peak": null,
+    "robot2_input_limit_time": 0.0,
+    "robot2_progress_max_absolute": null,
+    "robot2_progress_rmse": null,
+    "robot2_velocity_max_absolute": null,
+    "robot2_velocity_rmse": null
+  },
+  "run_id": "candidate_B_spatial_gradient15_physical_M2b_20260916_193423",
+  "sample_counts": {
+    "aligned": 5406,
+    "experiment_state": 5681,
+    "invalid_algorithm": 31,
+    "invalid_localization": 0,
+    "invalid_reference_geometry": 0,
+    "path_errors": 5406,
+    "recorded": 5681,
+    "wheel_errors": 32434
+  },
+  "sample_period": 0.01,
+  "schema_version": 3,
+  "state_timing_diagnostics": {
+    "definition": "origin_aligned_measurement_progress_minus_causal_reference_at_source_time; unique_valid_source_samples; not_geometric_task_tracking_error",
+    "robots": {
+      "agv1": {
+        "maximum_source_age": 0.05838418006896973,
+        "measurement_time_progress_max_absolute": 0.00640681601789872,
+        "measurement_time_progress_rms": 0.002665295245543994,
+        "unique_source_samples": 5180
+      },
+      "agv2": {
+        "maximum_source_age": 0.06483983993530273,
+        "measurement_time_progress_max_absolute": 0.004661738819073502,
+        "measurement_time_progress_rms": 0.001640160454057244,
+        "unique_source_samples": 3546
+      },
+      "agv3": {
+        "maximum_source_age": 0.062082529067993164,
+        "measurement_time_progress_max_absolute": 0.007319394646093436,
+        "measurement_time_progress_rms": 0.0020432361687572767,
+        "unique_source_samples": 5198
+      }
+    }
+  },
+  "task": {
+    "completion_scope": "all_recorded_samples",
+    "completion_stamp": 1789558530.3196816,
+    "completion_time": 53.98999547958374,
+    "evaluation_target": 5.17822971502571,
+    "start_stamp": 1789558476.3296862
+  },
+  "wheel": {
+    "acceleration_limited_time": 0.0,
+    "actual_above_reported_limit_samples": 268,
+    "actual_above_reported_limit_time": 2.68,
+    "deceleration_limited_time": 0.08,
+    "demand_exceedance_samples": 441,
+    "demand_exceedance_time": 4.41,
+    "demand_source": "wheel_pre_limit",
+    "fleet_scaling_duration": 0.0,
+    "fleet_scaling_ratio": 0.0,
+    "limited_samples": 5,
+    "limited_time": 0.05,
+    "maximum_actual_speed": 0.17682812456420252,
+    "maximum_demand_exceedance": 0.03827148271154926,
+    "maximum_demand_ratio": 1.2391967669471828,
+    "maximum_pre_limit_demand": 0.19827148271154926,
+    "minimum_fleet_scale": 1.0,
+    "speed_limited_time": 0.0,
+    "tracking_max_absolute": 0.08001343729550156,
+    "tracking_rmse": 0.01632157539646273
+  },
+  "yaw_drive_disturbance_v2": {
+    "active_samples": 0,
+    "longitudinal_delta_rms": null,
+    "maximum_controller_wheel_raw": null,
+    "maximum_longitudinal_delta_absolute": null,
+    "maximum_post_disturbance_pre_safety_wheel": null,
+    "maximum_yaw_differential_delta_absolute": null,
+    "reference_velocity_minimum_disturbance": null,
+    "risk_contraction_integral_disturbance": 0.0,
+    "risk_contraction_peak_disturbance": null,
+    "wheel_margin_5_percentile": null,
+    "wheel_margin_definition": "current_controller_raw_demand_with_0p01_normalization; the selector applies the controller's one-sample causal lag",
+    "wheel_margin_mean": null,
+    "wheel_margin_minimum": null
+  }
+}

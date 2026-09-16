@@ -41,8 +41,10 @@ def active_window_rows(rows, disturbance):
     return selected
 
 
-def boundary_active(row):
-    contraction = _V2.num(row, "risk_contraction")
+def boundary_active(row, contraction_override=None):
+    contraction = (_V2.num(row, "risk_contraction")
+                   if contraction_override is None
+                   else float(contraction_override))
     reference = _V2.num(row, "upper_effective_common_velocity")
     published = _V2.num(row, "common_velocity_reference")
     candidate = _V2.num(row, "candidate_common_velocity")

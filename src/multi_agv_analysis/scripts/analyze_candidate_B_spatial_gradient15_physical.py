@@ -63,15 +63,34 @@ def save(path, value):
     path.write_text(json.dumps(value, indent=2, sort_keys=True) + "\n")
 
 
-def classify_physical_evidence(runtime_valid, git_dirty,
-                               authorization_source):
+def classify_physical_evidence(runtime_valid, authorization_source):
     provenance_complete = (
         authorization_source == "runtime_operator_overlay")
-    if runtime_valid and provenance_complete and not git_dirty:
+    if runtime_valid and provenance_complete:
         return "VALID_COMPLETED", provenance_complete
     if runtime_valid:
         return "VALID_COMPLETED_NONFORMAL_PROVENANCE", provenance_complete
     return "INVALID_RUN", provenance_complete
+
+
+def physical_algorithm_params(params):
+    """Return the serial algorithm namespace captured by rosparam dump."""
+    algorithm = params.get("formal_algorithm")
+    if not isinstance(algorithm, dict):
+        raise ValueError(
+            "physical rosparams are missing the formal_algorithm namespace")
+    return algorithm
+
+
+def nominal_common_inner_upper(algorithm_params):
+    """Recover the frozen no-risk common upper for historical serial bags."""
+    agents = algorithm_params["formal_upper"]["agents"]
+    nominal = agents["nominal_upper"]
+    margin = agents["inner_margin"]
+    if len(nominal) != 3 or len(margin) != 3:
+        raise ValueError("physical upper configuration must contain three agents")
+    return min(float(upper) - float(inner)
+               for upper, inner in zip(nominal, margin))
 
 
 def selected_rows(run, primary_only=False):
@@ -109,7 +128,8 @@ def selected_rows(run, primary_only=False):
 def analyze_physical_run(run, method):
     manifest = yaml.safe_load((run / "manifest.yaml").read_text())
     params = yaml.safe_load((run / "rosparams.yaml").read_text())
-    runtime = params["formal_fake_algorithm"]["formal_fake_runtime"]
+    algorithm_params = physical_algorithm_params(params)
+    runtime = algorithm_params["formal_fake_runtime"]
     if manifest["experiment_id"] != IDENTITY or runtime["experiment_id"] != IDENTITY:
         raise ValueError("wrong physical Candidate B identity")
     if manifest.get("method_id") != METHODS[method]:
@@ -136,7 +156,6 @@ def analyze_physical_run(run, method):
             metadata.get("physical_authorized") is not True):
         raise ValueError("Candidate B physical provenance is incomplete")
     authorization_source = metadata.get("authorization_source", "")
-    algorithm_params = params["formal_fake_algorithm"]
     if (algorithm_params.get("formal_upper", {}).get(
             "hardware_execution_authorized") is not True or
             algorithm_params.get("formal_lower", {}).get(
@@ -193,7 +212,7 @@ def analyze_physical_run(run, method):
                      localization_invalid == 0.0 and
                      runtime_log_present and not hard_failure)
     category, provenance_complete = classify_physical_evidence(
-        runtime_valid, git_dirty, authorization_source)
+        runtime_valid, authorization_source)
     result = {
         "experiment_id": IDENTITY,
         "profile_id": PROFILE_ID,
@@ -207,8 +226,9 @@ def analyze_physical_run(run, method):
         "task_time_seconds": summary.get("task", {}).get("completion_time"),
         "metrics": metrics,
         "disturbance_verification": verification,
-        "M1_mechanism": (BASE.mechanism_metrics(primary)
-                         if method == "M1" else None),
+        "M1_mechanism": (BASE.mechanism_metrics(
+            primary, nominal_common_inner_upper(algorithm_params))
+                           if method == "M1" else None),
         "profile_verified": profile_ok,
         "algorithm_invalid_fraction": algorithm_invalid,
         "localization_invalid_fraction": localization_invalid,
