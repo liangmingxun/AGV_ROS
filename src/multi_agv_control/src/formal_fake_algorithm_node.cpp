@@ -1574,14 +1574,27 @@ class FormalFakeAlgorithmNode {
             assessment.reason.c_str());
         return false;
       }
-      if (assessment.demand_threshold_exceeded) {
-        emergency_violation_duration_[index] += dt;
-        ROS_WARN_THROTTLE(1.0,
-            "agv%zu raw wheel demand threshold event: demand=[%.6f, %.6f], threshold=%.6f m/s, continuous duration=%.3f s; warning only, publication remains limited to +/-0.16 m/s; pre-limit demand is recorded for exceedance statistics",
+      const bool persistent_emergency = updateSerialEmergencyPersistence(
+          assessment.demand_threshold_exceeded, dt,
+          emergency_abort_persistence_seconds_,
+          &emergency_violation_duration_[index]);
+      if (persistent_emergency) {
+        safety_abort_latched_ = true;
+        ROS_ERROR(
+            "Formal serial safety abort latched: agv%zu raw wheel demand "
+            "[%.6f, %.6f] exceeded %.6f m/s continuously for %.3f s "
+            "(required %.3f s)",
             index + 1U, left, right, emergency_abort_limit_,
-            emergency_violation_duration_[index]);
-      } else {
-        emergency_violation_duration_[index] = 0.0;
+            emergency_violation_duration_[index],
+            emergency_abort_persistence_seconds_);
+        return false;
+      }
+      if (assessment.demand_threshold_exceeded) {
+        ROS_WARN_THROTTLE(1.0,
+            "agv%zu raw wheel demand threshold event: demand=[%.6f, %.6f], threshold=%.6f m/s, continuous duration=%.3f/%.3f s; automatic safety abort pending; publication remains limited to +/-0.16 m/s",
+            index + 1U, left, right, emergency_abort_limit_,
+            emergency_violation_duration_[index],
+            emergency_abort_persistence_seconds_);
       }
       if (assessment.available_limit_exceeded) {
         ROS_WARN_THROTTLE(

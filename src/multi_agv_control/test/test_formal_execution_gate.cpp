@@ -49,6 +49,36 @@ TEST(FormalExecutionGate, WarningOnlyDemandStillRejectsNonfiniteAndInvalidLimits
   EXPECT_FALSE(mac::assessSerialWheelDemand(.18, .1, .16, .16, .18, true).demand_threshold_exceeded);
 }
 
+TEST(FormalExecutionGate, PersistentRawDemandThresholdLatchesAndResets) {
+  double duration = 0.0;
+  for (int tick = 0; tick < 9; ++tick) {
+    EXPECT_FALSE(mac::updateSerialEmergencyPersistence(
+        true, 0.01, 0.10, &duration));
+  }
+  EXPECT_NEAR(duration, 0.09, 1.0e-12);
+  EXPECT_TRUE(mac::updateSerialEmergencyPersistence(
+      true, 0.01, 0.10, &duration));
+  EXPECT_NEAR(duration, 0.10, 1.0e-12);
+
+  EXPECT_FALSE(mac::updateSerialEmergencyPersistence(
+      false, 0.01, 0.10, &duration));
+  EXPECT_DOUBLE_EQ(duration, 0.0);
+  EXPECT_FALSE(mac::updateSerialEmergencyPersistence(
+      true, 0.01, 0.10, &duration));
+  EXPECT_NEAR(duration, 0.01, 1.0e-12);
+}
+
+TEST(FormalExecutionGate, PersistentRawDemandTimingFailsClosed) {
+  double duration = 0.0;
+  EXPECT_TRUE(mac::updateSerialEmergencyPersistence(
+      true, 0.0, 0.10, &duration));
+  EXPECT_DOUBLE_EQ(duration, 0.0);
+  EXPECT_TRUE(mac::updateSerialEmergencyPersistence(
+      true, 0.01, 0.0, &duration));
+  EXPECT_TRUE(mac::updateSerialEmergencyPersistence(
+      true, 0.01, 0.10, nullptr));
+}
+
 namespace {
 
 mac::FormalExecutionGateInput validInput() {

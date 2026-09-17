@@ -156,6 +156,27 @@ SerialWheelDemandAssessment assessSerialWheelDemand(
   return result;
 }
 
+bool updateSerialEmergencyPersistence(
+    bool threshold_exceeded, double dt_seconds,
+    double required_persistence_seconds, double* continuous_duration_seconds) {
+  if (continuous_duration_seconds == nullptr) return true;
+  if (!std::isfinite(dt_seconds) || dt_seconds <= 0.0 ||
+      !std::isfinite(required_persistence_seconds) ||
+      required_persistence_seconds <= 0.0 ||
+      !std::isfinite(*continuous_duration_seconds) ||
+      *continuous_duration_seconds < 0.0) {
+    *continuous_duration_seconds = 0.0;
+    return true;
+  }
+  if (!threshold_exceeded) {
+    *continuous_duration_seconds = 0.0;
+    return false;
+  }
+  *continuous_duration_seconds += dt_seconds;
+  return *continuous_duration_seconds + 1.0e-12 >=
+      required_persistence_seconds;
+}
+
 FeedbackFreshnessStatus assessFeedbackFreshness(
     double receive_age_seconds,
     double maximum_fresh_age_seconds,

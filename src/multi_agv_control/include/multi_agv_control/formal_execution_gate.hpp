@@ -93,6 +93,13 @@ SerialWheelDemandAssessment assessSerialWheelDemand(
     double emergency_abort_limit,
     bool raw_exceedance_warning_only = false);
 
+// Accumulate a continuous raw-demand threshold violation. A cleared
+// threshold resets the duration. Invalid timing fails closed by returning
+// true, so callers latch their existing serial safety abort.
+bool updateSerialEmergencyPersistence(
+    bool threshold_exceeded, double dt_seconds,
+    double required_persistence_seconds, double* continuous_duration_seconds);
+
 enum class FeedbackFreshnessStatus {
   kFresh,
   kTransientHold,
