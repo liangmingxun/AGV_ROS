@@ -1,0 +1,173 @@
+{
+  "abort_reason": "",
+  "battery_voltage_end": {
+    "agv1": 11.825201034545898,
+    "agv2": 11.993626594543457,
+    "agv3": 11.984762191772461
+  },
+  "battery_voltage_start": {
+    "agv1": 11.69223403930664,
+    "agv2": 12.046813011169434,
+    "agv3": 12.1620512008667
+  },
+  "candidate_b_spatial": {
+    "authorization_source": "runtime_operator_overlay",
+    "physical_authorized": true,
+    "profile_id": "candidate_B_v2_spatial_gradient15_rho0p85_av0p020_aw0p2625"
+  },
+  "config_hashes": [
+    {
+      "archived_path": "config/01_common_platform.yaml",
+      "path": "/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/common_platform.yaml",
+      "sha256": "65483e8a7a24965d46f69d6d86b7e36f1655e7a3a761209b2ddf70ccc0f69f2a"
+    },
+    {
+      "archived_path": "config/02_agv1_chassis.yaml",
+      "path": "/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/agv1_chassis.yaml",
+      "sha256": "f5d1ec4de63b989e253118713fa70afe5da2afea5ace0d8322d99d9220f0e637"
+    },
+    {
+      "archived_path": "config/03_agv2_chassis.yaml",
+      "path": "/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/agv2_chassis.yaml",
+      "sha256": "e11f36fa999ac6b85d4916478658c5a929f4b080653b657174d2815999a217bb"
+    },
+    {
+      "archived_path": "config/04_agv3_chassis.yaml",
+      "path": "/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/agv3_chassis.yaml",
+      "sha256": "291a2ff22c28a2f719e6f1406dae3a7a8853fd2768c1aab7f603d6e5d6616501"
+    },
+    {
+      "archived_path": "config/05_capability_mapping.yaml",
+      "path": "/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/capability_mapping.yaml",
+      "sha256": "371249397636c2f343cf84601d156c2fac53325a36cdf464f45a7ed49b9c1a85"
+    },
+    {
+      "archived_path": "config/06_wheel_speed_scale_stage_d_freeze_v1.yaml",
+      "path": "/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/wheel_speed_scale_stage_d_freeze_v1.yaml",
+      "sha256": "bae24f06c037a06d7bdc6cf26bdd703563d7796bceb75e2a3a3eef3c62c70af2"
+    },
+    {
+      "archived_path": "config/07_path_circle_r0p7_cw_smooth_exit.yaml",
+      "path": "/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/path_circle_r0p7_cw_smooth_exit.yaml",
+      "sha256": "9dd10798b3f0af1c98d6ee80d335ffb34637845238ddd023a23a7edb1df5451f"
+    },
+    {
+      "archived_path": "config/08_support_geometry.yaml",
+      "path": "/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/support_geometry.yaml",
+      "sha256": "ddf201680f7ef9075a71e8e10853b3deff8e9398ef9ae58378005e482348f8f8"
+    },
+    {
+      "archived_path": "config/09_localization_camera_three_car_closed_loop.yaml",
+      "path": "/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/localization_camera_three_car_closed_loop.yaml",
+      "sha256": "e99e54653d1c6f86095534158ac7204242050828c62acd90246231e28cd0f741"
+    },
+    {
+      "archived_path": "config/10_formal_serial_m2b_circle_0p10_observation_runtime.yaml",
+      "path": "/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/formal_serial_m2b_circle_0p10_observation_runtime.yaml",
+      "sha256": "f3f1c79546c35b5384632354c3d0819665352c1430ed9e55413fdce822ced7df"
+    },
+    {
+      "archived_path": "config/11_exp2b_M2b.yaml",
+      "path": "/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/exp2b_M2b.yaml",
+      "sha256": "8588517529353f0972b58edafd84f9f6d21c4cc8db3d242f9875d80703bb2409"
+    },
+    {
+      "archived_path": "config/12_exp2b_M2b.yaml",
+      "path": "/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/exp2b_M2b.yaml",
+      "sha256": "8588517529353f0972b58edafd84f9f6d21c4cc8db3d242f9875d80703bb2409"
+    },
+    {
+      "archived_path": "config/13_formal_serial_candidate_B_spatial_gradient15_M2c_authorization.yaml",
+      "path": "/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/formal_serial_candidate_B_spatial_gradient15_M2c_authorization.yaml",
+      "sha256": "5fc9dee045632006d5254e80fde6965a8055ef82f83d6d087928ede894bf559d"
+    },
+    {
+      "archived_path": "config/14_method_authorization.yaml",
+      "path": "/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/.runtime_authorization/candidate_b_gradient15.TnvqEf/method_authorization.yaml",
+      "sha256": "795f4e34f47472cad926d6d96050045e3e11d942ac2f94352e087c68e46c8501"
+    },
+    {
+      "archived_path": "config/15_formal_exp2a_derating_authorization.yaml",
+      "path": "/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/formal_exp2a_derating_authorization.yaml",
+      "sha256": "7d3a73a959df272de665f06f3f98337ae22faa25e4786551c4a6ed97f2144422"
+    },
+    {
+      "archived_path": "config/16_formal_evaluation_circle_r0p7_smooth_exit.yaml",
+      "path": "/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/formal_evaluation_circle_r0p7_smooth_exit.yaml",
+      "sha256": "73936182fb9492bf97a2d39dc1ba45c0679ea2c525450e68decc75bf6a946213"
+    },
+    {
+      "archived_path": "config/17_formal_serial_classic_additive_candidate_A_commissioning.yaml",
+      "path": "/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/formal_serial_classic_additive_candidate_A_commissioning.yaml",
+      "sha256": "f5a3a41178bdf13ed86464195e7833955b2123ed0fa4c454eff2ed00ac17eeea"
+    },
+    {
+      "archived_path": "config/18_formal_serial_candidate_B_spatial_gradient15_M2c.yaml",
+      "path": "/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/formal_serial_candidate_B_spatial_gradient15_M2c.yaml",
+      "sha256": "a64bc5ea3f6f0cd2c8cc470f1e8ea6080aa8af9bd92be17803ba40ba51632201"
+    },
+    {
+      "archived_path": "config/19_physical_authorization.yaml",
+      "path": "/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/.runtime_authorization/candidate_b_gradient15.TnvqEf/physical_authorization.yaml",
+      "sha256": "0185fef26fe1f2d04f9fba669196fbd004682ffdda8cc07c8300465bc7aadb71"
+    },
+    {
+      "archived_path": "config/20_fleet_inventory.yaml",
+      "path": "/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/fleet_inventory.yaml",
+      "sha256": "be71214076144a9a99bd0e1db275baa28b1ab1ae6fc05c7b154ec4cf7d8b1774"
+    },
+    {
+      "archived_path": "config/21_software_watchdog.yaml",
+      "path": "/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/software_watchdog.yaml",
+      "sha256": "f575259e7f9a2827bab66df15f21e2556d764da606cd0ac5a849f6e0344532b0"
+    },
+    {
+      "archived_path": "config/22_record_topics.yaml",
+      "path": "/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/record_topics.yaml",
+      "sha256": "fa2f8e8b895d5522c4cbd16bc6ff7df8105125e7935a84f1399298c65c7c84b0"
+    },
+    {
+      "archived_path": "config/23_vision_udp_bridge.yaml",
+      "path": "/home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_vision_bridge/config/vision_udp_bridge.yaml",
+      "sha256": "9ac815e02578e8ad6ce4e0776da9a123a425eea1249fd5b83358f99615d9e0ef"
+    },
+    {
+      "archived_path": "rosparams.yaml",
+      "path": "ROS parameter server snapshot",
+      "sha256": "3fefb8e63730c550ab8515e0238c0bd1565f38b9269de3092fe70ac7aadcd2c4"
+    }
+  ],
+  "end_timestamp": "2026-09-17T04:53:54.526710+00:00",
+  "experiment_id": "candidate_B_spatial_gradient15_m2c_physical_validation",
+  "git_sha": "47857252aadab2ac6a13aa9942d6f1c7abc81971",
+  "hostname": "robot1",
+  "localization_source": "camera_imu_wheel_fused",
+  "method_id": "M2c_M2c",
+  "operator": "ETLAB",
+  "pair_block_id": "B01",
+  "path_version": "circle_r0p7_cw_smooth_exit_v1",
+  "payload": {
+    "measured_pose_topic": "/pose_provider/load/pose_filtered",
+    "mode": "unloaded",
+    "pose_source": "equivalent_load",
+    "world_to_reference": {}
+  },
+  "payload_state": "unloaded",
+  "processing_version": "paper_run_pipeline_v15_recorded_controller_progress_coordinate",
+  "recording_armed_timestamp": "2026-09-17T04:52:56.949980+00:00",
+  "run_id": "candidate_B_spatial_gradient15_physical_M2c_20260917_125243",
+  "schema_version": 1,
+  "software_versions": {
+    "interface": "agv_ros_interfaces_v1",
+    "python": "3.8.10",
+    "ros_distro": "noetic"
+  },
+  "start_timestamp": "2026-09-17T04:52:56.500659+00:00",
+  "stm32_firmware": [
+    "unreported",
+    "unreported",
+    "unreported"
+  ],
+  "valid_run": true,
+  "wheel_speed_scale_freeze_id": "wheel_speed_scale_stage_d_frozen_v1"
+}

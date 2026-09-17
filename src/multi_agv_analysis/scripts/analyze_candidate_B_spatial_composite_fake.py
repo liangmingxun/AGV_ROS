@@ -38,14 +38,22 @@ def save(path, value):
                                allow_nan=False) + "\n")
 
 
-def prepare(root, method):
+def prepare(root, method, m1_upper_rate_hz=25):
+    if m1_upper_rate_hz not in (25, 100):
+        raise ValueError("M1 upper rate must be 25 or 100 Hz")
     B1.prepare(root, method)
-    metadata = {"triad": root.parent.name, "method": METHODS[method]}
+    metadata = {"triad": root.parent.name, "method": METHODS[method],
+                "m1_upper_rate_hz": m1_upper_rate_hz}
     runtime_paths = list((root / "configs").glob("*.yaml"))
     for path in runtime_paths:
         data = yaml.safe_load(path.read_text())
         if not isinstance(data, dict):
             continue
+        upper = data.get("formal_upper")
+        if (method == "M1" and path.name.endswith("_M1.yaml") and
+                isinstance(upper, dict)):
+            upper["update_rate"] = float(m1_upper_rate_hz)
+            upper["controller_ticks_per_update"] = 100 // m1_upper_rate_hz
         runtime = data.get("formal_fake_runtime")
         if isinstance(runtime, dict):
             runtime["experiment_id"] = IDENTITY
@@ -100,6 +108,8 @@ def prepare(root, method):
         "formal_evidence": False, "parameter_search": False,
         "hardware_authorization": False, "serial_execution": False,
         "method": METHODS[method], "profile": PROFILE,
+        "m1_upper_rate_hz": m1_upper_rate_hz,
+        "m1_controller_ticks_per_update": 100 // m1_upper_rate_hz,
         "spatial_coordinate":
             "actual support centre projected onto existing load centerline"})
 
@@ -759,8 +769,12 @@ def main():
     parser.add_argument("--prepare",type=Path); parser.add_argument("--method",choices=METHODS)
     parser.add_argument("--check-run",type=Path); parser.add_argument("--check-log",type=Path)
     parser.add_argument("--aggregate",type=Path); parser.add_argument("--sanity",type=Path)
+    parser.add_argument("--m1-upper-rate-hz", type=int, choices=(25, 100),
+                        default=25)
     args=parser.parse_args()
-    if args.prepare: prepare(args.prepare.resolve(),args.method); return 0
+    if args.prepare:
+        prepare(args.prepare.resolve(), args.method, args.m1_upper_rate_hz)
+        return 0
     if args.aggregate: aggregate(args.aggregate.resolve()); return 0
     if args.sanity: sanity(args.sanity.resolve()); return 0
     try:

@@ -4,6 +4,7 @@ set -euo pipefail
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 workspace="$(cd "${script_dir}/../../.." && pwd)"
 output_root=""; ros_port=11710; method=""; stage=Triad01; target=5.178229715025710
+m1_upper_rate_hz=25
 analysis_script="src/multi_agv_analysis/scripts/analyze_candidate_B_spatial_composite_fake.py"
 experiment_id="candidate_B_spatial_composite_fake_validation"
 while [[ $# -gt 0 ]]; do
@@ -15,12 +16,15 @@ while [[ $# -gt 0 ]]; do
     --target) target="$2"; shift 2 ;;
     --analysis-script) analysis_script="$2"; shift 2 ;;
     --experiment-id) experiment_id="$2"; shift 2 ;;
+    --m1-upper-rate-hz) m1_upper_rate_hz="$2"; shift 2 ;;
     *) echo "ERROR: unknown argument $1" >&2; exit 2 ;;
   esac
 done
 [[ "$method" == M1 || "$method" == M1b || "$method" == M2b ]] || {
   echo "ERROR: --method must be M1, M1b or M2b" >&2; exit 2; }
 [[ -n "$output_root" ]] || { echo "ERROR: --output-root required" >&2; exit 2; }
+[[ "$m1_upper_rate_hz" == 25 || "$m1_upper_rate_hz" == 100 ]] || {
+  echo "ERROR: --m1-upper-rate-hz must be 25 or 100" >&2; exit 2; }
 [[ "$output_root" == /* ]] || output_root="$workspace/${output_root#./}"
 [[ ! -e "$output_root" ]] || { echo "ERROR: fresh output root required" >&2; exit 2; }
 awk -v value="$target" 'BEGIN {exit !(value>=3.0 && value<=5.178229715025710)}' || {
@@ -34,7 +38,8 @@ export ROS_HOSTNAME=127.0.0.1
 unset ROS_IP || true
 mkdir -p "$output_root/logs"
 python3 "$analysis_script" \
-  --prepare "$output_root" --method "$method"
+  --prepare "$output_root" --method "$method" \
+  --m1-upper-rate-hz "$m1_upper_rate_hz"
 if rosnode list >/dev/null 2>&1; then
   echo "ERROR: ROS master already responds on $ROS_MASTER_URI" >&2; exit 3
 fi

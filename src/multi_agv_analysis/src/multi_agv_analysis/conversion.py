@@ -983,6 +983,7 @@ def _aligned_rows(raw, maximum_age,
         spatial_fields_per_robot = {
             "candidate_B_v2_spatial_composite:header14+3x32;robots=1,2,3": 32,
             "candidate_B_v2_spatial_composite:header14+3x33;robots=1,2,3": 33,
+            "candidate_B_v2_spatial_composite:header14+3x36;robots=1,2,3": 36,
         }.get(spatial_layout, 0)
         if spatial_fields_per_robot:
             try:
@@ -1017,13 +1018,18 @@ def _aligned_rows(raw, maximum_age,
             "native_over_0p180", "post_disturbance_over_0p160",
             "post_disturbance_over_0p180", "capability_limit",
             "limiter_active", "left_post_limit", "right_post_limit",
-            "actual_left", "actual_right", "wheel_separation")
+            "actual_left", "actual_right", "wheel_separation",
+            "left_native_unbounded", "right_native_unbounded",
+            "native_governor_scale")
         legacy_spatial_robot_names = tuple(
             name for name in spatial_robot_names
             if name != "projection_distance")
-        active_spatial_robot_names = (spatial_robot_names
-                                      if spatial_fields_per_robot == 33
-                                      else legacy_spatial_robot_names)
+        active_spatial_robot_names = (
+            spatial_robot_names
+            if spatial_fields_per_robot == 36 else
+            spatial_robot_names[:33]
+            if spatial_fields_per_robot == 33 else
+            legacy_spatial_robot_names[:32])
         for robot in range(1, 4):
             base = 14 + (robot - 1) * spatial_fields_per_robot
             row["agv{}_candidate_b_spatial_projection_distance".format(

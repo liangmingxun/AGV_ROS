@@ -31,6 +31,9 @@ experiment_recording:
       - /multi_agv/risk_disturbance_state
     M2b_M2b:
       - /multi_agv/m2b_algorithm_state
+    M2c_M2c:
+      - /multi_agv/m2b_algorithm_state
+      - /multi_agv/candidate_B_spatial_composite_state
 
   # Applied conditionally only when CooperativeState reports CAMERA or FUSED.
   camera_required_topics:

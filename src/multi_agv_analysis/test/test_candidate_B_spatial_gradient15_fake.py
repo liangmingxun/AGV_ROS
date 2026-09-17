@@ -50,6 +50,20 @@ class CandidateBSpatialGradient15FakeTest(unittest.TestCase):
             self.assertFalse(authorization["formal_lower"][
                 "hardware_execution_authorized"])
 
+    def test_prepare_can_select_independent_m1_100hz_sensitivity(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary) / "M1_R1"
+            self.base.prepare(root, "M1", m1_upper_rate_hz=100)
+            config = yaml.safe_load(next(
+                root.glob("configs/*_M1.yaml")).read_text())
+            self.assertEqual(config["formal_upper"]["update_rate"], 100.0)
+            self.assertEqual(config["formal_upper"][
+                "controller_ticks_per_update"], 1)
+            scope = __import__("json").loads(
+                (root / "CANDIDATE_B_V2_SCOPE.json").read_text())
+            self.assertEqual(scope["m1_upper_rate_hz"], 100)
+            self.assertEqual(scope["m1_controller_ticks_per_update"], 1)
+
     def test_gradient_identity_is_exactly_fake_scoped(self):
         text = NODE.read_text()
         gate = text.split("if (candidate_b_spatial_config_.enabled)", 1)[1].split(

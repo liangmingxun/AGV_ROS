@@ -32,6 +32,9 @@ class CandidateBSpatialGradient15PhysicalAnalysisTest(unittest.TestCase):
                          "candidate_b_spatial_gradient15_physical_summary.json")
         self.assertEqual(self.module.SUMMARY_CSV,
                          "candidate_b_spatial_gradient15_physical_summary.csv")
+        self.assertEqual(self.module.METHODS["M2c"], "M2c_M2c")
+        self.assertEqual(self.module.M2C_IDENTITY,
+            "candidate_B_spatial_gradient15_m2c_physical_validation")
 
     def test_reuses_frozen_spatial_rmse_definition(self):
         runs = {
@@ -125,6 +128,50 @@ class CandidateBSpatialGradient15PhysicalAnalysisTest(unittest.TestCase):
         self.assertAlmostEqual(result["risk_contraction_peak"], .020)
         self.assertAlmostEqual(result["risk_boundary_active_duration"], .020)
         self.assertAlmostEqual(result["risk_boundary_active_fraction"], 1.0)
+
+    def test_execution_state_reconstruction_distinguishes_projection_policy(self):
+        rows = []
+        for index in range(6):
+            row = {
+                "wall": index * .1,
+                "agv2_channel_input_limited": "1.0",
+                "common_velocity_reference": ".10",
+                "agv2_mapped_capability_diagnostic": ".12",
+                "agv2_candidate_b_spatial_active": "1.0",
+                "agv2_candidate_b_spatial_finished": "1.0" if index == 5 else "0.0",
+                "agv2_candidate_b_spatial_triggered": "1.0",
+                "agv2_candidate_b_spatial_entry_wall_time": "0.0",
+                "agv2_candidate_b_spatial_exit_wall_time": ".5",
+                "agv2_candidate_b_spatial_left_native": ".1",
+                "agv2_candidate_b_spatial_right_native": ".1",
+                "agv2_candidate_b_spatial_actual_left": ".1",
+                "agv2_candidate_b_spatial_actual_right": ".1",
+                "agv2_wheel_left_actual": ".1",
+                "agv2_wheel_right_actual": ".1",
+                "agv2_s_tracking_actual": str(index * .01),
+                "load_s_reference": str(index * .01),
+                "agv2_candidate_b_spatial_q": "1.0",
+                "agv2_candidate_b_spatial_rho": ".8275",
+                "agv2_candidate_b_spatial_d_v": ".023",
+                "agv2_candidate_b_spatial_d_omega": ".301875",
+                "agv2_candidate_b_spatial_projection_distance": "0.0",
+            }
+            rows.append(row)
+        params = {"formal_fake_runtime": {"execution": {
+            "startup_ramp_seconds": .01,
+            "startup_catchup_margin_mps": .008,
+            "startup_early_rise": .6,
+        }}}
+        m1 = self.module.reconstruct_robot2_execution_state(rows, "M1", params)
+        m2b = self.module.reconstruct_robot2_execution_state(rows, "M2b", params)
+        self.assertAlmostEqual(m1["active_state_peak_mps"], .12)
+        self.assertGreater(m1["active_projection_duration_seconds"], 0.0)
+        self.assertGreater(m2b["active_state_peak_mps"], .12)
+        self.assertEqual(m2b["active_projection_duration_seconds"], 0.0)
+        self.assertGreater(m1["counterfactual_active_state_peak_mps"],
+                           m1["active_state_peak_mps"])
+        self.assertAlmostEqual(m2b["counterfactual_active_state_peak_mps"],
+                               .1205)
 
 
 if __name__ == "__main__":

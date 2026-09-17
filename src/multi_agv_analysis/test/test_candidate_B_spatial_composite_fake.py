@@ -81,8 +81,8 @@ class CandidateBSpatialCompositeFakeTest(unittest.TestCase):
         publish = text.split("void publishCandidateBSpatialComposite", 1)[1].split(
             "void publishClassicAdditivePhysical", 1)[0]
         self.assertIn("header_fields = 14U", publish)
-        self.assertIn("fields_per_robot = 33U", publish)
-        self.assertIn("header14+3x33;robots=1,2,3", publish)
+        self.assertIn("fields_per_robot = 36U", publish)
+        self.assertIn("header14+3x36;robots=1,2,3", publish)
         self.assertIn("candidate_b_spatial_projection_distance_", publish)
         self.assertNotIn("duration", CONFIG.read_text())
 
@@ -107,7 +107,10 @@ class CandidateBSpatialCompositeFakeTest(unittest.TestCase):
         text = CONVERSION.read_text()
         self.assertIn("header14+3x32;robots=1,2,3\": 32", text)
         self.assertIn("header14+3x33;robots=1,2,3\": 33", text)
+        self.assertIn("header14+3x36;robots=1,2,3\": 36", text)
         self.assertIn('"projection_distance"', text)
+        self.assertIn('"left_native_unbounded"', text)
+        self.assertIn('"native_governor_scale"', text)
 
     def test_projection_statistics_are_reported_per_robot(self):
         rows = []

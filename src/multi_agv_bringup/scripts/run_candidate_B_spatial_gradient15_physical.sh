@@ -4,7 +4,7 @@ set -euo pipefail
 usage() {
   cat >&2 <<'EOF'
 usage: run_candidate_B_spatial_gradient15_physical.sh \
-  --method M1|M1b|M2b [--run-id ID] --operator NAME --pair-block ID \
+  --method M1|M1b|M2b|M2c [--run-id ID] --operator NAME --pair-block ID \
   [--software-only-dry-run] \
   --confirm-area-clear --confirm-wheels-on-floor \
   --confirm-unloaded-30cm-fixture --confirm-emergency-stop-ready \
@@ -41,8 +41,9 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-[[ "$method" == M1 || "$method" == M1b || "$method" == M2b ]] || {
-  echo "ERROR: Candidate B gradient15 permits only M1, M1b or M2b" >&2
+[[ "$method" == M1 || "$method" == M1b || "$method" == M2b ||
+   "$method" == M2c ]] || {
+  echo "ERROR: Candidate B gradient15 permits only M1, M1b, M2b or M2c" >&2
   exit 2
 }
 if [[ -n "$run_id" && ! "$run_id" =~ ^[A-Za-z0-9._-]+$ ]]; then
@@ -54,6 +55,9 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 workspace="$(cd "${script_dir}/../../.." && pwd)"
 config_dir="src/multi_agv_bringup/config"
 physical_config="$config_dir/formal_serial_candidate_B_spatial_gradient15.yaml"
+if [[ "$method" == M2c ]]; then
+  physical_config="$config_dir/formal_serial_candidate_B_spatial_gradient15_M2c.yaml"
+fi
 authorization="$config_dir/formal_serial_candidate_B_spatial_gradient15_${method}_authorization.yaml"
 
 python3 - "$workspace/$physical_config" "$workspace/$authorization" "$method" <<'PY'
@@ -79,6 +83,14 @@ assert physical["software_qualification_passed"] is True
 assert physical["enabled"] is False
 assert physical["hardware_execution_authorized"] is False
 assert "authorization_status" not in physical
+governor = runtime.get("m2c_native_governor", {})
+if sys.argv[3] == "M2c":
+    assert physical["experiment_id"] == (
+        "candidate_B_spatial_gradient15_m2c_physical_validation")
+    assert governor == {"enabled": False, "limit_mps": .180,
+                        "hardware_execution_authorized": False}
+else:
+    assert not governor or governor.get("enabled") is False
 authorization = yaml.safe_load(open(sys.argv[2]))
 assert authorization["formal_upper"]["hardware_execution_authorized"] is False
 assert authorization["formal_lower"]["hardware_execution_authorized"] is False
@@ -119,6 +131,10 @@ case "$method" in
     runtime_config="$config_dir/formal_serial_circle_r0p7_smooth_exit_0p10_reference_v1_pilot_runtime.yaml"
     ;;
   M2b)
+    upper_config="$config_dir/exp2b_M2b.yaml"
+    runtime_config="$config_dir/formal_serial_m2b_circle_0p10_observation_runtime.yaml"
+    ;;
+  M2c)
     upper_config="$config_dir/exp2b_M2b.yaml"
     runtime_config="$config_dir/formal_serial_m2b_circle_0p10_observation_runtime.yaml"
     ;;
@@ -165,6 +181,12 @@ assert physical_scope["software_qualification_passed"] is True
 physical_scope["enabled"] = True
 physical_scope["hardware_execution_authorized"] = True
 physical_scope["operator_authorization"] = dict(grant)
+if method == "M2c":
+    governor = physical["formal_fake_runtime"]["m2c_native_governor"]
+    assert abs(float(governor["limit_mps"]) - .180) <= 1e-12
+    governor["enabled"] = True
+    governor["hardware_execution_authorized"] = True
+    governor["operator_authorization"] = dict(grant)
 method_authorization["formal_upper"]["hardware_execution_authorized"] = True
 method_authorization["formal_lower"]["hardware_execution_authorized"] = True
 if method == "M1b":
@@ -192,7 +214,11 @@ export FORMAL_CANDIDATE_B_SPATIAL_PHYSICAL_ENABLED=true
 export FORMAL_RECORD_CANDIDATE_B_SPATIAL_PHYSICAL=true
 export FORMAL_CANDIDATE_B_SPATIAL_PROFILE_ID="candidate_B_v2_spatial_gradient15_rho0p85_av0p020_aw0p2625"
 export FORMAL_CANDIDATE_B_SPATIAL_PHYSICAL_AUTHORIZED=true
-export FORMAL_EXPERIMENT_ID="candidate_B_spatial_gradient15_physical_validation"
+if [[ "$method" == M2c ]]; then
+  export FORMAL_EXPERIMENT_ID="candidate_B_spatial_gradient15_m2c_physical_validation"
+else
+  export FORMAL_EXPERIMENT_ID="candidate_B_spatial_gradient15_physical_validation"
+fi
 export FORMAL_RUN_PREFIX="candidate_B_spatial_gradient15_physical_${method}"
 export FORMAL_RUN_ID="$run_id"
 export FORMAL_RUN_TIMEOUT_SECONDS=140

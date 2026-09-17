@@ -25,9 +25,11 @@ V2 = BASE.V2
 V4 = BASE.V4
 
 IDENTITY = "candidate_B_spatial_gradient15_physical_validation"
+M2C_IDENTITY = "candidate_B_spatial_gradient15_m2c_physical_validation"
 PROFILE_ID = "candidate_B_v2_spatial_gradient15_rho0p85_av0p020_aw0p2625"
 PROFILE = dict(BASE.PROFILE)
-METHODS = BASE.METHODS
+METHODS = dict(BASE.METHODS)
+METHODS["M2c"] = "M2c_M2c"
 METRIC_FILE = "candidate_b_spatial_gradient15_physical_metrics.json"
 COMPARISON_FILE = "candidate_b_spatial_gradient15_physical_comparison.json"
 SUMMARY_FILE = "candidate_b_spatial_gradient15_physical_summary.json"
@@ -125,12 +127,185 @@ def selected_rows(run, primary_only=False):
     return [row for row in rows if entry <= row["wall"] <= exit_time]
 
 
+def _startup_smoothstep(tau):
+    tau = max(0.0, min(1.0, tau))
+    return tau ** 3 * (10.0 + tau * (-15.0 + 6.0 * tau))
+
+
+def _startup_ramp_scale(tau, early_rise):
+    tau = max(0.0, min(1.0, tau))
+    warped = tau + early_rise * tau * (1.0 - tau) * (1.0 - 2.0 * tau)
+    return _startup_smoothstep(warped)
+
+
+def _startup_velocity_envelope(reference, capability, scale, tau, margin):
+    base = abs(reference)
+    catchup = margin * 4.0 * scale * (1.0 - scale)
+    release = _startup_smoothstep((tau - 0.75) / 0.25)
+    bounded = min(capability, base + catchup)
+    return bounded + release * (capability - bounded)
+
+
+def reconstruct_robot2_execution_state(rows, method, algorithm_params):
+    """Replay the serial persistent velocity-command state from recorded input.
+
+    This is an offline reconstruction, not a measured signal.  It follows the
+    two serial update branches in formal_fake_algorithm_node.cpp and retains
+    both the reconstructed state and direct post-tracker/feedback evidence.
+    """
+    execution = algorithm_params["formal_fake_runtime"]["execution"]
+    ramp_seconds = float(execution["startup_ramp_seconds"])
+    catchup_margin = float(execution["startup_catchup_margin_mps"])
+    early_rise = float(execution["startup_early_rise"])
+    if ramp_seconds <= 0.0:
+        raise ValueError("execution-state reconstruction requires a ramp")
+
+    state = 0.0
+    counterfactual_state = 0.0
+    elapsed = 0.0
+    previous_wall = rows[0]["wall"]
+    replay = []
+    for row in rows:
+        dt = max(0.0, min(0.1, row["wall"] - previous_wall))
+        previous_wall = row["wall"]
+        elapsed = min(ramp_seconds, elapsed + dt)
+        tau = elapsed / ramp_seconds
+        scale = _startup_ramp_scale(tau, early_rise)
+        control_input = V2.num(row, "agv2_channel_input_limited")
+        unprojected = state + dt * control_input
+        counterfactual_unprojected = (
+            counterfactual_state + dt * control_input)
+        reference = V2.num(row, "common_velocity_reference")
+        if method == "M1":
+            mapped_upper = V2.num(row, "agv2_mapped_capability_diagnostic")
+            if not math.isfinite(mapped_upper):
+                raise ValueError("M1 mapped capability is unavailable")
+            upper = min(0.58, mapped_upper)
+            if scale < 1.0:
+                # The exact lower mapped bound is not recorded.  Forward
+                # motion makes it inactive; 0.15 is the conservative global
+                # magnitude used by the serial adapter.
+                envelope = _startup_velocity_envelope(
+                    reference, max(0.15, abs(upper)), scale, tau,
+                    catchup_margin)
+                upper = min(upper, envelope)
+            counterfactual_upper = 0.52
+            if scale < 1.0:
+                counterfactual_upper = _startup_velocity_envelope(
+                    reference, 0.52, scale, tau, catchup_margin)
+        elif method in ("M2b", "M2c"):
+            upper = 0.52
+            if scale < 1.0:
+                upper = _startup_velocity_envelope(
+                    reference, 0.52, scale, tau, catchup_margin)
+            # M2b does not publish a mapped path capability.  The proxy is the
+            # repeat-averaged M1 bound observed in the same frozen circle
+            # segment, rounded conservatively to 0.1205 m/s.
+            counterfactual_upper = min(upper, 0.1205)
+        else:
+            raise ValueError("execution-state reconstruction supports M1/M2b/M2c")
+        state = max(-upper, min(upper, unprojected))
+        counterfactual_state = max(
+            -counterfactual_upper,
+            min(counterfactual_upper, counterfactual_unprojected))
+        replay.append({"row": row, "dt": dt, "state": state,
+                       "upper": upper, "unprojected": unprojected,
+                       "projection_active": abs(state - unprojected) > 1e-12,
+                       "counterfactual_state": counterfactual_state,
+                       "counterfactual_upper": counterfactual_upper})
+
+    triggered_rows = [row for row in rows if V2.flag(
+        row, "agv2_candidate_b_spatial_triggered")]
+    finished_rows = [row for row in rows if V2.flag(
+        row, "agv2_candidate_b_spatial_finished")]
+    if not triggered_rows or not finished_rows:
+        raise ValueError("Robot2 did not traverse the complete spatial zone")
+    entry = V2.num(triggered_rows[0],
+                   "agv2_candidate_b_spatial_entry_wall_time")
+    exit_time = V2.num(finished_rows[0],
+                       "agv2_candidate_b_spatial_exit_wall_time")
+    active = [item for item in replay
+              if V2.flag(item["row"], "agv2_candidate_b_spatial_active")]
+    recovery = [item for item in replay
+                if exit_time <= item["row"]["wall"] <= exit_time + 2.0]
+    if not active or not recovery:
+        raise ValueError("Robot2 active/recovery reconstruction is empty")
+
+    def wheel_peak(items, stage):
+        values = []
+        for item in items:
+            for side in ("left_", "right_"):
+                if stage == "actual":
+                    key = "agv2_wheel_{}actual".format(side)
+                elif stage == "native" and method == "M2c":
+                    key = ("agv2_candidate_b_spatial_" + side +
+                           "native_unbounded")
+                else:
+                    key = "agv2_candidate_b_spatial_" + side + stage
+                value = V2.num(item["row"], key)
+                if math.isfinite(value):
+                    values.append(abs(value))
+        if not values:
+            raise ValueError("Robot2 {} wheel evidence is unavailable".format(
+                stage))
+        return max(values)
+
+    progress = [V2.num(item["row"], "agv2_s_tracking_actual") -
+                V2.num(item["row"], "load_s_reference")
+                for item in recovery]
+    state_at_exit = min(
+        recovery, key=lambda item: abs(item["row"]["wall"] - exit_time))["state"]
+    counterfactual_at_exit = min(
+        recovery, key=lambda item: abs(item["row"]["wall"] - exit_time))[
+            "counterfactual_state"]
+    high_threshold = 0.1205
+    return {
+        "provenance": "offline_reconstruction_from_recorded_lower_input",
+        "not_directly_measured": True,
+        "robot_id": 2,
+        "active_duration_seconds": sum(item["dt"] for item in active),
+        "active_state_peak_mps": max(item["state"] for item in active),
+        "active_state_above_0p1205_duration_seconds": sum(
+            item["dt"] for item in active
+            if item["state"] > high_threshold),
+        "active_projection_duration_seconds": sum(
+            item["dt"] for item in active if item["projection_active"]),
+        "counterfactual_policy": (
+            "M2b_log_only" if method == "M1" else
+            "M1_style_projection_proxy_0p1205"),
+        "counterfactual_active_state_peak_mps": max(
+            item["counterfactual_state"] for item in active),
+        "active_state_minus_counterfactual_integral_m": sum(
+            (item["state"] - item["counterfactual_state"]) * item["dt"]
+            for item in active),
+        "counterfactual_state_at_disturbance_exit_mps":
+            counterfactual_at_exit,
+        "state_at_disturbance_exit_mps": state_at_exit,
+        "recovery_0p2s_state_mean_mps": sum(
+            item["state"] for item in recovery) / len(recovery),
+        "recovery_0p2s_state_peak_mps": max(
+            item["state"] for item in recovery),
+        "recovery_0p2s_progress_error_rms_m": math.sqrt(
+            sum(value * value for value in progress) / len(progress)),
+        "recovery_0p2s_progress_error_peak_m": max(
+            abs(value) for value in progress),
+        "recovery_0p2s_native_wheel_peak_mps": wheel_peak(
+            recovery, "native"),
+        "recovery_0p2s_actual_wheel_peak_mps": wheel_peak(
+            recovery, "actual"),
+        "entry_wall_time": entry,
+        "exit_wall_time": exit_time,
+    }
+
+
 def analyze_physical_run(run, method):
     manifest = yaml.safe_load((run / "manifest.yaml").read_text())
     params = yaml.safe_load((run / "rosparams.yaml").read_text())
     algorithm_params = physical_algorithm_params(params)
     runtime = algorithm_params["formal_fake_runtime"]
-    if manifest["experiment_id"] != IDENTITY or runtime["experiment_id"] != IDENTITY:
+    expected_identity = M2C_IDENTITY if method == "M2c" else IDENTITY
+    if (manifest["experiment_id"] != expected_identity or
+            runtime["experiment_id"] != expected_identity):
         raise ValueError("wrong physical Candidate B identity")
     if manifest.get("method_id") != METHODS[method]:
         raise ValueError("physical method metadata does not match request")
@@ -177,6 +352,55 @@ def analyze_physical_run(run, method):
         row["relative_wall_time"] = row["wall"] - entry
     primary = [row for row in rows if entry <= row["wall"] <= exit_time]
     metrics = BASE.phase_metrics(primary)
+    if method == "M2c":
+        governor = runtime.get("m2c_native_governor", {})
+        if (governor.get("enabled") is not True or
+                governor.get("hardware_execution_authorized") is not True or
+                abs(float(governor.get("limit_mps", math.nan)) - .180) > 1e-12):
+            raise ValueError("M2c 0.18 m/s native governor was not authorized")
+        dt = BASE.durations(primary)
+        unbounded, governed, scales = [], [], []
+        for row in primary:
+            raw_sample, governed_sample, sample_scales = [], [], []
+            for robot in (1, 2, 3):
+                prefix = "agv{}_candidate_b_spatial_".format(robot)
+                raw_sample.extend((
+                    V2.num(row, prefix + "left_native_unbounded"),
+                    V2.num(row, prefix + "right_native_unbounded")))
+                governed_sample.extend((
+                    V2.num(row, prefix + "left_native"),
+                    V2.num(row, prefix + "right_native")))
+                sample_scales.append(
+                    V2.num(row, prefix + "native_governor_scale"))
+            if not all(math.isfinite(value) for value in
+                       raw_sample + governed_sample + sample_scales):
+                raise ValueError("M2c governor telemetry is incomplete")
+            unbounded.append(raw_sample)
+            governed.append(governed_sample)
+            scales.append(sample_scales)
+        raw_peak = [max(abs(value) for value in sample)
+                    for sample in unbounded]
+        governed_peak = [max(abs(value) for value in sample)
+                         for sample in governed]
+        metrics.update({
+            "native_controller_raw_peak_mps": max(raw_peak),
+            "native_controller_raw_rms_mps": BASE.rms([
+                math.sqrt(sum(value * value for value in sample) / len(sample))
+                for sample in unbounded], dt),
+            "native_over_0p160_duration_seconds": sum(
+                step for value, step in zip(raw_peak, dt) if value > .160),
+            "native_over_0p180_duration_seconds": sum(
+                step for value, step in zip(raw_peak, dt) if value > .180),
+            "m2c_governed_native_peak_mps": max(governed_peak),
+            "m2c_governed_over_0p180_duration_seconds": sum(
+                step for value, step in zip(governed_peak, dt)
+                if value > .180 + 1e-9),
+            "m2c_native_governor_duration_seconds": sum(
+                step for sample, step in zip(scales, dt)
+                if min(sample) < 1.0 - 1e-12),
+            "m2c_native_governor_minimum_scale": min(
+                min(sample) for sample in scales),
+        })
     validation = json.loads((run / "validation.json").read_text())
     summary = json.loads((run / "summary_metrics.json").read_text())
     complete = bool(validation.get("task_completion", {}).get("complete"))
@@ -214,7 +438,7 @@ def analyze_physical_run(run, method):
     category, provenance_complete = classify_physical_evidence(
         runtime_valid, authorization_source)
     result = {
-        "experiment_id": IDENTITY,
+        "experiment_id": expected_identity,
         "profile_id": PROFILE_ID,
         "formal_evidence": category == "VALID_COMPLETED",
         "physical_authorization_recorded": True,
@@ -229,6 +453,9 @@ def analyze_physical_run(run, method):
         "M1_mechanism": (BASE.mechanism_metrics(
             primary, nominal_common_inner_upper(algorithm_params))
                            if method == "M1" else None),
+        "robot2_execution_state_diagnostic": (
+            reconstruct_robot2_execution_state(rows, method, algorithm_params)
+            if method in ("M1", "M2b", "M2c") else None),
         "profile_verified": profile_ok,
         "algorithm_invalid_fraction": algorithm_invalid,
         "localization_invalid_fraction": localization_invalid,

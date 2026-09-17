@@ -8,7 +8,7 @@ usage: run_m1_r1_serial_unloaded.sh \
   --confirm-area-clear --confirm-wheels-on-floor \
   --confirm-unloaded-30cm-fixture
 
-Runs the selected M1+R1, M1b+R1, M2a+R1 or M2b+M2b serial entry on Robot1. Method
+Runs the selected M1+R1, M1b+R1, M2a+R1, M2b+M2b or M2c+M2c serial entry on Robot1. Method
 selection changes only the formal upper/lower configuration; the selected
 path, planar execution runtime, chassis limiter and recording chain remain
 shared. Each method uses its own physical-authorization overlay. The three
@@ -22,7 +22,7 @@ pair_block=""
 formal_upper_mode="${FORMAL_UPPER_MODE:-M1}"
 enable_robot2_derating="${FORMAL_ENABLE_ROBOT2_DERATING:-false}"
 if [[ "$formal_upper_mode" != M1 && "$formal_upper_mode" != M1b && "$formal_upper_mode" != M2a &&
-      "$formal_upper_mode" != M2b ]]; then
+      "$formal_upper_mode" != M2b && "$formal_upper_mode" != M2c ]]; then
   echo "ERROR: unsupported formal upper mode: ${formal_upper_mode}" >&2
   exit 2
 fi
@@ -87,6 +87,16 @@ case "$formal_upper_mode" in
     experiment_id="${FORMAL_EXPERIMENT_ID:-exp2b_m2b_unloaded_serial}"
     run_prefix="${FORMAL_RUN_PREFIX:-m2b_serial}"
     ;;
+  M2c)
+    upper_config="${FORMAL_UPPER_CONFIG:-src/multi_agv_bringup/config/exp2b_M2b.yaml}"
+    lower_config="src/multi_agv_bringup/config/exp2b_M2b.yaml"
+    authorization_config="${FORMAL_EXECUTION_AUTHORIZATION_CONFIG:-src/multi_agv_bringup/config/formal_serial_candidate_B_spatial_gradient15_M2c_authorization.yaml}"
+    method_id="M2c_M2c"
+    expected_upper_mode="M2b"
+    expected_lower_mode="M2b"
+    experiment_id="${FORMAL_EXPERIMENT_ID:-candidate_B_spatial_gradient15_m2c_physical_validation}"
+    run_prefix="${FORMAL_RUN_PREFIX:-candidate_B_spatial_gradient15_physical_M2c}"
+    ;;
   M1)
     upper_config="${FORMAL_UPPER_CONFIG:-src/multi_agv_bringup/config/exp2a_M1_serial_008.yaml}"
     lower_config="src/multi_agv_bringup/config/exp3_R1.yaml"
@@ -106,6 +116,7 @@ case "$formal_upper_mode" in
     run_prefix="${FORMAL_RUN_PREFIX:-m1b_r1_risk_disturbance_v1}"
     ;;
 esac
+expected_upper_mode="${expected_upper_mode:-$formal_upper_mode}"
 authorization_base_config="${FORMAL_EXECUTION_AUTHORIZATION_BASE_CONFIG:-$authorization_config}"
 candidate_b_spatial_base_config="${FORMAL_CANDIDATE_B_SPATIAL_BASE_CONFIG:-$candidate_b_spatial_config}"
 candidate_b_spatial_authorization_source="${FORMAL_CANDIDATE_B_SPATIAL_AUTHORIZATION_SOURCE:-tracked_config}"
@@ -135,9 +146,9 @@ configured_lower_mode="$(awk '
   /^formal_lower:/ {in_lower=1; next}
   in_lower && /^[[:space:]]*mode:/ {print $2; exit}
 ' "$lower_config")"
-if [[ "$configured_upper_mode" != "$formal_upper_mode" ||
+if [[ "$configured_upper_mode" != "$expected_upper_mode" ||
       "$configured_lower_mode" != "$expected_lower_mode" ]]; then
-  echo "ERROR: selected method/configuration mismatch: requested=${formal_upper_mode}+${expected_lower_mode}, configured=${configured_upper_mode:-missing}+${configured_lower_mode:-missing}" >&2
+  echo "ERROR: selected method/configuration mismatch: requested=${formal_upper_mode}(${expected_upper_mode})+${expected_lower_mode}, configured=${configured_upper_mode:-missing}+${configured_lower_mode:-missing}" >&2
   exit 3
 fi
 if [[ "$formal_upper_mode" == M2a ]]; then

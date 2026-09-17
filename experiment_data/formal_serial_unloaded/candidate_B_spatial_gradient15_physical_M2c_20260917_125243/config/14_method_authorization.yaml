@@ -1,0 +1,19 @@
+formal_upper:
+  hardware_execution_authorized: true
+formal_lower:
+  hardware_execution_authorized: true
+authorization_scope:
+  upper_config: src/multi_agv_bringup/config/exp2b_M2b.yaml
+  path_config: src/multi_agv_bringup/config/path_circle_r0p7_cw_smooth_exit.yaml
+  runtime_config: src/multi_agv_bringup/config/formal_serial_m2b_circle_0p10_observation_runtime.yaml
+  evaluation_config: src/multi_agv_bringup/config/formal_evaluation_circle_r0p7_smooth_exit.yaml
+  target_progress: 5.17822971502571
+  robot2_derating: false
+  experiment_id: candidate_B_spatial_gradient15_m2c_physical_validation
+  operator_authorization:
+    source: runtime_operator_overlay
+    operator: ETLAB
+    pair_block_id: B01
+    run_id: candidate_B_spatial_gradient15_physical_M2c_20260917_125243
+    authorized_at_utc: '2026-09-17T04:52:43Z'
+    frozen_git_sha: 47857252aadab2ac6a13aa9942d6f1c7abc81971

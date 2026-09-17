@@ -36,7 +36,7 @@ class CandidateBSpatialGradient15PhysicalTest(unittest.TestCase):
                          physical["candidate_b_spatial_physical"])
 
     def test_all_method_authorizations_default_false(self):
-        for method in ("M1", "M1b", "M2b"):
+        for method in ("M1", "M1b", "M2b", "M2c"):
             data = yaml.safe_load((CONFIG /
                 ("formal_serial_candidate_B_spatial_gradient15_{}_authorization.yaml".format(
                     method))).read_text())
@@ -46,11 +46,14 @@ class CandidateBSpatialGradient15PhysicalTest(unittest.TestCase):
                 "hardware_execution_authorized"])
             self.assertNotIn("physical_authorization_status",
                              data["authorization_scope"])
+            expected = ("candidate_B_spatial_gradient15_m2c_physical_validation"
+                        if method == "M2c" else
+                        "candidate_B_spatial_gradient15_physical_validation")
             self.assertEqual(data["authorization_scope"]["experiment_id"],
-                             "candidate_B_spatial_gradient15_physical_validation")
+                             expected)
 
     def test_dry_run_never_contacts_ros_and_missing_confirmation_refuses(self):
-        for method in ("M1", "M1b", "M2b"):
+        for method in ("M1", "M1b", "M2b", "M2c"):
             result = subprocess.run(
                 [str(SCRIPT), "--method", method,
                  "--software-only-dry-run"], cwd=ROOT,
@@ -100,6 +103,30 @@ class CandidateBSpatialGradient15PhysicalTest(unittest.TestCase):
             "formal_upper"]
         self.assertFalse(m2b["m1b_hardware_execution_authorized"])
         self.assertFalse(m2b["hard_capability_envelope"]["enabled"])
+
+    def test_m2c_is_frozen_governed_m2b_and_fail_closed(self):
+        runtime = yaml.safe_load((CONFIG /
+            "formal_serial_candidate_B_spatial_gradient15_M2c.yaml").read_text())[
+                "formal_fake_runtime"]
+        governor = runtime["m2c_native_governor"]
+        self.assertEqual(governor["limit_mps"], .180)
+        self.assertFalse(governor["enabled"])
+        self.assertFalse(governor["hardware_execution_authorized"])
+        self.assertEqual(runtime["candidate_b_spatial_physical"][
+            "experiment_id"],
+            "candidate_B_spatial_gradient15_m2c_physical_validation")
+        source = SCRIPT.read_text()
+        self.assertIn('if [[ "$method" == M2c ]]', source)
+        self.assertIn('governor["enabled"] = True', source)
+        self.assertIn('governor["hardware_execution_authorized"] = True',
+                      source)
+        node = NODE.read_text()
+        self.assertIn("applyM2cNativeGovernor(tracking, &candidate_b_native)",
+                      node)
+        self.assertLess(node.index(
+            "applyM2cNativeGovernor(tracking, &candidate_b_native)"),
+            node.index(
+                "applyCandidateBSpatialComposite(candidate_b_native"))
 
     def test_serial_algorithm_private_parameters_are_fresh_per_run(self):
         launch = SERIAL_LAUNCH.read_text()

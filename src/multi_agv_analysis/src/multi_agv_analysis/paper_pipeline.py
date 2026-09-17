@@ -85,7 +85,7 @@ def export_views(converted_dir, output_dir):
                           if field not in ("stamp", "evaluation_active")]
         if not payload_fields:
             if (filename == "m2b_internal.csv" and
-                    method_id != "M2b_M2b"):
+                    method_id not in ("M2b_M2b", "M2c_M2c")):
                 # M2b internals do not exist for M1/M2a methods.  Their
                 # absence is method-correct and must not invalidate an
                 # otherwise complete paper run.
@@ -134,6 +134,9 @@ def _run_context(aligned_csv):
         "M2b_M2b": (
             "M2b", "M2b固定约束参考", "M2b",
             "M2b局部约束上界", "M2b公共约束上界"),
+        "M2c_M2c": (
+            "M2c", "M2b固定约束参考", "M2b+0.18原始需求治理器",
+            "M2b局部约束上界", "M2b公共固定上界"),
         "CAMERA_IMU_WHEEL_FUSED_CLOSED_LOOP": (
             "未使用算法对照组", "直接路径参考", "二维实车执行层",
             "无上层动态边界", "无公共动态边界"),
