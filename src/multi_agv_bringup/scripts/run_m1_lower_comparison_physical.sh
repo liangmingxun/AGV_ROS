@@ -102,6 +102,7 @@ if [[ "$constraint_approach" == true ]]; then
       base_authorization="$config_dir/formal_serial_m1_paper_nm_constraint_approach_authorization.yaml"
       ;;
     PDPenalty)
+      lower_config="$config_dir/exp3_PDPenalty_constraint_approach.yaml"
       base_authorization="$config_dir/formal_serial_m1_pd_penalty_constraint_approach_authorization.yaml"
       ;;
   esac
@@ -150,6 +151,12 @@ assert runtime["leader"]["velocity"] == 0.10
 assert runtime["distributed_initial"]["velocity"] == [0.10, 0.10, 0.10]
 assert runtime["lower"]["velocity_lower_bound"] == float(sys.argv[5])
 assert runtime["lower"]["velocity_upper_bound"] == float(sys.argv[6])
+if sys.argv[4] == "PDPenalty":
+    gains = lower["pd_penalty"]
+    assert gains["kp1"] == 4.0
+    assert gains["kp2"] == 2.0
+    expected_kpd = 0.012 if float(sys.argv[6]) == 0.14 else 0.24
+    assert gains["kpd"] == expected_kpd
 PY
 
 if [[ "$dry_run" == true ]]; then
@@ -161,6 +168,13 @@ if [[ "$dry_run" == true ]]; then
   echo "REFERENCE_SPEED=0.10 m/s"
   echo "LOWER_VELOCITY_BOUND=${expected_lower_bound} m/s"
   echo "UPPER_VELOCITY_BOUND=${expected_upper_bound} m/s"
+  if [[ "$lower_mode" == PDPenalty ]]; then
+    if [[ "$constraint_approach" == true ]]; then
+      echo "PD_PENALTY_GAINS=kp1=4.0,kp2=2.0,kpd=0.012"
+    else
+      echo "PD_PENALTY_GAINS=kp1=4.0,kp2=2.0,kpd=0.24"
+    fi
+  fi
   echo "DERATING=disabled DISTURBANCE=disabled"
   echo "REUSABLE_METHOD_HARDWARE_AUTHORIZATION=true"
   echo "SERIAL_COMMAND_PUBLISHED=NO"

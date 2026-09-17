@@ -7,7 +7,7 @@ formal_lower:
 authorization_scope:
   authorization_source: explicit_operator_reusable_method_authorization
   upper_config: src/multi_agv_bringup/config/exp2a_M1_serial_0p10_pilot.yaml
-  lower_config: src/multi_agv_bringup/config/exp3_PDPenalty.yaml
+  lower_config: src/multi_agv_bringup/config/exp3_PDPenalty_constraint_approach.yaml
   path_config: src/multi_agv_bringup/config/path_circle_r0p7_cw_smooth_exit.yaml
   runtime_config: src/multi_agv_bringup/config/formal_serial_m1_lower_constraint_approach_0p10_runtime.yaml
   evaluation_config: src/multi_agv_bringup/config/formal_evaluation_circle_r0p7_smooth_exit.yaml

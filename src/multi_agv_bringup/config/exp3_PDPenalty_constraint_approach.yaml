@@ -1,0 +1,30 @@
+# PD plus velocity-bound penalty baseline retuned only for the shared
+# constraint-approach interval [-0.05, 0.14] m/s. At v_nom=0.10 m/s,
+# D_nom=(0.10-(-0.05))*(0.14-0.10)=0.006 and
+# kp2+kpd/D_nom=2+0.012/0.006=4, preserving the intended local velocity gain.
+# The normal-condition PDPenalty configuration remains unchanged at kpd=0.24.
+formal_lower:
+  schema_version: 1
+  mode: PDPenalty
+  adaptation_enabled: false
+  disturbance_compensation_enabled: false
+  configuration_status: M1_REFERENCE_PAPER_EQUATION_28_CONSTRAINT_APPROACH_KPD_0P012
+  algorithm_execution_authorized: true
+  hardware_execution_authorized: false
+  golden_vectors_verified: true
+  update_rate: 100.0
+  pd_penalty:
+    kp1: 4.0
+    kp2: 2.0
+    kpd: 0.012
+    denominator_guard: 0.00002
+  adaptation_gain: [0.0, 0.0]
+  disturbance_adaptation_gain: 0.0
+  parameter_leakage: 0.0
+  disturbance_leakage: 0.0
+  robust_boundary_layer: 0.055
+  parameter_min: [0.0, 0.0]
+  parameter_max: [0.0, 0.0]
+  disturbance_estimate_max: 0.0
+  constraint_margin: 0.00002
+  sustained_saturation_seconds: 0.5
