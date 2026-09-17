@@ -1,0 +1,509 @@
+bag: lower_constraint_approach_PDPenalty_20260917_195702.bag
+bag_exit_code: 0
+camera_mode: true
+candidate_b_spatial:
+  authorization_source: tracked_config
+  physical_authorized: false
+  profile_id: ''
+command_authority:
+  /agv1/chassis_command:
+  - /formal_algorithm
+  /agv2/chassis_command:
+  - /formal_algorithm
+  /agv3/chassis_command:
+  - /formal_algorithm
+command_authority_violations: []
+communication_age_note: Recorded ages are diagnostics only and do not establish an
+  independent communication watchdog.
+config_hashes:
+- archived_path: config/01_common_platform.yaml
+  path: /home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/common_platform.yaml
+  sha256: 65483e8a7a24965d46f69d6d86b7e36f1655e7a3a761209b2ddf70ccc0f69f2a
+- archived_path: config/02_agv1_chassis.yaml
+  path: /home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/agv1_chassis.yaml
+  sha256: f5d1ec4de63b989e253118713fa70afe5da2afea5ace0d8322d99d9220f0e637
+- archived_path: config/03_agv2_chassis.yaml
+  path: /home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/agv2_chassis.yaml
+  sha256: e11f36fa999ac6b85d4916478658c5a929f4b080653b657174d2815999a217bb
+- archived_path: config/04_agv3_chassis.yaml
+  path: /home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/agv3_chassis.yaml
+  sha256: 291a2ff22c28a2f719e6f1406dae3a7a8853fd2768c1aab7f603d6e5d6616501
+- archived_path: config/05_capability_mapping.yaml
+  path: /home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/capability_mapping.yaml
+  sha256: 371249397636c2f343cf84601d156c2fac53325a36cdf464f45a7ed49b9c1a85
+- archived_path: config/06_wheel_speed_scale_stage_d_freeze_v1.yaml
+  path: /home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/wheel_speed_scale_stage_d_freeze_v1.yaml
+  sha256: bae24f06c037a06d7bdc6cf26bdd703563d7796bceb75e2a3a3eef3c62c70af2
+- archived_path: config/07_path_circle_r0p7_cw_smooth_exit.yaml
+  path: /home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/path_circle_r0p7_cw_smooth_exit.yaml
+  sha256: 9dd10798b3f0af1c98d6ee80d335ffb34637845238ddd023a23a7edb1df5451f
+- archived_path: config/08_support_geometry.yaml
+  path: /home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/support_geometry.yaml
+  sha256: ddf201680f7ef9075a71e8e10853b3deff8e9398ef9ae58378005e482348f8f8
+- archived_path: config/09_localization_camera_three_car_closed_loop.yaml
+  path: /home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/localization_camera_three_car_closed_loop.yaml
+  sha256: e99e54653d1c6f86095534158ac7204242050828c62acd90246231e28cd0f741
+- archived_path: config/10_formal_serial_m1_lower_constraint_approach_0p10_runtime.yaml
+  path: /home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/formal_serial_m1_lower_constraint_approach_0p10_runtime.yaml
+  sha256: 56ed7fb625488d2156c1f80031351ae20f8548ab180e839e04a7c0c74c7b1a58
+- archived_path: config/11_exp2a_M1_serial_0p10_pilot.yaml
+  path: /home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/exp2a_M1_serial_0p10_pilot.yaml
+  sha256: 90820bdfd026f3ca94c22a8b9c4fe4373fed9ac6085239ac835d4c3cb756a422
+- archived_path: config/12_exp3_PDPenalty_constraint_approach.yaml
+  path: /home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/exp3_PDPenalty_constraint_approach.yaml
+  sha256: da611dafdb503cd56ab47a1474b0626221322c387365fc760b76f1ac2180663e
+- archived_path: config/13_formal_serial_m1_pd_penalty_constraint_approach_authorization.yaml
+  path: /home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/formal_serial_m1_pd_penalty_constraint_approach_authorization.yaml
+  sha256: cf8aa3a9b92e08c8436828d27f59d1fdce73bdb2042e537fc4f4e0205f6a20fa
+- archived_path: config/14_formal_serial_m1_pd_penalty_constraint_approach_authorization.yaml
+  path: /home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/formal_serial_m1_pd_penalty_constraint_approach_authorization.yaml
+  sha256: cf8aa3a9b92e08c8436828d27f59d1fdce73bdb2042e537fc4f4e0205f6a20fa
+- archived_path: config/15_formal_exp2a_derating_authorization.yaml
+  path: /home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/formal_exp2a_derating_authorization.yaml
+  sha256: 7d3a73a959df272de665f06f3f98337ae22faa25e4786551c4a6ed97f2144422
+- archived_path: config/16_formal_evaluation_circle_r0p7_smooth_exit.yaml
+  path: /home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/formal_evaluation_circle_r0p7_smooth_exit.yaml
+  sha256: 73936182fb9492bf97a2d39dc1ba45c0679ea2c525450e68decc75bf6a946213
+- archived_path: config/17_formal_serial_classic_additive_candidate_A_commissioning.yaml
+  path: /home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/formal_serial_classic_additive_candidate_A_commissioning.yaml
+  sha256: f5a3a41178bdf13ed86464195e7833955b2123ed0fa4c454eff2ed00ac17eeea
+- archived_path: config/18_formal_serial_candidate_B_spatial_disabled.yaml
+  path: /home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/formal_serial_candidate_B_spatial_disabled.yaml
+  sha256: 6ba1b282546e7c38ae0235b0203921693504b1ff71fa26ebb7e1d4457fe1f4f2
+- archived_path: config/19_formal_serial_candidate_B_spatial_disabled.yaml
+  path: /home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/formal_serial_candidate_B_spatial_disabled.yaml
+  sha256: 6ba1b282546e7c38ae0235b0203921693504b1ff71fa26ebb7e1d4457fe1f4f2
+- archived_path: config/20_fleet_inventory.yaml
+  path: /home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/fleet_inventory.yaml
+  sha256: be71214076144a9a99bd0e1db275baa28b1ab1ae6fc05c7b154ec4cf7d8b1774
+- archived_path: config/21_software_watchdog.yaml
+  path: /home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/software_watchdog.yaml
+  sha256: f575259e7f9a2827bab66df15f21e2556d764da606cd0ac5a849f6e0344532b0
+- archived_path: config/22_record_topics.yaml
+  path: /home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_bringup/config/record_topics.yaml
+  sha256: d66c8c29b57a2d64ac4d6f683fe54d4d34779cb8a4588fc126c2f1f8797b73ea
+- archived_path: config/23_vision_udp_bridge.yaml
+  path: /home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/src/multi_agv_vision_bridge/config/vision_udp_bridge.yaml
+  sha256: 9ac815e02578e8ad6ce4e0776da9a123a425eea1249fd5b83358f99615d9e0ef
+- archived_path: rosparams.yaml
+  path: ROS parameter server snapshot
+  sha256: e9f5f700ba0810a86166119363149596549951fa9cbc1f3ac8b10fe0cd1bb740
+configuration_approval: null
+experiment_id: lower_layer_constraint_approach_physical_comparison
+finished_at: '2026-09-17T11:58:12.956570+00:00'
+formal_statistics_requested: false
+git_branch: fix/platform-foundation-closeout
+git_dirty: true
+git_dirty_reason: tracked_or_untracked_worktree_changes_at_recording_start
+git_sha: 46d1993d8e078a62c38b019bbd2b1e2b6911731d
+git_status:
+- D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131137/capability.csv
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131137/config/01_common_platform.yaml'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131137/config/02_agv1_chassis.yaml'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131137/config/03_agv2_chassis.yaml'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131137/config/04_agv3_chassis.yaml'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131137/config/05_capability_mapping.yaml'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131137/config/06_path_s_curve.yaml'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131137/config/07_support_geometry.yaml'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131137/config/08_localization_camera_three_car_closed_loop.yaml'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131137/config/09_formal_serial_m1_r1_runtime.yaml'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131137/config/10_exp2a_M1.yaml'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131137/config/11_exp3_R1.yaml'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131137/config/12_formal_serial_m1_r1_authorization.yaml'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131137/config/13_formal_evaluation_window.yaml'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131137/config/14_fleet_inventory.yaml'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131137/config/15_software_watchdog.yaml'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131137/config/16_record_topics.yaml'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131137/config/17_vision_udp_bridge.yaml'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131137/converted/aligned_samples.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131137/converted/camera_calibration_epoch.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131137/converted/camera_confidence.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131137/converted/camera_pose.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131137/converted/capability_report.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131137/converted/chassis_command.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131137/converted/chassis_feedback.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131137/converted/controller_state.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131137/converted/cooperative_state.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131137/converted/derating_command.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131137/converted/experiment_state.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131137/converted/formal_algorithm_state.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131137/converted/formal_execution_limiter_state.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131137/converted/imu.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131137/converted/m2b_algorithm_state.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131137/converted/odometry.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131137/converted/path_reference.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131137/converted/topic_inventory.yaml'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131137/lower_layer.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131137/m1_r1_serial_20260903_131137.bag'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131137/manifest.yaml'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131137/plots/figure2_trajectory.pdf'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131137/plots/figure2_trajectory.png'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131137/plots/figure3_capability_boundary_reference.pdf'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131137/plots/figure3_capability_boundary_reference.png'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131137/plots/figure4_channel_constraints.pdf'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131137/plots/figure4_channel_constraints.png'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131137/plots/figure5_robot2_wheel_chain.pdf'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131137/plots/figure5_robot2_wheel_chain.png'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131137/plots/figure6_cooperative_errors.pdf'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131137/plots/figure6_cooperative_errors.png'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131137/plots/figure7_progress_recovery.pdf'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131137/plots/figure7_progress_recovery.png'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131137/rosparams.yaml'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131137/run_meta.json'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131137/state.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131137/summary_metrics.json'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131137/upper_layer.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131137/validation.json'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131137/wheel_chain.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131721/capability.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131721/config/01_common_platform.yaml'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131721/config/02_agv1_chassis.yaml'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131721/config/03_agv2_chassis.yaml'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131721/config/04_agv3_chassis.yaml'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131721/config/05_capability_mapping.yaml'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131721/config/06_path_s_curve.yaml'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131721/config/07_support_geometry.yaml'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131721/config/08_localization_camera_three_car_closed_loop.yaml'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131721/config/09_formal_serial_m1_r1_runtime.yaml'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131721/config/10_exp2a_M1.yaml'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131721/config/11_exp3_R1.yaml'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131721/config/12_formal_serial_m1_r1_authorization.yaml'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131721/config/13_formal_evaluation_window.yaml'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131721/config/14_fleet_inventory.yaml'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131721/config/15_software_watchdog.yaml'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131721/config/16_record_topics.yaml'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131721/config/17_vision_udp_bridge.yaml'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131721/converted/aligned_samples.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131721/converted/camera_calibration_epoch.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131721/converted/camera_confidence.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131721/converted/camera_pose.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131721/converted/capability_report.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131721/converted/chassis_command.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131721/converted/chassis_feedback.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131721/converted/controller_state.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131721/converted/cooperative_state.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131721/converted/derating_command.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131721/converted/experiment_state.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131721/converted/formal_algorithm_state.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131721/converted/formal_execution_limiter_state.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131721/converted/imu.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131721/converted/m2b_algorithm_state.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131721/converted/odometry.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131721/converted/path_reference.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131721/converted/topic_inventory.yaml'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131721/lower_layer.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131721/m1_r1_serial_20260903_131721.bag'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131721/manifest.yaml'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131721/plots/figure2_trajectory.pdf'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131721/plots/figure2_trajectory.png'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131721/plots/figure3_capability_boundary_reference.pdf'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131721/plots/figure3_capability_boundary_reference.png'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131721/plots/figure4_channel_constraints.pdf'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131721/plots/figure4_channel_constraints.png'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131721/plots/figure5_robot2_wheel_chain.pdf'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131721/plots/figure5_robot2_wheel_chain.png'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131721/plots/figure6_cooperative_errors.pdf'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131721/plots/figure6_cooperative_errors.png'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131721/plots/figure7_progress_recovery.pdf'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131721/plots/figure7_progress_recovery.png'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131721/rosparams.yaml'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131721/run_meta.json'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131721/state.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131721/summary_metrics.json'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131721/upper_layer.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131721/validation.json'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131721/wheel_chain.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131933/capability.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131933/config/01_common_platform.yaml'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131933/config/02_agv1_chassis.yaml'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131933/config/03_agv2_chassis.yaml'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131933/config/04_agv3_chassis.yaml'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131933/config/05_capability_mapping.yaml'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131933/config/06_path_s_curve.yaml'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131933/config/07_support_geometry.yaml'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131933/config/08_localization_camera_three_car_closed_loop.yaml'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131933/config/09_formal_serial_m1_r1_runtime.yaml'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131933/config/10_exp2a_M1.yaml'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131933/config/11_exp3_R1.yaml'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131933/config/12_formal_serial_m1_r1_authorization.yaml'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131933/config/13_formal_evaluation_window.yaml'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131933/config/14_fleet_inventory.yaml'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131933/config/15_software_watchdog.yaml'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131933/config/16_record_topics.yaml'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131933/config/17_vision_udp_bridge.yaml'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131933/converted/aligned_samples.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131933/converted/camera_calibration_epoch.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131933/converted/camera_confidence.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131933/converted/camera_pose.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131933/converted/capability_report.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131933/converted/chassis_command.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131933/converted/chassis_feedback.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131933/converted/controller_state.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131933/converted/cooperative_state.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131933/converted/derating_command.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131933/converted/experiment_state.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131933/converted/formal_algorithm_state.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131933/converted/formal_execution_limiter_state.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131933/converted/imu.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131933/converted/m2b_algorithm_state.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131933/converted/odometry.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131933/converted/path_reference.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131933/converted/topic_inventory.yaml'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131933/lower_layer.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131933/m1_r1_serial_20260903_131933.bag'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131933/manifest.yaml'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131933/plots/figure2_trajectory.pdf'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131933/plots/figure2_trajectory.png'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131933/plots/figure3_capability_boundary_reference.pdf'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131933/plots/figure3_capability_boundary_reference.png'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131933/plots/figure4_channel_constraints.pdf'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131933/plots/figure4_channel_constraints.png'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131933/plots/figure5_robot2_wheel_chain.pdf'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131933/plots/figure5_robot2_wheel_chain.png'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131933/plots/figure6_cooperative_errors.pdf'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131933/plots/figure6_cooperative_errors.png'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131933/plots/figure7_progress_recovery.pdf'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131933/plots/figure7_progress_recovery.png'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131933/rosparams.yaml'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131933/run_meta.json'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131933/state.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131933/summary_metrics.json'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131933/upper_layer.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131933/validation.json'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_131933/wheel_chain.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_162814/capability.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_162814/config/01_common_platform.yaml'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_162814/config/02_agv1_chassis.yaml'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_162814/config/03_agv2_chassis.yaml'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_162814/config/04_agv3_chassis.yaml'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_162814/config/05_capability_mapping.yaml'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_162814/config/06_path_s_curve.yaml'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_162814/config/07_support_geometry.yaml'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_162814/config/08_localization_camera_three_car_closed_loop.yaml'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_162814/config/09_formal_serial_m1_r1_runtime.yaml'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_162814/config/10_exp2a_M1.yaml'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_162814/config/11_exp3_R1.yaml'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_162814/config/12_formal_serial_m1_r1_authorization.yaml'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_162814/config/13_formal_evaluation_window.yaml'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_162814/config/14_fleet_inventory.yaml'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_162814/config/15_software_watchdog.yaml'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_162814/config/16_record_topics.yaml'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_162814/config/17_vision_udp_bridge.yaml'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_162814/converted/aligned_samples.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_162814/converted/camera_calibration_epoch.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_162814/converted/camera_confidence.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_162814/converted/camera_pose.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_162814/converted/capability_report.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_162814/converted/chassis_command.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_162814/converted/chassis_feedback.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_162814/converted/controller_state.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_162814/converted/cooperative_state.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_162814/converted/derating_command.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_162814/converted/experiment_state.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_162814/converted/formal_algorithm_state.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_162814/converted/formal_execution_limiter_state.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_162814/converted/imu.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_162814/converted/m2b_algorithm_state.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_162814/converted/odometry.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_162814/converted/path_reference.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_162814/converted/topic_inventory.yaml'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_162814/lower_layer.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_162814/m1_r1_serial_20260903_162814.bag'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_162814/manifest.yaml'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_162814/plots/figure2_trajectory.pdf'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_162814/plots/figure2_trajectory.png'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_162814/plots/figure3_capability_boundary_reference.pdf'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_162814/plots/figure3_capability_boundary_reference.png'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_162814/plots/figure4_channel_constraints.pdf'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_162814/plots/figure4_channel_constraints.png'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_162814/plots/figure5_robot2_wheel_chain.pdf'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_162814/plots/figure5_robot2_wheel_chain.png'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_162814/plots/figure6_cooperative_errors.pdf'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_162814/plots/figure6_cooperative_errors.png'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_162814/plots/figure7_progress_recovery.pdf'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_162814/plots/figure7_progress_recovery.png'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_162814/rosparams.yaml'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_162814/run_meta.json'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_162814/state.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_162814/summary_metrics.json'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_162814/upper_layer.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_162814/validation.json'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260903_162814/wheel_chain.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260907_133234/capability.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260907_133234/config/01_common_platform.yaml'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260907_133234/config/02_agv1_chassis.yaml'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260907_133234/config/03_agv2_chassis.yaml'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260907_133234/config/04_agv3_chassis.yaml'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260907_133234/config/05_capability_mapping.yaml'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260907_133234/config/06_path_s_curve.yaml'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260907_133234/config/07_support_geometry.yaml'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260907_133234/config/08_localization_camera_three_car_closed_loop.yaml'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260907_133234/config/09_formal_serial_m1_r1_runtime.yaml'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260907_133234/config/10_exp2a_M1_serial_008.yaml'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260907_133234/config/11_exp3_R1.yaml'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260907_133234/config/12_formal_serial_m1_r1_authorization.yaml'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260907_133234/config/13_formal_evaluation_window.yaml'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260907_133234/config/14_fleet_inventory.yaml'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260907_133234/config/15_software_watchdog.yaml'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260907_133234/config/16_record_topics.yaml'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260907_133234/config/17_vision_udp_bridge.yaml'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260907_133234/converted/aligned_samples.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260907_133234/converted/camera_calibration_epoch.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260907_133234/converted/camera_confidence.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260907_133234/converted/camera_pose.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260907_133234/converted/capability_report.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260907_133234/converted/chassis_command.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260907_133234/converted/chassis_feedback.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260907_133234/converted/controller_state.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260907_133234/converted/cooperative_state.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260907_133234/converted/derating_command.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260907_133234/converted/experiment_state.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260907_133234/converted/formal_algorithm_state.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260907_133234/converted/formal_execution_limiter_state.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260907_133234/converted/imu.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260907_133234/converted/m2b_algorithm_state.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260907_133234/converted/odometry.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260907_133234/converted/path_reference.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260907_133234/converted/topic_inventory.yaml'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260907_133234/lower_layer.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260907_133234/m1_r1_serial_20260907_133234.bag'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260907_133234/manifest.yaml'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260907_133234/plots/figure2_trajectory.pdf'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260907_133234/plots/figure2_trajectory.png'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260907_133234/plots/figure3_capability_boundary_reference.pdf'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260907_133234/plots/figure3_capability_boundary_reference.png'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260907_133234/plots/figure4_channel_constraints.pdf'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260907_133234/plots/figure4_channel_constraints.png'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260907_133234/plots/figure5_robot2_wheel_chain.pdf'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260907_133234/plots/figure5_robot2_wheel_chain.png'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260907_133234/plots/figure6_cooperative_errors.pdf'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260907_133234/plots/figure6_cooperative_errors.png'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260907_133234/plots/figure7_progress_recovery.pdf'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260907_133234/plots/figure7_progress_recovery.png'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260907_133234/rosparams.yaml'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260907_133234/run_meta.json'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260907_133234/state.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260907_133234/summary_metrics.json'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260907_133234/upper_layer.csv'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260907_133234/validation.json'
+- ' D experiment_data/formal_serial_unloaded/m1_r1_serial_20260907_133234/wheel_chain.csv'
+hostname: robot1
+interface_version: agv_ros_interfaces_v1
+method_id: M1_PDPenalty
+metrics:
+  evaluation_target: 5.17822971502571
+  nominal_agv2_capability: 0.0
+  nominal_common_velocity: 0.1
+move_base_command_authority: false
+payload:
+  measured_pose_topic: /pose_provider/load/pose_filtered
+  mode: unloaded
+  pose_source: equivalent_load
+  world_to_reference: {}
+python_version: 3.8.10
+record_topics:
+- /agv1/chassis_command
+- /agv2/chassis_command
+- /agv3/chassis_command
+- /agv1/chassis_feedback
+- /agv2/chassis_feedback
+- /agv3/chassis_feedback
+- /agv1/capability_report
+- /agv2/capability_report
+- /agv3/capability_report
+- /agv1/derating_command
+- /agv2/derating_command
+- /agv3/derating_command
+- /agv1/imu
+- /agv2/imu
+- /agv3/imu
+- /agv1/odom
+- /agv2/odom
+- /agv3/odom
+- /multi_agv/experiment_state
+- /multi_agv/cooperative_state
+- /multi_agv/path_reference
+- /multi_agv/controller_state
+- /multi_agv/formal_algorithm_state
+- /multi_agv/formal_execution_limiter_state
+- /multi_agv/m2b_algorithm_state
+- /multi_agv/risk_disturbance_state
+- /multi_agv/yaw_drive_disturbance_state
+- /multi_agv/software_watchdog_ok
+- /multi_agv/software_watchdog_diagnostics
+- /experiment_recorder/armed
+- /experiment_recorder/method_id
+- /vision/aruco/calibration_epoch
+- /camera/world/agv1_tag_pose
+- /camera/world/agv2_tag_pose
+- /camera/world/agv3_tag_pose
+- /camera/world/load_tag_pose
+- /camera/world/agv1_confidence
+- /camera/world/agv2_confidence
+- /camera/world/agv3_confidence
+- /camera/world/load_confidence
+- /pose_provider/agv1/base_pose_raw
+- /pose_provider/agv2/base_pose_raw
+- /pose_provider/agv3/base_pose_raw
+- /pose_provider/load/pose_raw
+- /pose_provider/agv1/base_pose_filtered
+- /pose_provider/agv2/base_pose_filtered
+- /pose_provider/agv3/base_pose_filtered
+- /pose_provider/load/pose_filtered
+- /pose_provider/agv1/base_pose_fused
+- /pose_provider/agv1/fusion_timing
+- /pose_provider/agv2/fusion_timing
+- /pose_provider/agv3/fusion_timing
+- /pose_provider/agv1/estimator_timing
+- /pose_provider/agv2/estimator_timing
+- /pose_provider/agv3/estimator_timing
+- /multi_agv/state_projection_timing
+- /pose_provider/agv2/base_pose_fused
+- /pose_provider/agv3/base_pose_fused
+- /pose_provider/agv1/base_motion_fused
+- /pose_provider/agv2/base_motion_fused
+- /pose_provider/agv3/base_motion_fused
+recording_armed_at: '2026-09-17T11:57:15.432921+00:00'
+required_topics:
+- /agv1/chassis_command
+- /agv2/chassis_command
+- /agv3/chassis_command
+- /agv1/chassis_feedback
+- /agv2/chassis_feedback
+- /agv3/chassis_feedback
+- /agv1/capability_report
+- /agv2/capability_report
+- /agv3/capability_report
+- /agv1/imu
+- /agv2/imu
+- /agv3/imu
+- /agv1/odom
+- /agv2/odom
+- /agv3/odom
+- /multi_agv/cooperative_state
+- /multi_agv/path_reference
+- /multi_agv/controller_state
+- /multi_agv/formal_algorithm_state
+- /vision/aruco/calibration_epoch
+- /camera/world/agv1_tag_pose
+- /camera/world/agv2_tag_pose
+- /camera/world/agv3_tag_pose
+- /camera/world/agv1_confidence
+- /camera/world/agv2_confidence
+- /camera/world/agv3_confidence
+- /pose_provider/agv1/base_pose_raw
+- /pose_provider/agv2/base_pose_raw
+- /pose_provider/agv3/base_pose_raw
+- /pose_provider/agv1/base_pose_filtered
+- /pose_provider/agv2/base_pose_filtered
+- /pose_provider/agv3/base_pose_filtered
+- /multi_agv/experiment_state
+- /multi_agv/risk_disturbance_state
+ros_distro: noetic
+run_id: lower_constraint_approach_PDPenalty_20260917_195702
+schema_version: 1
+started_at: '2026-09-17T11:57:14.918186+00:00'
+virtual_load_from_robots: true
+wheel_speed_scale_freeze_id: wheel_speed_scale_stage_d_frozen_v1
+windows_sender_manifest_present: false
+windows_sender_manifest_required: false

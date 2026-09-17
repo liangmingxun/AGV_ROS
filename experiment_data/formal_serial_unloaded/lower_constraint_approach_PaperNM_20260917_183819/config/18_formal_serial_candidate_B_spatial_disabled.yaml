@@ -1,0 +1,7 @@
+# Neutral serial default.  This file must not override Candidate A settings.
+formal_fake_runtime:
+  candidate_b_spatial_composite:
+    enabled: false
+  candidate_b_spatial_physical:
+    enabled: false
+    hardware_execution_authorized: false
