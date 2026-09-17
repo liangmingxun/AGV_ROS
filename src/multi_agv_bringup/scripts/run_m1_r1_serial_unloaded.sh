@@ -110,10 +110,10 @@ case "$formal_upper_mode" in
     ;;
   M1)
     upper_config="${FORMAL_UPPER_CONFIG:-src/multi_agv_bringup/config/exp2a_M1_serial_008.yaml}"
-    lower_config="src/multi_agv_bringup/config/exp3_R1.yaml"
+    lower_config="${FORMAL_LOWER_CONFIG:-src/multi_agv_bringup/config/exp3_R1.yaml}"
     authorization_config="${FORMAL_EXECUTION_AUTHORIZATION_CONFIG:-src/multi_agv_bringup/config/formal_serial_m1_r1_authorization.yaml}"
-    method_id="M1_R1"
-    expected_lower_mode="R1"
+    method_id="${FORMAL_METHOD_ID:-M1_R1}"
+    expected_lower_mode="${FORMAL_EXPECTED_LOWER_MODE:-R1}"
     experiment_id="${FORMAL_EXPERIMENT_ID:-exp2a_m1_r1_unloaded_serial}"
     run_prefix="${FORMAL_RUN_PREFIX:-m1_r1_serial}"
     ;;
@@ -193,6 +193,10 @@ authorized_path_config="$(awk '
 authorized_upper_config="$(awk '
   /^authorization_scope:/ {in_scope=1; next}
   in_scope && /^[[:space:]]*upper_config:/ {print $2; exit}
+' "$authorization_config")"
+authorized_lower_config="$(awk '
+  /^authorization_scope:/ {in_scope=1; next}
+  in_scope && /^[[:space:]]*lower_config:/ {print $2; exit}
 ' "$authorization_config")"
 authorized_runtime_config="$(awk '
   /^authorization_scope:/ {in_scope=1; next}
@@ -301,13 +305,15 @@ fi
 if [[ -n "$authorized_path_config" ]]; then
   if [[ -z "$authorized_upper_config" ||
         "$upper_config" != "$authorized_upper_config" ||
+        ( -n "$authorized_lower_config" &&
+          "$lower_config" != "$authorized_lower_config" ) ||
         "$path_config" != "$authorized_path_config" ||
         "$runtime_config" != "$authorized_runtime_config" ||
         "$evaluation_config" != "$authorized_evaluation_config" ||
         "$authorized_target_matches" != true ||
         "$enable_robot2_derating" != "$authorized_robot2_derating" ]]; then
     echo "ERROR: ${method_id} execution request is outside its authorized scope" >&2
-    echo "Authorized scope: upper=${authorized_upper_config:-method-default}, path=${authorized_path_config}, runtime=${authorized_runtime_config}, target=${authorized_target_progress}, Robot2_derating=${authorized_robot2_derating}" >&2
+    echo "Authorized scope: upper=${authorized_upper_config:-method-default}, lower=${authorized_lower_config:-method-default}, path=${authorized_path_config}, runtime=${authorized_runtime_config}, target=${authorized_target_progress}, Robot2_derating=${authorized_robot2_derating}" >&2
     exit 3
   fi
 fi

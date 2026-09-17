@@ -20,6 +20,8 @@ struct FormalExecutionGateInput {
   bool m4_speed_preregistered{false};
   bool serial_execution_authorized{false};
   bool m1_r1_selected{false};
+  bool m1_paper_nm_selected{false};
+  bool m1_pd_penalty_selected{false};
   bool m1b_r1_selected{false};
   bool m1b_hardware_authorized{false};
   bool m2a_r1_selected{false};

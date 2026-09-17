@@ -155,6 +155,23 @@ TEST(FormalExecutionGate, AcceptsCompleteSerialM2aR1Gate) {
   EXPECT_TRUE(mac::evaluateFormalSerialM1R1Gate(input).allowed);
 }
 
+TEST(FormalExecutionGate, AcceptsAuthorizedM1ExternalLowerComparators) {
+  for (const bool paper_nm : {true, false}) {
+    auto input = validInput();
+    input.transport_type = "serial";
+    input.upper_hardware_authorized = true;
+    input.lower_hardware_authorized = true;
+    input.serial_execution_authorized = true;
+    input.m1_paper_nm_selected = paper_nm;
+    input.m1_pd_penalty_selected = !paper_nm;
+    input.recorder_required = true;
+    input.test_area_confirmed = true;
+    input.wheels_on_floor_confirmed = true;
+    input.unloaded_fixture_confirmed = true;
+    EXPECT_TRUE(mac::evaluateFormalSerialM1R1Gate(input).allowed);
+  }
+}
+
 TEST(FormalExecutionGate, M1bRequiresItsIndependentHardwareAuthorization) {
   auto input = validInput();
   input.transport_type = "serial";

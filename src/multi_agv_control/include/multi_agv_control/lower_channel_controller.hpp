@@ -12,6 +12,8 @@ enum class LowerMode {
   kR3,
   kR4,
   kM2b,
+  kPaperNM,
+  kPDPenalty,
 };
 
 struct LowerChannelConfig {
@@ -29,6 +31,14 @@ struct LowerChannelConfig {
   double disturbance_estimate_max{0.55};
   double constraint_margin{2.0e-5};
   double sustained_saturation_seconds{0.5};
+  // External lower-layer baselines.  They intentionally share the same
+  // actuator limiting and downstream execution path as R1.
+  double paper_nm_k1{1.25};
+  double paper_nm_k2{2.75};
+  double pd_penalty_kp1{4.0};
+  double pd_penalty_kp2{2.0};
+  double pd_penalty_kpd{0.24};
+  double pd_penalty_denominator_guard{2.0e-5};
   bool golden_vectors_verified{false};
 };
 

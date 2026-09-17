@@ -1,0 +1,29 @@
+# PD plus velocity-bound penalty baseline for the normal M1 physical
+# comparison. At v_nom=0.10 m/s within [-0.15, 0.58] m/s, D_nom=0.12 and
+# kp2+kpd/D_nom=4.0, matching the local Paper-NM velocity-feedback scale.
+formal_lower:
+  schema_version: 1
+  mode: PDPenalty
+  adaptation_enabled: false
+  disturbance_compensation_enabled: false
+  configuration_status: M1_REFERENCE_PAPER_EQUATION_28_LOWER_BASELINE
+  algorithm_execution_authorized: true
+  hardware_execution_authorized: false
+  golden_vectors_verified: true
+  update_rate: 100.0
+  pd_penalty:
+    kp1: 4.0
+    kp2: 2.0
+    kpd: 0.24
+    denominator_guard: 0.00002
+  # Shared numerical/safety settings required by LowerChannelController.
+  adaptation_gain: [0.0, 0.0]
+  disturbance_adaptation_gain: 0.0
+  parameter_leakage: 0.0
+  disturbance_leakage: 0.0
+  robust_boundary_layer: 0.055
+  parameter_min: [0.0, 0.0]
+  parameter_max: [0.0, 0.0]
+  disturbance_estimate_max: 0.0
+  constraint_margin: 0.00002
+  sustained_saturation_seconds: 0.5

@@ -27,6 +27,10 @@ experiment_recording:
   method_required_topics:
     M1_R1:
       - /multi_agv/risk_disturbance_state
+    M1_PaperNM:
+      - /multi_agv/risk_disturbance_state
+    M1_PDPenalty:
+      - /multi_agv/risk_disturbance_state
     M1b_R1:
       - /multi_agv/risk_disturbance_state
     M2b_M2b:

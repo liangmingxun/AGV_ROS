@@ -1,5 +1,5 @@
 experiment_recording:
-  registered_method_ids: [M1_R1, M1b_R1, M2a_R1, M2b_M2b, M2c_M2c, M2d_M2d]
+  registered_method_ids: [M1_R1, M1_PaperNM, M1_PDPenalty, M1b_R1, M2a_R1, M2b_M2b, M2c_M2c, M2d_M2d]
   # Keep source topics in the bag. bag_to_csv.py performs only latest-at-or-
   # before causal alignment and never modifies these raw samples.
   topics:
@@ -142,6 +142,12 @@ experiment_recording:
 
   method_required_topics:
     M1_R1:
+      - /multi_agv/experiment_state
+      - /multi_agv/risk_disturbance_state
+    M1_PaperNM:
+      - /multi_agv/experiment_state
+      - /multi_agv/risk_disturbance_state
+    M1_PDPenalty:
       - /multi_agv/experiment_state
       - /multi_agv/risk_disturbance_state
     M1b_R1:

@@ -81,6 +81,89 @@ TEST(LowerChannelController, RModeSwitchesAreOrthogonal) {
   EXPECT_TRUE(mac::lowerDisturbanceCompensationEnabled(mac::LowerMode::kR3));
   EXPECT_FALSE(mac::lowerAdaptationEnabled(mac::LowerMode::kR4));
   EXPECT_FALSE(mac::lowerDisturbanceCompensationEnabled(mac::LowerMode::kR4));
+  EXPECT_FALSE(mac::lowerAdaptationEnabled(mac::LowerMode::kPaperNM));
+  EXPECT_FALSE(mac::lowerDisturbanceCompensationEnabled(
+      mac::LowerMode::kPaperNM));
+  EXPECT_FALSE(mac::lowerAdaptationEnabled(mac::LowerMode::kPDPenalty));
+  EXPECT_FALSE(mac::lowerDisturbanceCompensationEnabled(
+      mac::LowerMode::kPDPenalty));
+}
+
+TEST(LowerChannelController, PaperNMMatchesPaperEquation13) {
+  auto value = input();
+  value.acceleration_reference = 0.03;
+  mac::LowerChannelController controller(config(mac::LowerMode::kPaperNM));
+  const auto output = controller.step(value);
+  ASSERT_TRUE(output.valid);
+  EXPECT_FALSE(output.adaptation_enabled);
+  EXPECT_FALSE(output.disturbance_compensation_enabled);
+
+  const double ep = value.position_actual - value.position_reference;
+  const double ev = value.velocity_actual - value.velocity_reference;
+  const double epsilon = value.velocity_reference - value.velocity_lower_bound;
+  const double xi = value.velocity_upper_bound - value.velocity_reference;
+  const double denominator = (epsilon + ev) * (xi - ev);
+  const double epsilon_xi = epsilon * xi;
+  const double delta = epsilon_xi / denominator;
+  const double delta_inverse = denominator / epsilon_xi;
+  const double gamma = epsilon_xi * (ev * ev + epsilon_xi) /
+      (denominator * denominator);
+  const double epsilon_dot = value.acceleration_reference;
+  const double xi_dot = -epsilon_dot;
+  const double zeta =
+      ((epsilon_dot * xi * xi - xi_dot * epsilon * epsilon) * ev * ev -
+       (epsilon_dot * xi + xi_dot * epsilon) * ev * ev * ev) /
+      (denominator * denominator);
+  const double eta = delta * ev;
+  const double expected =
+      (-2.75 * (eta + 1.25 * ep) - zeta - 1.25 * ev -
+       delta_inverse * ep) / gamma + value.acceleration_reference;
+  EXPECT_NEAR(output.input_raw, expected, 1e-12);
+  EXPECT_TRUE(std::isfinite(output.channel_velocity_command));
+}
+
+TEST(LowerChannelController, PDPenaltyMatchesPaperEquation28) {
+  auto cfg = config(mac::LowerMode::kPDPenalty);
+  mac::LowerChannelController controller(cfg);
+  auto value = input();
+  value.acceleration_reference = 0.03;
+  const auto output = controller.step(value);
+  ASSERT_TRUE(output.valid);
+  EXPECT_FALSE(output.adaptation_enabled);
+  EXPECT_FALSE(output.disturbance_compensation_enabled);
+  const double ep = value.position_actual - value.position_reference;
+  const double ev = value.velocity_actual - value.velocity_reference;
+  const double denominator =
+      (value.velocity_actual - value.velocity_lower_bound) *
+      (value.velocity_upper_bound - value.velocity_actual);
+  const double expected = -4.0 * ep -
+      (2.0 + 0.24 / denominator) * ev +
+      value.acceleration_reference;
+  EXPECT_NEAR(output.input_raw, expected, 1e-12);
+  EXPECT_TRUE(std::isfinite(output.channel_velocity_command));
+}
+
+TEST(LowerChannelController, ComparatorModesUseCommonAccelerationLimit) {
+  for (const auto mode : {mac::LowerMode::kPaperNM,
+                          mac::LowerMode::kPDPenalty}) {
+    mac::LowerChannelController controller(config(mode));
+    auto value = input();
+    value.position_actual = -1.0;
+    value.available_acceleration = 0.07;
+    const auto output = controller.step(value);
+    ASSERT_TRUE(output.valid);
+    EXPECT_TRUE(output.input_limit_active);
+    EXPECT_DOUBLE_EQ(output.input_limited, 0.07);
+  }
+}
+
+TEST(LowerChannelController, PDPenaltyFailsClosedNearVelocityBoundary) {
+  auto cfg = config(mac::LowerMode::kPDPenalty);
+  cfg.pd_penalty_denominator_guard = 1.0e-3;
+  mac::LowerChannelController controller(cfg);
+  auto value = input();
+  value.velocity_actual = value.velocity_lower_bound + 5.0e-4;
+  EXPECT_FALSE(controller.step(value).valid);
 }
 
 TEST(LowerChannelController, SharedTransformationIsIdenticalAcrossModes) {

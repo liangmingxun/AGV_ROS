@@ -22,8 +22,11 @@ LowerMode lowerModeFromString(const std::string& value) {
   if (value == "R2") return LowerMode::kR2;
   if (value == "R3") return LowerMode::kR3;
   if (value == "R4") return LowerMode::kR4;
+  if (value == "PaperNM") return LowerMode::kPaperNM;
+  if (value == "PDPenalty") return LowerMode::kPDPenalty;
   if (value == "M2b") return LowerMode::kM2b;
-  throw std::invalid_argument("lower mode must be R1, R2, R3, R4 or M2b");
+  throw std::invalid_argument(
+      "lower mode must be R1, R2, R3, R4, PaperNM, PDPenalty or M2b");
 }
 
 const char* lowerModeName(LowerMode mode) {
@@ -32,6 +35,8 @@ const char* lowerModeName(LowerMode mode) {
     case LowerMode::kR2: return "R2";
     case LowerMode::kR3: return "R3";
     case LowerMode::kR4: return "R4";
+    case LowerMode::kPaperNM: return "PaperNM";
+    case LowerMode::kPDPenalty: return "PDPenalty";
     case LowerMode::kM2b: return "M2b";
   }
   return "UNKNOWN";
@@ -63,7 +68,14 @@ LowerChannelController::LowerChannelController(
       !finite(config_.constraint_margin) ||
       config_.constraint_margin <= 0.0 ||
       !finite(config_.sustained_saturation_seconds) ||
-      config_.sustained_saturation_seconds <= 0.0) {
+      config_.sustained_saturation_seconds <= 0.0 ||
+      !finite(config_.paper_nm_k1) || config_.paper_nm_k1 <= 0.0 ||
+      !finite(config_.paper_nm_k2) || config_.paper_nm_k2 <= 0.0 ||
+      !finite(config_.pd_penalty_kp1) || config_.pd_penalty_kp1 <= 0.0 ||
+      !finite(config_.pd_penalty_kp2) || config_.pd_penalty_kp2 < 0.0 ||
+      !finite(config_.pd_penalty_kpd) || config_.pd_penalty_kpd <= 0.0 ||
+      !finite(config_.pd_penalty_denominator_guard) ||
+      config_.pd_penalty_denominator_guard <= 0.0) {
     throw std::invalid_argument("invalid lower channel configuration");
   }
   for (std::size_t index = 0; index < parameter_estimate_.size(); ++index) {
@@ -145,49 +157,93 @@ LowerChannelOutput LowerChannelController::step(
   const double upper_distance = xi - output_.velocity_error;
   const double denominator = lower_distance * upper_distance;
   const double epsilon_xi = epsilon * xi;
-  const double omega = epsilon_xi / denominator;
-  const double omega_inverse = 1.0 / omega;
-  output_.transformed_error = omega * output_.velocity_error;
-  output_.transformation_gain =
-      epsilon_xi *
-      (epsilon_xi +
-       output_.velocity_error * output_.velocity_error) /
-      (denominator * denominator);
-  output_.inverse_gain_term =
-      output_.velocity_error * output_.velocity_error /
-      (epsilon_xi +
-       output_.velocity_error * output_.velocity_error) *
-      (upper_distance / epsilon + lower_distance / xi) *
-      input.acceleration_reference;
-  output_.composite_error =
-      output_.transformed_error +
-      config_.composite_gain * output_.position_error;
+  if (!finite(denominator) || denominator <= 0.0 ||
+      !finite(epsilon_xi) || epsilon_xi <= 0.0) {
+    return output_;
+  }
+
   output_.adaptation_enabled = lowerAdaptationEnabled(config_.mode);
   output_.disturbance_compensation_enabled =
       lowerDisturbanceCompensationEnabled(config_.mode);
 
-  double model_compensation = 0.0;
-  if (output_.adaptation_enabled) {
-    for (std::size_t index = 0; index < parameter_estimate_.size(); ++index) {
-      model_compensation +=
-          parameter_estimate_[index] * input.regressor[index];
+  if (config_.mode == LowerMode::kPDPenalty) {
+    if (lower_distance <= config_.pd_penalty_denominator_guard ||
+        upper_distance <= config_.pd_penalty_denominator_guard ||
+        denominator <= config_.pd_penalty_denominator_guard) {
+      return output_;
     }
+    output_.input_raw =
+        -config_.pd_penalty_kp1 * output_.position_error -
+        (config_.pd_penalty_kp2 +
+         config_.pd_penalty_kpd / denominator) * output_.velocity_error +
+        input.acceleration_reference;
+  } else if (config_.mode == LowerMode::kPaperNM) {
+    const double delta = epsilon_xi / denominator;
+    const double delta_inverse = denominator / epsilon_xi;
+    const double error = output_.velocity_error;
+    output_.transformed_error = delta * error;
+    output_.transformation_gain =
+        epsilon_xi * (error * error + epsilon_xi) /
+        (denominator * denominator);
+    const double epsilon_dot = input.acceleration_reference;
+    const double xi_dot = -epsilon_dot;
+    const double numerator =
+        (epsilon_dot * xi * xi - xi_dot * epsilon * epsilon) *
+            error * error -
+        (epsilon_dot * xi + xi_dot * epsilon) *
+            error * error * error;
+    const double zeta = numerator / (denominator * denominator);
+    output_.inverse_gain_term = zeta / output_.transformation_gain;
+    output_.composite_error =
+        output_.transformed_error +
+        config_.paper_nm_k1 * output_.position_error;
+    output_.input_raw =
+        (-config_.paper_nm_k2 * output_.composite_error - zeta -
+         config_.paper_nm_k1 * error -
+         delta_inverse * output_.position_error) /
+            output_.transformation_gain +
+        input.acceleration_reference;
+  } else {
+    const double omega = epsilon_xi / denominator;
+    const double omega_inverse = 1.0 / omega;
+    output_.transformed_error = omega * output_.velocity_error;
+    output_.transformation_gain =
+        epsilon_xi *
+        (epsilon_xi +
+         output_.velocity_error * output_.velocity_error) /
+        (denominator * denominator);
+    output_.inverse_gain_term =
+        output_.velocity_error * output_.velocity_error /
+        (epsilon_xi +
+         output_.velocity_error * output_.velocity_error) *
+        (upper_distance / epsilon + lower_distance / xi) *
+        input.acceleration_reference;
+    output_.composite_error =
+        output_.transformed_error +
+        config_.composite_gain * output_.position_error;
+    double model_compensation = 0.0;
+    if (output_.adaptation_enabled) {
+      for (std::size_t index = 0; index < parameter_estimate_.size(); ++index) {
+        model_compensation +=
+            parameter_estimate_[index] * input.regressor[index];
+      }
+    }
+    const double robust_compensation =
+        output_.disturbance_compensation_enabled
+            ? disturbance_estimate_ * smoothSign(
+                  output_.transformation_gain *
+                      output_.composite_error,
+                  config_.robust_boundary_layer)
+            : 0.0;
+    output_.input_raw =
+        input.acceleration_reference -
+        model_compensation - output_.inverse_gain_term +
+        (-config_.composite_gain * output_.velocity_error -
+         omega_inverse * output_.position_error -
+         config_.feedback_gain * output_.composite_error) /
+            output_.transformation_gain -
+        robust_compensation;
   }
-  const double robust_compensation =
-      output_.disturbance_compensation_enabled
-          ? disturbance_estimate_ * smoothSign(
-                output_.transformation_gain *
-                    output_.composite_error,
-                config_.robust_boundary_layer)
-          : 0.0;
-  output_.input_raw =
-      input.acceleration_reference -
-      model_compensation - output_.inverse_gain_term +
-      (-config_.composite_gain * output_.velocity_error -
-       omega_inverse * output_.position_error -
-       config_.feedback_gain * output_.composite_error) /
-          output_.transformation_gain -
-      robust_compensation;
   output_.input_limited = std::clamp(
       output_.input_raw,
       -input.available_deceleration, input.available_acceleration);

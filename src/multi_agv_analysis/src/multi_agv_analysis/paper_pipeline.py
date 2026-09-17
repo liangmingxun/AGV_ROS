@@ -128,6 +128,12 @@ def _run_context(aligned_csv):
         "M1_R1": (
             "M1+R1", "M1动态参考", "R1",
             "M1局部动态上界", "M1公共动态上界"),
+        "M1_PaperNM": (
+            "M1+Paper-NM", "M1动态参考", "Paper-NM",
+            "M1局部动态上界", "M1公共动态上界"),
+        "M1_PDPenalty": (
+            "M1+PD-Penalty", "M1动态参考", "PD-Penalty",
+            "M1局部动态上界", "M1公共动态上界"),
         "M2a_R1": (
             "M2a+R1", "M2a固定边界参考", "R1",
             "M2a局部固定上界", "M2a公共固定上界"),

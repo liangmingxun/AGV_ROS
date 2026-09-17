@@ -302,14 +302,18 @@ class FormalFakeAlgorithmNode {
     hard_capability_envelope_enabled_ =
         upper_config.hard_capability_envelope_enabled;
     lower_mode_ = lower_config.mode;
-    if (consistent_reference_acceleration_ && lower_mode_ != LowerMode::kR1) {
-      throw std::runtime_error("reference-consistency pilot is scoped to shared R1");
+    const bool shared_m1_lower = lower_mode_ == LowerMode::kR1 ||
+        lower_mode_ == LowerMode::kPaperNM ||
+        lower_mode_ == LowerMode::kPDPenalty;
+    if (consistent_reference_acceleration_ && !shared_m1_lower) {
+      throw std::runtime_error(
+          "reference-consistency execution is scoped to shared M1 lower modes");
     }
     if (execution_reconciler_->config().enabled &&
-        lower_mode_ != LowerMode::kR1) {
+        !shared_m1_lower) {
       throw std::runtime_error(
           "execution channel reconciliation is currently qualified only "
-          "for the shared R1 execution layer");
+          "for the shared M1 execution layer");
     }
     m2b_selected_ =
         upper_mode_ == UpperMode::kM2b && lower_mode_ == LowerMode::kM2b;
@@ -1146,6 +1150,25 @@ class FormalFakeAlgorithmNode {
         config.sustained_saturation_seconds,
         config.sustained_saturation_seconds);
     private_node_.param(
+        "formal_lower/paper_nm/k1",
+        config.paper_nm_k1, config.paper_nm_k1);
+    private_node_.param(
+        "formal_lower/paper_nm/k2",
+        config.paper_nm_k2, config.paper_nm_k2);
+    private_node_.param(
+        "formal_lower/pd_penalty/kp1",
+        config.pd_penalty_kp1, config.pd_penalty_kp1);
+    private_node_.param(
+        "formal_lower/pd_penalty/kp2",
+        config.pd_penalty_kp2, config.pd_penalty_kp2);
+    private_node_.param(
+        "formal_lower/pd_penalty/kpd",
+        config.pd_penalty_kpd, config.pd_penalty_kpd);
+    private_node_.param(
+        "formal_lower/pd_penalty/denominator_guard",
+        config.pd_penalty_denominator_guard,
+        config.pd_penalty_denominator_guard);
+    private_node_.param(
         "formal_lower/golden_vectors_verified",
         config.golden_vectors_verified, false);
     return config;
@@ -1233,6 +1256,12 @@ class FormalFakeAlgorithmNode {
     gate.serial_execution_authorized = serial_execution_authorized_;
     gate.m1_r1_selected =
         upper.mode == UpperMode::kM1 && lower.mode == LowerMode::kR1;
+    gate.m1_paper_nm_selected =
+        upper.mode == UpperMode::kM1 &&
+        lower.mode == LowerMode::kPaperNM;
+    gate.m1_pd_penalty_selected =
+        upper.mode == UpperMode::kM1 &&
+        lower.mode == LowerMode::kPDPenalty;
     gate.m1b_r1_selected =
         upper.mode == UpperMode::kM1b && lower.mode == LowerMode::kR1;
     private_node_.param("formal_upper/m1b_hardware_execution_authorized",
