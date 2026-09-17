@@ -4,7 +4,7 @@ set -euo pipefail
 usage() {
   cat >&2 <<'EOF'
 usage: run_candidate_B_spatial_gradient15_physical.sh \
-  --method M1|M1b|M2b|M2c [--run-id ID] --operator NAME --pair-block ID \
+  --method M1|M1b|M2b|M2c|M2d [--run-id ID] --operator NAME --pair-block ID \
   [--software-only-dry-run] \
   --confirm-area-clear --confirm-wheels-on-floor \
   --confirm-unloaded-30cm-fixture --confirm-emergency-stop-ready \
@@ -42,8 +42,8 @@ while [[ $# -gt 0 ]]; do
 done
 
 [[ "$method" == M1 || "$method" == M1b || "$method" == M2b ||
-   "$method" == M2c ]] || {
-  echo "ERROR: Candidate B gradient15 permits only M1, M1b, M2b or M2c" >&2
+   "$method" == M2c || "$method" == M2d ]] || {
+  echo "ERROR: Candidate B gradient15 permits only M1, M1b, M2b, M2c or M2d" >&2
   exit 2
 }
 if [[ -n "$run_id" && ! "$run_id" =~ ^[A-Za-z0-9._-]+$ ]]; then
@@ -55,8 +55,8 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 workspace="$(cd "${script_dir}/../../.." && pwd)"
 config_dir="src/multi_agv_bringup/config"
 physical_config="$config_dir/formal_serial_candidate_B_spatial_gradient15.yaml"
-if [[ "$method" == M2c ]]; then
-  physical_config="$config_dir/formal_serial_candidate_B_spatial_gradient15_M2c.yaml"
+if [[ "$method" == M2c || "$method" == M2d ]]; then
+  physical_config="$config_dir/formal_serial_candidate_B_spatial_gradient15_${method}.yaml"
 fi
 authorization="$config_dir/formal_serial_candidate_B_spatial_gradient15_${method}_authorization.yaml"
 
@@ -87,6 +87,12 @@ governor = runtime.get("m2c_native_governor", {})
 if sys.argv[3] == "M2c":
     assert physical["experiment_id"] == (
         "candidate_B_spatial_gradient15_m2c_physical_validation")
+    assert governor == {"enabled": False, "limit_mps": .180,
+                        "hardware_execution_authorized": False}
+elif sys.argv[3] == "M2d":
+    assert physical["experiment_id"] == (
+        "candidate_B_spatial_gradient15_m2d_physical_validation")
+    governor = runtime["m2d_native_governor"]
     assert governor == {"enabled": False, "limit_mps": .180,
                         "hardware_execution_authorized": False}
 else:
@@ -135,6 +141,10 @@ case "$method" in
     runtime_config="$config_dir/formal_serial_m2b_circle_0p10_observation_runtime.yaml"
     ;;
   M2c)
+    upper_config="$config_dir/exp2b_M2b.yaml"
+    runtime_config="$config_dir/formal_serial_m2b_circle_0p10_observation_runtime.yaml"
+    ;;
+  M2d)
     upper_config="$config_dir/exp2b_M2b.yaml"
     runtime_config="$config_dir/formal_serial_m2b_circle_0p10_observation_runtime.yaml"
     ;;
@@ -187,6 +197,12 @@ if method == "M2c":
     governor["enabled"] = True
     governor["hardware_execution_authorized"] = True
     governor["operator_authorization"] = dict(grant)
+elif method == "M2d":
+    governor = physical["formal_fake_runtime"]["m2d_native_governor"]
+    assert abs(float(governor["limit_mps"]) - .180) <= 1e-12
+    governor["enabled"] = True
+    governor["hardware_execution_authorized"] = True
+    governor["operator_authorization"] = dict(grant)
 method_authorization["formal_upper"]["hardware_execution_authorized"] = True
 method_authorization["formal_lower"]["hardware_execution_authorized"] = True
 if method == "M1b":
@@ -216,6 +232,8 @@ export FORMAL_CANDIDATE_B_SPATIAL_PROFILE_ID="candidate_B_v2_spatial_gradient15_
 export FORMAL_CANDIDATE_B_SPATIAL_PHYSICAL_AUTHORIZED=true
 if [[ "$method" == M2c ]]; then
   export FORMAL_EXPERIMENT_ID="candidate_B_spatial_gradient15_m2c_physical_validation"
+elif [[ "$method" == M2d ]]; then
+  export FORMAL_EXPERIMENT_ID="candidate_B_spatial_gradient15_m2d_physical_validation"
 else
   export FORMAL_EXPERIMENT_ID="candidate_B_spatial_gradient15_physical_validation"
 fi

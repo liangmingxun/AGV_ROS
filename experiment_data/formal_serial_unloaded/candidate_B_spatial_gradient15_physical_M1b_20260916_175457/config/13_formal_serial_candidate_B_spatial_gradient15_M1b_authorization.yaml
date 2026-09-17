@@ -1,0 +1,14 @@
+# Fail-closed M1b+R1 source; each reviewed run uses an archived local overlay.
+formal_upper:
+  hardware_execution_authorized: false
+  m1b_hardware_execution_authorized: false
+formal_lower:
+  hardware_execution_authorized: false
+authorization_scope:
+  upper_config: src/multi_agv_bringup/config/exp2c_M1b_risk_disturbance_v1.yaml
+  path_config: src/multi_agv_bringup/config/path_circle_r0p7_cw_smooth_exit.yaml
+  runtime_config: src/multi_agv_bringup/config/formal_serial_circle_r0p7_smooth_exit_0p10_reference_v1_pilot_runtime.yaml
+  evaluation_config: src/multi_agv_bringup/config/formal_evaluation_circle_r0p7_smooth_exit.yaml
+  target_progress: 5.178229715025710
+  robot2_derating: false
+  experiment_id: candidate_B_spatial_gradient15_physical_validation

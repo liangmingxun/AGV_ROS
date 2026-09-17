@@ -32,4 +32,33 @@ inline M2cNativeGovernorOutput applyM2cNativeGovernor(
   return output;
 }
 
+inline double backCalculateM2dPersistentCommand(
+    double persistent_command, const M2cNativeGovernorOutput& governor,
+    double channel_speed_scale, double heading_error,
+    double lower_bound = -0.15, double upper_bound = 0.52) {
+  if (!std::isfinite(persistent_command) ||
+      !std::isfinite(channel_speed_scale) ||
+      !std::isfinite(heading_error) ||
+      !std::isfinite(lower_bound) || !std::isfinite(upper_bound) ||
+      lower_bound > upper_bound) {
+    throw std::invalid_argument("invalid M2d back-calculation input");
+  }
+  if (!governor.active) return persistent_command;
+  const double unbounded_center =
+      0.5 * (governor.left_unbounded + governor.right_unbounded);
+  const double governed_center =
+      0.5 * (governor.left_governed + governor.right_governed);
+  const double channel_to_linear =
+      channel_speed_scale * std::cos(heading_error);
+  double projected = persistent_command * governor.scale;
+  if (std::abs(channel_to_linear) > 1e-6) {
+    projected = persistent_command +
+        (governed_center - unbounded_center) / channel_to_linear;
+  }
+  if (!std::isfinite(projected)) {
+    throw std::invalid_argument("nonfinite M2d back-calculation output");
+  }
+  return std::clamp(projected, lower_bound, upper_bound);
+}
+
 }  // namespace multi_agv_control

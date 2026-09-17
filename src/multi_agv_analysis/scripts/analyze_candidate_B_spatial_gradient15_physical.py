@@ -26,10 +26,12 @@ V4 = BASE.V4
 
 IDENTITY = "candidate_B_spatial_gradient15_physical_validation"
 M2C_IDENTITY = "candidate_B_spatial_gradient15_m2c_physical_validation"
+M2D_IDENTITY = "candidate_B_spatial_gradient15_m2d_physical_validation"
 PROFILE_ID = "candidate_B_v2_spatial_gradient15_rho0p85_av0p020_aw0p2625"
 PROFILE = dict(BASE.PROFILE)
 METHODS = dict(BASE.METHODS)
 METHODS["M2c"] = "M2c_M2c"
+METHODS["M2d"] = "M2d_M2d"
 METRIC_FILE = "candidate_b_spatial_gradient15_physical_metrics.json"
 COMPARISON_FILE = "candidate_b_spatial_gradient15_physical_comparison.json"
 SUMMARY_FILE = "candidate_b_spatial_gradient15_physical_summary.json"
@@ -193,7 +195,7 @@ def reconstruct_robot2_execution_state(rows, method, algorithm_params):
             if scale < 1.0:
                 counterfactual_upper = _startup_velocity_envelope(
                     reference, 0.52, scale, tau, catchup_margin)
-        elif method in ("M2b", "M2c"):
+        elif method in ("M2b", "M2c", "M2d"):
             upper = 0.52
             if scale < 1.0:
                 upper = _startup_velocity_envelope(
@@ -203,7 +205,7 @@ def reconstruct_robot2_execution_state(rows, method, algorithm_params):
             # segment, rounded conservatively to 0.1205 m/s.
             counterfactual_upper = min(upper, 0.1205)
         else:
-            raise ValueError("execution-state reconstruction supports M1/M2b/M2c")
+            raise ValueError("execution-state reconstruction supports M1/M2b/M2c/M2d")
         state = max(-upper, min(upper, unprojected))
         counterfactual_state = max(
             -counterfactual_upper,
@@ -237,7 +239,7 @@ def reconstruct_robot2_execution_state(rows, method, algorithm_params):
             for side in ("left_", "right_"):
                 if stage == "actual":
                     key = "agv2_wheel_{}actual".format(side)
-                elif stage == "native" and method == "M2c":
+                elif stage == "native" and method in ("M2c", "M2d"):
                     key = ("agv2_candidate_b_spatial_" + side +
                            "native_unbounded")
                 else:
@@ -303,7 +305,8 @@ def analyze_physical_run(run, method):
     params = yaml.safe_load((run / "rosparams.yaml").read_text())
     algorithm_params = physical_algorithm_params(params)
     runtime = algorithm_params["formal_fake_runtime"]
-    expected_identity = M2C_IDENTITY if method == "M2c" else IDENTITY
+    expected_identity = (M2C_IDENTITY if method == "M2c" else
+                         M2D_IDENTITY if method == "M2d" else IDENTITY)
     if (manifest["experiment_id"] != expected_identity or
             runtime["experiment_id"] != expected_identity):
         raise ValueError("wrong physical Candidate B identity")
@@ -352,12 +355,14 @@ def analyze_physical_run(run, method):
         row["relative_wall_time"] = row["wall"] - entry
     primary = [row for row in rows if entry <= row["wall"] <= exit_time]
     metrics = BASE.phase_metrics(primary)
-    if method == "M2c":
-        governor = runtime.get("m2c_native_governor", {})
+    if method in ("M2c", "M2d"):
+        governor_name = ("m2c_native_governor" if method == "M2c" else
+                         "m2d_native_governor")
+        governor = runtime.get(governor_name, {})
         if (governor.get("enabled") is not True or
                 governor.get("hardware_execution_authorized") is not True or
                 abs(float(governor.get("limit_mps", math.nan)) - .180) > 1e-12):
-            raise ValueError("M2c 0.18 m/s native governor was not authorized")
+            raise ValueError("{} 0.18 m/s native governor was not authorized".format(method))
         dt = BASE.durations(primary)
         unbounded, governed, scales = [], [], []
         for row in primary:
@@ -374,7 +379,7 @@ def analyze_physical_run(run, method):
                     V2.num(row, prefix + "native_governor_scale"))
             if not all(math.isfinite(value) for value in
                        raw_sample + governed_sample + sample_scales):
-                raise ValueError("M2c governor telemetry is incomplete")
+                raise ValueError("{} governor telemetry is incomplete".format(method))
             unbounded.append(raw_sample)
             governed.append(governed_sample)
             scales.append(sample_scales)
@@ -455,7 +460,7 @@ def analyze_physical_run(run, method):
                            if method == "M1" else None),
         "robot2_execution_state_diagnostic": (
             reconstruct_robot2_execution_state(rows, method, algorithm_params)
-            if method in ("M1", "M2b", "M2c") else None),
+            if method in ("M1", "M2b", "M2c", "M2d") else None),
         "profile_verified": profile_ok,
         "algorithm_invalid_fraction": algorithm_invalid,
         "localization_invalid_fraction": localization_invalid,

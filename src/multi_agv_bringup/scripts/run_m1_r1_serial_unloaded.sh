@@ -8,7 +8,7 @@ usage: run_m1_r1_serial_unloaded.sh \
   --confirm-area-clear --confirm-wheels-on-floor \
   --confirm-unloaded-30cm-fixture
 
-Runs the selected M1+R1, M1b+R1, M2a+R1, M2b+M2b or M2c+M2c serial entry on Robot1. Method
+Runs the selected M1+R1, M1b+R1, M2a+R1, M2b+M2b, M2c+M2c or M2d+M2d serial entry on Robot1. Method
 selection changes only the formal upper/lower configuration; the selected
 path, planar execution runtime, chassis limiter and recording chain remain
 shared. Each method uses its own physical-authorization overlay. The three
@@ -22,7 +22,8 @@ pair_block=""
 formal_upper_mode="${FORMAL_UPPER_MODE:-M1}"
 enable_robot2_derating="${FORMAL_ENABLE_ROBOT2_DERATING:-false}"
 if [[ "$formal_upper_mode" != M1 && "$formal_upper_mode" != M1b && "$formal_upper_mode" != M2a &&
-      "$formal_upper_mode" != M2b && "$formal_upper_mode" != M2c ]]; then
+      "$formal_upper_mode" != M2b && "$formal_upper_mode" != M2c &&
+      "$formal_upper_mode" != M2d ]]; then
   echo "ERROR: unsupported formal upper mode: ${formal_upper_mode}" >&2
   exit 2
 fi
@@ -96,6 +97,16 @@ case "$formal_upper_mode" in
     expected_lower_mode="M2b"
     experiment_id="${FORMAL_EXPERIMENT_ID:-candidate_B_spatial_gradient15_m2c_physical_validation}"
     run_prefix="${FORMAL_RUN_PREFIX:-candidate_B_spatial_gradient15_physical_M2c}"
+    ;;
+  M2d)
+    upper_config="${FORMAL_UPPER_CONFIG:-src/multi_agv_bringup/config/exp2b_M2b.yaml}"
+    lower_config="src/multi_agv_bringup/config/exp2b_M2b.yaml"
+    authorization_config="${FORMAL_EXECUTION_AUTHORIZATION_CONFIG:-src/multi_agv_bringup/config/formal_serial_candidate_B_spatial_gradient15_M2d_authorization.yaml}"
+    method_id="M2d_M2d"
+    expected_upper_mode="M2b"
+    expected_lower_mode="M2b"
+    experiment_id="${FORMAL_EXPERIMENT_ID:-candidate_B_spatial_gradient15_m2d_physical_validation}"
+    run_prefix="${FORMAL_RUN_PREFIX:-candidate_B_spatial_gradient15_physical_M2d}"
     ;;
   M1)
     upper_config="${FORMAL_UPPER_CONFIG:-src/multi_agv_bringup/config/exp2a_M1_serial_008.yaml}"

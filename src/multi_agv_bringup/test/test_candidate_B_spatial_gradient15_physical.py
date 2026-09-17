@@ -36,7 +36,7 @@ class CandidateBSpatialGradient15PhysicalTest(unittest.TestCase):
                          physical["candidate_b_spatial_physical"])
 
     def test_all_method_authorizations_default_false(self):
-        for method in ("M1", "M1b", "M2b", "M2c"):
+        for method in ("M1", "M1b", "M2b", "M2c", "M2d"):
             data = yaml.safe_load((CONFIG /
                 ("formal_serial_candidate_B_spatial_gradient15_{}_authorization.yaml".format(
                     method))).read_text())
@@ -46,14 +46,15 @@ class CandidateBSpatialGradient15PhysicalTest(unittest.TestCase):
                 "hardware_execution_authorized"])
             self.assertNotIn("physical_authorization_status",
                              data["authorization_scope"])
-            expected = ("candidate_B_spatial_gradient15_m2c_physical_validation"
-                        if method == "M2c" else
+            expected = ("candidate_B_spatial_gradient15_{}_physical_validation".format(
+                            method.lower())
+                        if method in ("M2c", "M2d") else
                         "candidate_B_spatial_gradient15_physical_validation")
             self.assertEqual(data["authorization_scope"]["experiment_id"],
                              expected)
 
     def test_dry_run_never_contacts_ros_and_missing_confirmation_refuses(self):
-        for method in ("M1", "M1b", "M2b", "M2c"):
+        for method in ("M1", "M1b", "M2b", "M2c", "M2d"):
             result = subprocess.run(
                 [str(SCRIPT), "--method", method,
                  "--software-only-dry-run"], cwd=ROOT,
@@ -125,6 +126,30 @@ class CandidateBSpatialGradient15PhysicalTest(unittest.TestCase):
                       node)
         self.assertLess(node.index(
             "applyM2cNativeGovernor(tracking, &candidate_b_native)"),
+            node.index(
+                "applyCandidateBSpatialComposite(candidate_b_native"))
+
+    def test_m2d_adds_only_persistent_state_back_calculation(self):
+        runtime = yaml.safe_load((CONFIG /
+            "formal_serial_candidate_B_spatial_gradient15_M2d.yaml").read_text())[
+                "formal_fake_runtime"]
+        governor = runtime["m2d_native_governor"]
+        self.assertEqual(governor["limit_mps"], .180)
+        self.assertFalse(governor["enabled"])
+        self.assertFalse(governor["hardware_execution_authorized"])
+        self.assertEqual(runtime["candidate_b_spatial_physical"][
+            "experiment_id"],
+            "candidate_B_spatial_gradient15_m2d_physical_validation")
+        source = SCRIPT.read_text()
+        self.assertIn('elif method == "M2d":', source)
+        node = NODE.read_text()
+        self.assertIn("backCalculateM2dPersistentCommands(tracking, &lower)",
+                      node)
+        self.assertLess(node.index(
+            "applyM2cNativeGovernor(tracking, &candidate_b_native)"),
+            node.index("backCalculateM2dPersistentCommands(tracking, &lower)"))
+        self.assertLess(node.index(
+            "backCalculateM2dPersistentCommands(tracking, &lower)"),
             node.index(
                 "applyCandidateBSpatialComposite(candidate_b_native"))
 

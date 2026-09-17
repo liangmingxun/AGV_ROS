@@ -1,0 +1,40 @@
+formal_fake_runtime:
+  candidate_b_spatial_composite:
+    enabled: false
+    minimum_effectiveness: 0.85
+    longitudinal_amplitude: 0.02
+    longitudinal_frequency: 1.0
+    longitudinal_phase: 0.0
+    yaw_amplitude: 0.2625
+    yaw_frequency: 1.0
+    yaw_phase: 1.5707963267948966
+    zone_start: 2.0
+    zone_end: 2.8
+    ramp_in_distance: 0.05
+    ramp_out_distance: 0.05
+    severity_scale:
+    - 1.0
+    - 1.15
+    - 0.85
+    disturbance_model_version: candidate_B_v2_spatial_composite
+    freeze_id: candidate_B_v2_spatial_gradient15_rho0p85_av0p020_aw0p2625
+  candidate_b_spatial_physical:
+    software_qualification_passed: true
+    enabled: true
+    hardware_execution_authorized: true
+    experiment_id: candidate_B_spatial_gradient15_physical_validation
+    payload_mode: unloaded_equivalent_payload
+    operator_authorization:
+      source: runtime_operator_overlay
+      operator: ETLAB
+      pair_block_id: CBG15_02
+      run_id: candidate_B_spatial_gradient15_physical_M1b_20260917_142549
+      authorized_at_utc: '2026-09-17T06:25:49Z'
+      frozen_git_sha: f5554a05c3bada8d8c1ee82ddeccbfb46b05e0a6
+  candidate_b:
+    enabled: false
+  classic_additive_candidate_A:
+    enabled: false
+  classic_additive_physical:
+    enabled: false
+    hardware_execution_authorized: false

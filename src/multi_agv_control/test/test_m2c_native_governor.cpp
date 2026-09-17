@@ -32,5 +32,21 @@ TEST(M2cNativeGovernor, RejectsNonfiniteAndInvalidLimit) {
                std::invalid_argument);
 }
 
+TEST(M2dNativeGovernor, BackCalculatesEquivalentPersistentCommand) {
+  const auto output = applyM2cNativeGovernor(0.24, 0.12, 0.18);
+  ASSERT_TRUE(output.active);
+  EXPECT_NEAR(backCalculateM2dPersistentCommand(
+                  0.16, output, 1.0, 0.0),
+              0.115, 1e-12);
+}
+
+TEST(M2dNativeGovernor, LeavesStateUnchangedWhenGovernorIsInactive) {
+  const auto output = applyM2cNativeGovernor(0.12, 0.10, 0.18);
+  ASSERT_FALSE(output.active);
+  EXPECT_DOUBLE_EQ(backCalculateM2dPersistentCommand(
+                       0.11, output, 1.0, 0.0),
+                   0.11);
+}
+
 }  // namespace
 }  // namespace multi_agv_control

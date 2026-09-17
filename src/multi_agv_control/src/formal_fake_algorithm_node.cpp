@@ -245,11 +245,19 @@ class FormalFakeAlgorithmNode {
               "candidate_B_spatial_gradient15_m2c_physical_validation" &&
           m2c_native_governor_hardware_authorized_ &&
           std::abs(m2c_native_governor_limit_mps_ - 0.180) <= 1e-12;
+      const bool m2d_scope_requested =
+          m2d_native_governor_enabled_ &&
+          upper_config.mode == UpperMode::kM2b &&
+          lower_config.mode == LowerMode::kM2b &&
+          experiment_id_ ==
+              "candidate_B_spatial_gradient15_m2d_physical_validation" &&
+          m2d_native_governor_hardware_authorized_ &&
+          std::abs(m2d_native_governor_limit_mps_ - 0.180) <= 1e-12;
       const bool candidate_b_spatial_physical_scope =
           transport_type_ == "serial" &&
           (experiment_id_ ==
                "candidate_B_spatial_gradient15_physical_validation" ||
-           m2c_scope_requested) &&
+               m2c_scope_requested || m2d_scope_requested) &&
           candidate_b_spatial_physical_enabled_ &&
           candidate_b_spatial_physical_hardware_authorized_ &&
           v5_hardware_authorized && lower_hardware_authorized &&
@@ -312,6 +320,10 @@ class FormalFakeAlgorithmNode {
           "select M2b");
     }
     m2c_selected_ = m2c_native_governor_enabled_ && m2b_selected_;
+    m2d_selected_ = m2d_native_governor_enabled_ && m2b_selected_;
+    if (m2c_native_governor_enabled_ && m2d_native_governor_enabled_) {
+      throw std::runtime_error("M2c and M2d governors are mutually exclusive");
+    }
     if (m2c_native_governor_enabled_ &&
         (!m2c_selected_ || transport_type_ != "serial" ||
          experiment_id_ !=
@@ -325,6 +337,21 @@ class FormalFakeAlgorithmNode {
       throw std::runtime_error(
           "M2c is restricted to dual-authorized serial Candidate B "
           "gradient15 with the frozen 0.18 m/s native governor");
+    }
+    if (m2d_native_governor_enabled_ &&
+        (!m2d_selected_ || transport_type_ != "serial" ||
+         experiment_id_ !=
+             "candidate_B_spatial_gradient15_m2d_physical_validation" ||
+         !candidate_b_spatial_config_.enabled ||
+         !candidate_b_spatial_physical_enabled_ ||
+         !candidate_b_spatial_physical_hardware_authorized_ ||
+         !m2d_native_governor_hardware_authorized_ ||
+         std::abs(m2d_native_governor_limit_mps_ - 0.180) > 1e-12 ||
+         !isCandidateBSpatialGradient15Profile(candidate_b_spatial_config_))) {
+      throw std::runtime_error(
+          "M2d is restricted to dual-authorized serial Candidate B "
+          "gradient15 with the frozen 0.18 m/s native governor and "
+          "persistent-command back-calculation");
     }
     upper_generator_ =
         std::make_unique<UpperReferenceGenerator>(upper_config);
@@ -897,6 +924,13 @@ class FormalFakeAlgorithmNode {
     private_node_.param(
         root+"m2c_native_governor/hardware_execution_authorized",
         m2c_native_governor_hardware_authorized_,false);
+    private_node_.param(root+"m2d_native_governor/enabled",
+                        m2d_native_governor_enabled_,false);
+    private_node_.param(root+"m2d_native_governor/limit_mps",
+                        m2d_native_governor_limit_mps_,.180);
+    private_node_.param(
+        root+"m2d_native_governor/hardware_execution_authorized",
+        m2d_native_governor_hardware_authorized_,false);
     const int enabled_disturbances =
         (risk_disturbance_config_.enabled ? 1 : 0) +
         (yaw_drive_disturbance_config_.enabled ? 1 : 0) +
@@ -2474,6 +2508,7 @@ class FormalFakeAlgorithmNode {
   }
 
   std::string activeMethodId() const {
+    if (m2d_selected_) return "M2d_M2d";
     if (m2c_selected_) return "M2c_M2c";
     return std::string(upperModeName(upper_mode_)) + "_" +
         lowerModeName(lower_mode_);
@@ -2482,13 +2517,15 @@ class FormalFakeAlgorithmNode {
   void applyM2cNativeGovernor(
       const std::array<PlanarTrackingResult, 3>& unbounded,
       std::array<PlanarTrackingResult, 3>* governed) {
-    if (!m2c_selected_) return;
+    if (!m2c_selected_ && !m2d_selected_) return;
+    const double limit = m2d_selected_ ? m2d_native_governor_limit_mps_
+                                       : m2c_native_governor_limit_mps_;
     for (std::size_t index = 0; index < kRobotCount; ++index) {
       m2c_native_governor_output_[index] =
           multi_agv_control::applyM2cNativeGovernor(
               unbounded[index].wheel_linear_velocity_left_raw,
               unbounded[index].wheel_linear_velocity_right_raw,
-              m2c_native_governor_limit_mps_);
+              limit);
       const auto& value = m2c_native_governor_output_[index];
       auto& target = (*governed)[index];
       target.wheel_linear_velocity_left_raw = value.left_governed;
@@ -2501,12 +2538,34 @@ class FormalFakeAlgorithmNode {
       if (value.active) {
         ROS_WARN_THROTTLE(
             1.0,
-            "M2c agv%zu native governor +/-%.3f m/s: "
+            "%s agv%zu native governor +/-%.3f m/s: "
             "unbounded=[%.6f, %.6f], governed=[%.6f, %.6f], scale=%.6f",
-            index + 1U, m2c_native_governor_limit_mps_,
+            m2d_selected_ ? "M2d" : "M2c", index + 1U, limit,
             value.left_unbounded, value.right_unbounded,
             value.left_governed, value.right_governed, value.scale);
       }
+    }
+  }
+
+  void backCalculateM2dPersistentCommands(
+      const std::array<PlanarTrackingResult, 3>& unbounded,
+      std::array<LowerChannelOutput, 3>* lower) {
+    if (!m2d_selected_ || lower == nullptr) return;
+    for (std::size_t index = 0; index < kRobotCount; ++index) {
+      const auto& governor = m2c_native_governor_output_[index];
+      if (!governor.active) continue;
+      const double previous = execution_channel_velocity_command_[index];
+      const double projected = backCalculateM2dPersistentCommand(
+          previous, governor, unbounded[index].channel_speed_scale,
+          unbounded[index].heading_error);
+      execution_channel_velocity_command_[index] = projected;
+      (*lower)[index].channel_velocity_command = projected;
+      (*lower)[index].velocity_projection_active = true;
+      ROS_WARN_THROTTLE(
+          1.0,
+          "M2d agv%zu persistent command back-calculation: "
+          "state=%.6f -> %.6f, governor_scale=%.6f",
+          index + 1U, previous, projected, governor.scale);
     }
   }
 
@@ -2914,6 +2973,7 @@ class FormalFakeAlgorithmNode {
       auto execution_tracking = tracking;
       auto candidate_b_native = tracking;
       applyM2cNativeGovernor(tracking, &candidate_b_native);
+      backCalculateM2dPersistentCommands(tracking, &lower);
       applyYawHold(now, tracking, &execution_tracking);
       applyCandidateB(tracking, &execution_tracking);
       applyCandidateBSpatialComposite(candidate_b_native, &execution_tracking);
@@ -3436,6 +3496,10 @@ class FormalFakeAlgorithmNode {
   bool m2c_native_governor_hardware_authorized_{false};
   bool m2c_selected_{false};
   double m2c_native_governor_limit_mps_{0.180};
+  bool m2d_native_governor_enabled_{false};
+  bool m2d_native_governor_hardware_authorized_{false};
+  bool m2d_selected_{false};
+  double m2d_native_governor_limit_mps_{0.180};
   std::array<M2cNativeGovernorOutput, 3> m2c_native_governor_output_{};
   bool classic_additive_physical_enabled_{false};
   bool classic_additive_physical_hardware_authorized_{false};
