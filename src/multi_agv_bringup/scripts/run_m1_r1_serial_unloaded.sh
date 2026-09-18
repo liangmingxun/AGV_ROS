@@ -485,6 +485,7 @@ roslaunch multi_agv_bringup formal_serial_m1_r1.launch \
   confirm_wheels_on_floor:=true \
   confirm_unloaded_30cm_fixture:=true \
   risk_disturbance_enabled:="${FORMAL_RISK_DISTURBANCE_ENABLED:-false}" \
+  raw_wheel_demand_warning_only:="${FORMAL_RAW_WHEEL_DEMAND_WARNING_ONLY:-false}" \
   risk_disturbance_peak_fraction:="${FORMAL_RISK_DISTURBANCE_PEAK_FRACTION:-0.30}" &
 algorithm_pid="$!"
 roslaunch multi_agv_bringup formal_evaluation_window.launch \

@@ -1,0 +1,207 @@
+{
+  "algorithm": {
+    "algorithm_end_stamp": 1789708909.185652,
+    "completion_stamp": 1789708909.185652,
+    "excluded_samples": 0,
+    "first_valid_stamp": 1789708858.405619,
+    "invalid_fraction": 0.0,
+    "invalid_samples": 0,
+    "maximum_consecutive_invalid_seconds": 0.0,
+    "samples": 5000,
+    "scope": "after_first_valid_before_task_completion"
+  },
+  "camera_evidence": {
+    "calibration_epoch_tokens": [
+      "3108704983"
+    ],
+    "calibration_epochs": [
+      "1789707166499756300"
+    ],
+    "camera_or_fused_used": true,
+    "fused_used": true,
+    "missing_topics": [],
+    "required_topics": [
+      "/pose_provider/agv1/base_pose_fused",
+      "/pose_provider/agv2/base_pose_fused",
+      "/pose_provider/agv3/base_pose_fused"
+    ]
+  },
+  "communication_age_claim": "Diagnostic observation only; no independent communication watchdog safety claim is made.",
+  "communication_ages": {
+    "capability_report.csv": {
+      "count": 17072,
+      "maximum": 0.054515838623046875,
+      "mean": 0.00011427072073213386,
+      "minimum": -0.0018837451934814453,
+      "note": "Observed bag-receipt minus source-stamp age; this is not evidence of an independent communication watchdog."
+    },
+    "chassis_command.csv": {
+      "count": 17076,
+      "maximum": 0.001554250717163086,
+      "mean": 0.0007103352894071506,
+      "minimum": 0.0003733634948730469,
+      "note": "Observed bag-receipt minus source-stamp age; this is not evidence of an independent communication watchdog."
+    },
+    "chassis_feedback.csv": {
+      "count": 17073,
+      "maximum": 0.05451226234436035,
+      "mean": -2.7816687890978204e-05,
+      "minimum": -0.0018355846405029297,
+      "note": "Observed bag-receipt minus source-stamp age; this is not evidence of an independent communication watchdog."
+    },
+    "cooperative_state.csv": {
+      "count": 5691,
+      "maximum": 0.0007836818695068359,
+      "mean": 0.00012685560924561535,
+      "minimum": 4.506111145019531e-05,
+      "note": "Observed bag-receipt minus source-stamp age; this is not evidence of an independent communication watchdog."
+    }
+  },
+  "formal_statistics_gate": {
+    "active_samples": 500,
+    "bounded_and_contiguous": true,
+    "configuration_approval_present": false,
+    "formal_statistics_requested": false,
+    "samples": 570
+  },
+  "issues": [],
+  "localization": {
+    "excluded_samples": 691,
+    "invalid_fraction": 0.0,
+    "invalid_samples": 0,
+    "maximum_consecutive_invalid_seconds": 0.0,
+    "samples": 5000,
+    "scope": "evaluation_active"
+  },
+  "schema_version": 1,
+  "task_completion": {
+    "complete": true,
+    "completion_stamp": 1789708909.185652,
+    "required": true,
+    "target": 5.17822971502571
+  },
+  "topic_rates": {
+    "/agv1/capability_report": {
+      "duration": 56.9080376625061,
+      "messages": 5692,
+      "minimum": 90.0,
+      "observed": 100.00344826069303
+    },
+    "/agv1/chassis_command": {
+      "duration": 56.909939765930176,
+      "messages": 5692,
+      "minimum": 90.0,
+      "observed": 100.00010584103597
+    },
+    "/agv1/chassis_feedback": {
+      "duration": 56.90804076194763,
+      "messages": 5692,
+      "minimum": 90.0,
+      "observed": 100.00344281410173
+    },
+    "/agv1/imu": {
+      "duration": 56.90804576873779,
+      "messages": 5692,
+      "minimum": 90.0,
+      "observed": 100.00343401576316
+    },
+    "/agv1/odom": {
+      "duration": 56.90804100036621,
+      "messages": 5692,
+      "minimum": 90.0,
+      "observed": 100.00344239513319
+    },
+    "/agv2/capability_report": {
+      "duration": 56.89455556869507,
+      "messages": 5690,
+      "minimum": 90.0,
+      "observed": 99.9919929619811
+    },
+    "/agv2/chassis_command": {
+      "duration": 56.90994381904602,
+      "messages": 5692,
+      "minimum": 90.0,
+      "observed": 100.00009871904663
+    },
+    "/agv2/chassis_feedback": {
+      "duration": 56.89969253540039,
+      "messages": 5691,
+      "minimum": 90.0,
+      "observed": 100.00054036249742
+    },
+    "/agv2/imu": {
+      "duration": 56.894550800323486,
+      "messages": 5690,
+      "minimum": 90.0,
+      "observed": 99.99200134237907
+    },
+    "/agv2/odom": {
+      "duration": 56.894540309906006,
+      "messages": 5690,
+      "minimum": 90.0,
+      "observed": 99.99201977925954
+    },
+    "/agv3/capability_report": {
+      "duration": 56.89343762397766,
+      "messages": 5690,
+      "minimum": 90.0,
+      "observed": 99.99395778472663
+    },
+    "/agv3/chassis_command": {
+      "duration": 56.90993094444275,
+      "messages": 5692,
+      "minimum": 90.0,
+      "observed": 100.00012134183983
+    },
+    "/agv3/chassis_feedback": {
+      "duration": 56.8934166431427,
+      "messages": 5690,
+      "minimum": 90.0,
+      "observed": 99.99399465993731
+    },
+    "/agv3/imu": {
+      "duration": 56.89352512359619,
+      "messages": 5690,
+      "minimum": 90.0,
+      "observed": 99.99380399862984
+    },
+    "/agv3/odom": {
+      "duration": 56.89351773262024,
+      "messages": 5690,
+      "minimum": 90.0,
+      "observed": 99.99381698871781
+    },
+    "/multi_agv/controller_state": {
+      "duration": 56.89992809295654,
+      "messages": 5691,
+      "minimum": 90.0,
+      "observed": 100.00012637457702
+    },
+    "/multi_agv/cooperative_state": {
+      "duration": 56.90001702308655,
+      "messages": 5691,
+      "minimum": 90.0,
+      "observed": 99.9999700824579
+    },
+    "/multi_agv/formal_algorithm_state": {
+      "duration": 56.899924516677856,
+      "messages": 5691,
+      "minimum": 90.0,
+      "observed": 100.00013265979311
+    },
+    "/multi_agv/path_reference": {
+      "duration": 56.899930238723755,
+      "messages": 5691,
+      "minimum": 90.0,
+      "observed": 100.00012260344776
+    },
+    "/multi_agv/risk_disturbance_state": {
+      "duration": 53.72003221511841,
+      "messages": 5373,
+      "minimum": 90.0,
+      "observed": 99.99994003146111
+    }
+  },
+  "valid": true,
+  "warnings": []
+}

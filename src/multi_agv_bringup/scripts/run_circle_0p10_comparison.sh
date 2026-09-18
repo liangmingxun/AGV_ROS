@@ -2,10 +2,13 @@
 set -euo pipefail
 
 usage() {
-  echo "usage: $0 --method M1|M2a|M2b --derating|--derating-0p80|--derating-0p75|--no-derating [experiment confirmations]"
+  echo "usage: $0 --method M1|M2a|M2b --derating|--derating-0p80-window1p5|--derating-0p85-window1p5|--derating-0p85|--derating-0p80|--derating-0p75|--no-derating [experiment confirmations]"
   echo "Shared 0.10 m/s reference, 0.16 m/s wheel capability, R0.7 CW smooth circle."
   echo "Robot2 derating: ratio=0.68, actual progress=1.50..3.50 m, ramps=1 s."
   echo "--derating-0p80 selects the shared three-method condition, ratio=0.80."
+  echo "--derating-0p80-window1p5 selects the M1/M2a/M2b observation pilot, ratio=0.80, actual progress=1.50..3.00 m."
+  echo "--derating-0p85 selects the shared pilot condition, ratio=0.85."
+  echo "--derating-0p85-window1p5 selects the M1/M2a/M2b observation pilot, ratio=0.85, actual progress=1.50..3.00 m."
   echo "--derating-0p75 selects the shared three-method condition, ratio=0.75."
   echo "--tracking-v2: separate 0.75 paired pilot with shared longitudinal gain 1.3; original configs unchanged."
   echo "--reconciliation-v1: separate 0.75 M1/M2a candidate with slow bounded shared-R1 execution reconciliation."
@@ -18,7 +21,7 @@ while [[ $# -gt 0 ]]; do
     --method)
       [[ $# -ge 2 && -z "$method" ]] || { usage; exit 2; }
       method="$2"; shift 2 ;;
-    --derating|--derating-0p80|--derating-0p75|--no-derating)
+    --derating|--derating-0p80-window1p5|--derating-0p85-window1p5|--derating-0p85|--derating-0p80|--derating-0p75|--no-derating)
       [[ -z "$condition" ]] || { echo "ERROR: select only one derating condition" >&2; exit 2; }
       condition="${1#--}"; shift ;;
     --tracking-v2) tracking_v2=true; shift ;;
@@ -32,6 +35,12 @@ while [[ $# -gt 0 ]]; do
 done
 [[ "$method" =~ ^(M1|M2a|M2b)$ && -n "$condition" ]] || { usage; exit 2; }
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [[ ( "$condition" == derating-0p80-window1p5 ||
+        "$condition" == derating-0p85-window1p5 ) &&
+      ( "$reference_v1" != true || "$observation" != true ) ]]; then
+  echo "ERROR: --${condition} requires --reference-v1 --formation-observation" >&2
+  exit 2
+fi
 if [[ "$tracking_v2" == true && ( "$condition" != derating-0p75 || "$method" == M2b ) ]]; then
   echo "ERROR: --tracking-v2 is scoped to the M1/M2a derating-0p75 paired pilot" >&2
   exit 2
@@ -45,8 +54,8 @@ if [[ "$tracking_v2" == true && "$reconciliation_v1" == true ]]; then
   exit 2
 fi
 config_dir=src/multi_agv_bringup/config
-if [[ "$reference_v1" == true && ( ( "$condition" != derating-0p75 && "$condition" != derating-0p80 && ! ( "$method" == M2b && "$condition" == no-derating ) ) || "$tracking_v2" == true || "$reconciliation_v1" == true ) ]]; then
-  echo "ERROR: --reference-v1 requires derating-0p75/0p80 or M2b no-derating, and excludes other candidates" >&2
+if [[ "$reference_v1" == true && ( ( "$condition" != derating-0p75 && "$condition" != derating-0p80 && "$condition" != derating-0p85 && "$condition" != derating-0p80-window1p5 && "$condition" != derating-0p85-window1p5 && ! ( "$method" == M2b && "$condition" == no-derating ) ) || "$tracking_v2" == true || "$reconciliation_v1" == true ) ]]; then
+  echo "ERROR: --reference-v1 requires a qualified 0p75/0p80/0p85 condition or M2b no-derating, and excludes other candidates" >&2
   exit 2
 fi
 export FORMAL_UPPER_MODE="$method"
@@ -56,8 +65,10 @@ case "$method" in
   M2b) unset FORMAL_UPPER_CONFIG; prefix=m2b ;;
 esac
 export FORMAL_RUNTIME_CONFIG="$config_dir/formal_serial_m1_r1_circle_r0p7_smooth_exit_0p10_pilot_runtime.yaml"
-if [[ "$condition" == derating-0p80 || "$condition" == derating-0p75 ]]; then
+if [[ "$condition" == derating-0p80-window1p5 || "$condition" == derating-0p85-window1p5 || "$condition" == derating-0p85 || "$condition" == derating-0p80 || "$condition" == derating-0p75 ]]; then
   ratio_tag="${condition#derating-}"
+  [[ "$ratio_tag" != 0p80-window1p5 ]] || ratio_tag=0p80_window1p5
+  [[ "$ratio_tag" != 0p85-window1p5 ]] || ratio_tag=0p85_window1p5
   export FORMAL_ENABLE_ROBOT2_DERATING=true
   export FORMAL_EVALUATION_CONFIG="$config_dir/formal_evaluation_circle_r0p7_smooth_exit_derating_${ratio_tag}_pilot.yaml"
   scope="derating_${ratio_tag}"
@@ -72,7 +83,7 @@ else
 fi
 export FORMAL_EXECUTION_AUTHORIZATION_CONFIG="$config_dir/formal_circle_0p10_${method}_${scope}_authorization.yaml"
 export FORMAL_DERATING_AUTHORIZATION_CONFIG="$config_dir/formal_exp2a_derating_authorization.yaml"
-if [[ "$condition" == derating-0p80 || "$condition" == derating-0p75 ]]; then
+if [[ "$condition" == derating-0p80-window1p5 || "$condition" == derating-0p85-window1p5 || "$condition" == derating-0p85 || "$condition" == derating-0p80 || "$condition" == derating-0p75 ]]; then
   export FORMAL_DERATING_AUTHORIZATION_CONFIG="$config_dir/formal_exp2a_derating_${ratio_tag}_pilot_authorization.yaml"
 fi
 export FORMAL_EXPERIMENT_ID="${prefix}_circle_r0p7_cw_smooth_exit_0p10_${scope}_pilot"
@@ -104,17 +115,33 @@ if [[ "$reference_v1" == true ]]; then
   export FORMAL_RUN_PREFIX="$FORMAL_EXPERIMENT_ID"
 fi
 if [[ "$observation" == true ]]; then
-  if [[ ( "$method" != M2a && "$method" != M2b ) || ( "$condition" != derating-0p80 && ! ( "$method" == M2b && "$condition" == no-derating ) ) || "$reference_v1" != true || "$range_clear" != true ]]; then
-    echo "ERROR: formation observation requires M2a/M2b --derating-0p80 (or M2b --no-derating), --reference-v1 --confirm-support-range-0p80-clear" >&2
+  if [[ ( "$method" != M1 && "$method" != M2a && "$method" != M2b ) || ( "$condition" != derating-0p80-window1p5 && "$condition" != derating-0p85-window1p5 && ( "$method" == M1 || ( "$condition" != derating-0p80 && "$condition" != derating-0p85 && ! ( "$method" == M2b && "$condition" == no-derating ) ) ) ) || "$reference_v1" != true || "$range_clear" != true ]]; then
+    echo "ERROR: formation observation requires a qualified M2a/M2b derating observation (or M2b no-derating), --reference-v1 --confirm-support-range-0p80-clear" >&2
     exit 2
   fi
-  export FORMAL_RUNTIME_CONFIG="$config_dir/formal_serial_${method,,}_circle_0p10_observation_runtime.yaml"
+  if [[ "$method" == M1 || "$method" == M2a ]]; then
+    export FORMAL_RUNTIME_CONFIG="$config_dir/formal_serial_m2a_circle_0p10_observation_runtime.yaml"
+  else
+    export FORMAL_RUNTIME_CONFIG="$config_dir/formal_serial_m2b_circle_0p10_observation_runtime.yaml"
+  fi
   export FORMAL_EXECUTION_AUTHORIZATION_CONFIG="$config_dir/formal_circle_0p10_${method}_observation_authorization.yaml"
+  if [[ "$condition" == derating-0p85 ]]; then
+    export FORMAL_EXECUTION_AUTHORIZATION_CONFIG="$config_dir/formal_circle_0p10_${method}_derating_0p85_observation_authorization.yaml"
+  fi
+  if [[ "$condition" == derating-0p85-window1p5 ]]; then
+    export FORMAL_EXECUTION_AUTHORIZATION_CONFIG="$config_dir/formal_circle_0p10_${method}_derating_0p85_window1p5_observation_authorization.yaml"
+  fi
+  if [[ "$condition" == derating-0p80-window1p5 ]]; then
+    export FORMAL_EXECUTION_AUTHORIZATION_CONFIG="$config_dir/formal_circle_0p10_${method}_derating_0p80_window1p5_observation_authorization.yaml"
+  fi
   if [[ "$condition" == no-derating ]]; then
     export FORMAL_EXECUTION_AUTHORIZATION_CONFIG="$config_dir/formal_circle_0p10_M2b_normal_observation_authorization.yaml"
   fi
   export FORMAL_EXPERIMENT_ID="${prefix}_circle_r0p7_cw_smooth_exit_0p10_${scope}_observation_range0p80_startup_v2_pilot"
   export FORMAL_RUN_PREFIX="$FORMAL_EXPERIMENT_ID"
+  if [[ ( "$method" == M2b && ( "$condition" == derating-0p80 || "$condition" == derating-0p85 ) ) || "$condition" == derating-0p80-window1p5 || "$condition" == derating-0p85-window1p5 ]]; then
+    export FORMAL_RAW_WHEEL_DEMAND_WARNING_ONLY=true
+  fi
 fi
 if [[ "$method" == M2b && "$observation" != true ]]; then
   export FORMAL_EXPERIMENT_ID="${FORMAL_EXPERIMENT_ID}_startup_v2"

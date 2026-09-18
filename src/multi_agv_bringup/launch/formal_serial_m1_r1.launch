@@ -25,6 +25,7 @@
   <arg name="confirm_unloaded_30cm_fixture" default="false"/>
   <arg name="risk_disturbance_peak_fraction" default="0.30"/>
   <arg name="risk_disturbance_enabled" default="false"/>
+  <arg name="raw_wheel_demand_warning_only" default="false"/>
 
   <node pkg="multi_agv_control" type="formal_algorithm_node"
         name="formal_algorithm" output="screen" required="true"
@@ -42,6 +43,8 @@
     <param name="formal_fake_runtime/command_publication_authorized"
            value="$(arg enable_commands)"/>
     <param name="formal_fake_runtime/require_recorder_armed" value="true"/>
+    <param name="formal_fake_runtime/execution/raw_wheel_demand_warning_only"
+           value="$(arg raw_wheel_demand_warning_only)"/>
     <param name="formal_fake_runtime/confirm_test_area_clear"
            value="$(arg confirm_test_area_clear)"/>
     <param name="formal_fake_runtime/confirm_wheels_on_floor"

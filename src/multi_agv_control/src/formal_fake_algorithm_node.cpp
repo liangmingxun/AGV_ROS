@@ -357,6 +357,51 @@ class FormalFakeAlgorithmNode {
           "gradient15 with the frozen 0.18 m/s native governor and "
           "persistent-command back-calculation");
     }
+    const bool m2b_derating_observation_identity =
+        experiment_id_ ==
+            "m2b_circle_r0p7_cw_smooth_exit_0p10_derating_0p80_"
+            "observation_range0p80_startup_v2_pilot" ||
+        experiment_id_ ==
+            "m2b_circle_r0p7_cw_smooth_exit_0p10_derating_0p85_"
+            "observation_range0p80_startup_v2_pilot" ||
+        experiment_id_ ==
+            "m2b_circle_r0p7_cw_smooth_exit_0p10_derating_0p85_window1p5_"
+            "observation_range0p80_startup_v2_pilot" ||
+        experiment_id_ ==
+            "m2b_circle_r0p7_cw_smooth_exit_0p10_derating_0p80_window1p5_"
+            "observation_range0p80_startup_v2_pilot";
+    const bool shared_r1_window1p5_identity =
+        experiment_id_ ==
+            "m1_r1_circle_r0p7_cw_smooth_exit_0p10_derating_0p85_window1p5_"
+            "observation_range0p80_startup_v2_pilot" ||
+        experiment_id_ ==
+            "m2a_r1_circle_r0p7_cw_smooth_exit_0p10_derating_0p85_window1p5_"
+            "observation_range0p80_startup_v2_pilot" ||
+        experiment_id_ ==
+            "m1_r1_circle_r0p7_cw_smooth_exit_0p10_derating_0p80_window1p5_"
+            "observation_range0p80_startup_v2_pilot" ||
+        experiment_id_ ==
+            "m2a_r1_circle_r0p7_cw_smooth_exit_0p10_derating_0p80_window1p5_"
+            "observation_range0p80_startup_v2_pilot";
+    const bool shared_r1_window1p5_method =
+        lower_mode_ == LowerMode::kR1 &&
+        (upper_mode_ == UpperMode::kM1 || upper_mode_ == UpperMode::kM2a);
+    const bool derating_observation_scope =
+        raw_wheel_demand_warning_only_ &&
+        transport_type_ == "serial" && formation_observation_only_ &&
+        ((m2b_selected_ && m2b_derating_observation_identity) ||
+         (shared_r1_window1p5_method && shared_r1_window1p5_identity)) &&
+        !candidate_b_config_.enabled &&
+        !candidate_b_spatial_config_.enabled &&
+        !candidate_b_spatial_physical_enabled_ &&
+        !classic_additive_config_.enabled &&
+        !classic_additive_physical_enabled_;
+    if (raw_wheel_demand_warning_only_ &&
+        !derating_observation_scope) {
+      throw std::runtime_error(
+          "raw wheel demand warning-only policy is restricted to the exact "
+          "M1/M2a/M2b disconnected-fleet derating observations");
+    }
     upper_generator_ =
         std::make_unique<UpperReferenceGenerator>(upper_config);
     if (m2b_selected_) {
@@ -632,6 +677,11 @@ class FormalFakeAlgorithmNode {
     private_node_.param(
         root + "emergency_abort_limit",
         emergency_abort_limit_, 0.12);
+    private_node_.param(
+        "formation_observation_only", formation_observation_only_, false);
+    private_node_.param(
+        root + "execution/raw_wheel_demand_warning_only",
+        raw_wheel_demand_warning_only_, false);
     private_node_.param(
         root + "execution/startup_ramp_seconds",
         startup_ramp_seconds_, 1.0);
@@ -1574,10 +1624,15 @@ class FormalFakeAlgorithmNode {
             assessment.reason.c_str());
         return false;
       }
-      const bool persistent_emergency = updateSerialEmergencyPersistence(
-          assessment.demand_threshold_exceeded, dt,
-          emergency_abort_persistence_seconds_,
-          &emergency_violation_duration_[index]);
+      const bool persistent_emergency = raw_wheel_demand_warning_only_
+          ? false
+          : updateSerialEmergencyPersistence(
+                assessment.demand_threshold_exceeded, dt,
+                emergency_abort_persistence_seconds_,
+                &emergency_violation_duration_[index]);
+      if (raw_wheel_demand_warning_only_) {
+        emergency_violation_duration_[index] = 0.0;
+      }
       if (persistent_emergency) {
         safety_abort_latched_ = true;
         ROS_ERROR(
@@ -1590,11 +1645,18 @@ class FormalFakeAlgorithmNode {
         return false;
       }
       if (assessment.demand_threshold_exceeded) {
-        ROS_WARN_THROTTLE(1.0,
-            "agv%zu raw wheel demand threshold event: demand=[%.6f, %.6f], threshold=%.6f m/s, continuous duration=%.3f/%.3f s; automatic safety abort pending; publication remains limited to +/-0.16 m/s",
-            index + 1U, left, right, emergency_abort_limit_,
-            emergency_violation_duration_[index],
-            emergency_abort_persistence_seconds_);
+        if (raw_wheel_demand_warning_only_) {
+          ROS_WARN_THROTTLE(
+              1.0,
+              "agv%zu raw wheel demand threshold event: demand=[%.6f, %.6f], threshold=%.6f m/s; observation warning only, publication remains limited to +/-0.16 m/s and pre-limit demand remains recorded",
+              index + 1U, left, right, emergency_abort_limit_);
+        } else {
+          ROS_WARN_THROTTLE(1.0,
+              "agv%zu raw wheel demand threshold event: demand=[%.6f, %.6f], threshold=%.6f m/s, continuous duration=%.3f/%.3f s; automatic safety abort pending; publication remains limited to +/-0.16 m/s",
+              index + 1U, left, right, emergency_abort_limit_,
+              emergency_violation_duration_[index],
+              emergency_abort_persistence_seconds_);
+        }
       }
       if (assessment.available_limit_exceeded) {
         ROS_WARN_THROTTLE(
@@ -3493,6 +3555,8 @@ class FormalFakeAlgorithmNode {
   double minimum_battery_voltage_{9.5};
   double minimum_battery_voltage_duration_{0.5};
   double emergency_abort_limit_{0.12};
+  bool formation_observation_only_{false};
+  bool raw_wheel_demand_warning_only_{false};
   double startup_ramp_seconds_{1.0};
   double startup_catchup_margin_mps_{0.0};
   double startup_feedback_ramp_seconds_{0.0};

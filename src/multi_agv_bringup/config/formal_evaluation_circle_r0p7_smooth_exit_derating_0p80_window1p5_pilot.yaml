@@ -1,0 +1,26 @@
+# Robot2 0.80 speed-capability pilot with a shortened 1.50 m exposure.
+# Only the speed ratio differs from the 0.85-window1p5 comparison; the
+# acceleration/deceleration ratios and one-second transitions are unchanged.
+exp2a_derating_pretest:
+  schema_version: 1
+  experiment_id: circle_r0p7_cw_smooth_exit_robot2_derating_0p80_window1p5_pilot
+  method_id: set_at_launch
+  block_id: set_at_launch
+  run_id: set_at_launch
+  progress_source: load_actual
+  publish_rate: 10.0
+  activation_progress: 1.50
+  restoration_progress: 3.00
+  evaluation_start_progress: 0.10
+  evaluation_end_progress: 5.10
+  target_speed_ratio_left: 0.80
+  target_speed_ratio_right: 0.80
+  target_acceleration_ratio_left: 0.70
+  target_acceleration_ratio_right: 0.70
+  target_deceleration_ratio_left: 0.70
+  target_deceleration_ratio_right: 0.70
+  ramp_down_time: 1.00
+  ramp_up_time: 1.00
+  derating_mode: 1
+  finish_after_restoration: false
+  hardware_execution_authorized: false

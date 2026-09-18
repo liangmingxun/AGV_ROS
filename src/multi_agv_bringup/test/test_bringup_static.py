@@ -181,7 +181,7 @@ class BringupStaticTest(unittest.TestCase):
         expected["formal_fake_runtime"]["execution"]["consistent_reference_acceleration"] = True
         expected["formal_fake_runtime"]["execution"]["reconciliation"] = {"enabled": False}
         self.assertEqual(yaml.safe_load((configs / new_name).read_text()), expected)
-        for ratio in ("0p75", "0p80"):
+        for ratio in ("0p75", "0p80", "0p85"):
             for method in ("M1", "M2a"):
                 name = "formal_circle_0p10_{}_derating_{}".format(method, ratio)
                 old = yaml.safe_load((configs / (name + "_authorization.yaml")).read_text())
@@ -196,7 +196,7 @@ class BringupStaticTest(unittest.TestCase):
             result = subprocess.run(["bash", str(script), "--reference-v1"] + args,
                                     capture_output=True, text=True)
             self.assertEqual(result.returncode, 2)
-        for ratio in ("0p75", "0p80"):
+        for ratio in ("0p75", "0p80", "0p85"):
             for method in ("M1", "M2a"):
                 # No physical confirmations: downstream refuses before ROS motion.
                 result = subprocess.run(["bash", "-x", str(script), "--method", method,
@@ -222,6 +222,60 @@ class BringupStaticTest(unittest.TestCase):
             self.assertIn("M2b_derating_{}_authorization.yaml".format(ratio),
                           result.stderr)
             self.assertNotIn(new_name, result.stderr)
+
+    def test_m2b_derating_observation_keeps_raw_demand_as_diagnostic(self):
+        import subprocess
+        import yaml
+        entry = PACKAGE / "scripts" / "run_circle_0p10_comparison.sh"
+        prefixes = {"M1": "m1_r1", "M2a": "m2a_r1", "M2b": "m2b"}
+        for ratio, expected_ratio in (("0p80", .80), ("0p85", .85)):
+            evaluation = yaml.safe_load((
+                PACKAGE / "config" /
+                ("formal_evaluation_circle_r0p7_smooth_exit_derating_"
+                 + ratio + "_window1p5_pilot.yaml")
+            ).read_text())["exp2a_derating_pretest"]
+            self.assertEqual(evaluation["activation_progress"], 1.5)
+            self.assertEqual(evaluation["restoration_progress"], 3.0)
+            self.assertEqual(evaluation["target_speed_ratio_left"], expected_ratio)
+            self.assertEqual(evaluation["target_speed_ratio_right"], expected_ratio)
+            self.assertEqual(evaluation["target_acceleration_ratio_left"], .70)
+            self.assertEqual(evaluation["target_deceleration_ratio_left"], .70)
+            self.assertEqual(evaluation["ramp_down_time"], 1.0)
+            self.assertEqual(evaluation["ramp_up_time"], 1.0)
+            for method, prefix in prefixes.items():
+                result = subprocess.run(
+                    ["bash", "-x", str(entry), "--method", method,
+                     "--derating-" + ratio + "-window1p5", "--reference-v1",
+                     "--formation-observation",
+                     "--confirm-support-range-0p80-clear"],
+                    capture_output=True, text=True)
+                self.assertEqual(result.returncode, 2)
+                self.assertIn("FORMAL_RAW_WHEEL_DEMAND_WARNING_ONLY=true",
+                              result.stderr)
+                expected_runtime = ("formal_serial_m2b_circle_0p10_observation_runtime.yaml"
+                                    if method == "M2b" else
+                                    "formal_serial_m2a_circle_0p10_observation_runtime.yaml")
+                self.assertIn(expected_runtime, result.stderr)
+                self.assertIn(
+                    prefix + "_circle_r0p7_cw_smooth_exit_0p10_"
+                    "derating_" + ratio + "_window1p5_"
+                    "observation_range0p80_startup_v2_pilot", result.stderr)
+                self.assertIn(
+                    "formal_circle_0p10_{}_derating_{}_window1p5_"
+                    "observation_authorization.yaml".format(method, ratio),
+                    result.stderr)
+                self.assertIn(
+                    "formal_evaluation_circle_r0p7_smooth_exit_"
+                    "derating_" + ratio + "_window1p5_pilot.yaml",
+                    result.stderr)
+                self.assertIn(
+                    "--confirm-r0p7-smooth-exit-footprint-clear is required",
+                    result.stderr)
+        source = (SOURCE_ROOT / "multi_agv_control" / "src" /
+                  "formal_fake_algorithm_node.cpp").read_text()
+        self.assertIn("derating_observation_scope", source)
+        self.assertIn("shared_r1_window1p5_method", source)
+        self.assertIn("observation warning only", source)
 
     def test_reconciliation_v1_is_separate_shared_and_locked(self):
         import copy

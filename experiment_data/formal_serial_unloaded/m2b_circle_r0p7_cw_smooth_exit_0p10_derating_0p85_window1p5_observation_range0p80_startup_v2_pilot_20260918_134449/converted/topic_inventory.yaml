@@ -1,0 +1,262 @@
+bag: /home/etlab/AGV_ROS/.worktrees/platform-foundation-linux/experiment_data/formal_serial_unloaded/m2b_circle_r0p7_cw_smooth_exit_0p10_derating_0p85_window1p5_observation_range0p80_startup_v2_pilot_20260918_134449/m2b_circle_r0p7_cw_smooth_exit_0p10_derating_0p85_window1p5_observation_range0p80_startup_v2_pilot_20260918_134449.bag
+causal_alignment: true
+maximum_alignment_age: 0.2
+measured_payload_pose_topic: /pose_provider/load/pose_filtered
+measured_payload_transform: {}
+schema_version: 1
+topics:
+  /agv1/capability_report:
+    first_bag_stamp: 1789710291.814294
+    last_bag_stamp: 1789710348.70237
+    messages: 5690
+    type: agv_msgs/CapabilityReport
+  /agv1/chassis_command:
+    first_bag_stamp: 1789710291.8145194
+    last_bag_stamp: 1789710348.7041562
+    messages: 5690
+    type: agv_msgs/ChassisCommand
+  /agv1/chassis_feedback:
+    first_bag_stamp: 1789710291.822426
+    last_bag_stamp: 1789710348.7023969
+    messages: 5689
+    type: agv_msgs/ChassisFeedback
+  /agv1/imu:
+    first_bag_stamp: 1789710291.8224394
+    last_bag_stamp: 1789710348.702379
+    messages: 5689
+    type: sensor_msgs/Imu
+  /agv1/odom:
+    first_bag_stamp: 1789710291.82243
+    last_bag_stamp: 1789710348.7023754
+    messages: 5689
+    type: nav_msgs/Odometry
+  /agv2/capability_report:
+    first_bag_stamp: 1789710291.8269932
+    last_bag_stamp: 1789710348.7053466
+    messages: 5689
+    type: agv_msgs/CapabilityReport
+  /agv2/chassis_command:
+    first_bag_stamp: 1789710291.8243153
+    last_bag_stamp: 1789710348.704157
+    messages: 5689
+    type: agv_msgs/ChassisCommand
+  /agv2/chassis_feedback:
+    first_bag_stamp: 1789710291.8269997
+    last_bag_stamp: 1789710348.705343
+    messages: 5689
+    type: agv_msgs/ChassisFeedback
+  /agv2/derating_command:
+    first_bag_stamp: 1789710291.8274088
+    last_bag_stamp: 1789710348.6274598
+    messages: 569
+    type: agv_msgs/DeratingCommand
+  /agv2/imu:
+    first_bag_stamp: 1789710291.826996
+    last_bag_stamp: 1789710348.7054636
+    messages: 5689
+    type: sensor_msgs/Imu
+  /agv2/odom:
+    first_bag_stamp: 1789710291.8269897
+    last_bag_stamp: 1789710348.7054765
+    messages: 5689
+    type: nav_msgs/Odometry
+  /agv3/capability_report:
+    first_bag_stamp: 1789710291.8312247
+    last_bag_stamp: 1789710348.6985867
+    messages: 5688
+    type: agv_msgs/CapabilityReport
+  /agv3/chassis_command:
+    first_bag_stamp: 1789710291.824324
+    last_bag_stamp: 1789710348.7041593
+    messages: 5689
+    type: agv_msgs/ChassisCommand
+  /agv3/chassis_feedback:
+    first_bag_stamp: 1789710291.8312337
+    last_bag_stamp: 1789710348.7097104
+    messages: 5689
+    type: agv_msgs/ChassisFeedback
+  /agv3/imu:
+    first_bag_stamp: 1789710291.83372
+    last_bag_stamp: 1789710348.69872
+    messages: 5688
+    type: sensor_msgs/Imu
+  /agv3/odom:
+    first_bag_stamp: 1789710291.8337169
+    last_bag_stamp: 1789710348.6987138
+    messages: 5662
+    type: nav_msgs/Odometry
+  /camera/world/agv1_confidence:
+    first_bag_stamp: 1789710291.830164
+    last_bag_stamp: 1789710348.696533
+    messages: 1707
+    type: std_msgs/Float64
+  /camera/world/agv1_tag_pose:
+    first_bag_stamp: 1789710291.830158
+    last_bag_stamp: 1789710348.6964447
+    messages: 1707
+    type: geometry_msgs/PoseStamped
+  /camera/world/agv2_confidence:
+    first_bag_stamp: 1789710291.8302946
+    last_bag_stamp: 1789710348.696569
+    messages: 1707
+    type: std_msgs/Float64
+  /camera/world/agv2_tag_pose:
+    first_bag_stamp: 1789710291.8305562
+    last_bag_stamp: 1789710348.696611
+    messages: 1707
+    type: geometry_msgs/PoseStamped
+  /camera/world/agv3_confidence:
+    first_bag_stamp: 1789710291.8305295
+    last_bag_stamp: 1789710348.6966975
+    messages: 1707
+    type: std_msgs/Float64
+  /camera/world/agv3_tag_pose:
+    first_bag_stamp: 1789710291.830688
+    last_bag_stamp: 1789710348.696709
+    messages: 1707
+    type: geometry_msgs/PoseStamped
+  /experiment_recorder/armed:
+    first_bag_stamp: 1789710291.817268
+    last_bag_stamp: 1789710348.7075708
+    messages: 286
+    type: std_msgs/Bool
+  /experiment_recorder/method_id:
+    first_bag_stamp: 1789710291.8174536
+    last_bag_stamp: 1789710348.5990863
+    messages: 285
+    type: std_msgs/String
+  /multi_agv/controller_state:
+    first_bag_stamp: 1789710291.824272
+    last_bag_stamp: 1789710348.7041419
+    messages: 5689
+    type: agv_msgs/ControllerState
+  /multi_agv/cooperative_state:
+    first_bag_stamp: 1789710291.8252554
+    last_bag_stamp: 1789710348.705262
+    messages: 5689
+    type: agv_msgs/CooperativeState
+  /multi_agv/experiment_state:
+    first_bag_stamp: 1789710291.8173358
+    last_bag_stamp: 1789710348.6274765
+    messages: 570
+    type: agv_msgs/ExperimentState
+  /multi_agv/formal_algorithm_state:
+    first_bag_stamp: 1789710291.8242784
+    last_bag_stamp: 1789710348.7041545
+    messages: 5689
+    type: std_msgs/Float64MultiArray
+  /multi_agv/formal_execution_limiter_state:
+    first_bag_stamp: 1789710292.0943823
+    last_bag_stamp: 1789710345.83447
+    messages: 5375
+    type: std_msgs/Float64MultiArray
+  /multi_agv/m2b_algorithm_state:
+    first_bag_stamp: 1789710292.0944643
+    last_bag_stamp: 1789710345.8442986
+    messages: 5376
+    type: std_msgs/Float64MultiArray
+  /multi_agv/path_reference:
+    first_bag_stamp: 1789710291.824267
+    last_bag_stamp: 1789710348.704143
+    messages: 5689
+    type: agv_msgs/PathReference
+  /multi_agv/state_projection_timing:
+    first_bag_stamp: 1789710291.8252456
+    last_bag_stamp: 1789710348.705237
+    messages: 5689
+    type: std_msgs/Float64MultiArray
+  /pose_provider/agv1/base_motion_fused:
+    first_bag_stamp: 1789710291.8225071
+    last_bag_stamp: 1789710348.7024868
+    messages: 5689
+    type: nav_msgs/Odometry
+  /pose_provider/agv1/base_pose_filtered:
+    first_bag_stamp: 1789710291.8302436
+    last_bag_stamp: 1789710348.6965358
+    messages: 1707
+    type: geometry_msgs/PoseStamped
+  /pose_provider/agv1/base_pose_fused:
+    first_bag_stamp: 1789710291.822437
+    last_bag_stamp: 1789710348.7024865
+    messages: 5689
+    type: geometry_msgs/PoseStamped
+  /pose_provider/agv1/base_pose_raw:
+    first_bag_stamp: 1789710291.8302326
+    last_bag_stamp: 1789710348.6965299
+    messages: 1707
+    type: geometry_msgs/PoseStamped
+  /pose_provider/agv1/estimator_timing:
+    first_bag_stamp: 1789710291.8225124
+    last_bag_stamp: 1789710348.7024932
+    messages: 5689
+    type: std_msgs/Float64MultiArray
+  /pose_provider/agv1/fusion_timing:
+    first_bag_stamp: 1789710291.8225093
+    last_bag_stamp: 1789710348.7024815
+    messages: 5689
+    type: std_msgs/Float64MultiArray
+  /pose_provider/agv2/base_motion_fused:
+    first_bag_stamp: 1789710291.8194444
+    last_bag_stamp: 1789710348.7055504
+    messages: 5532
+    type: nav_msgs/Odometry
+  /pose_provider/agv2/base_pose_filtered:
+    first_bag_stamp: 1789710291.8305743
+    last_bag_stamp: 1789710348.6967447
+    messages: 1707
+    type: geometry_msgs/PoseStamped
+  /pose_provider/agv2/base_pose_fused:
+    first_bag_stamp: 1789710291.8270235
+    last_bag_stamp: 1789710348.7055473
+    messages: 5531
+    type: geometry_msgs/PoseStamped
+  /pose_provider/agv2/base_pose_raw:
+    first_bag_stamp: 1789710291.8305583
+    last_bag_stamp: 1789710348.696731
+    messages: 1707
+    type: geometry_msgs/PoseStamped
+  /pose_provider/agv2/estimator_timing:
+    first_bag_stamp: 1789710291.827054
+    last_bag_stamp: 1789710348.7056088
+    messages: 5531
+    type: std_msgs/Float64MultiArray
+  /pose_provider/agv2/fusion_timing:
+    first_bag_stamp: 1789710291.8270192
+    last_bag_stamp: 1789710348.7055595
+    messages: 5495
+    type: std_msgs/Float64MultiArray
+  /pose_provider/agv3/base_motion_fused:
+    first_bag_stamp: 1789710291.8337688
+    last_bag_stamp: 1789710348.6987476
+    messages: 5668
+    type: nav_msgs/Odometry
+  /pose_provider/agv3/base_pose_filtered:
+    first_bag_stamp: 1789710291.8306077
+    last_bag_stamp: 1789710348.6967802
+    messages: 1707
+    type: geometry_msgs/PoseStamped
+  /pose_provider/agv3/base_pose_fused:
+    first_bag_stamp: 1789710291.8337603
+    last_bag_stamp: 1789710348.6987376
+    messages: 5668
+    type: geometry_msgs/PoseStamped
+  /pose_provider/agv3/base_pose_raw:
+    first_bag_stamp: 1789710291.8306043
+    last_bag_stamp: 1789710348.6967695
+    messages: 1707
+    type: geometry_msgs/PoseStamped
+  /pose_provider/agv3/estimator_timing:
+    first_bag_stamp: 1789710291.833816
+    last_bag_stamp: 1789710348.698764
+    messages: 5668
+    type: std_msgs/Float64MultiArray
+  /pose_provider/agv3/fusion_timing:
+    first_bag_stamp: 1789710291.9306211
+    last_bag_stamp: 1789710348.6987543
+    messages: 5658
+    type: std_msgs/Float64MultiArray
+  /vision/aruco/calibration_epoch:
+    first_bag_stamp: 1789710291.9225912
+    last_bag_stamp: 1789710291.9225912
+    messages: 1
+    type: std_msgs/UInt64
